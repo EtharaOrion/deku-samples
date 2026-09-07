@@ -1,0 +1,57 @@
+{# The published work route's own body. Reused verbatim by the preview harness. #}
+{% from "components.html" import tile, caption %}
+<article class="work-detail">
+  <header class="detail-head">
+    <h1 class="detail-title display title-case">{{ w.title }}</h1>
+    {% if w.ordinal %}<p class="detail-ordinal">{{ w.ordinal }}</p>{% endif %}
+    {% if w.credits %}
+    <ul class="credits-list">
+      {% for c in w.credits %}
+      <li>
+        <span class="credit-role">{{ c.role|upper }}</span>
+        {% if c.href %}<a href="{{ c.href }}" data-nav data-cursor-label="{{ c.name }}">{{ c.name|upper }}</a>
+        {% else %}<span>{{ c.name|upper }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No credits are recorded for this film.</p>
+    {% endif %}
+  </header>
+
+  {% if w.reel %}
+  <div class="detail-reel">
+    {{ tile(w.reel, classes='full-colour', reel=w.reel) }}
+  </div>
+  {% endif %}
+
+  <div class="detail-sequence">
+    {% set stills = w.media | selectattr('role', 'equalto', 'gallery') | list %}
+    {% if stills %}
+      {% for m in stills %}
+      {% set variant = ['centre', 'left', 'right'][loop.index0 % 3] %}
+      <div class="work-entry variant-{{ variant }}">
+        {{ tile(m) }}
+        {{ caption(w.ordinal or '---', w.title) }}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-state">No further stills for this film.</p>
+    {% endif %}
+  </div>
+
+  {% if w.neighbours %}
+  <nav class="detail-neighbours" aria-label="Adjacent films">
+    <a class="neighbour previous" href="{{ w.neighbours.previous.href }}" data-nav
+       aria-label="Previous film, {{ w.neighbours.previous.title }}">
+      <span>PREVIOUS {{ w.neighbours.previous.ordinal }}</span>
+      <span class="neighbour-title display title-case">{{ w.neighbours.previous.title }}</span>
+    </a>
+    <a class="neighbour next" href="{{ w.neighbours.next.href }}" data-nav
+       aria-label="Next film, {{ w.neighbours.next.title }}">
+      <span>NEXT {{ w.neighbours.next.ordinal }}</span>
+      <span class="neighbour-title display title-case">{{ w.neighbours.next.title }}</span>
+    </a>
+  </nav>
+  {% endif %}
+</article>

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+{# The record travels in a JSON script tag rather than inside an attribute,
+   where its own quotes would end the attribute early. #}
+<script id="record-json" type="application/json">{{ (item or {})|tojson }}</script>
+<div class="studio-shell" x-data="recordForm('{{ kind }}')" x-init="init()">
+  <h1 class="display" style="font-size:40px;font-weight:200;margin:0 0 8px"
+      x-text="item.id ? item.title : (kind === 'talent' ? 'New talent' : 'New work')">
+    {% if item %}{{ item.title }}{% else %}New {{ kind }}{% endif %}</h1>
+  <p style="opacity:.58;margin:0 0 32px">
+    <span x-text="item.id ? (item.published ? 'LIVE' : 'UNLISTED') : 'NOT YET CREATED'"></span>
+    <a href="/studio" style="margin-left:16px" data-nav>BACK TO THE PALETTE</a>
+  </p>
+
+  <form class="form-grid" @submit.prevent="save()" novalidate>
+    <template x-if="error"><p class="form-error" role="alert" x-text="error"></p></template>
+    <template x-if="note"><p class="form-error" role="status" x-text="note"></p></template>
+
+    <div class="field">
+      <label for="title">TITLE</label>
+      <input id="title" type="text" x-model="form.title" required>
+    </div>
+    <div class="field">
+      <label for="slug">SLUG</label>
+      <input id="slug" type="text" x-model="form.slug" :disabled="false">
+      <span class="hint" x-text="item.id ? 'CHANGING THIS LEAVES THE OLD ADDRESS REDIRECTING FOREVER.' : 'LOWERCASE KEBAB, ASSIGNED ONCE.'"></span>
+    </div>
+    <template x-if="kind === 'talent'">
+      <div class="field">
+        <label for="discipline">DISCIPLINE</label>
+        <select id="discipline" x-model="form.discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </div>
+    </template>
+    <template x-if="kind === 'work'">
+      <div class="field">
+        <label for="variant">VARIANT</label>
+        <select id="variant" x-model="form.variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </div>
+    </template>
+
+    <h2 style="margin:24px 0 0">POSTER</h2>
+    <div class="field">
+      <label for="alt">WRITTEN ALTERNATIVE</label>
+      <input id="alt" type="text" x-model="form.alt">
+      <span class="hint">REQUIRED BEFORE THIS RECORD CAN BE PUBLISHED.</span>
+    </div>
+    <div class="field">
+      <label for="seed">SEED</label>
+      <input id="seed" type="text" x-model="form.seed">
+      <span class="hint">THE STILL IS DRAWN FROM THIS. THE SAME SEED ALWAYS DRAWS THE SAME STILL.</span>
+    </div>
+    <div class="button-row">
+      <div class="field" style="flex:1;min-width:120px">
+        <label for="width">WIDTH</label>
+        <input id="width" type="number" x-model.number="form.width" min="1">
+      </div>
+      <div class="field" style="flex:1;min-width:120px">
+        <label for="height">HEIGHT</label>
+        <input id="height" type="number" x-model.number="form.height" min="1">
+      </div>
+    </div>
+
+    <div class="button-row" style="margin-top:24px">
+      <button class="control" type="submit" :disabled="busy"
+              x-text="busy ? 'SAVING...' : (item.id ? 'SAVE CHANGES' : 'CREATE RECORD')">SAVE</button>
+      <template x-if="item.id">
+        <button class="control" type="button" @click="mintPreview()">MINT A PREVIEW TOKEN</button>
+      </template>
+      <template x-if="item.id">
+        <button class="control" type="button" @click="setPublished(!item.published)"
+                x-text="item.published ? 'UNLIST' : 'PUBLISH'">PUBLISH</button>
+      </template>
+      <template x-if="previewPath">
+        <a class="control" :href="previewPath" target="_blank" rel="noopener">OPEN THE PREVIEW</a>
+      </template>
+    </div>
+  </form>
+
+  <template x-if="item.id && item.media && item.media.length">
+    <section style="margin-top:48px">
+      <h2>MEDIA</h2>
+      <div class="card-grid">
+        <template x-for="m in item.media" :key="m.media_id">
+          <div class="record-card">
+            <span class="card-meta" x-text="m.role.toUpperCase() + ' · ' + m.width + '×' + m.height"></span>
+            <span class="card-meta" x-text="m.alt"></span>
+          </div>
+        </template>
+      </div>
+    </section>
+  </template>
+</div>
+{% endblock %}
+{% block footer %}{% endblock %}

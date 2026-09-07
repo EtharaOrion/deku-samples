@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="studio-shell" x-data="palette()" x-init="load()">
+  <h1 class="display" style="font-size:40px;font-weight:200;margin:0 0 8px">Studio</h1>
+  <p style="opacity:.58;margin:0 0 32px">{{ account.email|upper }} — {{ account.house_slug|upper }}
+    <button type="button" class="control" style="margin-left:16px" @click="signOut()">SIGN OUT</button>
+  </p>
+
+  <div class="palette" role="search">
+    <label class="visually-hidden" for="palette-input">Filter this house's records and actions</label>
+    <input id="palette-input" class="palette-input" type="text" x-model="term"
+           @keydown="onKey($event)" x-ref="input" autocomplete="off"
+           placeholder="TYPE A NAME, OR CHOOSE AN ACTION">
+    <ul class="palette-list" role="listbox" aria-label="Records and actions">
+      <template x-if="actions().length">
+        <li class="palette-group-label" aria-hidden="true">ACTIONS</li>
+      </template>
+      <template x-for="(a, i) in actions()" :key="a.id">
+        <li :class="cursor === i ? 'is-active' : ''" role="option"
+            :aria-selected="cursor === i ? 'true' : 'false'">
+          <button type="button" @click="run(a)">
+            <span x-text="a.label"></span><span x-text="a.hint"></span>
+          </button>
+        </li>
+      </template>
+      <template x-if="matches().length">
+        <li class="palette-group-label" aria-hidden="true">RECORDS</li>
+      </template>
+      <template x-for="(r, i) in matches()" :key="r.id">
+        <li :class="cursor === actions().length + i ? 'is-active' : ''" role="option"
+            :aria-selected="cursor === actions().length + i ? 'true' : 'false'">
+          <a :href="'/studio/items/' + r.id" data-nav>
+            <span x-text="r.title.toUpperCase() + ' — ' + r.slug"></span>
+            <span x-text="r.kind.toUpperCase() + ' · ' + (r.published ? 'LIVE' : 'UNLISTED')"></span>
+          </a>
+        </li>
+      </template>
+      <template x-if="!loading && !actions().length && !matches().length">
+        <li class="empty-state">NOTHING MATCHES THAT.</li>
+      </template>
+      <template x-if="loading"><li class="empty-state">LOADING RECORDS...</li></template>
+    </ul>
+  </div>
+
+  <template x-if="reordering">
+    <section style="max-width:720px;margin:0 auto 48px">
+      <h2 style="margin-bottom:12px">REORDER INDEX</h2>
+      <ul style="list-style:none;padding:0;margin:0">
+        <template x-for="(w, i) in works()" :key="w.id">
+          <li style="display:flex;gap:16px;align-items:center;padding:6px 0;border-bottom:1px solid var(--color-dark)">
+            <span x-text="String(i + 1).padStart(3, '0')"></span>
+            <span x-text="w.title.toUpperCase()" style="flex:1"></span>
+            <button type="button" class="control" @click="move(i, -1)" :disabled="i === 0">UP</button>
+            <button type="button" class="control" @click="move(i, 1)" :disabled="i === works().length - 1">DOWN</button>
+          </li>
+        </template>
+      </ul>
+      <div class="button-row" style="margin-top:20px">
+        <button type="button" class="control" @click="saveOrder()">SAVE ORDER</button>
+        <button type="button" class="control" @click="reordering = false">CANCEL</button>
+        <span x-text="orderNote"></span>
+      </div>
+    </section>
+  </template>
+
+  <h2 style="margin:0 0 16px">RECORDS</h2>
+  <div class="card-grid">
+    <template x-for="r in items" :key="r.id">
+      <a class="record-card" :href="'/studio/items/' + r.id" data-nav>
+        <span class="card-title" x-text="r.title"></span>
+        <span class="card-meta" x-text="r.slug + ' · ' + r.kind.toUpperCase() + ' · ' + (r.published ? 'LIVE' : 'UNLISTED')"></span>
+      </a>
+    </template>
+  </div>
+  <template x-if="!loading && !items.length">
+    <p class="empty-state">THIS HOUSE HAS NO RECORDS YET. START WITH NEW TALENT.</p>
+  </template>
+</div>
+{% endblock %}
+{% block footer %}{% endblock %}

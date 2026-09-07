@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ share_image }}">
+<meta name="twitter:card" content="summary_large_image">
+{% if noindex %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ static_v }}">
+{# app.js registers its Alpine components on alpine:init, so it must be
+   evaluated before Alpine's own deferred script runs. #}
+<script defer src="{{ url_for('static', filename='js/app.js') }}?v={{ static_v }}"></script>
+<script defer src="{{ url_for('static', filename='js/alpine.min.js') }}?v={{ static_v }}"></script>
+</head>
+<body class="route-{{ route }}" data-route="{{ route }}" data-mark="{{ centre_mark }}"
+      x-data="site()" x-init="init()">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# ---- the persistent tree: it mounts once and survives every navigation ---- #}
+<div id="frame" class="frame" data-persistent>
+  <a class="wordmark no-cursor-square" href="/" aria-label="{{ house.name }}, home"
+     data-nav>{{ house.name|lower }}</a>
+
+  <nav class="site-nav" aria-label="Primary">
+    <a class="nav-works {% if route == 'works' %}is-current{% endif %}" href="/works"
+       data-nav data-split="WORKS" {% if route == 'works' %}aria-current="page"{% endif %}>WORKS</a>
+    <a class="nav-talents {% if route == 'talents' %}is-current{% endif %}" href="/talents"
+       data-nav data-split="TALENTS" {% if route == 'talents' %}aria-current="page"{% endif %}>TALENTS</a>
+    {# CONTACT is not a route: no active state, no route transition. #}
+    <a class="nav-contact" href="mailto:{{ house.contact_email }}" data-split="CONTACT"
+       @click="if (isNarrow()) { $event.preventDefault(); openContact($event.currentTarget) }">CONTACT</a>
+    <a class="nav-about {% if route == 'about' %}is-current{% endif %}" href="/about"
+       data-nav data-split="ABOUT" {% if route == 'about' %}aria-current="page"{% endif %}>ABOUT</a>
+  </nav>
+
+  <div class="centre-mark" id="centre-mark" aria-hidden="true">{% include "marks.html" %}</div>
+
+  <a class="corner-credit no-cursor-square" href="https://example.com/aube" target="_blank"
+     rel="noopener noreferrer" aria-label="Site by Aube, opens in a new tab">
+    <span class="credit-mark" aria-hidden="true">
+      <svg width="60" height="16" viewBox="0 0 60 16" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 16 5.6 0h2.3L13.5 16h-2.2L9.7 12H3.8L2.4 16H0Zm4.5-6h4.5L6.8 3.6 4.5 10Z"/>
+        <path d="M16 0h2.1v9.6c0 3 1.4 4.6 3.9 4.6s3.9-1.6 3.9-4.6V0H28v9.8c0 4-2.3 6.2-6 6.2s-6-2.2-6-6.2V0Z"/>
+        <path d="M32 0h6.2c2.8 0 4.5 1.4 4.5 3.8 0 1.6-.8 2.8-2.2 3.4 1.8.5 2.9 1.9 2.9 4 0 2.9-2 4.8-5.2 4.8H32V0Zm2.1 6.6h3.9c1.6 0 2.6-.8 2.6-2.2s-1-2.3-2.7-2.3h-3.8v4.5Zm0 7.4h4.1c1.9 0 3-1 3-2.7s-1.1-2.8-3.1-2.8h-4v5.5Z"/>
+        <path d="M47 0h11v2h-8.9v4.7h8v2h-8V14H58v2H47V0Z"/>
+      </svg>
+    </span>
+    <span class="credit-arrow credit-arrow-rest" aria-hidden="true">
+      <svg width="8" height="8" viewBox="0 0 7 7" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 6.3 5.6.7H1.2V0H7v5.8h-.7V1.4L.7 7 0 6.3Z"/>
+      </svg>
+    </span>
+    <span class="credit-arrow credit-arrow-arrived" aria-hidden="true">
+      <svg width="8" height="8" viewBox="0 0 7 7" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 6.3 5.6.7H1.2V0H7v5.8h-.7V1.4L.7 7 0 6.3Z"/>
+      </svg>
+    </span>
+  </a>
+</div>
+
+{# the cursor pair, at depth 50, above the transition veil #}
+<div class="cursor-pair" id="cursor-pair" aria-hidden="true">
+  <span class="cursor-square" id="cursor-square"></span>
+  <span class="cursor-label" id="cursor-label"></span>
+</div>
+
+{# the counter well: one component, three jobs #}
+<div class="counter-well{% if route == 'entry' %} is-veiled{% else %} on-light{% endif %}"
+     id="counter-well" role="status" aria-live="polite">
+  <span class="counter-figure" id="counter-figure">0%</span>
+</div>
+
+<div class="contact-overlay" id="contact-overlay" role="dialog" aria-modal="true"
+     aria-label="Contact" x-ref="contactOverlay">
+  <button class="contact-close overlay-item" type="button" @click="closeContact()">CLOSE</button>
+  <a class="overlay-item display" href="mailto:{{ house.contact_email }}"
+     style="font-size:40px;font-weight:200">{{ house.contact_email|upper }}</a>
+</div>
+
+<main id="content" class="route-outlet" data-route-outlet tabindex="-1">
+  {% block content %}{% endblock %}
+</main>
+
+{% block footer %}
+<footer class="site-footer" id="site-footer">
+  <div class="footer-scrim" aria-hidden="true"></div>
+  <div class="footer-row">
+    <div class="footer-col">
+      <span class="footer-label" data-split="{{ house.street }}">{{ house.street }}</span>
+      <span class="footer-label" data-split="{{ house.city }}">{{ house.city }}</span>
+    </div>
+    <div class="footer-col"><span class="footer-label">{{ house.district }}</span></div>
+    <div class="footer-col">
+      <span class="footer-label">{{ house.tagline_upper }}</span>
+      <span class="footer-label">{{ house.tagline_lower }}</span>
+    </div>
+    <div class="footer-col">
+      <span class="footer-label">WORK WITH US</span>
+      <a class="footer-label" href="mailto:{{ house.contact_email }}"
+         aria-label="{{ house.contact_email|upper }}"
+         data-split="{{ house.contact_email|upper }}">{{ house.contact_email|upper }}</a>
+    </div>
+    <div class="footer-col right">
+      <a class="footer-label" href="https://example.com/instagram" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+      <a class="footer-label" href="https://example.com/linkedin" target="_blank" rel="noopener noreferrer">LINKEDIN</a>
+    </div>
+  </div>
+</footer>
+{% endblock %}
+
+</body>
+</html>

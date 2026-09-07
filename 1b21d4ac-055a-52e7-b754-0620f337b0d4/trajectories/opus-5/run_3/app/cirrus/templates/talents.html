@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "components.html" import tile %}
+{% block content %}
+{% if roster %}
+<section class="roster" x-data="roster()" x-init="init()" @keydown.window="onKey($event)">
+  {# Filter controls precede the talent, so focus order follows visual order. #}
+  <div class="roster-filter" role="group" aria-label="Filter the roster by discipline">
+    {% for d in disciplines %}
+    <button type="button" class="filter-item" data-discipline="{{ d }}"
+            :aria-pressed="active === '{{ d }}' ? 'true' : 'false'"
+            aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            @click="select('{{ d }}')">
+      <span class="filter-marker" aria-hidden="true"></span>
+      <span class="filter-label">{{ d|upper }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="roster-stage">
+    {% for t in roster %}
+    {# The first entry is active in the delivered document; Alpine takes the
+       class over with object syntax, which can also remove it. #}
+    <article class="roster-entry{% if loop.first %} is-active{% endif %}"
+             data-discipline="{{ t.discipline }}" data-name="{{ t.title }}"
+             :class="{ 'is-active': isActive({{ loop.index0 }}) }"
+             :aria-hidden="isActive({{ loop.index0 }}) ? 'false' : 'true'"
+             aria-hidden="{{ 'false' if loop.first else 'true' }}"
+             data-roster-entry data-index="{{ loop.index0 }}">
+      <h1 class="roster-name display title-case" data-roster-name>{{ t.title }}</h1>
+      <p class="roster-discipline">{{ t.discipline|upper }}</p>
+      <a class="roster-portrait" href="{{ t.href }}" data-nav data-cursor-label="{{ t.title }}"
+         aria-label="{{ t.title }}, {{ t.discipline }}">
+        {{ tile(t.poster, classes='full-colour') }}
+      </a>
+    </article>
+    {% endfor %}
+  </div>
+
+  <p class="roster-counter" aria-live="polite">
+    <span x-text="position"></span> / <span x-text="total"></span>
+    <span class="visually-hidden" x-text="announce"></span>
+  </p>
+</section>
+{% else %}
+<div class="studio-shell">
+  <h1 class="display" style="font-size:40px;font-weight:200">Talents</h1>
+  <p class="empty-state">No talent is published yet.</p>
+</div>
+{% endif %}
+{% endblock %}
+{% block footer %}{% endblock %}

@@ -1,0 +1,44 @@
+{# Shared units. One media tile with a width variant, one caption row. #}
+
+{% macro tile(media, classes='', reveal=true, reel=none, eager=false) %}
+  {% if media %}
+  <span class="tile {{ classes }}{% if reveal %} reveal{% endif %}"
+        data-tile
+        {% if reel %}data-reel-seed="{{ reel.media_id }}"{% endif %}
+        style="aspect-ratio: {{ media.width }} / {{ media.height }}">
+    <span class="tile-placeholder" aria-hidden="true"></span>
+    <span class="tile-inner">
+      <img src="{{ media.url }}" alt="{{ media.alt }}" width="{{ media.width }}"
+           height="{{ media.height }}" decoding="async"
+           loading="{{ 'eager' if eager else 'lazy' }}"
+           data-tile-img>
+      {% if reel %}<canvas data-reel-canvas aria-hidden="true"></canvas>{% endif %}
+    </span>
+    <span class="tile-grain" aria-hidden="true"></span>
+    <span class="tile-vignette" aria-hidden="true"></span>
+  </span>
+  {% else %}
+  <span class="tile" style="aspect-ratio: 3 / 2">
+    <span class="tile-placeholder" aria-hidden="true"></span>
+  </span>
+  {% endif %}
+{% endmacro %}
+
+{% macro caption(ordinal, title) %}
+<span class="caption-row">
+  <span class="caption-left">
+    <span class="caption-square" aria-hidden="true"></span>
+    <span class="caption-ordinal">{{ ordinal }}</span>
+  </span>
+  <span class="caption-title display title-case">{{ title }}</span>
+</span>
+{% endmacro %}
+
+{% macro work_entry(work, wide_gap=false) %}
+<a class="work-entry variant-{{ work.variant }}{% if wide_gap %} gap-wide{% endif %}"
+   href="{{ work.href }}" data-nav data-cursor-label="{{ work.title }}"
+   aria-label="{{ work.title }}, {{ work.ordinal }}">
+  {{ tile(work.poster) }}
+  {{ caption(work.ordinal, work.title) }}
+</a>
+{% endmacro %}

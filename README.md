@@ -37,7 +37,7 @@
 | Property | Value |
 | --- | --- |
 | Tasks | 4 |
-| Models | 2 (`anthropic-claude-opus-5`, `anthropic-glm-5.3`) |
+| Models | 2 (`opus-5`, `anthropic-glm-5.3`) |
 | Runs per task per model | 8 |
 | Graded rollouts | 40 |
 | Languages | Python (1), TypeScript (3) |
@@ -276,7 +276,7 @@ import json, pathlib
 
 runs = sorted(pathlib.Path(
     "deku-samples/ebe89438-5b13-59d8-8113-c6b0a5e75ff0/"
-    "trajectories/anthropic-claude-opus-5"
+    "trajectories/opus-5"
 ).glob("run_*"))
 
 rewards = [json.loads((r / "reward.json").read_text())["reward"] for r in runs]
