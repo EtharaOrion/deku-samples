@@ -1,0 +1,31 @@
+---
+import DownloadsPage from '../../components/DownloadsPage.astro';
+import { safeGet, currentCustomer, readCartForPage } from '../../lib/api.js';
+
+const { version } = Astro.params;
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+const releasesRes = await safeGet(Astro.request, '/api/releases?page_size=100', { data: [] });
+const firmwareRes = await safeGet(Astro.request, '/api/firmware/manifest?model=compact', { entries: [] });
+
+const releases = releasesRes.data?.data ?? [];
+const found = releases.some((r) => r.version === version);
+---
+
+{found ? (
+  <!-- Every release has its own address which renders it expanded with the rest collapsed. -->
+  <DownloadsPage
+    releases={releases}
+    firmware={firmwareRes.data}
+    customer={customer}
+    cartCount={cart.item_count ?? 0}
+    expandedVersion={version}
+  />
+) : (
+  <DownloadsPage
+    releases={releases}
+    firmware={firmwareRes.data}
+    customer={customer}
+    cartCount={cart.item_count ?? 0}
+  />
+)}

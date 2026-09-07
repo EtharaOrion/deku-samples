@@ -1,0 +1,76 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiGet, authHeaders, formatMoney, formatDate } from '../../../lib/api';
+import { viewerFor, signInRedirect } from '../../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+if (!viewer.customer) return signInRedirect('/account/orders');
+
+const cursor = Astro.url.searchParams.get('cursor');
+const result = await apiGet<{ data: any[]; next_cursor: string | null; has_more: boolean }>(
+  Astro.request,
+  `/account/orders?page_size=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+  { headers: authHeaders(Astro.request) },
+);
+const orders = result.ok ? result.data.data : [];
+---
+
+<Shell title="Orders — Vela" current="orders" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>Orders</h1>
+
+  {!result.ok && (
+    <p class="notice notice-error" role="alert">
+      {result.error.message}
+      {result.error.request_id && <span class="mono"> Reference {result.error.request_id}.</span>}
+    </p>
+  )}
+
+  {result.ok && orders.length === 0 && (
+    <div class="empty-state">
+      <p>No orders yet.</p>
+      <a class="btn btn-secondary" href="/shop">Go to the shop</a>
+    </div>
+  )}
+
+  {orders.length > 0 && (
+    <>
+      <table class="table orders">
+        <caption class="visually-hidden">Your orders, newest first</caption>
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Date</th>
+            <th scope="col">Items</th>
+            <th scope="col">State</th>
+            <th scope="col" class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => (
+            <tr>
+              <td><a class="order-number mono" href={`/account/orders/${order.number}`}>{order.number}</a></td>
+              <td><time datetime={order.placed_at}>{formatDate(order.placed_at)}</time></td>
+              <td>
+                {order.first_title}{order.extra_lines > 0 ? ` and ${order.extra_lines} more` : ''}
+              </td>
+              <td><span class={`chip chip-${order.chip.tone}`}>{order.chip.label}</span></td>
+              <td class="num tnum">{formatMoney(order.total_minor, order.currency)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {result.ok && result.data.has_more && result.data.next_cursor && (
+        <a class="btn btn-secondary more" href={`/account/orders?cursor=${encodeURIComponent(result.data.next_cursor)}`}>
+          Older orders
+        </a>
+      )}
+    </>
+  )}
+</Shell>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 6); }
+  .orders a { text-decoration: none; }
+  .more { margin-top: calc(var(--unit) * 6); }
+</style>

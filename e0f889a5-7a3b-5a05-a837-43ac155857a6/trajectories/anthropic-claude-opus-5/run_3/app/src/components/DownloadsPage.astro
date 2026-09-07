@@ -1,0 +1,112 @@
+---
+import Shell from './Shell.astro';
+import ReleaseBlock from './ReleaseBlock.astro';
+import PlatformNote from '../islands/PlatformNote.jsx';
+import { formatBytes } from '../lib/money.js';
+
+interface Props {
+  releases: any[];
+  firmware: any;
+  expanded: string | null;
+  customer: any;
+  cartCount: number;
+}
+const { releases, firmware, expanded, customer, cartCount } = Astro.props;
+
+const newest = releases[0];
+// Only the newest release is expanded on arrival, unless one was named.
+const openVersion = expanded ?? newest?.version ?? null;
+const cricketLatest = firmware?.entries?.[0] ?? null;
+---
+
+<Shell
+  title="Downloads — Vela"
+  description="Arranger, firmware and the whole release archive."
+  current="downloads"
+  customer={customer}
+  cartCount={cartCount}
+>
+  <div class="page-head">
+    <h1 class="page-title">Downloads</h1>
+    <p class="page-sub">Arranger requires macOS 13.0 or later. Download the app below.</p>
+  </div>
+
+  {
+    newest && (
+      <section class="panel primary-download">
+        <div class="row">
+          <a class="btn" href={`/downloads/${newest.version}`}>
+            Download Arranger {newest.version}
+          </a>
+          <span class="small muted bytes">{formatBytes(newest.size_bytes)} bytes</span>
+        </div>
+        <p class="digest small faint primary-download__digest">{newest.sha256}</p>
+        {/* The control adapts to the reader's platform but is never disabled
+            and never hidden. */}
+        <PlatformNote client:idle />
+      </section>
+    )
+  }
+
+  {
+    cricketLatest && (
+      <section class="panel firmware-row">
+        <h2 class="section-title">Firmware</h2>
+        <div class="row">
+          <a class="btn btn--secondary" href="/api/firmware/manifest?model=compact">
+            Download Vela Cricket Firmware {cricketLatest.version}
+          </a>
+          <span class="firmware-row__web">
+            {/* The web path is never the primary control. */}
+            <a class="btn btn--quiet btn--small" href="/doctor">
+              Firmware install (web-based)
+            </a>
+            <span class="small muted"> Only use this if Arranger cannot see your camera.</span>
+          </span>
+        </div>
+      </section>
+    )
+  }
+
+  <section class="archive">
+    <h2 class="section-title">Release archive</h2>
+    {
+      releases.length === 0 ? (
+        <div class="empty">
+          <p>There are no releases yet.</p>
+        </div>
+      ) : (
+        releases.map((release, i) => (
+          <>
+            {i > 0 && <hr class="archive__rule" />}
+            <ReleaseBlock release={release} open={release.version === openVersion} />
+          </>
+        ))
+      )
+    }
+  </section>
+</Shell>
+
+<style>
+  .primary-download {
+    margin-bottom: calc(var(--unit) * 4);
+  }
+  .primary-download__digest {
+    word-break: break-all;
+    margin: calc(var(--unit) * 3) 0 0;
+  }
+  .firmware-row {
+    margin-bottom: calc(var(--unit) * 8);
+  }
+  .firmware-row__web {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--unit) * 2);
+    flex-wrap: wrap;
+  }
+  .archive__rule {
+    border: 0;
+    border-top: 1px dashed var(--line-strong);
+    margin: 0;
+  }
+</style>

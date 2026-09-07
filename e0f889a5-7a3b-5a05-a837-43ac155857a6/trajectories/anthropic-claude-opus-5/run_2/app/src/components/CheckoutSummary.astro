@@ -1,0 +1,68 @@
+---
+import { formatMoney } from '../lib/api';
+
+interface Props { cart: any; exact?: boolean }
+const { cart, exact = false } = Astro.props;
+const goods = (cart.lines || []).filter((l: any) => l.kind !== 'protection');
+const label = (base: string) => (exact ? base : `Estimated ${base.toLowerCase()}`);
+---
+
+<!-- A persistent summary sits beside all three steps. -->
+<aside class="summary" aria-labelledby="checkout-summary-heading">
+  <h2 id="checkout-summary-heading">Your order</h2>
+
+  <ul class="lines">
+    {goods.map((line: any) => (
+      <li>
+        <span class="qty tnum">{line.quantity}</span>
+        <span class="title">{line.title}<span class="opt"> · {line.option_value}</span></span>
+        <span class="amount tnum">{formatMoney(line.total_minor)}</span>
+      </li>
+    ))}
+    {cart.protection_enabled && cart.protection_rung && (
+      <li>
+        <span class="qty tnum">1</span>
+        <span class="title">Shipment protection</span>
+        <span class="amount tnum">{formatMoney(cart.protection_rung.price_minor)}</span>
+      </li>
+    )}
+  </ul>
+
+  <dl class="totals">
+    <div><dt>{label('Subtotal')}</dt><dd class="tnum">{formatMoney(cart.subtotal_minor)}</dd></div>
+    <div><dt>{label('Delivery')}</dt><dd class="tnum">{formatMoney(cart.shipping_minor)}</dd></div>
+    <div><dt>{label('Tax')}</dt><dd class="tnum">{formatMoney(cart.tax_minor)}</dd></div>
+    <div class="grand"><dt>{exact ? 'Total' : 'Estimated total'}</dt><dd class="tnum">{formatMoney(cart.total_minor)}</dd></div>
+  </dl>
+
+  {!exact && (
+    <p class="note">Estimated. We will show the exact amount once we know where it is going.</p>
+  )}
+</aside>
+
+<style>
+  .summary {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: calc(var(--unit) * 5);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 4);
+    position: sticky;
+    top: calc(var(--header-h) + var(--unit) * 4);
+  }
+  h2 { font-size: 16px; }
+  .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .lines li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: calc(var(--unit) * 3); font-size: 14px; line-height: 21px; }
+  .qty { color: var(--fg-muted); }
+  .opt { color: var(--fg-muted); }
+  .amount { font-variant-numeric: tabular-nums; }
+  .totals { margin: 0; padding-top: calc(var(--unit) * 3); border-top: var(--border-w) solid var(--line); display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .totals dt { color: var(--fg-muted); font-size: 14px; }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border-w) solid var(--line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .totals .grand dt { color: var(--fg); }
+  .note { font-size: 14px; line-height: 21px; color: var(--fg-muted); }
+</style>

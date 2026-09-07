@@ -1,0 +1,19 @@
+---
+import DownloadsPage from '../../components/DownloadsPage.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+
+// Newest build first. released_on is not a sort key.
+const releasesRes = await apiGet('/api/releases?page_size=100', Astro);
+const firmwareRes = await apiGet('/api/firmware/manifest?model=compact', Astro);
+---
+
+<DownloadsPage
+  releases={releasesRes.ok ? releasesRes.body.data : []}
+  firmware={firmwareRes.ok ? firmwareRes.body : null}
+  expanded={null}
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+/>

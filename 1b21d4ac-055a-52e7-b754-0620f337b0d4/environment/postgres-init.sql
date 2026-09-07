@@ -1,0 +1,19 @@
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'deku_app') THEN
+        CREATE ROLE deku_app LOGIN PASSWORD 'deku-local-dev';
+    END IF;
+END
+$$;
+
+GRANT ALL PRIVILEGES ON DATABASE deku TO deku_app;
+
+GRANT ALL ON SCHEMA public TO deku_app;
+
+ALTER SCHEMA public OWNER TO deku_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON TABLES TO deku_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON SEQUENCES TO deku_app;

@@ -1,0 +1,61 @@
+---
+interface Props { count?: number }
+const { count = 0 } = Astro.props;
+const badge = count > 99 ? '99+' : String(count);
+const name = count === 1 ? 'Cart, 1 item' : `Cart, ${count} items`;
+---
+
+<a class="cart-control" href="/cart" data-cart-control aria-label={name}>
+  <span aria-hidden="true">Cart</span>
+  {/* A count badge appears only above zero. */}
+  {count > 0 && <span class="badge tnum" data-cart-badge aria-hidden="true">{badge}</span>}
+</a>
+
+<script>
+  // The count is kept current after a cart change made elsewhere in the tab.
+  document.addEventListener('vela:cart', (event) => {
+    const control = document.querySelector<HTMLAnchorElement>('[data-cart-control]');
+    if (!control) return;
+    const count = Number((event as CustomEvent).detail?.item_count ?? 0);
+    control.setAttribute('aria-label', count === 1 ? 'Cart, 1 item' : `Cart, ${count} items`);
+    let badge = control.querySelector<HTMLElement>('[data-cart-badge]');
+    if (count > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge tnum';
+        badge.setAttribute('data-cart-badge', '');
+        badge.setAttribute('aria-hidden', 'true');
+        control.appendChild(badge);
+      }
+      badge.textContent = count > 99 ? '99+' : String(count);
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+</script>
+
+<style>
+  .cart-control {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+    text-decoration: none;
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    border: var(--border-w) solid var(--line-strong);
+    border-radius: var(--radius);
+    min-height: calc(var(--unit) * 9);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: calc(var(--unit) * 5);
+    height: calc(var(--unit) * 5);
+    padding: 0 calc(var(--unit) * 1);
+    border-radius: var(--radius);
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 12px;
+    font-weight: 700;
+  }
+</style>

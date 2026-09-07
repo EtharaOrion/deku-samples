@@ -1,0 +1,184 @@
+---
+import Shell from '../../components/Shell.astro';
+import BuyBox from '../../islands/BuyBox.jsx';
+import Gallery from '../../islands/Gallery.jsx';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { formatMoney } from '../../lib/money.js';
+import { formatDateLong } from '../../lib/domain.js';
+
+const { handle } = Astro.params;
+const wanted = Astro.url.searchParams.get('variant');
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+const { ok, status, body } = await apiGet(
+  `/api/products/${encodeURIComponent(handle)}`,
+  Astro,
+);
+
+if (!ok) {
+  return new Response(null, { status: 404 });
+}
+
+const product = body.product;
+const selected = product.variants.find((v) => v.sku === wanted) ?? product.variants[0];
+
+const blocks = product.blocks || [];
+const lede = blocks.find((b) => b.kind === 'lede');
+const specGroups = blocks.filter((b) => b.kind === 'spec_group');
+const inTheBox = blocks.find((b) => b.kind === 'in_the_box');
+const compatibility = blocks.find((b) => b.kind === 'compatibility');
+const supportNote = blocks.find((b) => b.kind === 'support_note');
+
+const totalAvailable = product.variants.reduce((n, v) => n + v.available, 0);
+---
+
+<Shell
+  title={`${product.title} — Vela`}
+  description={product.subtitle}
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <nav class="crumbs small" aria-label="Breadcrumb">
+    <a href="/shop">Shop</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{product.title}</span>
+  </nav>
+
+  <div class="product">
+    <div class="product__media">
+      <Gallery client:visible handle={product.handle} title={product.title} />
+    </div>
+
+    <div class="product__buy">
+      <h1 class="page-title">{product.title}</h1>
+      <p class="page-sub">{product.subtitle}</p>
+
+      {
+        product.status === 'discontinued' && (
+          <p class="chip chip--neutral product__state">Discontinued</p>
+        )
+      }
+
+      <BuyBox client:load product={product} initialSku={selected?.sku} />
+
+      {
+        /* The discontinued state is a first class state rather than an
+           afterthought. */
+        supportNote && (
+          <p class="notice notice--warn product__support">
+            <span class="notice__body">{supportNote.payload.text}</span>
+          </p>
+        )
+      }
+    </div>
+  </div>
+
+  <div class="product__detail stack">
+    {lede && <p class="lede">{lede.payload.text}</p>}
+
+    {
+      specGroups.map((group) => (
+        <section>
+          <h2 class="section-title">{group.payload.title}</h2>
+          <table class="table">
+            <tbody>
+              {group.payload.rows.map(([label, value]) => (
+                <tr>
+                  <th scope="row">{label}</th>
+                  <td class="num right">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))
+    }
+
+    {
+      inTheBox && (
+        <section>
+          <h2 class="section-title">In the box</h2>
+          <ul class="box-list">
+            {inTheBox.payload.items.map((item) => (
+              <li>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      compatibility && (
+        <section>
+          <h2 class="section-title">Compatibility</h2>
+          <p class="muted">{compatibility.payload.text}</p>
+          <table class="table">
+            <tbody>
+              <tr>
+                <th scope="row">Minimum operating system</th>
+                <td class="right">{compatibility.payload.min_os}</td>
+              </tr>
+              <tr>
+                <th scope="row">Minimum application</th>
+                <td class="right">{compatibility.payload.min_app}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )
+    }
+  </div>
+</Shell>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: calc(var(--unit) * 2);
+    margin-bottom: calc(var(--unit) * 4);
+    color: var(--fg-muted);
+  }
+
+  .product {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+    margin-bottom: calc(var(--unit) * 10);
+  }
+
+  .product__state {
+    margin: 0 0 calc(var(--unit) * 4);
+  }
+
+  .product__support {
+    margin-top: calc(var(--unit) * 4);
+  }
+
+  .product__detail {
+    max-width: 62rem;
+  }
+
+  .lede {
+    font-size: 18px;
+    line-height: 27px;
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .box-list {
+    margin: 0;
+    padding-left: calc(var(--unit) * 5);
+  }
+  .box-list li {
+    margin-bottom: calc(var(--unit) * 1);
+  }
+
+  @media (max-width: 63.999rem) {
+    .product {
+      grid-template-columns: minmax(0, 1fr);
+      gap: calc(var(--unit) * 5);
+    }
+  }
+</style>

@@ -1,0 +1,165 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import { apiGet, formatMoney } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<any>(Astro.request, '/cart');
+const cart = result.ok ? result.data : null;
+const goods = (cart?.lines || []).filter((l: any) => l.kind !== 'protection');
+
+if (cart && goods.length === 0) {
+  return new Response(null, { status: 302, headers: { location: '/cart' } });
+}
+if (cart && (!cart.email || !cart.shipping_address)) {
+  return new Response(null, { status: 302, headers: { location: '/checkout/where-it-goes' } });
+}
+if (cart && !cart.shipping_method) {
+  return new Response(null, { status: 302, headers: { location: '/checkout/how-it-gets-there' } });
+}
+
+const a = cart?.shipping_address || {};
+const methodLabel = cart?.shipping_method === 'express' ? 'Express' : 'Standard';
+---
+
+<Shell title="Payment — Vela" current="shop" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>Payment</h1>
+  <CheckoutSteps step={3} />
+
+  <div class="layout">
+    <div class="review">
+      <section class="review-block">
+        <h2>Where it goes</h2>
+        <address>
+          {a.name}<br />
+          {a.line1}{a.line2 ? <><br />{a.line2}</> : null}<br />
+          {a.city}, {a.region} <span class="tnum">{a.postal_code}</span><br />
+          {a.country}
+        </address>
+        <p class="review-email">{cart?.email}</p>
+        <a class="btn btn-quiet btn-small" href="/checkout/where-it-goes">Change</a>
+      </section>
+
+      <section class="review-block">
+        <h2>How it gets there</h2>
+        <p>{methodLabel}</p>
+        <a class="btn btn-quiet btn-small" href="/checkout/how-it-gets-there">Change</a>
+      </section>
+
+      <section class="review-block total-block">
+        <h2>The total</h2>
+        <!-- The total authorized is the figure this step shows. -->
+        <p class="grand tnum" data-final-total data-total-minor={cart?.total_minor}>{formatMoney(cart?.total_minor ?? 0)}</p>
+        <p class="note">There is no card to enter. We raise an invoice for this amount and send it to you.</p>
+      </section>
+
+      <p class="form-error" data-error role="alert"></p>
+
+      <button class="btn place" type="button" data-place>Place the order</button>
+      <p class="placing" data-placing role="status" aria-live="polite"></p>
+    </div>
+
+    {cart && <CheckoutSummary cart={cart} exact={true} />}
+  </div>
+</Shell>
+
+<script>
+  (() => {
+    const button = document.querySelector<HTMLButtonElement>('[data-place]');
+    if (!button) return;
+    const error = document.querySelector<HTMLElement>('[data-error]')!;
+    const placing = document.querySelector<HTMLElement>('[data-placing]')!;
+    const totalEl = document.querySelector<HTMLElement>('[data-final-total]')!;
+
+    /*
+     * One key per attempt at this cart, held in session storage, so a double
+     * submit or a reload mid-flight replays the same key and receives the same
+     * order rather than raising a second invoice.
+     */
+    const KEY = 'vela:idempotency-key';
+    function idempotencyKey(): string {
+      let key = sessionStorage.getItem(KEY);
+      if (!key) {
+        key = (crypto.randomUUID?.() || String(Date.now() + Math.random()));
+        sessionStorage.setItem(KEY, key);
+      }
+      return key;
+    }
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      error.textContent = '';
+      placing.textContent = 'Placing your order';
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'idempotency-key': idempotencyKey(),
+          },
+          body: JSON.stringify({
+            expected_total_minor: Number(totalEl.dataset.totalMinor),
+          }),
+        });
+        const body = await res.json();
+
+        if (!res.ok) {
+          placing.textContent = '';
+          button.disabled = false;
+          // A line that changed since the cart was last shown returns the person
+          // to a re-priced cart carrying that notice.
+          if (body?.error?.code === 'price_changed' || body?.error?.code === 'total_changed') {
+            window.location.assign('/cart?repriced=1');
+            return;
+          }
+          error.textContent = body?.error?.message || 'That did not work.';
+          if (body?.error?.request_id) {
+            error.textContent += ` Reference ${body.error.request_id}.`;
+          }
+          return;
+        }
+
+        sessionStorage.removeItem(KEY);
+        const url = body.access_token
+          ? `/orders/${body.number}?access_token=${encodeURIComponent(body.access_token)}`
+          : `/orders/${body.number}`;
+        window.location.assign(url);
+      } catch {
+        placing.textContent = '';
+        button.disabled = false;
+        error.textContent = 'That did not work. Check your connection and try again.';
+      }
+    });
+  })();
+</script>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 4); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: calc(var(--unit) * 10); align-items: start; }
+  .review { display: flex; flex-direction: column; gap: calc(var(--unit) * 5); max-width: 34rem; }
+  .review-block {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 4);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 2);
+    align-items: flex-start;
+  }
+  .review-block h2 { font-size: 14px; color: var(--fg-muted); font-weight: 400; }
+  address { font-style: normal; line-height: 24px; }
+  .review-email { color: var(--fg-muted); font-size: 14px; }
+  .grand { font-size: 28px; font-weight: 700; }
+  .note { font-size: 14px; line-height: 21px; color: var(--fg-muted); }
+  .place { align-self: flex-start; min-width: calc(var(--unit) * 44); }
+  .placing { font-size: 14px; color: var(--fg-muted); min-height: 21px; }
+  .form-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+
+  @media (max-width: 63.999rem) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

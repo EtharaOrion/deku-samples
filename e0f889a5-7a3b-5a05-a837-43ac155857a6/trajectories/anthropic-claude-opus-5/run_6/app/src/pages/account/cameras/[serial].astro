@@ -1,0 +1,143 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { customerFromCookies, formValues, redirect, setFlash, takeFlash } from '../../../lib/actions.js';
+import { customerDevice, renameDevice, releaseDevice, serialiseDevice } from '../../../../server/services/devices.js';
+import { formatDate, formatDateTime, groupSerial } from '../../../lib/format.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+
+const { serial } = Astro.params;
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  try {
+    if (body.action === 'release') {
+      await releaseDevice({ customerId: customer.id, serial });
+      setFlash(Astro.cookies, { tone: 'done', message: 'Removed. That camera is no longer on your account and is not on anybody else’s.' });
+      return redirect('/account/cameras');
+    }
+    if (body.action === 'rename') {
+      await renameDevice({ customerId: customer.id, serial, nickname: body.nickname });
+      setFlash(Astro.cookies, { tone: 'done', message: 'Renamed.' });
+      return redirect(Astro.url.pathname);
+    }
+  } catch (err) {
+    setFlash(Astro.cookies, { tone: 'wrong', message: err.message || 'That did not work.' });
+    return redirect(Astro.url.pathname);
+  }
+}
+
+let device = null;
+try {
+  const row = await customerDevice(customer.id, serial);
+  device = await serialiseDevice(row);
+} catch {
+  // Another customer's camera reads as not found, never as forbidden.
+  return Astro.rewrite('/404');
+}
+const flash = takeFlash(Astro.cookies);
+---
+
+<Shell title={device.nickname || device.model}>
+  <nav aria-label="Breadcrumb" style="margin-bottom:calc(var(--unit) * 4)">
+    <a href="/account/cameras">Cameras</a> <span aria-hidden="true">/</span>
+    <span class="mono">{device.serial}</span>
+  </nav>
+
+  {flash ? <p class={`notice ${flash.tone}`} role="status">{flash.message}</p> : null}
+
+  <h1 class="page-title">{device.nickname || device.model}</h1>
+  <p class="page-lede">
+    {device.model}, {device.variant}
+  </p>
+
+  <div class="grid two">
+    <section class="card">
+      <h2 class="block-heading">The camera</h2>
+      <table>
+        <tbody>
+          <tr>
+            <th scope="row">Serial</th>
+            <td class="num mono">{groupSerial(device.serial)}</td>
+          </tr>
+          <tr>
+            <th scope="row">Firmware</th>
+            <td class="num mono">{device.firmware_version || 'Not yet connected'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Newest firmware</th>
+            <td class="num mono">{device.latest_firmware_version || '—'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Last heard from</th>
+            <td class="num">{device.firmware_reported_at ? formatDateTime(device.firmware_reported_at) : 'Never'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Warranty</th>
+            <td class="num">
+              {device.warranty_until ? formatDate(device.warranty_until) : 'Unknown'}
+              {device.warranty_state === 'expired' ? ' (ended)' : ''}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      {
+        device.update_available ? (
+          <p class="notice progress" style="margin-top:calc(var(--unit) * 4)">
+            Update available. Arranger writes it, or use the <a href="/doctor">firmware installer</a>.
+          </p>
+        ) : null
+      }
+    </section>
+
+    <section class="card">
+      <h2 class="block-heading">Name this camera</h2>
+      <form method="post" class="stack">
+        <input type="hidden" name="action" value="rename" />
+        <div class="field">
+          <label for="nickname">Nickname</label>
+          <input id="nickname" name="nickname" type="text" value={device.nickname || ''} maxlength="60" />
+          <p class="hint">Only you see this.</p>
+        </div>
+        <button class="btn secondary" type="submit">Save the name</button>
+      </form>
+
+      <hr style="border:0;border-top:1px solid var(--rule);margin:calc(var(--unit) * 6) 0" />
+
+      <h2 class="block-heading">Hand it on</h2>
+      <p class="hint" style="margin-bottom:calc(var(--unit) * 3)">
+        Removing releases the camera without giving it to anyone. It is what you do when you sell it to a stranger: they
+        register it themselves with the serial.
+      </p>
+      <form method="post" data-confirm="Remove this camera from your account? It will belong to nobody until somebody registers it.">
+        <input type="hidden" name="action" value="release" />
+        <button class="btn secondary" type="submit" data-test="release">Remove from my account</button>
+      </form>
+      <p class="hint" style="margin-top:calc(var(--unit) * 3)">
+        Hand this camera to someone else: remove it here, then give them the serial. We never move a camera between
+        accounts on your word alone.
+      </p>
+    </section>
+  </div>
+</Shell>
+
+<script>
+  // Every destructive action confirms first.
+  document.querySelectorAll('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.getAttribute('data-confirm'))) event.preventDefault();
+    });
+  });
+</script>
+
+<style>
+  .block-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: calc(var(--unit) * 2);
+  }
+</style>

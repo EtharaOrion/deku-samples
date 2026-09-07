@@ -1,0 +1,73 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { apiFetch, readCartForPage, redirectWithCookies } from '../lib/api.js';
+
+let error = null;
+let email = '';
+let name = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim();
+  name = String(form.get('name') ?? '').trim();
+  const password = String(form.get('password') ?? '');
+
+  const res = await apiFetch(Astro.request, '/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+
+  if (res.ok) {
+    return redirectWithCookies('/account', res.headers);
+  }
+  error = res.data?.message ?? 'That did not work.';
+}
+
+const cart = await readCartForPage(Astro.request);
+---
+
+<Shell title="Create an account — Vela" customer={null} cartCount={cart.item_count ?? 0}>
+  <div style="max-width:26rem">
+    <h1 class="page-title">Create an account</h1>
+    <p class="page-lede">
+      You do not need one to buy a camera. You need one to register a serial.
+    </p>
+
+    <form method="POST" class="stack" style="margin-top:1.5rem">
+      {error && <p class="notice" role="alert">{error}</p>}
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input class="input" id="name" name="name" value={name} required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value={email} required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input
+          class="input"
+          id="password"
+          name="password"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          aria-describedby="password-hint"
+        />
+        <p id="password-hint" style="color:var(--quiet);font-size:14px;line-height:21px">
+          At least eight characters.
+        </p>
+      </div>
+
+      <div class="row">
+        <button class="button button--primary" type="submit">Create account</button>
+        <a href="/sign-in">Sign in instead</a>
+      </div>
+    </form>
+  </div>
+</Shell>

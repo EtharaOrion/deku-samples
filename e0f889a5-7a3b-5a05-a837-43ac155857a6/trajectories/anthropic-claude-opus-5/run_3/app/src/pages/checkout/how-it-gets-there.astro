@@ -1,0 +1,131 @@
+---
+import Shell from '../../components/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { redirectKeeping } from '../../lib/guard.js';
+import { DELIVERY_METHODS } from '../../lib/domain.js';
+import { formatMoney } from '../../lib/money.js';
+
+const customer = await pageCustomer(Astro);
+let cart = await pageCart(Astro);
+let error = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const method = String(form.get('shipping_method') ?? '');
+  if (!method) {
+    error = 'Choose how it gets there.';
+  } else {
+    const res = await apiGet('/api/cart/delivery', Astro, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ shipping_method: method }),
+    });
+    if (res.ok) return redirectKeeping(Astro, '/checkout/payment');
+    error = res.body?.message || 'That did not work.';
+  }
+}
+
+const empty = !cart || cart.lines.length === 0;
+// A person who has not given an address yet belongs at step one.
+if (!empty && !cart.shipping_address) {
+  return redirectKeeping(Astro, '/checkout/where-it-goes');
+}
+
+// No method is preselected.
+const chosen = cart?.shipping_method ?? '';
+---
+
+<Shell
+  title="How it gets there — Vela"
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">How it gets there</h1>
+  </div>
+
+  <CheckoutSteps step={2} />
+
+  {
+    empty ? (
+      <div class="empty">
+        <p>Your cart is empty.</p>
+        <p>
+          <a href="/shop">Shop</a>
+        </p>
+      </div>
+    ) : (
+      <div class="checkout">
+        <form class="checkout__form" method="POST">
+          {error && (
+            <div class="notice notice--error" role="alert">
+              <span class="notice__body">{error}</span>
+            </div>
+          )}
+
+          <fieldset class="methods">
+            <legend class="field__label">Delivery method</legend>
+            {DELIVERY_METHODS.map((method) => (
+              <label class="radio-card">
+                <input
+                  type="radio"
+                  name="shipping_method"
+                  value={method.code}
+                  checked={chosen === method.code}
+                  required
+                />
+                <span class="method">
+                  <span class="method__head">
+                    <span class="strong">{method.code}</span>
+                    <span class="money">{formatMoney(method.price_minor)}</span>
+                  </span>
+                  <span class="small muted">{method.window}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          <div class="row">
+            <a class="btn btn--secondary" href="/checkout/where-it-goes">
+              Back
+            </a>
+            <button class="btn" type="submit">Continue to payment</button>
+          </div>
+        </form>
+
+        <CheckoutSummary cart={cart} />
+      </div>
+    )
+  }
+</Shell>
+
+<style>
+  .checkout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  .methods {
+    border: 0;
+    padding: 0;
+    margin: 0 0 calc(var(--unit) * 5);
+  }
+  .method {
+    display: block;
+    flex: 1;
+  }
+  .method__head {
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 3);
+  }
+  @media (max-width: 63.999rem) {
+    .checkout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

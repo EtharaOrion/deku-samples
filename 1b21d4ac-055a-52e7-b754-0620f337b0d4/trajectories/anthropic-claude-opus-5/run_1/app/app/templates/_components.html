@@ -1,0 +1,51 @@
+{# The six shared units. The media tile is one component with a width variant,
+   not three components: the variants carry identical hover behaviour and
+   differ only in geometry. #}
+
+{% macro media_tile(media, alt_text, sizes_class='', reel=None) %}
+  {% if media %}
+  <div class="tile-frame"
+       data-reveal
+       {% if reel %}data-reel="{{ reel.url }}" data-reel-seed="{{ reel.media_id }}"{% endif %}
+       style="aspect-ratio: {{ media.width }} / {{ media.height }};">
+    {# Space reserved from the stored intrinsic size before pixels arrive. #}
+    <div class="tile-placeholder" data-placeholder aria-hidden="true"></div>
+    <img class="tile-media"
+         src="{{ media.url }}"
+         width="{{ media.width }}" height="{{ media.height }}"
+         alt="{{ alt_text or media.alt }}"
+         loading="lazy" decoding="async"
+         data-media-id="{{ media.media_id }}"
+         onload="this.previousElementSibling.classList.add('is-clear')"
+         onerror="this.previousElementSibling.classList.add('is-clear')">
+    <span class="grain" aria-hidden="true"></span>
+  </div>
+  {% else %}
+  <div class="tile-frame is-revealed" style="aspect-ratio: 16 / 9;">
+    <div class="tile-placeholder is-clear" aria-hidden="true"></div>
+    <span class="visually-hidden">No image for this record yet.</span>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro caption_row(ordinal, title) %}
+  <div class="caption-row">
+    <span class="caption-left">
+      <span class="caption-square" aria-hidden="true"></span>
+      <span class="caption-ordinal">{{ ordinal }}</span>
+    </span>
+    <span class="caption-title display title-case">{{ title }}</span>
+  </div>
+{% endmacro %}
+
+{# The work index entry, reused exactly by the talent detail's selected work. #}
+{% macro work_entry(work, gap_large=False) %}
+  <article class="work-entry variant-{{ work.variant }}{% if gap_large %} gap-large{% endif %}">
+    <a class="tile hoverable" href="{{ work.url }}"
+       data-cursor-label="{{ work.title }} {{ work.ordinal }}">
+      {{ media_tile(work.poster, work.poster.alt if work.poster else work.title) }}
+      {{ caption_row(work.ordinal, work.title) }}
+      <span class="visually-hidden">{{ work.title }}, work {{ work.ordinal }}</span>
+    </a>
+  </article>
+{% endmacro %}

@@ -1,0 +1,1 @@
+const e=document.querySelector("[data-confirm-release]");e&&e.addEventListener("submit",o=>{window.confirm("Remove this camera from your account? It will belong to nobody until somebody registers it.")||o.preventDefault()});

@@ -1,0 +1,82 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartControls from '../islands/CartControls.jsx';
+import { currentCart } from '../lib/server.js';
+import { formatMinor } from '../lib/format.js';
+
+// The cart is read on the server, so the lines and the totals are in the markup
+// on first paint rather than after a fetch.
+let cart = null;
+let failed = false;
+try {
+  cart = await currentCart(Astro);
+} catch {
+  failed = true;
+}
+
+const empty = {
+  lines: [], notices: [], subtotal_minor: 0, shipping_minor: 0, tax_minor: 0,
+  total_minor: 0, protection_minor: 0, protection_enabled: false, protection_rung: null,
+  item_count: 0, currency: 'usd',
+};
+const view = cart || empty;
+---
+<Shell title="Cart — Vela" description="What is in your cart.">
+  <div class="stack stack-6">
+    <h1>Cart</h1>
+
+    {failed ? (
+      <p class="notice notice-danger">We could not load your cart. Reload the page to try again.</p>
+    ) : (
+      <>
+        <!-- The server-rendered copy: complete markup on first paint, and the
+             whole cart for a reader with no scripting. -->
+        <noscript>
+          {view.lines.length === 0 ? (
+            <div class="card empty">
+              <p>Your cart is empty.</p>
+              <a href="/shop">Shop</a>
+            </div>
+          ) : (
+            <table class="table">
+              <caption class="visually-hidden">Cart lines</caption>
+              <thead>
+                <tr>
+                  <th>Item</th><th class="num">Unit</th>
+                  <th class="num">Qty</th><th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.lines.map((line) => (
+                  <tr>
+                    <td>{line.title} <span class="hint">{line.option_value}</span></td>
+                    <td class="num money">{formatMinor(line.unit_price_minor)}</td>
+                    <td class="num">{line.quantity}</td>
+                    <td class="num money">{formatMinor(line.line_total_minor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr><th colspan="3" class="num">Subtotal</th><td class="num money">{formatMinor(view.subtotal_minor)}</td></tr>
+                <tr><th colspan="3" class="num">Estimated tax</th><td class="num money">{formatMinor(view.tax_minor)}</td></tr>
+                <tr><th colspan="3" class="num">Total</th><td class="num money">{formatMinor(view.total_minor)}</td></tr>
+              </tfoot>
+            </table>
+          )}
+          <p><a class="btn btn-primary" href="/checkout/where-it-goes">Check out</a></p>
+        </noscript>
+
+        <CartControls client:load initial={view} />
+      </>
+    )}
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  .empty {
+    padding: calc(var(--space) * 6);
+    display: flex; flex-direction: column; gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+</style>

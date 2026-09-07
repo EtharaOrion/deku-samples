@@ -1,0 +1,123 @@
+{% import "marks.html" as marks %}
+{% import "components.html" as c %}
+<!doctype html>
+<html lang="en" class="{{ 'ground-dark' if ground == 'dark' else '' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <meta name="description" content="{{ site_description }}">
+  <meta property="og:title" content="{{ page_title }}">
+  <meta property="og:description" content="{{ site_description }}">
+  <meta property="og:image" content="{{ share_image }}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  {% if not indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
+  <link rel="preload" href="/static/vendor/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/vendor/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/cirrus.css">
+  <style>[x-cloak]{display:none !important}</style>
+  <script defer src="/static/js/cirrus.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+</head>
+<body class="{{ 'ground-dark' if ground == 'dark' else '' }} {{ 'no-scroll' if route_name in ('entry','preview') else '' }}"
+      data-route="{{ route_name }}"
+      data-mark="{{ mark }}"
+      data-house="{{ house.slug if house else '' }}">
+
+<a class="skip-link t-default" href="#content">Skip to content</a>
+
+{# ---------- the persistent tree: it mounts once and survives every navigation ---------- #}
+<div class="frame" id="site-frame" x-data="frame()">
+
+  <a class="wordmark" href="/" aria-label="Cirrus, home" data-no-cursor>{{ (house.name if house else 'cirrus')|lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-centre">
+      <a class="nav-item t-default" href="/works"
+         {% if route_name == 'works' %}aria-current="page"{% endif %}>{{ c.split('WORKS') }}</a>
+    </div>
+    <div class="nav-group">
+      <a class="nav-item t-default" href="/talents"
+         {% if route_name == 'talents' %}aria-current="page"{% endif %}>{{ c.split('TALENTS') }}</a>
+      {# CONTACT is not a route: no active state, and below the breakpoint it opens the overlay #}
+      <a class="nav-item t-default" href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         data-contact @click="maybeOverlay($event)">{{ c.split('CONTACT') }}</a>
+      <a class="nav-item t-default" href="/about"
+         {% if route_name == 'about' %}aria-current="page"{% endif %}>{{ c.split('ABOUT') }}</a>
+    </div>
+  </nav>
+
+  <div id="centre-mark-slot" aria-hidden="true">{{ marks.centre_mark(mark) }}</div>
+
+  {{ marks.corner_credit() }}
+
+  {# the counter well: one component for the entry route's progress, the roster's
+     position and the preview route's waiting state #}
+  <div class="counter-well" id="counter-well" x-show="counterVisible" x-cloak>
+    <span class="counter-value" x-text="counterText"></span>
+  </div>
+
+  {# bound as a string: Alpine drops an attribute bound to a boolean false #}
+  <div class="contact-overlay" id="contact-overlay"
+       :data-open="contactOpen ? 'true' : 'false'" data-open="false"
+       :aria-hidden="contactOpen ? 'false' : 'true'"
+       role="dialog" aria-modal="true" aria-label="Contact"
+       @keydown.escape="closeContact()" x-ref="contact">
+    <button class="contact-close t-default" @click="closeContact()" type="button">CLOSE</button>
+    <a class="contact-item display d-secondary"
+       href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+       aria-label="{{ (house.contact_email if house else 'prod@example.com')|upper }}">{{ (house.contact_email if house else 'prod@example.com')|upper }}</a>
+  </div>
+</div>
+
+{# the cursor pair, parked at (-999, -999) so it stays composited #}
+<div class="cursor" id="cursor" aria-hidden="true">
+  <span class="cursor-square" id="cursor-square"></span>
+  <span class="cursor-label t-default" id="cursor-label"></span>
+</div>
+
+{% block footer %}
+{% if route_name not in ('entry', 'preview', 'talents') %}
+<footer class="footer" id="site-footer">
+  <div class="footer-scrim" aria-hidden="true"></div>
+  <div class="footer-columns">
+    <div class="footer-premises t-footer">
+      <div>
+        <div>{{ c.split(house.street if house else '9 PASSAGE BELLEVUE') }}</div>
+        <div>{{ c.split(house.city if house else 'PARIS') }}</div>
+      </div>
+      <div>{{ house.district if house else '11' }}</div>
+    </div>
+    <div class="t-footer">
+      <div>{{ c.split(house.tagline_upper if house else 'FOR PICTURE') }}</div>
+      <div>{{ c.split(house.tagline_lower if house else 'AND ITS MAKERS') }}</div>
+    </div>
+    <div class="t-footer">
+      <div>{{ c.split('WORK WITH US') }}</div>
+      <a href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         aria-label="{{ (house.contact_email if house else 'prod@example.com')|upper }}">{{ c.split((house.contact_email if house else 'prod@example.com')|upper) }}</a>
+    </div>
+    <div class="t-footer footer-col-right">
+      <div><a href="https://instagram.com" target="_blank" rel="noopener noreferrer">{{ c.split('INSTAGRAM') }}</a></div>
+      <div><a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">{{ c.split('LINKEDIN') }}</a></div>
+    </div>
+  </div>
+</footer>
+{% endif %}
+{% endblock %}
+
+{# ---------- the route tree, swapped beneath the frame ---------- #}
+<main class="well" id="content" tabindex="-1">
+  <div class="route" id="route-content">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<div class="grain-layer" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+{% block after %}{% endblock %}
+</body>
+</html>

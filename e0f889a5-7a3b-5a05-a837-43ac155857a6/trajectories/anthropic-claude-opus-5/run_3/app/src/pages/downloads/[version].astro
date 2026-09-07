@@ -1,0 +1,24 @@
+---
+import DownloadsPage from '../../components/DownloadsPage.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+
+const { version } = Astro.params;
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+
+const one = await apiGet(`/api/releases/${encodeURIComponent(version)}`, Astro);
+if (!one.ok) return new Response(null, { status: 404 });
+
+const releasesRes = await apiGet('/api/releases?page_size=100', Astro);
+const firmwareRes = await apiGet('/api/firmware/manifest?model=compact', Astro);
+---
+
+<!-- Every release has its own address which renders it expanded with the rest
+     collapsed. -->
+<DownloadsPage
+  releases={releasesRes.ok ? releasesRes.body.data : []}
+  firmware={firmwareRes.ok ? firmwareRes.body : null}
+  expanded={version}
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+/>

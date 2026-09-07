@@ -1,0 +1,18 @@
+---
+import { customerFromCookies, formValues, redirect, setFlash } from '../../../lib/actions.js';
+import { registerDevice } from '../../../../server/services/devices.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent('/account/cameras')}`);
+if (Astro.request.method !== 'POST') return redirect('/account/cameras');
+
+const body = await formValues(Astro.request);
+const next = String(body.next || '/account/cameras');
+try {
+  const { device } = await registerDevice({ customerId: customer.id, serial: body.serial });
+  setFlash(Astro.cookies, { tone: 'done', message: `Registered. ${device.product_title}, serial ${device.serial}, is on your account.` });
+} catch (err) {
+  setFlash(Astro.cookies, { tone: 'wrong', message: err.message || 'That did not work.' });
+}
+return redirect(next.startsWith('/') ? next : '/account/cameras');
+---

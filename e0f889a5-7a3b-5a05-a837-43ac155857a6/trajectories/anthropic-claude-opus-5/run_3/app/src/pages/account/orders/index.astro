@@ -1,0 +1,97 @@
+---
+import Shell from '../../../components/Shell.astro';
+import { requirePageCustomer } from '../../../lib/guard.js';
+import { apiGet, pageCart } from '../../../lib/server-fetch.js';
+import { formatMoney } from '../../../lib/money.js';
+import { orderChip, formatDateShort } from '../../../lib/domain.js';
+
+const { customer, redirect } = await requirePageCustomer(Astro);
+if (redirect) return redirect;
+
+const cart = await pageCart(Astro);
+const cursor = Astro.url.searchParams.get('cursor');
+const query = cursor ? `?page_size=20&cursor=${encodeURIComponent(cursor)}` : '?page_size=20';
+const res = await apiGet(`/api/account/orders${query}`, Astro);
+
+const orders = res.ok ? res.body.data : [];
+const nextCursor = res.ok ? res.body.next_cursor : null;
+const hasMore = res.ok ? res.body.has_more : false;
+---
+
+<Shell
+  title="Orders — Vela"
+  current="orders"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">Orders</h1>
+    <p class="page-sub">Newest first.</p>
+  </div>
+
+  {
+    orders.length === 0 ? (
+      <div class="empty">
+        <p>No orders yet.</p>
+        <p>
+          <a href="/shop">Shop</a>
+        </p>
+      </div>
+    ) : (
+      <>
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Order</th>
+              <th scope="col">Placed</th>
+              <th scope="col">What</th>
+              <th scope="col">State</th>
+              <th scope="col" class="right">
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => {
+              const chip = orderChip(order);
+              return (
+                <tr>
+                  <td>
+                    <a class="order-number" href={`/account/orders/${order.number}`}>
+                      {order.number}
+                    </a>
+                  </td>
+                  <td class="num">{formatDateShort(order.placed_at)}</td>
+                  <td>
+                    {order.first_line_title}
+                    {order.extra_line_count > 0 && (
+                      <span class="muted"> and {order.extra_line_count} more</span>
+                    )}
+                  </td>
+                  <td>
+                    <span class={`chip chip--${chip.tone}`}>{chip.text}</span>
+                  </td>
+                  <td class="right money">{formatMoney(order.total_minor)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {hasMore && nextCursor && (
+          <p class="more">
+            <a class="btn btn--secondary" href={`/account/orders?cursor=${encodeURIComponent(nextCursor)}`}>
+              Older orders
+            </a>
+          </p>
+        )}
+      </>
+    )
+  }
+</Shell>
+
+<style>
+  .more {
+    margin-top: calc(var(--unit) * 5);
+  }
+</style>

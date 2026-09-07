@@ -1,0 +1,41 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { safeGet, readCartForPage } from '../../../lib/api.js';
+import { requireCustomerPage } from '../../../lib/guard.js';
+
+const { customer, redirect } = await requireCustomerPage(Astro);
+if (redirect) return redirect;
+
+const { number } = Astro.params;
+const cart = await readCartForPage(Astro.request);
+const res = await safeGet(Astro.request, `/api/account/orders/${encodeURIComponent(number)}`);
+const order = res.data;
+---
+
+<Shell
+  title={order ? `Order ${order.number} — Vela` : 'Order — Vela'}
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+>
+  {!order ? (
+    <div class="empty-state">
+      <p>That order does not exist.</p>
+      <p style="margin-top:0.5rem"><a href="/account/orders">Back to your orders</a></p>
+    </div>
+  ) : (
+    <>
+      <nav aria-label="Breadcrumb" style="margin-bottom:1rem">
+        <a href="/account/orders">Orders</a>
+        <span aria-hidden="true" style="color:var(--quiet)"> / </span>
+        <span class="mono">{order.number}</span>
+      </nav>
+
+      <header class="stack--tight" style="margin-bottom:1.5rem">
+        <h1 class="page-title">Order <span class="mono">{order.number}</span></h1>
+      </header>
+
+      <OrderDetail order={order} showRegister={true} />
+    </>
+  )}
+</Shell>

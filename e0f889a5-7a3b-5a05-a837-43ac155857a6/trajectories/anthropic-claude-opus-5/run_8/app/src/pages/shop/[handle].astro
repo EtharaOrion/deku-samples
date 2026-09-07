@@ -1,0 +1,157 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import { apiFetch } from '../../lib/api.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+import '../../styles/shop.css';
+
+const { handle } = Astro.params;
+const wanted = Astro.url.searchParams.get('variant');
+const res = await apiFetch(Astro, `/api/products/${encodeURIComponent(handle)}${wanted ? `?variant=${encodeURIComponent(wanted)}` : ''}`);
+
+if (res.status === 404) {
+  return new Response(null, { status: 404, headers: { Location: '/404' } });
+}
+
+const p = res.data;
+const selected = p.variants.find((v) => v.sku === p.selected_sku) ?? p.variants[0];
+const lede = p.blocks.find((b) => b.kind === 'lede');
+const specs = p.blocks.filter((b) => b.kind === 'spec_group');
+const box = p.blocks.find((b) => b.kind === 'in_the_box');
+const compat = p.blocks.find((b) => b.kind === 'compatibility');
+const supportNote = p.blocks.find((b) => b.kind === 'support_note');
+
+const discontinued = p.status === 'discontinued';
+const av = selected.availability;
+const buyDisabled = discontinued || selected.available <= 0;
+const buyLabel = discontinued ? 'Discontinued' : selected.available <= 0 ? 'Sold out' : 'Add to cart';
+const availLine = discontinued ? 'Discontinued' : selected.available <= 0 ? 'Sold out' : selected.available <= 10 ? `Only ${selected.available} left` : '';
+const views = [0, 1, 2];
+---
+<Shell title={p.title} current="shop" description={p.subtitle}>
+  <div
+    class="product"
+    data-product
+    data-status={p.status}
+    data-variants={JSON.stringify(p.variants.map((v) => ({ sku: v.sku, price_minor: v.price_minor, available: v.available, option_value: v.option_value })))}
+  >
+    <div>
+      <div class="gallery-main">
+        {views.map((v, i) => (
+          <div data-gallery-view hidden={i !== 0}>
+            <ProductMedia handle={p.handle} view={v} label={`${p.title}, view ${i + 1}`} />
+          </div>
+        ))}
+      </div>
+      <ul class="gallery-thumbs" aria-label={`${p.title}, other views`}>
+        {views.map((v, i) => (
+          <li>
+            <button type="button" data-gallery-thumb aria-current={i === 0 ? 'true' : 'false'} aria-label={`Show view ${i + 1} of ${p.title}`}>
+              <ProductMedia handle={p.handle} view={v} label="" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div>
+      <h1 class="product-title">{p.title}</h1>
+      <p class="product-sub">{p.subtitle}</p>
+      <p class="product-price money" data-price>{formatMinor(selected.price_minor)}</p>
+      <p class="muted small" data-availability hidden={!availLine}>{availLine}</p>
+
+      {p.variants.length > 1 && (
+        <fieldset class="optgroup">
+          <legend>Finish</legend>
+          <div class="optlist">
+            {p.variants.map((v) => (
+              <label>
+                <input
+                  type="radio"
+                  name="variant"
+                  value={v.sku}
+                  checked={v.sku === selected.sku}
+                  disabled={discontinued}
+                />
+                <span>{v.option_value}</span>
+                {v.available <= 0 && !discontinued && <span class="muted small">Sold out</span>}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      <div class="buy-row">
+        <div class="stepper" role="group" aria-label="Quantity">
+          <button type="button" data-dec aria-label="One fewer">−</button>
+          <input
+            type="number"
+            data-qty
+            value="1"
+            min="1"
+            max={Math.max(1, Math.min(10, selected.available))}
+            aria-label="Quantity"
+          />
+          <button type="button" data-inc aria-label="One more">+</button>
+        </div>
+        <button type="button" class="btn" data-buy disabled={buyDisabled} aria-disabled={String(buyDisabled)}>
+          {buyLabel}
+        </button>
+      </div>
+      <p class="vh" role="status" aria-live="polite" data-live></p>
+
+      {discontinued && supportNote && (
+        <p class="notice notice-progress" style="margin-top: 1.5rem">{supportNote.payload.text}</p>
+      )}
+      {discontinued && !supportNote && p.support_until && (
+        <p class="notice notice-progress" style="margin-top: 1.5rem">
+          We no longer sell this. We will support it until {formatDate(p.support_until)}.
+        </p>
+      )}
+      {!discontinued && p.support_until && (
+        <p class="muted small" style="margin-top: 1.5rem">We will support this camera until {formatDate(p.support_until)}.</p>
+      )}
+    </div>
+  </div>
+
+  <div class="blocks">
+    {lede && <p class="block-lede">{lede.payload.text}</p>}
+
+    {specs.map((s) => (
+      <>
+        <h2>{s.payload.title}</h2>
+        <table class="table">
+          <tbody>
+            {s.payload.rows.map(([k, v]) => (
+              <tr><th scope="row">{k}</th><td class="num tnum">{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ))}
+
+    {box && (
+      <>
+        <h2>In the box</h2>
+        <ul>{box.payload.items.map((i) => <li>{i}</li>)}</ul>
+      </>
+    )}
+
+    {compat && (
+      <>
+        <h2>Compatibility</h2>
+        <table class="table">
+          <tbody>
+            <tr><th scope="row">Minimum operating system</th><td>{compat.payload.min_os}</td></tr>
+            <tr><th scope="row">Minimum application version</th><td class="version">{compat.payload.min_app}</td></tr>
+          </tbody>
+        </table>
+        <p class="muted small" style="margin-top: 0.75rem">{compat.payload.text}</p>
+      </>
+    )}
+  </div>
+
+  <script>
+    import '../../scripts/product.js';
+  </script>
+</Shell>

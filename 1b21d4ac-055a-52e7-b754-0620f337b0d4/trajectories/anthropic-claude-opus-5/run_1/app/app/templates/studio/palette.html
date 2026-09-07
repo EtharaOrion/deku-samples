@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+{# One palette is the producer's entry point and every journey starts here. #}
+<script type="application/json" id="studio-items">{{ items | tojson }}</script>
+<section class="studio-wrap" x-data="palette(readJson('studio-items'))" x-init="init()">
+  <h1 class="visually-hidden">Studio</h1>
+  <label class="visually-hidden" for="palette">Filter your records by title or slug</label>
+  <input id="palette" class="palette-input" type="search" x-model="q"
+         placeholder="Type a name" autocomplete="off" x-ref="q"
+         @keydown.escape="q = ''">
+
+  <div class="palette-actions">
+    <a class="palette-action" href="/studio/talents/new">NEW TALENT</a>
+    <a class="palette-action" href="/studio/works/new">NEW WORK</a>
+    <a class="palette-action" href="/studio/reorder">REORDER INDEX</a>
+    <button class="palette-action" type="button" @click="previewFirst()"
+            :disabled="!filtered.length">PREVIEW</button>
+  </div>
+  <p class="field-error" x-show="message" x-text="message" role="status" x-cloak></p>
+
+  <p style="margin-bottom:14px;">
+    <span x-text="filtered.length"></span> RECORD<span x-show="filtered.length !== 1">S</span>
+  </p>
+
+  <div class="card-grid">
+    <template x-for="item in filtered" :key="item.id">
+      <a class="card" :href="'/studio/items/' + item.id">
+        <span class="card-title" x-text="item.title"></span>
+        <span class="card-meta">
+          <span x-text="item.slug"></span>
+          <span x-text="item.kind.toUpperCase()"></span>
+          <span x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+        </span>
+      </a>
+    </template>
+  </div>
+  <p class="empty-state" x-show="!filtered.length" x-cloak>
+    No record here answers to that.</p>
+
+  <p style="margin-top:40px;"><button type="button" @click="signOut()">SIGN OUT</button></p>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

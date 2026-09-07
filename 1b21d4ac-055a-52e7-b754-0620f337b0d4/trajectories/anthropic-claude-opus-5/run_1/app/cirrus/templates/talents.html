@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+{# The roster arrives complete in the document. Alpine enhances the delivered
+   HTML in place: it filters, advances and announces, it does not build. #}
+<section class="roster" data-roster
+         x-data="roster()" x-init="init()"
+         @keydown.window.arrow-right.prevent="advance(1)"
+         @keydown.window.arrow-left.prevent="advance(-1)"
+         @keydown.window.arrow-down="onVertical($event, 1)"
+         @keydown.window.arrow-up="onVertical($event, -1)">
+
+  {% if disciplines %}
+  <div class="filter" role="group" aria-label="Filter the roster by discipline">
+    {% for d in disciplines %}
+    <button type="button" class="filter-control{% if loop.first %} is-active{% endif %}"
+            data-filter-control data-discipline="{{ d }}"
+            aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            style="--n:{{ loop.index0 }}"
+            :class="{ 'is-active': discipline === '{{ d }}' }"
+            :aria-pressed="discipline === '{{ d }}' ? 'true' : 'false'"
+            @click="select('{{ d }}')">{{ d|upper }}</button>
+    {% endfor %}
+    <span class="filter-marker" aria-hidden="true" style="--n:0" :style="`--n:${markerIndex}`"></span>
+  </div>
+  {% endif %}
+
+  <div class="roster-stage" data-roster-stage>
+    {% if talents %}
+    <p class="empty-state" data-roster-empty hidden
+       x-show="count === 0" x-cloak>NO TALENT IS PUBLISHED IN THIS DISCIPLINE.</p>
+
+    {% for t in talents %}
+    <article class="roster-card{% if loop.first %} is-current{% endif %}"
+             data-roster-card data-discipline="{{ t.discipline }}"
+             data-name="{{ t.title }}" style="--i:{{ loop.index0 }}">
+      <a class="roster-link" href="{{ t.href }}" data-route-link
+         data-cursor-label="{{ t.title }}"
+         tabindex="{{ '0' if loop.first else '-1' }}"
+         aria-label="{{ t.title }}, {{ t.discipline }}">
+        {% if loop.first %}
+        <h1 class="roster-name" data-roster-name>{{ t.title }}</h1>
+        {% else %}
+        <p class="roster-name" data-roster-name>{{ t.title }}</p>
+        {% endif %}
+        <span class="roster-discipline">{{ t.discipline|upper }}</span>
+        <span class="roster-portrait" data-reveal>
+          {% if t.poster %}
+          <img class="roster-img" src="{{ t.poster.url }}" alt="{{ t.poster.alt }}"
+               width="{{ t.poster.width }}" height="{{ t.poster.height }}"
+               data-media decoding="async">
+          {% endif %}
+        </span>
+      </a>
+    </article>
+    {% endfor %}
+
+    <p class="visually-hidden" aria-live="polite" data-roster-announce x-text="announcement"></p>
+    {% else %}
+    <h1 class="visually-hidden">Talents</h1>
+    <p class="empty-state">NO TALENT IS PUBLISHED YET.</p>
+    {% endif %}
+  </div>
+
+  <p class="roster-count" aria-hidden="true" data-roster-count>
+    <span x-text="String(Math.min(position + 1, Math.max(count, 1))).padStart(3, '0')">001</span>
+    <span>/</span>
+    <span x-text="String(count).padStart(3, '0')">{{ '%03d' % talents|length }}</span>
+  </p>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

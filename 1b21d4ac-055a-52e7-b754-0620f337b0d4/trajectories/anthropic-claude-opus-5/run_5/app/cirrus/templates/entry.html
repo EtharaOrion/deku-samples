@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "components.html" as c %}
+
+{% set cluster = [
+  (7.0,  14.0, 190), (19.5, 6.0,  240), (33.0, 17.0, 300),
+  (47.5, 8.5,  205), (61.0, 15.0, 265), (74.0, 7.0,  175),
+  (85.0, 19.0, 230), (5.0,  44.0, 215), (17.0, 36.5, 285),
+  (30.0, 47.0, 330), (43.0, 33.0, 250), (56.5, 44.5, 310),
+  (70.0, 35.5, 225), (83.0, 45.0, 195), (11.0, 68.0, 260),
+  (25.0, 76.0, 200), (38.0, 64.0, 290), (53.0, 74.0, 240),
+  (66.0, 66.0, 215), (79.0, 75.0, 275)
+] %}
+
+{% block content %}
+<section class="entry" aria-labelledby="entry-heading" x-data="entryCounter()">
+  <h1 class="visually-hidden" id="entry-heading">Cirrus</h1>
+
+  {# the loading veil: it covers the cluster and clears on opacity 0.4s as the count completes #}
+  <div class="veil" :data-cleared="cleared ? 'true' : 'false'" data-cleared="false"
+       aria-hidden="true"></div>
+
+  <div class="cluster">
+    {% for work in works %}
+      {% set pos = cluster[loop.index0 % cluster|length] %}
+      {% set long = pos[2] %}
+      {% set ratio = (work.poster.width / work.poster.height) if work.poster and work.poster.height else 1.6 %}
+      <a class="cluster-item" href="{{ work.href }}"
+         style="left: {{ pos[0] }}%; top: {{ pos[1] }}%; width: {{ long }}px; z-index: {{ loop.index0 % 5 }};"
+         data-cursor-label="{{ work.title }}"
+         aria-label="{{ work.title }}, work {{ work.ordinal }}">
+        {{ c.tile(work.poster, reveal=false) }}
+        <span class="cluster-caption t-default">{{ work.title }} {{ work.ordinal }}</span>
+      </a>
+    {% endfor %}
+    {% if not works %}
+      <p class="t-default" style="position:absolute;left:40px;top:50%">No work is published yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

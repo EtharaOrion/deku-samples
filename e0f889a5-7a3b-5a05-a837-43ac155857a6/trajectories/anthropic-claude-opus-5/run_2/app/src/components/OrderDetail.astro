@@ -1,0 +1,156 @@
+---
+import { formatMoney, formatDate } from '../lib/api';
+
+interface Props { order: any; showRegister?: boolean }
+const { order, showRegister = false } = Astro.props;
+const a = order.shipping_address || {};
+const chip = order.chip || { tone: 'progress', label: 'Confirmed' };
+const methodLabel = order.shipping_method === 'express' ? 'Express' : 'Standard';
+---
+
+<div class="order-detail">
+  <div class="order-head">
+    <div>
+      <p class="label">Order</p>
+      <p class="order-number mono">{order.number}</p>
+    </div>
+    <div>
+      <p class="label">Placed</p>
+      <p><time datetime={order.placed_at}>{formatDate(order.placed_at)}</time></p>
+    </div>
+    <div>
+      <p class="label">State</p>
+      <span class={`chip chip-${chip.tone}`}>{chip.label}</span>
+    </div>
+  </div>
+
+  <table class="table lines">
+    <caption class="visually-hidden">Lines on order {order.number}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Item</th>
+        <th scope="col">SKU</th>
+        <th scope="col" class="num">Quantity</th>
+        <th scope="col" class="num">Unit</th>
+        <th scope="col" class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {order.lines.map((line: any) => (
+        <tr>
+          <td>{line.title_snapshot}</td>
+          <td class="mono">{line.sku_snapshot}</td>
+          <td class="num tnum">{line.quantity}</td>
+          <td class="num tnum">{formatMoney(line.unit_price_minor, order.currency)}</td>
+          <td class="num tnum">{formatMoney(line.total_minor, order.currency)}</td>
+        </tr>
+      ))}
+    </tbody>
+    <tfoot>
+      <tr><th scope="row" colspan="4">Subtotal</th><td class="num tnum">{formatMoney(order.subtotal_minor, order.currency)}</td></tr>
+      <tr><th scope="row" colspan="4">Delivery, {methodLabel}</th><td class="num tnum">{formatMoney(order.shipping_minor, order.currency)}</td></tr>
+      <tr><th scope="row" colspan="4">Tax</th><td class="num tnum">{formatMoney(order.tax_minor, order.currency)}</td></tr>
+      <tr class="grand"><th scope="row" colspan="4">Total</th><td class="num tnum">{formatMoney(order.total_minor, order.currency)}</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="panels">
+    <section class="panel">
+      <h2>Where it went</h2>
+      <address>
+        {a.name}<br />
+        {a.line1}{a.line2 ? <><br />{a.line2}</> : null}<br />
+        {a.city}, {a.region} <span class="tnum">{a.postal_code}</span><br />
+        {a.country}
+      </address>
+      <p class="muted">{order.email}</p>
+    </section>
+
+    <!-- The only place a person finds the serials without the camera in hand. -->
+    <section class="panel">
+      <h2>Serial numbers</h2>
+      {order.serials && order.serials.length > 0 ? (
+        <ul class="serials">
+          {order.serials.map((s: any) => (
+            <li>
+              <span class="serial mono">{s.serial}</span>
+              {s.registered ? (
+                <span class="chip chip-done">Registered</span>
+              ) : showRegister ? (
+                /* Each unregistered serial carries a one-click control. */
+                <button class="btn btn-secondary btn-small" type="button" data-register-serial={s.serial}>
+                  Register to this account
+                </button>
+              ) : (
+                <span class="chip chip-neutral">Not registered</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="muted">No cameras on this order.</p>
+      )}
+    </section>
+  </div>
+</div>
+
+<script>
+  // Registering a serial straight off the order it was bought on.
+  document.querySelectorAll<HTMLButtonElement>('[data-register-serial]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const serial = button.dataset.registerSerial!;
+      button.disabled = true;
+      const previous = button.textContent;
+      button.textContent = 'Registering';
+      try {
+        const res = await fetch('/api/account/devices', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ serial }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          const note = document.createElement('span');
+          note.className = 'register-error';
+          note.textContent = body?.error?.message || 'That did not work.';
+          button.replaceWith(note);
+          return;
+        }
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-done';
+        chip.textContent = 'Registered';
+        button.replaceWith(chip);
+      } catch {
+        button.disabled = false;
+        button.textContent = previous;
+      }
+    });
+  });
+</script>
+
+<style>
+  .order-detail { display: flex; flex-direction: column; gap: calc(var(--unit) * 8); }
+  .order-head { display: flex; gap: calc(var(--unit) * 12); flex-wrap: wrap; }
+  .label { font-size: 14px; color: var(--fg-muted); }
+  .order-number { font-size: 20px; font-weight: 400; }
+  .lines tfoot th { text-align: right; font-weight: 400; color: var(--fg-muted); }
+  .lines tfoot .grand th, .lines tfoot .grand td { font-weight: 700; color: var(--fg); }
+  .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--unit) * 6); }
+  .panel {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 4);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: calc(var(--unit) * 2);
+  }
+  .panel h2 { font-size: 14px; color: var(--fg-muted); font-weight: 400; }
+  address { font-style: normal; line-height: 24px; }
+  .muted { color: var(--fg-muted); font-size: 14px; }
+  .serials { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .serials li { display: flex; align-items: center; gap: calc(var(--unit) * 3); justify-content: space-between; }
+  .register-error { color: var(--state-error); font-size: 14px; }
+
+  @media (max-width: 63.999rem) {
+    .panels { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

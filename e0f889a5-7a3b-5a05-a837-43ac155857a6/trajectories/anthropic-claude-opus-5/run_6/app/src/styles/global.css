@@ -1,0 +1,596 @@
+/* ---------------------------------------------------------------------------
+   Vela. Two faces, two grounds, one accent, one speed.
+   Nothing here states black or white directly: a surface declares its ground
+   and its ink, and one declaration inverts a surface.
+   --------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/space-grotesk-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/space-grotesk-latin.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/space-grotesk-latin-ext.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/space-grotesk-latin-ext.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* The fallback, declared with metric overrides so the swap does not move the letter. */
+@font-face {
+  font-family: 'Vela Fallback';
+  src: local('system-ui'), local('Helvetica Neue'), local('Arial'), local('Liberation Sans');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  /* Fluid type. Below 64rem the letter is the whole page; above it the letter is
+     a narrow column beside the film, which is why these are not monotonic. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  --font-display: 'Vela Grotesk', 'Vela Fallback', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  --unit: 0.25rem;
+  --gutter: 20px;
+  --header-h: 80px;
+  --wordmark-h: 40px;
+  --radius: 0.5rem;
+  --border-w: 1px;
+  --elevation: 0px 2px 4px hsl(30 10% 6% / 0.05);
+  --speed: 120ms;
+  --ease: linear;
+  --rail-w: 216px;
+
+  /* Light ground: every surface but the letter and its footer. */
+  --ground: hsl(40 14% 97%);
+  --ground-raised: hsl(40 18% 99%);
+  --ground-sunken: hsl(40 10% 93%);
+  --ink: hsl(28 10% 11%);
+  --ink-quiet: hsl(28 6% 36%);
+  --rule: hsl(30 8% 82%);
+
+  /* Colour carries meaning and nothing else. */
+  --accent: hsl(18 92% 44%);
+  --state-wrong: hsl(356 72% 36%);
+  --state-progress: hsl(214 74% 33%);
+  --state-done: hsl(154 58% 24%);
+}
+
+.ground-dark {
+  --ground: hsl(28 12% 9%);
+  --ground-raised: hsl(28 10% 14%);
+  --ground-sunken: hsl(28 14% 6%);
+  --ink: hsl(40 16% 93%);
+  --ink-quiet: hsl(38 8% 70%);
+  --rule: hsl(30 6% 28%);
+  --accent: hsl(20 94% 60%);
+  --state-wrong: hsl(356 76% 68%);
+  --state-progress: hsl(210 78% 72%);
+  --state-done: hsl(152 52% 62%);
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.ground-light {
+  --ground: hsl(40 14% 97%);
+  --ground-raised: hsl(40 18% 99%);
+  --ground-sunken: hsl(40 10% 93%);
+  --ink: hsl(28 10% 11%);
+  --ink-quiet: hsl(28 6% 36%);
+  --rule: hsl(30 8% 82%);
+  --accent: hsl(18 92% 44%);
+  --state-wrong: hsl(356 72% 36%);
+  --state-progress: hsl(214 74% 33%);
+  --state-done: hsl(154 58% 24%);
+  background: var(--ground);
+  color: var(--ink);
+}
+
+@media (min-width: 64rem) {
+  :root {
+    /* 48.932px and 20.9709px at 1440px, smooth in viewport width. */
+    --display-fs: 3.398056vw;
+    --body-fs: 1.456313vw;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Root default: 16px over 24px. */
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 24px;
+  font-style: normal;
+  background: var(--ground);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Focus is the surface's own foreground, never the accent, never removed. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Every transition moves at one speed and is linear: a machine responding. */
+:where(a, button, input, select, textarea, summary, label, .chip, .card) {
+  transition: background-color var(--speed) var(--ease), color var(--speed) var(--ease),
+    border-color var(--speed) var(--ease), opacity var(--speed) var(--ease), transform var(--speed) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.mono,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Figures stack, so figures align. */
+.tnum,
+td.num,
+th.num,
+.price,
+.total {
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(var(--unit) * 2);
+  z-index: 90;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  background: var(--ground-raised);
+  color: var(--ink);
+  border: var(--border-w) solid var(--ink);
+  border-radius: var(--radius);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- operational surfaces ------------------------------------------------ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.shell > .rail {
+  border-right: var(--border-w) solid var(--rule);
+  background: var(--ground-raised);
+}
+
+.rail-inner {
+  position: sticky;
+  top: 0;
+  padding: calc(var(--unit) * 3) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 4);
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 1);
+}
+
+.rail-label {
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+  margin-bottom: var(--unit);
+}
+
+.rail a {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 2);
+  padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 21px;
+}
+.rail a:hover {
+  background: var(--ground-sunken);
+}
+.rail a[aria-current='page'] {
+  font-weight: 700;
+  background: var(--ground-sunken);
+}
+.rail a .marker {
+  width: 2px;
+  height: 14px;
+  background: transparent;
+  border-radius: 1px;
+}
+.rail a[aria-current='page'] .marker {
+  background: var(--ink);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--unit) * 3);
+  padding: calc(var(--unit) * 2) var(--gutter);
+  border-bottom: var(--border-w) solid var(--rule);
+  background: var(--ground-raised);
+  min-height: 56px;
+}
+
+.content {
+  padding: calc(var(--unit) * 6) var(--gutter) calc(var(--unit) * 16);
+  max-width: 1550px;
+}
+
+.page-title {
+  font-size: 28px;
+  line-height: 34px;
+  letter-spacing: -0.01em;
+  margin-bottom: calc(var(--unit) * 2);
+}
+
+.page-lede {
+  color: var(--ink-quiet);
+  max-width: 62ch;
+  margin-bottom: calc(var(--unit) * 6);
+}
+
+.wordmark {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  font-size: 18px;
+  line-height: var(--wordmark-h);
+  display: inline-block;
+}
+
+.card {
+  border: var(--border-w) solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--ground-raised);
+  box-shadow: var(--elevation);
+  padding: calc(var(--unit) * 4);
+}
+
+.grid {
+  display: grid;
+  gap: calc(var(--unit) * 4);
+}
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--unit) * 2);
+  min-height: 40px;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  border-radius: var(--radius);
+  border: var(--border-w) solid var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover {
+  background: var(--ink-quiet);
+  border-color: var(--ink-quiet);
+}
+.btn.secondary {
+  background: transparent;
+  color: var(--ink);
+}
+.btn.secondary:hover {
+  background: var(--ground-sunken);
+}
+.btn.quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule);
+  font-weight: 400;
+}
+.btn[disabled],
+.btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  background: var(--ground-sunken);
+  color: var(--ink-quiet);
+  border-color: var(--rule);
+  border-style: dashed;
+  font-weight: 400;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+input[type='tel'],
+select,
+textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--ground-raised);
+  border: var(--border-w) solid var(--rule);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 2);
+  min-height: 40px;
+  width: 100%;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit);
+  margin-bottom: calc(var(--unit) * 3);
+}
+
+.field .hint,
+.hint {
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--ink-quiet);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  line-height: 21px;
+}
+th {
+  text-align: left;
+  font-weight: 700;
+}
+th,
+td {
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 2) calc(var(--unit) * 2) 0;
+  border-bottom: var(--border-w) solid var(--rule);
+  vertical-align: top;
+}
+td.num,
+th.num {
+  text-align: right;
+  padding-right: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--unit);
+  font-size: 12px;
+  line-height: 18px;
+  padding: 2px calc(var(--unit) * 2);
+  border-radius: var(--radius);
+  border: var(--border-w) solid var(--rule);
+  background: var(--ground-sunken);
+  color: var(--ink);
+}
+.chip.wrong {
+  color: var(--state-wrong);
+  border-color: var(--state-wrong);
+}
+.chip.progress {
+  color: var(--state-progress);
+  border-color: var(--state-progress);
+}
+.chip.done {
+  color: var(--state-done);
+  border-color: var(--state-done);
+}
+
+.notice {
+  border: var(--border-w) solid var(--rule);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 3);
+  background: var(--ground-raised);
+  margin-bottom: calc(var(--unit) * 4);
+  font-size: 14px;
+  line-height: 21px;
+}
+.notice.wrong {
+  border-left-color: var(--state-wrong);
+}
+.notice.progress {
+  border-left-color: var(--state-progress);
+}
+.notice.done {
+  border-left-color: var(--state-done);
+}
+
+.empty {
+  border: var(--border-w) dashed var(--rule);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 8) calc(var(--unit) * 4);
+  text-align: center;
+  color: var(--ink-quiet);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 3);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 3);
+  flex-wrap: wrap;
+}
+.between {
+  justify-content: space-between;
+}
+
+/* Loading states reserve the space their content will occupy, so nothing shifts. */
+.skeleton {
+  background: var(--ground-sunken);
+  border-radius: var(--radius);
+  min-height: 1em;
+}
+
+/* An island reserves its height before it hydrates: the fallback inside the
+   island's own placeholder is the same box the control will fill. */
+astro-island[await-children] > .island-reserve,
+.island-reserve {
+  display: block;
+  min-height: var(--reserve, 40px);
+}
+
+.reserve-buy {
+  --reserve: 232px;
+}
+.reserve-cart {
+  --reserve: 420px;
+}
+.reserve-register {
+  --reserve: 132px;
+}
+.reserve-installer {
+  --reserve: 640px;
+}
+
+.thumb {
+  border-radius: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--ground-sunken);
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.rail-toggle {
+  display: none;
+}
+
+@media (max-width: 63.999rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell > .rail {
+    border-right: 0;
+    border-bottom: var(--border-w) solid var(--rule);
+  }
+  .rail-inner {
+    position: static;
+  }
+  .rail-toggle {
+    display: inline-flex;
+  }
+  .rail-nav[data-collapsed='true'] {
+    display: none;
+  }
+  .grid.two,
+  .grid.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

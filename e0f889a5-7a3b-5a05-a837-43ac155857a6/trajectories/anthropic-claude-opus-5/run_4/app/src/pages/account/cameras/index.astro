@@ -1,0 +1,113 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraCard from '../../../components/CameraCard.astro';
+import RegisterRow from '../../../islands/RegisterRow.jsx';
+import { currentCustomer, signInRedirect, listDevicesForCustomer } from '../../../lib/server.js';
+import { registerDevice } from '../../../../server/lib/devices.mjs';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+let notice = null;
+let noticeKind = 'danger';
+
+// The one-click control on an order posts here, and the register row works
+// with no scripting through the same path.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    const device = await registerDevice(form.get('serial'), customer.id);
+    notice = `Registered. ${device.model} is on your account.`;
+    noticeKind = 'done';
+  } catch (err) {
+    notice = err.message || 'That did not work.';
+  }
+}
+
+const PAGE_SIZE = 60;
+const rawCursor = Astro.url.searchParams.get('after');
+const afterId = /^[0-9]+$/.test(rawCursor || '') ? rawCursor : null;
+
+let devices = [];
+let hasMore = false;
+let nextCursor = null;
+let failed = false;
+try {
+  const rows = await listDevicesForCustomer(customer.id, {
+    afterId,
+    limit: PAGE_SIZE + 1,
+  });
+  hasMore = rows.length > PAGE_SIZE;
+  devices = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  if (hasMore && devices.length) nextCursor = String(devices[devices.length - 1].id);
+} catch {
+  failed = true;
+}
+---
+<Shell title="Cameras — Vela" description="The cameras on your account.">
+  <div class="stack stack-6">
+    <header class="stack stack-2">
+      <h1>Your cameras</h1>
+      <p class="hint">A camera is a record in its own right. Registering one links it to this account.</p>
+    </header>
+
+    {notice && (
+      <p class:list={['notice', noticeKind === 'done' ? 'notice-done' : 'notice-danger']} role="alert">
+        {notice}
+      </p>
+    )}
+
+    <!-- Registration happens in place at the top of the grid. -->
+    <RegisterRow client:load />
+
+    <noscript>
+      <form method="post" class="ns-form">
+        <label for="ns-serial">Serial number</label>
+        <input class="input ident" id="ns-serial" name="serial" required maxlength="14" />
+        <button class="btn" type="submit">Register</button>
+      </form>
+    </noscript>
+
+    {failed ? (
+      <p class="notice notice-danger">We could not load your cameras. Reload the page to try again.</p>
+    ) : devices.length === 0 ? (
+      <div class="card empty">
+        <p>No cameras registered yet.</p>
+        <p class="hint">The serial is engraved on the underside of the camera.</p>
+      </div>
+    ) : (
+      <>
+        <ul class="grid">
+          {devices.map((device) => (
+            <li><CameraCard device={device} /></li>
+          ))}
+        </ul>
+        {/* A plain link, so the next page works with no scripting. */}
+        {hasMore && (
+          <p><a class="btn" href={`/account/cameras?after=${nextCursor}`}>More cameras</a></p>
+        )}
+        {afterId && <p><a href="/account/cameras">Back to the first</a></p>}
+      </>
+    )}
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  .grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: calc(var(--space) * 4);
+  }
+  .empty {
+    padding: calc(var(--space) * 6);
+    display: flex; flex-direction: column; gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+  .ns-form { display: flex; gap: calc(var(--space) * 3); align-items: flex-end; flex-wrap: wrap; }
+
+  @media (max-width: 63.999rem) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

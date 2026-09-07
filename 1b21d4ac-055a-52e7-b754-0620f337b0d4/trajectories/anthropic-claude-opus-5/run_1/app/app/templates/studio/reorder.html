@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<script type="application/json" id="reorder-items">{{ items | tojson }}</script>
+<section class="studio-wrap" x-data="reorder(readJson('reorder-items'))">
+  <h1 class="display" style="font-size:40px;font-weight:200;margin-bottom:24px;">
+    REORDER INDEX</h1>
+  <p class="form-note">The displayed ordinal is derived from this order at read time.</p>
+  <p class="field-error" x-show="message" x-text="message" role="status" x-cloak></p>
+  <ol>
+    <template x-for="(item, i) in list" :key="item.id">
+      <li style="display:flex;gap:16px;align-items:center;padding:8px 0;
+                 border-bottom:1px solid var(--color-dark);">
+        <span x-text="String(i + 1).padStart(3,'0')"></span>
+        <span class="card-title" style="flex:1" x-text="item.title"></span>
+        <span x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+        <button type="button" @click="move(i, -1)" :disabled="i === 0"
+                :aria-label="'Move ' + item.title + ' up'">UP</button>
+        <button type="button" @click="move(i, 1)" :disabled="i === list.length - 1"
+                :aria-label="'Move ' + item.title + ' down'">DOWN</button>
+      </li>
+    </template>
+  </ol>
+  <p style="margin-top:30px;display:flex;gap:16px;">
+    <button class="btn" type="button" @click="save()" :disabled="busy"
+            x-text="busy ? 'SAVING...' : 'SAVE ORDER'">SAVE ORDER</button>
+    <a class="btn" href="/studio">BACK</a>
+  </p>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

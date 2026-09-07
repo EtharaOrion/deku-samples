@@ -1,0 +1,142 @@
+---
+import '../styles/global.css';
+import RailToggle from '../islands/RailToggle.jsx';
+import { currentCustomer, cartCount } from '../lib/session.js';
+
+const { title, description = '', wide = false } = Astro.props;
+const customer = await currentCustomer(Astro);
+const count = await cartCount(Astro);
+const path = Astro.url.pathname;
+
+const isCurrent = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`));
+
+const shopEntries = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' },
+];
+const accountEntries = customer
+  ? [
+      { href: '/account', label: 'Overview', exact: true },
+      { href: '/account/orders', label: 'Orders' },
+      { href: '/account/cameras', label: 'Cameras' },
+    ]
+  : [];
+const badge = count > 99 ? '99+' : String(count);
+---
+
+<!doctype html>
+<html lang="en" class="ground-light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} — Vela</title>
+    {description ? <meta name="description" content={description} /> : null}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="ground-light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <div class="rail ground-light">
+        <div class="rail-inner">
+          <div class="row between">
+            <a class="wordmark" href="/">Vela</a>
+            <RailToggle client:load />
+          </div>
+          <nav class="rail-nav" aria-label="Sections" id="rail-nav">
+            <div class="rail-group">
+              <p class="rail-label" id="rail-label-store">Store</p>
+              <ul style="list-style:none;margin:0;padding:0" aria-labelledby="rail-label-store">
+                {
+                  shopEntries.map((e) => (
+                    <li>
+                      <a href={e.href} aria-current={isCurrent(e.href) ? 'page' : undefined}>
+                        <span class="marker" aria-hidden="true"></span>
+                        <span>{e.label}</span>
+                      </a>
+                    </li>
+                  ))
+                }
+              </ul>
+            </div>
+            {
+              accountEntries.length ? (
+                <div class="rail-group" style="margin-top:calc(var(--unit) * 4)">
+                  <p class="rail-label" id="rail-label-account">Account</p>
+                  <ul style="list-style:none;margin:0;padding:0" aria-labelledby="rail-label-account">
+                    {accountEntries.map((e) => (
+                      <li>
+                        <a
+                          href={e.href}
+                          aria-current={(e.exact ? path === e.href : isCurrent(e.href)) ? 'page' : undefined}
+                        >
+                          <span class="marker" aria-hidden="true" />
+                          <span>{e.label}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null
+            }
+            <div class="rail-group" style="margin-top:calc(var(--unit) * 4)">
+              <p class="rail-label" id="rail-label-you">You</p>
+              <ul style="list-style:none;margin:0;padding:0" aria-labelledby="rail-label-you">
+                {
+                  customer ? (
+                    <li>
+                      <form method="post" action="/sign-out">
+                        <button class="btn quiet" type="submit" style="width:100%;justify-content:flex-start">
+                          Sign out
+                        </button>
+                      </form>
+                    </li>
+                  ) : (
+                    <>
+                      <li>
+                        <a href="/sign-in" aria-current={isCurrent('/sign-in') ? 'page' : undefined}>
+                          <span class="marker" aria-hidden="true" />
+                          <span>Sign in</span>
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/sign-up" aria-current={isCurrent('/sign-up') ? 'page' : undefined}>
+                          <span class="marker" aria-hidden="true" />
+                          <span>Create an account</span>
+                        </a>
+                      </li>
+                    </>
+                  )
+                }
+              </ul>
+            </div>
+            {
+              customer ? (
+                <p class="hint" style="margin-top:calc(var(--unit) * 3)">
+                  Signed in as {customer.email}
+                </p>
+              ) : null
+            }
+          </nav>
+        </div>
+      </div>
+
+      <div>
+        <div class="topbar">
+          <a class="wordmark" href="/">Vela</a>
+          <a
+            class="btn quiet"
+            href="/cart"
+            aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`}
+          >
+            <span>Cart</span>
+            {count > 0 ? <span class="chip tnum" aria-hidden="true">{badge}</span> : null}
+          </a>
+        </div>
+        <main id="main" class="content" style={wide ? 'max-width:1550px' : 'max-width:1180px'}>
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

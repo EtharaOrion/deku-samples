@@ -1,0 +1,80 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartLines from '../islands/CartLines.jsx';
+import { currentCartView } from '../lib/session.js';
+import { formatMinor } from '../lib/format.js';
+
+const found = await currentCartView(Astro);
+const view = found
+  ? found.view
+  : {
+      lines: [],
+      notices: [],
+      subtotal_minor: 0,
+      shipping_minor: 0,
+      tax_minor: 0,
+      total_minor: 0,
+      protection_enabled: false,
+      protection_rung: { sku: 'VELA-PROTECT-1', price_minor: 98 },
+      estimated: true,
+      item_count: 0,
+    };
+const goods = view.lines.filter((l) => l.kind !== 'protection');
+---
+
+<Shell title="Cart">
+  <h1 class="page-title">Cart</h1>
+  <p class="page-lede">Edit quantities here. Nothing is charged until the last step of checkout.</p>
+
+  <!-- Complete markup on first paint: the same lines, before the island takes over. -->
+  <noscript>
+    {
+      goods.length === 0 ? (
+        <div class="empty">
+          <p>Your cart is empty.</p>
+          <p>
+            <a href="/shop">Go to the shop</a>.
+          </p>
+        </div>
+      ) : (
+        <div>
+          {view.notices.map((n) => (
+            <p class="notice wrong">{n.message}</p>
+          ))}
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col" class="num">Unit price</th>
+                <th scope="col">Quantity</th>
+                <th scope="col" class="num">Line total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.lines.map((l) => (
+                <tr>
+                  <td>
+                    {l.title} <span class="mono hint">{l.sku}</span>
+                  </td>
+                  <td class="num tnum">{formatMinor(l.unit_price_minor)}</td>
+                  <td class="tnum">
+                    <form method="post" action="/cart/update" class="row">
+                      <input type="hidden" name="line_id" value={l.id} />
+                      <input type="number" name="quantity" min="1" max="10" value={l.quantity} style="width:6rem" />
+                      <button class="btn quiet" type="submit">Update</button>
+                    </form>
+                  </td>
+                  <td class="num tnum">{formatMinor(l.total_minor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="tnum">Total {formatMinor(view.total_minor)}</p>
+          <a class="btn" href="/checkout/where-it-goes">Check out</a>
+        </div>
+      )
+    }
+  </noscript>
+
+  <CartLines client:load initial={view} />
+</Shell>

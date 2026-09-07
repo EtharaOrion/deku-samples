@@ -1,0 +1,293 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 28,
+            "passed": 21,
+            "failed": 7,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788612439.776954,
+            "stop": 1788612477.087582
+        },
+        "tests": [
+            {
+                "name": "test_storefront.py::test_health_route_and_reserved_directories_exist",
+                "status": "passed",
+                "duration": 0.15961680200416595,
+                "start": 1788612439.869303,
+                "stop": 1788612440.0292027,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_catalogue_rows_exist_as_specified",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.07313374313525856,
+                "start": 1788612440.0293996,
+                "stop": 1788612440.1264248,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\n\n    def test_seeded_catalogue_rows_exist_as_specified(store):\n        expected_products = {\n            HANDLE_FLAGSHIP: (TITLE_A1, STATUS_ACTIVE, SUPPORT_UNTIL_FLAGSHIP),\n            HANDLE_COMPACT: (TITLE_CRICKET, STATUS_ACTIVE, None),\n            HANDLE_MOUNT: (TITLE_MOUNT, STATUS_DISCONTINUED, SUPPORT_UNTIL_MOUNT),\n            HANDLE_CASE: (TITLE_CASE, STATUS_ACTIVE, None),\n            HANDLE_CABLE: (TITLE_CABLE, STATUS_ACTIVE, None),\n        }\n        for handle, (title, status, support_until) in expected_products.items():\n            row = store.product(handle)\n            assert row is not None, f\"seeded product {handle} is absent from the store\"\n            assert row[\"title\"] == title, f\"{handle} title is {row['title']!r}\"\n            assert row[\"status\"] == status, f\"{handle} status is {row['status']!r}\"\n            if support_until is not None:\n                assert str(row[\"support_until\"]).startswith(support_until), (\n                    f\"{handle} support_until is {row['support_until']!r}\")\n    \n        expected_variants = {\n            SKU_A1_GRAPHITE: (PRICE_A1_MINOR, STOCK_A1_GRAPHITE),\n            SKU_A1_SAND: (PRICE_A1_MINOR, STOCK_A1_SAND),\n            SKU_A1_YELLOW: (PRICE_A1_MINOR, STOCK_A1_YELLOW),\n            SKU_CRICKET_GRAPHITE: (PRICE_CRICKET_MINOR, STOCK_CRICKET_GRAPHITE),\n            SKU_CRICKET_YELLOW: (PRICE_CRICKET_MINOR, STOCK_CRICKET_YELLOW),\n            SKU_MOUNT_CLAMP: (PRICE_MOUNT_MINOR, 0),\n            SKU_MOUNT_VESA: (PRICE_MOUNT_MINOR, 0),\n            SKU_CASE: (PRICE_CASE_MINOR, STOCK_CASE),\n            SKU_CABLE_1M: (PRICE_CABLE_1M_MINOR, STOCK_CABLE),\n            SKU_CABLE_2M: (PRICE_CABLE_2M_MINOR, STOCK_CABLE),\n        }\n        for sku, (price_minor, available) in expected_variants.items():\n            row = store.variant(sku)\n            assert row is not None, f\"seeded variant {sku} is absent from the store\"\n            assert int(row[\"price_minor\"]) == price_minor, (\n                f\"{sku} price_minor is {row['price_minor']!r}\")\n>           assert store.available(sku) == available, (\n                f\"{sku} available is {store.available(sku)}, expected {available}\")\nE           AssertionError: VELA-CRICKET-GRAPHITE available is 11, expected 12\nE           assert 11 == 12\nE            +  where 11 = available('VELA-CRICKET-GRAPHITE')\nE            +    where available = <conftest.Store object at 0xffffa4b84b90>.available\n\n/tests/test_storefront.py:177: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_devices_and_ownership_rows_exist_as_specified",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.04139764199499041,
+                "start": 1788612440.1266005,
+                "stop": 1788612440.179912,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\n\n    def test_seeded_devices_and_ownership_rows_exist_as_specified(store):\n        assert store.customer(CUSTOMER_EMAIL) is not None, (\n            f\"{CUSTOMER_EMAIL} is not a seeded customer row\")\n        assert store.customer(CUSTOMER2_EMAIL) is not None, (\n            f\"{CUSTOMER2_EMAIL} is not a seeded customer row\")\n    \n        owned = store.device(SERIAL_OWNED_BY_CUSTOMER)\n        assert owned is not None, f\"{SERIAL_OWNED_BY_CUSTOMER} is not a seeded device\"\n        assert owned[\"status\"] == DEVICE_STATUS_REGISTERED, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} status is {owned['status']!r}\")\n        assert str(owned[\"firmware_version\"]) == FIRMWARE_CRICKET_MID, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} reports {owned['firmware_version']!r}\")\n        assert len(store.live_ownerships(SERIAL_OWNED_BY_CUSTOMER)) == 1, (\n            \"a registered device holds exactly one live ownership row\")\n    \n        other = store.device(SERIAL_OWNED_BY_CUSTOMER2)\n        assert other is not None, f\"{SERIAL_OWNED_BY_CUSTOMER2} is not a seeded device\"\n        assert len(store.live_ownerships(SERIAL_OWNED_BY_CUSTOMER2)) == 1, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER2} holds exactly one live ownership row\")\n    \n        unowned = store.device(SERIAL_UNOWNED)\n        assert unowned is not None, f\"{SERIAL_UNOWNED} is not a seeded device\"\n>       assert store.live_ownerships(SERIAL_UNOWNED) == [], (\n            f\"{SERIAL_UNOWNED} is seeded with no live owner\")\nE       AssertionError: VA2609KTMHX4 is seeded with no live owner\nE       assert [{'claimed_at...7cb85'), ...}] == []\nE         \nE         Left contains one more item: {'claimed_at': datetime.datetime(2026, 9, 5, 12, 35, 33, 604912, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), 'customer_i...'), 'device_id': UUID('77b6bc43-6d12-46d3-931e-bd6a927a7b1d'), 'id': UUID('119d9db3-c057-45d8-8369-359ef9f7cb85'), ...}\nE         Use -v to get more diff\n\n/tests/test_storefront.py:203: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_releases_and_firmware_rows_exist_as_specified",
+                "status": "passed",
+                "duration": 0.039377773995511234,
+                "start": 1788612440.1800694,
+                "stop": 1788612440.2196136,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_seed_is_idempotent_no_duplicate_rows",
+                "status": "passed",
+                "duration": 0.0561714090872556,
+                "start": 1788612440.219785,
+                "stop": 1788612440.2761266,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_guest_checkout_creates_order_with_pinned_totals",
+                "status": "passed",
+                "duration": 0.5006955300923437,
+                "start": 1788612440.2763093,
+                "stop": 1788612440.7771826,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_order_totals_reconcile_with_stored_lines",
+                "status": "passed",
+                "duration": 0.6854903588537127,
+                "start": 1788612440.777387,
+                "stop": 1788612441.4630532,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_invoice_exists_in_billing_platform_for_total",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 25.844295538961887,
+                "start": 1788612441.463237,
+                "stop": 1788612467.3194745,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\nvisitor = <conftest.Shopper object at 0xffffa450c290>\npayments = <capabilities.KillBill object at 0xffffa450f980>\n\n    def test_confirmed_order_invoice_exists_in_billing_platform_for_total(store, visitor,\n                                                                         payments):\n        email = probe_email()\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CASE), email)\n        assert placed.status_code in SUCCESS_STATUSES, describe(placed)\n        number = str(field_of(payload_of(placed), \"number\", \"order_number\"))\n        row = store.order(number)\n        assert row is not None, f\"order {number} was answered but never stored\"\n        total_minor = int(row[\"total_minor\"])\n        assert total_minor == JOURNEY_TOTAL_MINOR, f\"stored total is {total_minor}\"\n    \n        keys = poll_until(lambda: [str(a.get(\"externalKey\", \"\"))\n                                   for a in payments.accounts()])\n        assert email in keys, (\n            f\"no billing account carries the externalKey {email!r}; \"\n            f\"the tenant holds {keys}\")\n    \n        invoice = poll_until(lambda: payments.find_charge(total_minor, INVOICE_CURRENCY))\n>       assert invoice is not None, (\n            f\"no invoice for {minor_to_decimal(total_minor)} {INVOICE_CURRENCY} exists in \"\n            f\"the billing platform after order {number}\")\nE       AssertionError: no invoice for 415.80 USD exists in the billing platform after order VE-2026-0007\nE       assert None is not None\n\n/tests/test_storefront.py:338: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_repeat_idempotency_key_creates_no_second_order_or_invoice",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 1.262362660956569,
+                "start": 1788612467.319639,
+                "stop": 1788612468.5946765,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\nvisitor = <conftest.Shopper object at 0xffffa456cda0>\npayments = <capabilities.KillBill object at 0xffffa450f980>\n\n    def test_repeat_idempotency_key_creates_no_second_order_or_invoice(store, visitor,\n                                                                       payments):\n        email = probe_email()\n        key = idempotency_key()\n        added = visitor.add_line(SKU_CABLE_1M)\n        assert added.status_code in SUCCESS_STATUSES, describe(added)\n        priced = visitor.set_delivery(email)\n        assert priced.status_code in SUCCESS_STATUSES, describe(priced)\n    \n        first = visitor.place_order(key=key)\n        assert first.status_code in SUCCESS_STATUSES, describe(first)\n        number = str(field_of(payload_of(first), \"number\", \"order_number\"))\n    \n        second = visitor.place_order(key=key)\n        assert second.status_code in SUCCESS_STATUSES, describe(second)\n        replayed = str(field_of(payload_of(second), \"number\", \"order_number\"))\n        assert replayed == number, (\n            f\"a replayed idempotency key produced order {replayed} rather than {number}\")\n    \n        settle()\n        stored = store.orders_for_email(email)\n        assert len(stored) == 1, (\n            f\"{email} holds {len(stored)} stored orders after one submission replayed\")\n    \n        total_minor = int(store.order(number)[\"total_minor\"])\n        matching = [charge for charge in payments.accounts()\n                    if str(charge.get(\"externalKey\", \"\")) == email]\n        assert len(matching) == 1, (\n            f\"{email} holds {len(matching)} billing accounts after a replay\")\n        invoices = [c for c in payments.charges() if c.amount == total_minor\n                    and c.currency.upper() == INVOICE_CURRENCY]\n>       assert len(invoices) == 1, (\n            f\"{len(invoices)} invoices exist for {minor_to_decimal(total_minor)} \"\n            f\"{INVOICE_CURRENCY} after one submission replayed\")\nE       AssertionError: 0 invoices exist for 20.90 USD after one submission replayed\nE       assert 0 == 1\nE        +  where 0 = len([])\n\n/tests/test_storefront.py:378: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_stock_commit_moves_available_and_committed_on_order",
+                "status": "passed",
+                "duration": 1.0727411500411108,
+                "start": 1788612468.5948408,
+                "stop": 1788612469.6677568,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cart_price_change_is_surfaced_and_order_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.060069760074838996,
+                "start": 1788612469.6679406,
+                "stop": 1788612469.7429276,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\nvisitor = <conftest.Shopper object at 0xffffa4524470>\n\n    def test_cart_price_change_is_surfaced_and_order_refused(store, visitor):\n        added = visitor.add_line(SKU_CASE)\n        assert added.status_code in SUCCESS_STATUSES, describe(added)\n        cart = payload_of(visitor.cart())\n        lines = cart.get(\"lines\") or []\n>       assert lines, f\"the cart carries no lines after an add: {cart}\"\nE       AssertionError: the cart carries no lines after an add: {'cart': {'id': '304afb36-d072-471c-9145-325cec9ac6d6', 'token': '7IO3jp7d6mmuBG3Ahj2joVzCVnYjP-S-', 'email': None, 'shipping_address': None, 'shipping_method': None, 'marketing_consent': False, 'protection_enabled': False, 'lines': [{'id': '0e38db18-924b-4e42-b69f-b098f1f626f4', 'variant_id': 'f1bda82e-5fc0-415e-9334-14834c91d812', 'sku': 'VELA-CASE-STD', 'handle': 'case', 'title': 'Travel Case', 'subtitle': 'A moulded shell for a body and three lenses.', 'kind': 'accessory', 'option_value': 'Standard', 'quantity': 1, 'unit_price_minor': 7900, 'current_price_minor': 7900, 'total_minor': 7900, 'available': 11, 'product_status': 'active'}], 'item_count': 1, 'subtotal_minor': 7900, 'protection_rung': {'sku': 'VELA-PROTECT-1', 'price_minor': 98, 'enabled': False}, 'protection_minor': 0, 'shipping_minor': 0, 'tax_minor': 790, 'total_minor': 8690, 'notices': [], 'priced_fingerprint': 'VELA-CASE-STD:1:7900'}}\nE       assert []\n\n/tests/test_storefront.py:405: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_checkout_for_last_unit_allows_exactly_one",
+                "status": "passed",
+                "duration": 1.1397582469508052,
+                "start": 1788612469.7431016,
+                "stop": 1788612470.883041,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_email_delivered_to_buyer_only",
+                "status": "passed",
+                "duration": 0.6677203739527613,
+                "start": 1788612470.8832288,
+                "stop": 1788612471.551169,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_no_email_sent_for_cart_change_or_device_registration",
+                "status": "passed",
+                "duration": 0.5550289689563215,
+                "start": 1788612471.5513527,
+                "stop": 1788612472.1066127,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_device_registration_claims_unowned_serial_and_writes_one_ownership_row",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0887665159534663,
+                "start": 1788612472.1067939,
+                "stop": 1788612472.2127347,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\ncustomer = <conftest.Shopper object at 0xffffa4561760>\n\n    def test_device_registration_claims_unowned_serial_and_writes_one_ownership_row(\n            store, customer):\n        response = customer.register_device(SERIAL_UNOWNED)\n>       assert response.status_code in SUCCESS_STATUSES, describe(response)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__hchtn4j-app:4173/api/account/devices -> 409 :: {\"error\":{\"code\":\"device_owned\",\"message\":\"That camera is registered to someone else.\",\"request_id\":\"req_Xxt0B7My7ad6\",\"resource\":\"VA2609KTMHX4\"},\"code\":\"device_owned\",\"message\":\"That camera is registered to someone else.\",\"request_id\":\"req_Xxt0B7My7ad6\",\"resource\":\"VA2609KTMHX4\"}\nE       assert 409 in (200, 201, 202)\nE        +  where 409 = <Response [409 Conflict]>.status_code\n\n/tests/test_storefront.py:512: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_registering_serial_owned_by_another_account_denied_and_row_untouched",
+                "status": "passed",
+                "duration": 0.5018496380653232,
+                "start": 1788612472.2129061,
+                "stop": 1788612472.714998,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_device_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.581348942941986,
+                "start": 1788612472.715189,
+                "stop": 1788612473.2967603,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_order_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.12932555004954338,
+                "start": 1788612473.296951,
+                "stop": 1788612473.4265094,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unauthenticated_account_routes_denied_at_api",
+                "status": "passed",
+                "duration": 0.44355824997182935,
+                "start": 1788612473.4267023,
+                "stop": 1788612473.870504,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unknown_and_malformed_serial_refused_before_lookup",
+                "status": "passed",
+                "duration": 0.5577052960870788,
+                "start": 1788612473.870691,
+                "stop": 1788612474.4286351,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_blocked_device_registration_refused",
+                "status": "passed",
+                "duration": 0.505705701187253,
+                "start": 1788612474.428824,
+                "stop": 1788612474.9347646,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_registration_of_one_serial_allows_exactly_one",
+                "status": "passed",
+                "duration": 0.5945251401280984,
+                "start": 1788612474.9349434,
+                "stop": 1788612475.529643,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_release_archive_orders_by_build_descending_across_shared_date",
+                "status": "passed",
+                "duration": 0.0574725380865857,
+                "start": 1788612475.5298247,
+                "stop": 1788612475.5874705,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_firmware_manifest_entries_match_stored_rows",
+                "status": "passed",
+                "duration": 0.034643728053197265,
+                "start": 1788612475.587647,
+                "stop": 1788612475.62246,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_complete_records_reported_version_not_requested",
+                "status": "passed",
+                "duration": 0.47267063602339476,
+                "start": 1788612475.622647,
+                "stop": 1788612476.0954902,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_failure_leaves_device_firmware_unchanged",
+                "status": "passed",
+                "duration": 0.47763364599086344,
+                "start": 1788612476.0956779,
+                "stop": 1788612476.5734837,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.04106064490042627,
+                "start": 1788612476.573662,
+                "stop": 1788612476.632721,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffa4b84b90>\nvisitor = <conftest.Shopper object at 0xffffa4480770>\n\n    def test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched(\n            store, visitor):\n        serial = SERIAL_OWNED_BY_CUSTOMER\n        before_version = str(store.device(serial)[\"firmware_version\"])\n        before_sessions = len(store.flash_sessions(serial))\n    \n        response = visitor.start_flash(serial, FIRMWARE_CRICKET_OLDEST_BUILD)\n>       assert response.status_code in REFUSAL_STATUSES, describe(response)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__hchtn4j-app:4173/api/flash-sessions -> 201 :: {\"session\":{\"id\":\"905c4090-6c7c-4d40-ab42-05721e3dc49a\",\"state\":\"started\",\"started_at\":\"2026-09-05T12:47:56.612Z\",\"serial\":\"VC2609PVDA7Q\",\"target_version\":\"6.11\",\"target_build\":611}}\nE       assert 201 in (400, 401, 403, 404, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\n\n/tests/test_storefront.py:793: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_model_mismatch_refused_and_no_session_row",
+                "status": "passed",
+                "duration": 0.4543194480938837,
+                "start": 1788612476.6328855,
+                "stop": 1788612477.0873704,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            }
+        ]
+    }
+}

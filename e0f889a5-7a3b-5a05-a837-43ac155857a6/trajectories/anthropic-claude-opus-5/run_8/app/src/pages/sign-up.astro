@@ -1,0 +1,62 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { apiFetch } from '../lib/api.js';
+
+const nextRaw = Astro.url.searchParams.get('next') || '';
+const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/account';
+
+let error = null;
+let email = '';
+let name = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') || '').trim();
+  name = String(form.get('name') || '').trim();
+  const password = String(form.get('password') || '');
+  const target = String(form.get('next') || '/account');
+  const res = await apiFetch(Astro, '/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+  if (res.status === 201) {
+    return Astro.redirect(target.startsWith('/') && !target.startsWith('//') ? target : '/account', 303);
+  }
+  error = res.data?.message || 'That did not work.';
+}
+---
+<Shell title="Create an account" current="">
+  <div style="max-width: 34rem">
+    <div class="page-head">
+      <h1>Create an account</h1>
+      <p>An account keeps your orders and lets you register a camera to your name. It is not needed to buy.</p>
+    </div>
+
+    <form method="POST">
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+      <input type="hidden" name="next" value={next} />
+
+      <label class="field">
+        <span>Name</span>
+        <input type="text" name="name" value={name} required autocomplete="name" autofocus />
+      </label>
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" value={email} required autocomplete="email" />
+      </label>
+
+      <label class="field">
+        <span>Password, at least eight characters</span>
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" />
+      </label>
+
+      <button type="submit" class="btn">Create the account</button>
+    </form>
+
+    <p class="small" style="margin-top: 2rem">
+      Already have one? <a href={`/sign-in${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`}>Sign in</a>.
+    </p>
+  </div>
+</Shell>

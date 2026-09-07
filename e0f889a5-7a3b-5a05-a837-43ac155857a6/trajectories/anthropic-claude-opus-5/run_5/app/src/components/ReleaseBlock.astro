@@ -1,0 +1,64 @@
+---
+import { formatBytes, formatDateLong } from '../lib/format.js';
+const { release, expanded = false } = Astro.props;
+---
+
+<!--
+  A disclosure that works with no scripting and is keyboard operable. The whole
+  archive is present in the markup whatever the collapse state, so an in-page
+  find and a crawler both see all of it.
+-->
+<details class="release" open={expanded}>
+  <summary class="release__summary">
+    <span class="release__title">Arranger <span class="mono">{release.version}</span></span>
+    <span class="release__dateline">Released on <span class="tnum">{formatDateLong(release.released_on)}</span></span>
+  </summary>
+
+  <div class="release__body">
+    <p class="row" style="gap:0.75rem">
+      <a class="button button--quiet" href={`/downloads/${release.version}`}>
+        Download Arranger {release.version}
+      </a>
+      <span class="tnum" style="color:var(--quiet)">{formatBytes(release.size_bytes)}</span>
+      <span class="mono" style="color:var(--quiet);word-break:break-all">{release.sha256}</span>
+    </p>
+
+    {release.description && <p style="margin-top:0.75rem">{release.description}</p>}
+
+    {release.notes.map((group) => (
+      <section style="margin-top:1rem">
+        <h3 style="font-size:16px;line-height:24px;font-weight:700">{group.group}</h3>
+        <ul style="margin:0.25rem 0 0;padding-left:1.25rem">
+          {group.items.map((item) => <li>{item}</li>)}
+        </ul>
+      </section>
+    ))}
+
+    <p style="margin-top:1rem">The Vela team.</p>
+  </div>
+</details>
+
+<style>
+  .release { border: 0; }
+  .release__summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 2) 0;
+    border-radius: var(--radius);
+  }
+  .release__summary::-webkit-details-marker { display: none; }
+  .release__summary::before {
+    content: '+';
+    font-family: var(--mono-family);
+    width: 1em;
+  }
+  .release[open] .release__summary::before { content: '−'; }
+  .release__summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .release__title { font-size: 20px; line-height: 28px; font-weight: 700; }
+  .release__dateline { color: var(--quiet); }
+  .release__body { padding: 0 0 calc(var(--unit) * 4) 1.5em; }
+</style>

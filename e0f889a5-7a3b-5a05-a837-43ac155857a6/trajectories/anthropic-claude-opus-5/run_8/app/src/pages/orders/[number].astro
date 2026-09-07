@@ -1,0 +1,42 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import OrderDetail from '../../components/OrderDetail.astro';
+import { apiFetch } from '../../lib/api.js';
+import '../../styles/cart.css';
+
+const { number } = Astro.params;
+const accessToken = Astro.url.searchParams.get('access_token') || '';
+const q = accessToken ? `?access_token=${encodeURIComponent(accessToken)}` : '';
+const res = await apiFetch(Astro, `/api/orders/${encodeURIComponent(number)}${q}`);
+const order = res.status === 200 ? res.data : null;
+
+const meRes = await apiFetch(Astro, '/api/auth/me');
+const signedIn = meRes.status === 200;
+---
+<Shell title={order ? `Order ${order.number}` : 'Order'} current="">
+  {!order && (
+    <div class="page-head">
+      <h1>That order does not exist.</h1>
+      <p>Check the address, or the link in your confirmation mail. <a href="/shop">Back to the shop.</a></p>
+    </div>
+  )}
+
+  {order && (
+    <>
+      <div class="page-head">
+        <h1>
+          Order <span class="order-number">{order.number}</span> is confirmed. We have emailed {order.email}.
+        </h1>
+        <p>
+          <span class={`chip ${order.status === 'confirmed' ? 'chip-finished' : 'chip-progress'}`}>{order.state_phrase}</span>
+        </p>
+      </div>
+
+      <p style="margin-bottom: 2rem">
+        <a class="btn" href={signedIn ? `/account/orders/${order.number}` : `/orders/${order.number}${q}`}>Keep track of this order</a>
+      </p>
+
+      <OrderDetail order={order} canRegister={signedIn} />
+    </>
+  )}
+</Shell>

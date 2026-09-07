@@ -1,0 +1,271 @@
+- id: visitor_reads_the_letter_and_reaches_the_shop
+  purpose: The front page is one long letter over a film, and the only way out of it is the footer
+  substeps:
+    - kind: browser
+      do: Open / and read the title the table, the dateline June 1, 2026, sixteen paragraphs and the closing line See you soon.
+      cov: C-OV-01, C-UF-01, C-UF-27, C-UF-28, C-UF-29, C-UF-30, C-FE-01, C-RL-01
+    - kind: browser
+      do: Scroll to the foot of the letter and confirm the film has been replaced by flat ground behind the writing, then scroll back up and confirm the film returns in proportion
+      cov: C-UX-09, C-FE-08, C-FE-09, C-FE-11, C-FE-12
+    - kind: browser
+      do: Set a reduced motion preference and reload, confirming the film stays on its still frame, that the darkening still runs, and that dragging on the film scrolls the page
+      cov: C-UX-11, C-UX-12, C-FE-13, C-FE-16, C-FE-21, C-FE-22, C-FE-23, C-FE-24, C-FE-25, C-UX-31, C-UX-32
+    - kind: browser
+      do: Move the pointer across the footer canvas and confirm the company name reads as the gaps between the dots, that a bright wake follows the pointer and fades, and that the bottom row carries the rights reserved string
+      cov: C-FE-26, C-FE-27, C-FE-28, C-FE-29, C-FE-30, C-FE-31
+    - kind: browser
+      do: Resize from a wide viewport to a narrow one across the whole letter and confirm the column becomes half width alternating blocks with no sideways scrolling at any width
+      cov: C-FE-18, C-FE-19, C-FE-20, C-UX-24
+    - kind: browser
+      do: Press tab from the top of the letter and confirm the skip link is the first focusable element, that every focused element shows a ring, and that the type is one family with no italic
+      cov: C-UX-04, C-UX-06, C-UX-18, C-UX-20, C-UX-21, C-UX-25, C-UX-26, C-UX-27, C-UX-28, C-UX-29, C-UX-30, C-FE-104
+    - kind: browser
+      do: Follow the Shop link in the footer row to /shop and read the five seeded products in editorial order beside the empty state copy the catalogue falls back to
+      cov: C-UF-31, C-FE-32, C-FE-39, C-UF-02, C-UF-39, C-OV-02, C-RL-02
+    - kind: pytest
+      test: test_storefront.py::test_health_route_and_reserved_directories_exist
+      critical: true
+      cov: C-DC-01, C-DC-02, C-DC-03, C-DC-04, C-DC-05, C-DC-07, C-DC-08, C-DC-09, C-DC-10, C-DC-11, C-DC-12, C-DC-13, C-DC-14, C-DC-15, C-DC-18, C-DC-29, C-DC-31, C-TR-01, C-TR-02, C-TR-14, C-TR-15, C-TR-16, C-TR-17, C-TR-31, C-TR-32, C-TR-33, C-TR-34, C-TR-35, C-TR-36, C-TR-37, C-TR-38, C-CN-10
+    - kind: pytest
+      test: test_storefront.py::test_seeded_catalogue_rows_exist_as_specified
+      critical: true
+      cov: C-DM-33, C-DM-34, C-DM-35, C-DM-36, C-DM-37, C-DM-38, C-DM-39, C-DM-40, C-DM-41, C-DM-42, C-DM-43, C-DM-05, C-DM-07, C-DM-09, C-DM-10, C-DM-29, C-CN-01, C-CN-08, C-TR-09, C-TR-10
+
+- id: guest_buys_a_camera_and_an_accessory_at_checkout
+  purpose: A guest reaches a confirmed order at the exact total the final step displayed
+  substeps:
+    - kind: browser
+      do: Read the left rail beside the catalogue carrying the shop, downloads and installer entries, with the current entry marked and the cart control named with its item count
+      cov: C-FE-33, C-FE-34, C-FE-35, C-FE-36, C-FE-37, C-FE-38
+    - kind: browser
+      do: Open /shop/compact, choose Graphite and add one to the cart, then open /shop/case and add one Travel Case
+      cov: C-UF-03, C-FE-43, C-DC-19, C-OV-03, C-RL-03, C-DM-13
+    - kind: browser
+      do: Open /cart and read a subtotal of $378.00 with the shipment protection toggle unticked, then empty the cart and read the empty state
+      cov: C-UF-32, C-UF-04, C-DM-45, C-FE-54, C-DM-44, C-UF-40
+    - kind: browser
+      do: Walk the three checkout routes entering customer@example.com and a US address, choose Standard, then read a tax line of $37.80 and a total of $415.80
+      cov: C-UF-05, C-UF-06, C-UF-07, C-UF-33, C-DM-46, C-DM-48, C-FE-57, C-OV-04, C-RL-04, C-RL-23, C-DC-20, C-DM-47, C-FE-60, C-FE-61
+    - kind: browser
+      do: Place the order and land on /orders/VE-2026-0002 reading the confirmation naming the order number and the address
+      cov: C-UF-08, C-UF-34, C-UF-35, C-UF-36, C-FE-62, C-FE-63, C-RL-05
+    - kind: pytest
+      test: test_storefront.py::test_guest_checkout_creates_order_with_pinned_totals
+      critical: true
+      cov: C-CF-12, C-CF-15, C-DM-14, C-TR-20, C-TR-21, C-DC-21, C-DM-11, C-DM-12, C-DM-15, C-DM-16, C-TR-22, C-TR-23, C-CN-02
+    - kind: pytest
+      test: test_storefront.py::test_order_totals_reconcile_with_stored_lines
+      critical: true
+      cov: C-TR-24, C-DM-17, C-DM-18, C-TR-18, C-TR-19, C-DM-19, C-TR-08
+
+- id: confirmed_order_invoice_exists_in_the_billing_platform
+  purpose: The money for a confirmed order is a record in the billing platform rather than a number on a page
+  substeps:
+    - kind: browser
+      do: Open the confirmed order and read the totals block with subtotal, delivery, tax and total each labelled
+      cov: C-DC-32, C-FE-102
+    - kind: pytest
+      test: test_storefront.py::test_confirmed_order_invoice_exists_in_billing_platform_for_total
+      critical: true
+      cov: C-CF-22, C-CF-23, C-CF-24, C-CF-25, C-CF-26, C-TR-25, C-DC-33, C-CF-63, C-CF-64, C-CF-65, C-CF-66, C-CF-67, C-CF-68, C-CF-69, C-TR-03
+    - kind: pytest
+      test: test_storefront.py::test_stock_commit_moves_available_and_committed_on_order
+      critical: true
+      cov: C-CF-16, C-CF-17, C-CF-20, C-DM-08
+
+- id: confirmed_order_mail_reaches_the_buyer_only
+  purpose: One confirmation mail is delivered to the buying address and to nobody else
+  substeps:
+    - kind: browser
+      do: Read the confirmation route naming the address the confirmation was sent to
+      cov: C-CF-46, C-DC-34
+    - kind: pytest
+      test: test_storefront.py::test_confirmed_order_email_delivered_to_buyer_only
+      critical: true
+      cov: C-CF-47, C-CF-48, C-CF-49, C-CF-50, C-CF-51, C-CF-52, C-CF-53, C-CF-54, C-CF-55, C-TR-04, C-TR-05, C-TR-06, C-TR-07, C-CN-06, C-TR-12
+    - kind: pytest
+      test: test_storefront.py::test_no_email_sent_for_cart_change_or_device_registration
+      critical: true
+      cov: C-CF-56, C-CF-57, C-CF-58, C-CF-59, C-CN-05, C-CN-09
+
+- id: duplicate_order_submission_creates_no_second_invoice
+  purpose: A replayed submission returns the first order and leaves one invoice standing
+  substeps:
+    - kind: browser
+      do: Place an order, use the browser back control to return to the payment step, and submit the same order a second time
+      cov: C-FE-58, C-FE-59
+    - kind: pytest
+      test: test_storefront.py::test_repeat_idempotency_key_creates_no_second_order_or_invoice
+      critical: true
+      cov: C-CF-27, C-CF-28, C-CF-29, C-TR-30, C-DC-28
+
+- id: concurrent_checkout_for_the_last_unit_allows_exactly_one
+  purpose: The last camera in stock is sold once, decided by the store rather than by a handler guard
+  substeps:
+    - kind: browser
+      do: Open /shop/flagship, choose Graphite and read Only 4 left beside an enabled buy control, then open /shop/compact, choose Yellow and read the disabled control labelled Sold out
+      cov: C-FE-44, C-FE-48, C-FE-49, C-FE-42, C-FE-46, C-FE-47
+    - kind: pytest
+      test: test_storefront.py::test_concurrent_checkout_for_last_unit_allows_exactly_one
+      critical: true
+      cov: C-CF-18, C-CF-19, C-CF-21, C-TR-28, C-TR-29
+
+- id: cart_price_change_is_surfaced_before_payment
+  purpose: A price that moved after a line was added is stated in words before any money is taken
+  substeps:
+    - kind: browser
+      do: Open /cart with a line whose variant price has moved and read the persistent notice above the lines naming the item, the old price and the new one
+      cov: C-CF-08, C-CF-09, C-CF-10, C-FE-55, C-FE-56
+    - kind: pytest
+      test: test_storefront.py::test_cart_price_change_is_surfaced_and_order_refused
+      critical: true
+      cov: C-CF-06, C-CF-07, C-CF-11, C-CF-13, C-CF-14
+
+- id: customer_registers_an_unowned_camera
+  purpose: A serial with no live owner joins the signed-in customer's camera grid
+  substeps:
+    - kind: browser
+      do: Create an account at /sign-up, sign out back to the letter, then sign in as customer@example.com at /sign-in with the seeded password and land on /account; submit a wrong password and read That did not work., then open an address no route serves and read That page does not exist.
+      cov: C-UF-12, C-UF-13, C-UF-21, C-UF-22, C-RL-20, C-RL-21, C-RL-22, C-DM-01, C-DM-02, C-CF-01, C-CF-02, C-CF-05, C-TR-11, C-TR-13, C-DC-06, C-DC-16, C-DC-17, C-FE-105, C-FE-106
+    - kind: browser
+      do: Open /account/cameras, read the empty camera state on an account with none, then type VA2609KTMHX4 into the register row, submit, and read the new card showing Not yet connected
+      cov: C-UF-16, C-UF-37, C-UF-38, C-UF-41, C-FE-96, C-FE-97, C-FE-99, C-DC-23
+    - kind: browser
+      do: Open the camera page for the registered serial, rename it, then read the release control and its confirmation step before releasing ownership
+      cov: C-UF-17, C-RL-13, C-RL-14, C-FE-101, C-FE-107, C-FE-108, C-FE-109
+    - kind: pytest
+      test: test_storefront.py::test_device_registration_claims_unowned_serial_and_writes_one_ownership_row
+      critical: true
+      cov: C-CF-30, C-CF-36, C-RL-12, C-CF-38, C-DM-30
+
+- id: registering_a_camera_owned_by_another_account_is_denied
+  purpose: Ownership is a boundary the server holds, and the other owner is never named
+  substeps:
+    - kind: browser
+      do: Signed in as customer@example.com, type VA2609NRWB2Z into the register row and read the refusal naming no other person
+      cov: C-CF-31, C-FE-98, C-RL-16
+    - kind: pytest
+      test: test_storefront.py::test_registering_serial_owned_by_another_account_denied_and_row_untouched
+      critical: true
+      cov: C-CF-32, C-RL-18, C-RL-19
+    - kind: pytest
+      test: test_storefront.py::test_cross_customer_device_read_denied_at_api
+      critical: true
+      cov: C-RL-15, C-UF-26, C-DC-22
+
+- id: invalid_and_blocked_serials_are_rejected
+  purpose: A serial of the wrong shape never reaches a lookup, and a blocked camera is named as blocked
+  substeps:
+    - kind: browser
+      do: Type a serial carrying the letter O into the register row and read the refusal rendered inline rather than as a blank screen
+      cov: C-DM-54, C-DM-55, C-DM-56, C-UF-43
+    - kind: browser
+      do: Type VC2609WJ3DKT into the register row and read the refusal naming the camera as blocked
+      cov: C-CF-33, C-CF-34, C-DM-53
+    - kind: pytest
+      test: test_storefront.py::test_unknown_and_malformed_serial_refused_before_lookup
+      critical: true
+      cov: C-CF-35, C-DM-20
+    - kind: pytest
+      test: test_storefront.py::test_blocked_device_registration_refused
+      critical: true
+      cov: C-DM-21
+
+- id: concurrent_registration_of_one_serial_allows_exactly_one
+  purpose: Two people claiming one serial at once produce one live owner, not two
+  substeps:
+    - kind: browser
+      do: Open /account/cameras and confirm the contested serial appears exactly once in the grid
+      cov: C-FE-93, C-RL-11
+    - kind: pytest
+      test: test_storefront.py::test_concurrent_registration_of_one_serial_allows_exactly_one
+      critical: true
+      cov: C-CF-37, C-OV-10, C-DM-22, C-OV-09
+
+- id: unauthenticated_account_routes_are_denied
+  purpose: A signed-out request for an account route is refused by the server and not merely hidden in the interface
+  substeps:
+    - kind: browser
+      do: Request /account while signed out and land on /sign-in carrying the intended path, then sign in and return to it
+      cov: C-UF-18, C-UF-19, C-UF-20, C-UF-14, C-RL-10
+    - kind: pytest
+      test: test_storefront.py::test_unauthenticated_account_routes_denied_at_api
+      critical: true
+      cov: C-RL-07, C-RL-08, C-RL-09, C-CF-03, C-CF-04, C-DC-30, C-UF-23, C-UF-24
+    - kind: pytest
+      test: test_storefront.py::test_cross_customer_order_read_denied_at_api
+      critical: true
+      cov: C-RL-17, C-UF-25, C-UF-15
+
+- id: owner_reads_the_release_archive_and_the_firmware_row
+  purpose: The download page is the whole changelog, ordered by build and never by date
+  substeps:
+    - kind: browser
+      do: Open /downloads and read the requirement line, the primary control labelled Download Arranger 2.0.0, the byte size and the digest beside it, together with the line shown to a reader on another platform
+      cov: C-UF-09, C-FE-64, C-FE-65, C-FE-66, C-FE-67, C-FE-68, C-FE-69, C-OV-05, C-RL-06, C-CN-07
+    - kind: browser
+      do: Expand Arranger 1.4.3 from the archive and read its note groups in the order Newly Added, Improvements, Bug Fixes, Known Issues, closing with The Vela team.
+      cov: C-UF-10, C-DM-24, C-DM-25, C-FE-74, C-FE-75, C-FE-76, C-FE-77, C-FE-78, C-OV-06
+    - kind: browser
+      do: Follow Firmware install (web-based) from the firmware row to /doctor, reading the warning line beside it
+      cov: C-UF-11, C-FE-70, C-FE-71, C-FE-72, C-FE-73, C-OV-07, C-OV-08
+    - kind: pytest
+      test: test_storefront.py::test_release_archive_orders_by_build_descending_across_shared_date
+      critical: true
+      cov: C-CF-60, C-CF-61, C-CF-62, C-DM-23, C-DC-24
+    - kind: pytest
+      test: test_storefront.py::test_seeded_releases_and_firmware_rows_exist_as_specified
+      critical: true
+      cov: C-DM-57, C-DM-58, C-DM-59, C-DM-60, C-DM-61, C-DM-62, C-DM-63, C-DM-64, C-DM-65, C-DM-66
+    - kind: pytest
+      test: test_storefront.py::test_firmware_manifest_entries_match_stored_rows
+      critical: true
+      cov: C-TR-26, C-TR-27, C-DM-26, C-DC-25
+
+- id: firmware_write_records_the_version_read_back
+  purpose: A completed write records what the camera reported rather than what was asked for
+  substeps:
+    - kind: browser
+      do: Open /doctor, read the warning body, accept it with I understand, and confirm the connect control was unavailable until that moment
+      cov: C-FE-79, C-FE-81, C-FE-82, C-FE-83, C-FE-84
+    - kind: browser
+      do: Follow the installer through for VC2609PVDA7Q, listening to the one polite live region that carries each step, and read the closing line stating the version read back from the camera
+      cov: C-FE-85, C-FE-87, C-FE-88, C-FE-89, C-FE-91, C-UX-10
+    - kind: pytest
+      test: test_storefront.py::test_flash_session_complete_records_reported_version_not_requested
+      critical: true
+      cov: C-CF-43, C-CF-44, C-DM-27, C-DC-27
+    - kind: pytest
+      test: test_storefront.py::test_flash_session_failure_leaves_device_firmware_unchanged
+      critical: true
+      cov: C-CF-45, C-DM-28
+
+- id: firmware_downgrade_and_model_mismatch_are_rejected
+  purpose: The installer refuses before it touches the camera, and says why
+  substeps:
+    - kind: browser
+      do: Choose an image below the camera's minimum firmware on /doctor and read the refusal stating the reason, then unplug the camera mid-sequence and read the closing reassurance
+      cov: C-FE-86, C-FE-92, C-CF-40, C-FE-90
+    - kind: pytest
+      test: test_storefront.py::test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched
+      critical: true
+      cov: C-CF-41, C-CF-42
+    - kind: pytest
+      test: test_storefront.py::test_flash_session_model_mismatch_refused_and_no_session_row
+      critical: true
+      cov: C-CF-39, C-DC-26
+
+- id: seeded_state_survives_a_restart_with_no_duplicate_rows
+  purpose: The seed is the same seed after a restart, and the seeded customer's history is intact
+  substeps:
+    - kind: browser
+      do: Signed in as customer@example.com, read the seeded order VE-2026-0001 in the order history and the seeded camera VC2609PVDA7Q in the camera grid showing Update available
+      cov: C-DM-49, C-DM-50, C-FE-94, C-FE-103, C-UF-42
+    - kind: pytest
+      test: test_storefront.py::test_seeded_devices_and_ownership_rows_exist_as_specified
+      critical: true
+      cov: C-DM-51, C-DM-52, C-DM-31, C-DM-32, C-CN-11, C-CN-12
+    - kind: pytest
+      test: test_storefront.py::test_seed_is_idempotent_no_duplicate_rows
+      critical: true
+      cov: C-DM-67, C-DM-03, C-DM-04, C-DM-06, C-OV-11, C-OV-12, C-OV-13, C-CN-03, C-CN-04

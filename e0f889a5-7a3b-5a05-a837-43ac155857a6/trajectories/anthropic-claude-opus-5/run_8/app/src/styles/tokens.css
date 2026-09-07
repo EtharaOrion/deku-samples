@@ -1,0 +1,189 @@
+/* Vela design tokens.
+   Nothing states black or white directly: one declaration inverts a surface. */
+
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/Archivo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/Archivo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* Metric overrides so the swap does not move the letter when the real face arrives. */
+@font-face {
+  font-family: 'Vela Fallback';
+  src: local('system-ui'), local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  /* Type */
+  --font-display: 'Vela Grotesque', 'Vela Fallback', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* The two fluid values. Below 64rem they are raw viewport units. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  /* Frame */
+  --gutter: 20px;
+  --header-h: 80px;
+  --wordmark-h: 40px;
+  --unit: 0.25rem;
+  --radius: 0.5rem;
+  --radius-flat: 0;
+  --border-w: 1px;
+  --elevation: 0px 2px 4px rgba(17, 17, 19, 0.05);
+  --speed: 120ms;
+  --ease: linear;
+  --rail-w: 216px;
+
+  /* Palette. Two grounds; each surface declares which it is. */
+  --ink-900: #16171a;
+  --ink-700: #33363d;
+  --ink-500: #5c616b;
+  --ink-300: #9aa0ab;
+  --ink-200: #c9ced6;
+  --ink-100: #e4e7ec;
+  --ink-050: #f2f4f7;
+  --paper: #fbfbfc;
+
+  /* One accent, a saturated warm hue, at most once per screen, never behind text. */
+  --accent: #d94b12;
+
+  /* Three further meanings, each used nowhere else. */
+  --state-wrong: #a11c1c;
+  --state-progress: #6b4bb8;
+  --state-finished: #1d6b3f;
+
+  color-scheme: light;
+}
+
+/* A surface declares its ground rather than inheriting one. */
+.ground-light {
+  --surface: var(--paper);
+  --surface-raised: #ffffff;
+  --fg: var(--ink-900);
+  --fg-muted: var(--ink-500);
+  --fg-faint: var(--ink-300);
+  --line: var(--ink-100);
+  --line-strong: var(--ink-200);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.ground-dark {
+  --surface: #141518;
+  --surface-raised: #1e2025;
+  --fg: #f3f4f6;
+  --fg-muted: #b9bec7;
+  --fg-faint: #868d99;
+  --line: #33363d;
+  --line-strong: #4a4e57;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+/* Above 64rem the scale is pinned: a smooth function through 48.932px and
+   20.9709px at 1440px. The display size is deliberately not monotonic in
+   viewport width, because above 64rem the letter is a narrow column beside
+   the film rather than the whole page. */
+@media (min-width: 64rem) {
+  :root {
+    /* Continuous with 12vw at 1024px (122.884px), falling smoothly to 48.932px
+       at 1440px and held above. No step at the breakpoint. */
+    --display-fs: clamp(48.932px, calc(304.9197px - 17.776923vw), 122.884px);
+    --body-fs: clamp(20.9709px, calc(81.3023px - 4.18968vw), 38.4px);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* No italic anywhere in the product. */
+i, em, cite, address, dfn, var { font-style: normal; }
+
+h1, h2, h3, h4, h5, h6 { font-weight: 700; margin: 0; }
+
+/* Tabular numerals wherever figures stack. */
+.tnum, .money, .serial, .version, .build, .bytes, table td, table th, input[type='number'] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Identifiers are monospace and this family is used for nothing else. */
+.mono, .serial, .version, .build, .digest, .order-number {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: inherit; }
+
+/* Focus is a 2px solid ring in the surface's own foreground token, never the accent. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(var(--unit) * 2);
+  z-index: 100;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  background: var(--surface-raised, #fff);
+  color: var(--fg, #16171a);
+  border: var(--border-w) solid var(--line-strong, #c9ced6);
+  border-radius: var(--radius);
+  transform: translateY(-200%);
+  transition: transform var(--speed) var(--ease);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.vh {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion drops the film and every transition, never the darkening. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

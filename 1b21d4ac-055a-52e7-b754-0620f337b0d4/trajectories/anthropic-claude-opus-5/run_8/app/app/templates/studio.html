@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="studio" x-data="palette()" x-init="load()">
+  <h1 class="studio__heading display--sentence">Studio</h1>
+
+  <div class="palette">
+    <label class="form__label" for="palette-input"
+           style="position: absolute; left: -9999px;">Filter records and actions</label>
+    <input class="palette__input" id="palette-input" type="text" x-model="query"
+           placeholder="TYPE A NAME, OR AN ACTION" autocomplete="off"
+           @keydown.escape="query = ''">
+
+    <div class="palette__section">
+      <p class="palette__heading">ACTIONS</p>
+      {%- set actions = [
+        ('New talent', 'CREATE', 'href', '/studio/talents/new'),
+        ('New work', 'CREATE', 'href', '/studio/works/new'),
+        ('Reorder index', 'WORKS', 'action', 'reorder'),
+        ('Preview', 'A RECORD', 'action', 'preview')] %}
+      {%- for label, hint, mode, target in actions %}
+      <button class="palette__action" type="button"
+              @click="run({label: '{{ label }}', {{ mode }}: '{{ target }}'})"
+              x-show="matches('{{ label }}')">
+        <span>{{ label }}</span>
+        <span style="opacity: .5">{{ hint }}</span>
+      </button>
+      {%- endfor %}
+      <p class="empty-state" x-show="!matchingActions().length" x-cloak
+         style="display: none;">NO ACTION MATCHES.</p>
+    </div>
+
+    <div class="palette__section" style="border-top: 1px solid var(--color-dark);">
+      <p class="palette__heading">RECORDS</p>
+      {%- for record in items %}
+      <button class="palette__record" type="button"
+              @click="go('/studio/items/{{ record['id'] }}')"
+              data-title="{{ record['title'] }}" data-slug="{{ record['slug'] }}"
+              x-show="matchesItem($el.dataset.title, $el.dataset.slug)">
+        <span>{{ record['title'] }}</span>
+        <span style="opacity: .5">{{ record['kind']|upper }} /
+          {{ record['slug'] }} /
+          {{ 'LIVE' if record['published'] else 'UNLISTED' }}</span>
+      </button>
+      {%- endfor %}
+      <p class="empty-state" x-show="!matchingItems().length" x-cloak
+         style="display: none;">NO RECORD MATCHES.</p>
+    </div>
+  </div>
+
+  {% if items %}
+  <div class="cards">
+    {%- for record in items %}
+    <a class="card" href="/studio/items/{{ record['id'] }}"
+       data-title="{{ record['title'] }}" data-slug="{{ record['slug'] }}"
+       x-show="matchesItem($el.dataset.title, $el.dataset.slug)">
+      <span class="card__title">{{ record['title'] }}</span>
+      <span class="card__meta">{{ record['kind']|upper }} -
+        {{ record['slug'] }} -
+        {{ 'LIVE' if record['published'] else 'UNLISTED' }}</span>
+    </a>
+    {%- endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">THIS HOUSE HAS NO RECORDS YET.</p>
+  {% endif %}
+
+  <div class="form__actions" style="margin-top: 40px;">
+    <button class="button" type="button" @click="signOut()">SIGN OUT</button>
+  </div>
+</section>
+{% endblock %}

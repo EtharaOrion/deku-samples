@@ -1,0 +1,89 @@
+---
+import Shell from '../components/Shell.astro';
+import { apiGet, pageCustomer, pageCart } from '../lib/server-fetch.js';
+import { redirectWithCookies, sessionCookie } from '../lib/guard.js';
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+let error = null;
+let email = '';
+let name = '';
+
+// Signup is open.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim();
+  name = String(form.get('name') ?? '').trim();
+  const password = String(form.get('password') ?? '');
+
+  const res = await apiGet('/api/auth/signup', Astro, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, name, password }),
+  });
+
+  if (res.ok) {
+    // The cookie is set on the redirect itself so the new account arrives
+    // signed in.
+    return redirectWithCookies('/account', [sessionCookie(res.body.access_token)]);
+  }
+  error = res.body?.message || 'That did not work.';
+}
+---
+
+<Shell title="Create an account — Vela" current="" customer={customer} cartCount={cart?.item_count ?? 0}>
+  <div class="page-head">
+    <h1 class="page-title">Create an account</h1>
+    <p class="page-sub">An account keeps your cameras and your orders in one place.</p>
+  </div>
+
+  <div class="auth">
+    <form class="panel" method="POST">
+      {
+        error && (
+          <div class="notice notice--error" role="alert">
+            <span class="notice__body">{error}</span>
+          </div>
+        )
+      }
+
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input class="input" name="name" value={name} required autocomplete="name" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Email</span>
+        <input class="input" type="email" name="email" value={email} required autocomplete="email" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Password</span>
+        <input
+          class="input"
+          type="password"
+          name="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+        />
+        <span class="small muted">At least 8 characters.</span>
+      </label>
+
+      <button class="btn" type="submit">Create account</button>
+
+      <p class="small muted auth__alt">
+        Already have one? <a href="/sign-in">Sign in</a>.
+      </p>
+    </form>
+  </div>
+</Shell>
+
+<style>
+  .auth {
+    max-width: 26rem;
+  }
+  .auth__alt {
+    margin: calc(var(--unit) * 4) 0 0;
+  }
+</style>

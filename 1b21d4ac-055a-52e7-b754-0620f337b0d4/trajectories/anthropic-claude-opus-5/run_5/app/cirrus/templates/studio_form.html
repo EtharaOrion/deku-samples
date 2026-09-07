@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="sheet" x-data='studioForm({{ (item or {})|tojson }}, {{ form_kind|tojson }})'>
+  <h1 class="display d-secondary" style="margin:0 0 40px"
+      x-text="item.id ? item.title : (kind === 'talent' ? 'New talent' : 'New work')"></h1>
+
+  <p class="form-error t-default" x-show="error" x-text="error" x-cloak role="alert"></p>
+  <p class="t-default" x-show="message" x-text="message" x-cloak role="status"
+     style="margin-bottom:24px"></p>
+
+  <form @submit.prevent="save()" novalidate>
+    <div class="field">
+      <label for="title">TITLE</label>
+      <input id="title" type="text" x-model="form.title" style="text-transform:none" required>
+    </div>
+
+    <div class="field" x-show="!item.id">
+      <label for="slug">SLUG, LOWERCASE KEBAB, ASSIGNED ONCE</label>
+      <input id="slug" type="text" x-model="form.slug" style="text-transform:none">
+    </div>
+
+    <template x-if="kind === 'talent'">
+      <div class="field">
+        <label for="discipline">DISCIPLINE</label>
+        <select id="discipline" x-model="form.discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </div>
+    </template>
+
+    <template x-if="kind === 'work'">
+      <div class="field">
+        <label for="variant">VARIANT</label>
+        <select id="variant" x-model="form.variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </div>
+    </template>
+
+    <fieldset style="border:0;padding:0;margin:0 0 28px">
+      <legend class="t-default" style="opacity:0.5;margin-bottom:12px">POSTER</legend>
+      <div class="field">
+        <label for="alt">WRITTEN ALTERNATIVE, REQUIRED TO PUBLISH</label>
+        <input id="alt" type="text" x-model="form.alt" style="text-transform:none">
+      </div>
+      <div class="field">
+        <label for="seed">SEED</label>
+        <input id="seed" type="text" x-model="form.seed" style="text-transform:none">
+      </div>
+      <div class="field" style="display:flex;gap:24px">
+        <span style="flex:1"><label for="width">WIDTH</label>
+          <input id="width" type="number" x-model="form.width"></span>
+        <span style="flex:1"><label for="height">HEIGHT</label>
+          <input id="height" type="number" x-model="form.height"></span>
+      </div>
+    </fieldset>
+
+    <div class="palette-actions" style="margin:0">
+      <button class="button t-default" type="submit" :disabled="busy"
+              x-text="busy ? 'SAVING...' : (item.id ? 'SAVE' : 'CREATE')"></button>
+      <button class="button t-default" type="button" @click="mintPreview()"
+              x-show="item.id" x-cloak>MINT A PREVIEW TOKEN</button>
+      <button class="button t-default" type="button" @click="setPublished(true)"
+              x-show="item.id && !item.published" x-cloak>PUBLISH</button>
+      <button class="button t-default" type="button" @click="setPublished(false)"
+              x-show="item.id && item.published" x-cloak>UNLIST</button>
+      <a class="button t-default" href="/studio">BACK TO THE PALETTE</a>
+    </div>
+  </form>
+
+  <p class="t-default" style="margin-top:40px" x-show="item.id" x-cloak>
+    <span x-text="item.published ? 'LIVE AT' : 'UNLISTED, WOULD BE AT'"></span>
+    <span x-text="item.href"></span>
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,117 @@
+---
+import Base from '../layouts/Base.astro';
+import LetterFooter from '../components/LetterFooter.astro';
+import ScrollDriver from '../islands/ScrollDriver.jsx';
+import {
+  LETTER_TITLE,
+  LETTER_DATELINE,
+  LETTER_CLOSING,
+  LETTER_PARAGRAPHS,
+} from '../lib/letter.js';
+import '../styles/letter.css';
+---
+
+<Base
+  title="Vela — the table"
+  description="A letter from the four people who make Vela cameras, written at the table they make them on."
+  ground="dark"
+>
+  <a class="skip-link" href="#letter">Skip to the letter</a>
+
+  <div class="letter" data-letter>
+    <!-- The stage sits behind the writing at the lowest layer. -->
+    <div class="letter__stage" data-stage>
+      <video
+        class="letter__film"
+        data-film
+        muted
+        loop
+        playsinline
+        preload="none"
+        tabindex="-1"
+        aria-hidden="true"
+        poster="/media/table-still.jpg"
+      >
+        <source src="/media/table.webm" type="video/webm" />
+        <source src="/media/table.mp4" type="video/mp4" />
+      </video>
+      <!-- A still frame sits above it and dissolves away once there is footage. -->
+      <img
+        class="letter__still"
+        src="/media/table-still.jpg"
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        fetchpriority="high"
+      />
+    </div>
+
+    <!-- A very faint animated speckle so a large dark gradient cannot band. -->
+    <div class="letter__speckle" aria-hidden="true">
+      <svg width="100%" height="100%" preserveAspectRatio="none">
+        <filter id="speckle">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7">
+            <animate
+              attributeName="seed"
+              values="7;11;7"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </feTurbulence>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#speckle)" />
+      </svg>
+    </div>
+
+    <div class="letter__darken" aria-hidden="true"></div>
+    <div class="letter__flatten" aria-hidden="true"></div>
+
+    <div class="letter__wordmark">
+      <a href="/">Vela</a>
+    </div>
+
+    <div class="letter__writing">
+      <header class="letter__head">
+        <h1 class="letter__title" id="letter">{LETTER_TITLE}</h1>
+        <p class="letter__dateline">{LETTER_DATELINE}</p>
+      </header>
+
+      <!--
+        Every paragraph exists twice. This copy is the one the markup carries and
+        the one a reader with no scripting receives, in correct reading order.
+      -->
+      <article class="letter__body letter__flow" data-flow data-driven="off">
+        {LETTER_PARAGRAPHS.map((p) => (
+          <p class="letter__p">{p.text}</p>
+        ))}
+        <p class="letter__closing">{LETTER_CLOSING}</p>
+      </article>
+
+      <!--
+        The driven layer, hidden from assistive technology, shown only below the
+        tier where the blocks alternate and fade in step with the scroll.
+      -->
+      <div class="letter__driven" aria-hidden="true">
+        {LETTER_PARAGRAPHS.map((p) => (
+          <div class="letter__block" data-block data-side={p.side}>
+            <p class="letter__p">{p.text}</p>
+          </div>
+        ))}
+        <div class="letter__block" data-block data-side="start">
+          <p class="letter__closing">{LETTER_CLOSING}</p>
+        </div>
+      </div>
+    </div>
+
+    <LetterFooter />
+  </div>
+
+  <ScrollDriver client:load />
+</Base>
+
+<script>
+  // The flow copy is the only copy until the driver is running. Marking it here
+  // means a reader with no scripting keeps it in reading order.
+  const flow = document.querySelector('[data-flow]');
+  if (flow) flow.setAttribute('data-driven', 'on');
+</script>

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_components.html" as c %}
+{% set route_class = "route-preview" %}
+{% block head_extra %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block chrome_extra %}
+{# A persistent, unmissable marker. #}
+<p class="preview-marker">PREVIEW - NOT PUBLISHED</p>
+{# The waiting state uses the same counter component the entry route uses:
+   one loading component, two routes. #}
+<div class="counter-well preview-waiting" id="counter-well" role="status" aria-live="polite">
+  <span class="display" id="counter-value">Loading preview...</span>
+</div>
+{% endblock %}
+
+{% block content %}
+{# Rendered through the same route components as its published counterpart. #}
+{% if kind == 'work' %}
+  {% include "_work_body.html" %}
+{% else %}
+  {% include "_talent_body.html" %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+  // The waiting state clears once the record's own components are on screen.
+  (function () {
+    var well = document.getElementById('counter-well');
+    if (!well) return;
+    document.documentElement.classList.add('route-preview');
+    var clear = function () { well.classList.add('is-clear'); };
+    if (document.readyState === 'complete') setTimeout(clear, 150);
+    else window.addEventListener('load', function () { setTimeout(clear, 150); });
+  })();
+</script>
+{% endblock %}
+{% block footer %}{% endblock %}

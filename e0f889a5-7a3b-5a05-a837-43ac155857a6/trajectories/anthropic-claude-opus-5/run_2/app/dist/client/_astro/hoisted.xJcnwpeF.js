@@ -1,0 +1,1 @@
+import"./hoisted.L855F8ZL.js";(()=>{const t=document.querySelector("[data-platform-note]");if(!t)return;const a=navigator.userAgentData?.platform||navigator.platform||"";/mac/i.test(a)||(t.hidden=!1)})();

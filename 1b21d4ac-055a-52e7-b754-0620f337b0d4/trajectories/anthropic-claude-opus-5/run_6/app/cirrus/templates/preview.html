@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_components.html" as c %}
+{% block content %}
+<p class="preview-marker">PREVIEW - NOT PUBLISHED</p>
+
+<div class="preview-body">
+{% if kind == 'talent' %}
+  {# rendered through the roster's own components, so what the producer sees is what ships #}
+  <section class="roster preview-roster">
+    <article class="roster-entry is-current" data-slug="{{ record.slug }}">
+      <h1 class="roster-name">{{ record.title }}</h1>
+      <p class="roster-discipline">{{ record.discipline|upper }}</p>
+      <div class="roster-portrait">
+        {{ c.media_tile(record.poster, record.title ~ ', ' ~ record.discipline ~ ', portrait',
+                        'portrait') }}
+      </div>
+    </article>
+  </section>
+{% else %}
+  <article class="work-detail preview-work">
+    <header class="work-head">
+      <span class="work-ordinal">{{ record.ordinal }}</span>
+      <h1 class="work-title">{{ record.title }}</h1>
+      {% if record.credits %}
+      <dl class="credits">
+        {% for credit in record.credits %}
+        <div class="credit"><dt class="credit-role">{{ credit.role|upper }}</dt>
+          <dd class="credit-name">{{ credit.name|upper }}</dd></div>
+        {% endfor %}
+      </dl>
+      {% endif %}
+    </header>
+    {{ c.reel_block(record.reel, record.title ~ ', showreel') }}
+    <div class="index-entry entry-{{ record.variant or 'left' }}">
+      {{ c.media_tile(record.poster, record.title, record.variant or 'left') }}
+      {{ c.caption_row(record.ordinal, record.title, record.variant or 'left') }}
+    </div>
+  </article>
+{% endif %}
+</div>
+{% endblock %}

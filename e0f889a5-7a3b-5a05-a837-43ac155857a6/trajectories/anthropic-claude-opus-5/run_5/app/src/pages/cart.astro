@@ -1,0 +1,77 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartLines from '../islands/CartLines.jsx';
+import { currentCustomer, readCartForPage } from '../lib/api.js';
+import { formatMinor } from '../lib/format.js';
+
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+const lines = cart.lines ?? [];
+---
+
+<Shell title="Cart — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <header class="stack--tight" style="margin-bottom:1.5rem">
+    <h1 class="page-title">Cart</h1>
+  </header>
+
+  <!--
+    The markup carries the whole cart on first paint. The island takes it over
+    for editing in place, so a reader with no scripting still sees every line,
+    every notice and the totals.
+  -->
+  <noscript>
+    <div class="stack">
+      {(cart.notices ?? []).map((notice) => (
+        <p class="notice">{notice.message}</p>
+      ))}
+      {lines.length === 0 ? (
+        <div class="empty-state">
+          <p>Your cart is empty.</p>
+          <p style="margin-top:0.5rem"><a href="/shop">Go to the shop</a></p>
+        </div>
+      ) : (
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col" class="figure">Quantity</th>
+              <th scope="col" class="figure">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line) => (
+              <tr>
+                <td>{line.title} <span class="mono">{line.sku}</span></td>
+                <td class="figure tnum">{line.quantity}</td>
+                <td class="figure money">{formatMinor(line.line_total_minor)}</td>
+              </tr>
+            ))}
+            <tr>
+              <th scope="row" colspan="2">Total</th>
+              <td class="figure money">{formatMinor(cart.total_minor)}</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
+  </noscript>
+
+  <CartLines client:load initial={cart} />
+</Shell>
+
+<style>
+  .cart-thumb {
+    width: 72px;
+    height: 54px;
+    flex: none;
+    border-radius: 0;
+    border: var(--border) solid var(--rule);
+    background:
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, currentColor 6%, transparent) 0 6px,
+        transparent 6px 12px
+      ),
+      var(--inset);
+  }
+</style>

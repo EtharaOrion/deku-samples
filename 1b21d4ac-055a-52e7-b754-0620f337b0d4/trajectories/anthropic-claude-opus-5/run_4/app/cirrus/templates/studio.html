@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="studio">
+  {# Command-palette-first: one palette is the producer's entry point and every
+     journey starts here. The records arrive in the document; typing filters them. #}
+  <div class="palette" x-data="palette()" x-init="init()">
+    <h1 class="page-heading display display--title-case">{{ studio_house.name }} studio</h1>
+
+    <label class="visually-hidden" for="palette-input">Filter records by title or slug</label>
+    <input class="palette__input" id="palette-input" type="search"
+           placeholder="Type a name..." x-model="q" @keydown.escape="q = ''"
+           autocomplete="off">
+
+    <div class="palette__actions">
+      <a class="palette__action" href="/studio/talents/new" data-nav>NEW TALENT</a>
+      <a class="palette__action" href="/studio/works/new" data-nav>NEW WORK</a>
+      <button class="palette__action" type="button" @click="reorder()"
+              x-text="reordering ? 'SAVING ORDER...' : 'REORDER INDEX'">REORDER INDEX</button>
+      <button class="palette__action" type="button" @click="previewFirst()">PREVIEW</button>
+      <button class="palette__action" type="button" @click="signOut()">SIGN OUT</button>
+    </div>
+
+    <template x-if="message">
+      <p class="form__error" role="status" x-text="message" style="margin-top:18px"></p>
+    </template>
+
+    <div class="palette__grid">
+      {% for item in items %}
+      <a class="card" href="/studio/items/{{ item.id }}" data-nav
+         data-record
+         data-title="{{ item.title | lower }}"
+         data-slug="{{ item.slug }}"
+         x-show="matches($el)">
+        <span class="card__title">{{ item.title }}</span>
+        <span class="card__meta">{{ item.kind | upper }} — {{ item.slug }}</span>
+        {# Published beside unlisted, and never by colour alone. #}
+        <span class="card__state">{{ 'LIVE' if item.published else 'UNLISTED' }}</span>
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if not items %}
+    <p class="empty-state">This house has no records yet.</p>
+    {% endif %}
+    <p class="empty-state" x-show="visibleCount === 0 && q" x-cloak>
+      Nothing matches that.</p>
+  </div>
+</div>
+{% endblock %}

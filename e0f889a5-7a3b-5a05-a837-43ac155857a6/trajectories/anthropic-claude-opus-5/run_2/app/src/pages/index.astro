@@ -1,0 +1,252 @@
+---
+import Base from '../layouts/Base.astro';
+import LetterFooter from '../components/LetterFooter.astro';
+import ScrollDriver from '../islands/ScrollDriver.astro';
+import { LETTER, LETTER_TITLE, LETTER_DATELINE, LETTER_CLOSING } from '../lib/letter';
+---
+
+<Base title="Vela — the table" ground="dark" bodyClass="letter-page">
+  <!-- The fixed wordmark. There is no navigation beyond it and the footer. -->
+  <div class="wordmark-fixed"><a href="/">Vela</a></div>
+
+  <!--
+    The whole stacking system for this page, lowest first:
+    1 stage, 2 still, 3 speckle, 4 veil, 5 flat, 6 writing, 7 wordmark.
+    Nothing may introduce another layer.
+  -->
+  <div class="stage" data-stage aria-hidden="true">
+    <video
+      class="film"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      poster="/media/table-still.jpg"
+      tabindex="-1"
+    >
+      <source src="/media/table.webm" type="video/webm" />
+      <source src="/media/table.mp4" type="video/mp4" />
+    </video>
+    <div class="still" data-still>
+      <img src="/media/table-still.jpg" alt="" width="1280" height="720" />
+    </div>
+    <div class="speckle"></div>
+    <div class="veil" data-veil></div>
+    <div class="flat" data-flat></div>
+  </div>
+
+  <main id="main" class="letter">
+    <header class="letter-head">
+      <h1 class="display">{LETTER_TITLE}</h1>
+      <p class="dateline">{LETTER_DATELINE}</p>
+    </header>
+
+    <!--
+      Every paragraph exists twice: once in normal flow, which is what the markup
+      carries and what a reader with no scripting receives in correct reading
+      order, and once in an inert layer the scroll drives.
+    -->
+    <div class="letter-body">
+      {LETTER.map((p) => <p>{p.text}</p>)}
+      <p class="closing">{LETTER_CLOSING}</p>
+    </div>
+  </main>
+
+  <div class="driven" data-driven aria-hidden="true">
+    {LETTER.map((p) => (
+      <div class={`driven-block side-${p.side}`} data-block>
+        <p>{p.text}</p>
+      </div>
+    ))}
+  </div>
+
+  <LetterFooter />
+  <ScrollDriver />
+</Base>
+
+<style>
+  :global(body.letter-page) {
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  .wordmark-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--gutter);
+    z-index: 7;
+    pointer-events: none;
+  }
+  .wordmark-fixed a {
+    pointer-events: auto;
+    font-weight: 700;
+    font-size: 40px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    color: var(--fg);
+    text-shadow: 0 1px 3px rgba(8, 8, 6, 0.55);
+  }
+
+  /* The stage sits behind the writing at the lowest layer. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    background: var(--surface-sunken);
+  }
+  /* The film is inert: no controls, not focusable, hidden from assistive
+     technology, and dragging on it scrolls the page. */
+  .film, .still, .still img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+    pointer-events: none;
+    user-select: none;
+  }
+  .film { z-index: 1; }
+  .still {
+    z-index: 2;
+    transition: opacity 600ms var(--ease);
+  }
+  .still.still-fallback {
+    /* A generated gradient keyed to the letter's own colours. */
+    background: radial-gradient(120% 90% at 30% 20%, hsl(35 24% 32%), hsl(30 18% 14%) 60%, hsl(45 10% 7%));
+  }
+  /* A very faint animated speckle so a large dark gradient cannot band. */
+  .speckle {
+    position: absolute;
+    inset: -20%;
+    z-index: 3;
+    opacity: 0.05;
+    background-image: radial-gradient(rgba(255, 253, 246, 0.85) 0.5px, transparent 0.6px);
+    background-size: 3px 3px;
+    animation: speckle 1.2s steps(4) infinite;
+    pointer-events: none;
+  }
+  @keyframes speckle {
+    0% { transform: translate3d(0, 0, 0); }
+    25% { transform: translate3d(-1px, 1px, 0); }
+    50% { transform: translate3d(1px, -1px, 0); }
+    75% { transform: translate3d(-1px, -1px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+  /* Darkens the whole stage from the bottom upward as the reader scrolls. */
+  .veil {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    opacity: 0;
+    background: linear-gradient(to top, hsl(48 8% 6%) 8%, hsl(48 8% 7% / 0.94) 42%, hsl(48 8% 8% / 0.72) 74%, hsl(48 8% 8% / 0.4) 100%);
+  }
+  /* When the panel is fully drawn a flat panel removes the film entirely. */
+  .flat {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    opacity: 0;
+    background: var(--bg);
+  }
+
+  /* The writing sits above all of it. */
+  .letter {
+    position: relative;
+    z-index: 6;
+    padding: calc(var(--header-h) + var(--unit) * 12) var(--gutter) calc(var(--unit) * 24);
+    max-width: 100%;
+  }
+
+  .letter-head { margin-bottom: calc(var(--unit) * 10); }
+  .display {
+    font-size: var(--display-fs);
+    line-height: 0.95;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    /* Load-bearing against the lit ground, invisible against the dark one. */
+    text-shadow: 0 2px 10px rgba(8, 8, 6, 0.5);
+  }
+  .dateline {
+    margin-top: calc(var(--unit) * 4);
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: var(--fg-muted);
+    text-shadow: 0 1px 6px rgba(8, 8, 6, 0.5);
+  }
+
+  .letter-body {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    max-width: 100%;
+  }
+  .letter-body p {
+    /* The letter's own rhythm scales with the fluid type. */
+    margin: 1em 0;
+    text-shadow: 0 2px 8px rgba(8, 8, 6, 0.55);
+  }
+  /* The closing line is the only place the accent appears on this surface. */
+  .closing { color: var(--accent); font-weight: 700; }
+
+  /* The driven layer is never the only copy, and is inert. */
+  .driven {
+    position: relative;
+    z-index: 6;
+    pointer-events: none;
+    display: none;
+  }
+
+  @media (min-width: 64rem) {
+    /* On a wide screen the letter is a narrow column standing beside the film. */
+    .letter {
+      max-width: 42rem;
+      padding-left: var(--gutter);
+      padding-right: 0;
+    }
+    .display { letter-spacing: -0.02em; }
+    .letter-body { letter-spacing: 0.02em; }
+  }
+
+  @media (max-width: 63.999rem) {
+    /* Below that the letter becomes a different page: each paragraph is a half
+       width block, and the blocks alternate between the halves. */
+    .letter-body { display: none; }
+    .driven { display: block; padding: 0 var(--gutter) calc(var(--unit) * 20); }
+    .driven-block {
+      width: 50%;
+      font-size: var(--body-fs);
+      line-height: 1.1;
+      margin: calc(var(--unit) * 20) 0;
+      opacity: 1;
+      transition: opacity var(--speed) var(--ease);
+    }
+    .driven-block p { margin: 1em 0; text-shadow: 0 2px 8px rgba(8, 8, 6, 0.55); }
+    .side-start { margin-right: auto; }
+    .side-end { margin-left: auto; }
+  }
+
+  /* Reduced motion drops the film and every transition, never the darkening. */
+  @media (prefers-reduced-motion: reduce) {
+    .film { display: none; }
+    .speckle { animation: none; }
+    .still { transition: none; }
+    .driven-block { opacity: 1 !important; transition: none; }
+  }
+</style>
+
+<noscript>
+  <style>
+    /* With no scripting the normal-flow copy is what reads, at every width. */
+    .letter-body { display: block !important; }
+    .driven { display: none !important; }
+  </style>
+</noscript>

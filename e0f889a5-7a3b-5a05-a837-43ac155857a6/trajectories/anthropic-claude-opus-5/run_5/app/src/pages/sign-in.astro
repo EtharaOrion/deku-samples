@@ -1,0 +1,61 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { apiFetch, readCartForPage, redirectWithCookies } from '../lib/api.js';
+
+let error = null;
+const nextParam = Astro.url.searchParams.get('next');
+// A signed-out request for an /account route lands here carrying the intended
+// path and returns there after signing in; with none it lands on /account.
+const safeNext = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+  ? nextParam
+  : '/account';
+
+let email = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim();
+  const password = String(form.get('password') ?? '');
+  const target = String(form.get('next') ?? safeNext);
+
+  const res = await apiFetch(Astro.request, '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (res.ok) {
+    const to = target.startsWith('/') && !target.startsWith('//') ? target : '/account';
+    return redirectWithCookies(to, res.headers);
+  }
+  error = res.data?.message ?? 'That did not work.';
+}
+
+const cart = await readCartForPage(Astro.request);
+---
+
+<Shell title="Sign in — Vela" customer={null} cartCount={cart.item_count ?? 0}>
+  <div style="max-width:26rem">
+    <h1 class="page-title">Sign in</h1>
+    <p class="page-lede">Your cameras, your orders and the software.</p>
+
+    <form method="POST" class="stack" style="margin-top:1.5rem">
+      <input type="hidden" name="next" value={safeNext} />
+      {error && <p class="notice" role="alert">{error}</p>}
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value={email} required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" required autocomplete="current-password" />
+      </div>
+
+      <div class="row">
+        <button class="button button--primary" type="submit">Sign in</button>
+        <a href="/sign-up">Create an account</a>
+      </div>
+    </form>
+  </div>
+</Shell>

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block html_class %}route-studio ground-light{% endblock %}
+{% block content %}
+<script id="form-record" type="application/json">{{ (record or none)|tojson }}</script>
+<script id="form-talents" type="application/json">{{ (house_talents or [])|tojson }}</script>
+<section class="studio-form"
+         x-data="recordForm('form-record', '{{ kind }}', 'form-talents')">
+  <h1 class="t-display form-title" x-text="record ? record.title : (kind === 'talent' ? 'New talent' : 'New work')">
+    {% if record %}{{ record.title }}{% else %}{{ 'New talent' if kind == 'talent' else 'New work' }}{% endif %}
+  </h1>
+  <p class="t-ui form-state" x-show="record" x-cloak>
+    <span x-text="record && record.published ? 'LIVE' : 'UNLISTED'"></span>
+    <span x-text="record ? ' — /' + (record.kind === 'work' ? 'works/' : 'talents/') + record.slug : ''"></span>
+  </p>
+
+  <form class="auth-form" @submit.prevent="save()" novalidate>
+    <label class="field">
+      <span class="t-ui field-label">TITLE</span>
+      <input class="t-ui field-input" type="text" x-model="form.title" required>
+    </label>
+
+    <label class="field" x-show="!record" x-cloak>
+      <span class="t-ui field-label">SLUG</span>
+      <input class="t-ui field-input" type="text" x-model="form.slug" placeholder="lowercase-kebab">
+    </label>
+
+    <label class="field" x-show="kind === 'talent'" x-cloak>
+      <span class="t-ui field-label">DISCIPLINE</span>
+      <select class="t-ui field-input" x-model="form.discipline">
+        <option value="director">DIRECTOR</option>
+        <option value="photographer">PHOTOGRAPHER</option>
+        <option value="stylist">STYLIST</option>
+      </select>
+    </label>
+
+    <label class="field" x-show="kind === 'work'" x-cloak>
+      <span class="t-ui field-label">VARIANT</span>
+      <select class="t-ui field-input" x-model="form.variant">
+        <option value="left">LEFT</option>
+        <option value="right">RIGHT</option>
+        <option value="centre">CENTRE</option>
+      </select>
+    </label>
+
+    <p class="t-ui form-error" x-show="error" x-text="error" x-cloak role="alert"></p>
+    <button class="t-ui button" type="submit" :disabled="busy"
+            x-text="record ? 'SAVE CHANGES' : 'CREATE RECORD'">CREATE RECORD</button>
+  </form>
+
+  <div class="form-section" x-show="record" x-cloak>
+    <h2 class="t-ui section-label">MEDIA</h2>
+    <ul class="media-list" role="list">
+      <template x-for="m in (record ? record.media : [])" :key="m.media_id">
+        <li class="t-ui media-row">
+          <span x-text="m.role.toUpperCase()"></span>
+          <span x-text="m.width + '×' + m.height"></span>
+          <span x-text="m.alt"></span>
+        </li>
+      </template>
+    </ul>
+    <p class="t-ui palette-empty" x-show="record && record.media.length === 0">NO MEDIA ATTACHED.</p>
+    <form class="auth-form" @submit.prevent="attachMedia()" novalidate>
+      <label class="field">
+        <span class="t-ui field-label">ROLE</span>
+        <select class="t-ui field-input" x-model="media.role">
+          <option value="poster">POSTER</option>
+          <option value="reel">REEL</option>
+          <option value="gallery">GALLERY</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="t-ui field-label">ALT TEXT</span>
+        <input class="t-ui field-input" type="text" x-model="media.alt" required>
+      </label>
+      <div class="field-pair">
+        <label class="field">
+          <span class="t-ui field-label">WIDTH</span>
+          <input class="t-ui field-input" type="number" x-model.number="media.width" min="1">
+        </label>
+        <label class="field">
+          <span class="t-ui field-label">HEIGHT</span>
+          <input class="t-ui field-input" type="number" x-model.number="media.height" min="1">
+        </label>
+      </div>
+      <label class="field">
+        <span class="t-ui field-label">SEED</span>
+        <input class="t-ui field-input" type="text" x-model="media.seed">
+      </label>
+      <p class="t-ui form-error" x-show="mediaError" x-text="mediaError" x-cloak role="alert"></p>
+      <button class="t-ui button" type="submit" :disabled="busy">ATTACH MEDIA</button>
+    </form>
+  </div>
+
+  <div class="form-section" x-show="record && kind === 'work'" x-cloak>
+    <h2 class="t-ui section-label">CREDITS</h2>
+    <form class="auth-form" @submit.prevent="addCredit()" novalidate>
+      <label class="field">
+        <span class="t-ui field-label">ROLE</span>
+        <input class="t-ui field-input" type="text" x-model="credit.role">
+      </label>
+      <label class="field">
+        <span class="t-ui field-label">NAME</span>
+        <input class="t-ui field-input" type="text" x-model="credit.name">
+      </label>
+      <label class="field">
+        <span class="t-ui field-label">TALENT (OPTIONAL)</span>
+        <select class="t-ui field-input" x-model="credit.talent_id">
+          <option value="">NONE</option>
+          <template x-for="t in talents" :key="t.id">
+            <option :value="t.id" x-text="t.title.toUpperCase()"></option>
+          </template>
+        </select>
+      </label>
+      <p class="t-ui form-error" x-show="creditError" x-text="creditError" x-cloak role="alert"></p>
+      <button class="t-ui button" type="submit" :disabled="busy">ADD CREDIT</button>
+    </form>
+  </div>
+
+  <div class="form-section" x-show="record" x-cloak>
+    <h2 class="t-ui section-label">PUBLISHING</h2>
+    <div class="form-actions">
+      <button type="button" class="t-ui button" @click="mintPreview()" :disabled="busy">MINT PREVIEW TOKEN</button>
+      <a class="t-ui button" x-show="previewUrl" :href="previewUrl" x-cloak>OPEN PREVIEW</a>
+      <button type="button" class="t-ui button" @click="setPublished(true)" :disabled="busy"
+              x-show="record && !record.published">PUBLISH</button>
+      <button type="button" class="t-ui button" @click="setPublished(false)" :disabled="busy"
+              x-show="record && record.published">UNLIST</button>
+      <a class="t-ui button" href="/studio" data-link>BACK TO PALETTE</a>
+    </div>
+    <p class="t-ui form-error" x-show="publishError" x-text="publishError" x-cloak role="alert"></p>
+    <p class="t-ui form-note" x-show="notice" x-text="notice" x-cloak role="status"></p>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

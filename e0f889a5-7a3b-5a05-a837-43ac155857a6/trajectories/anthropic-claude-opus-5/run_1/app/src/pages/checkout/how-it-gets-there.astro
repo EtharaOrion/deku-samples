@@ -1,0 +1,90 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { currentCart, carts, formatMinor, SHIPPING_METHODS } from '../../lib/server.js';
+
+const row = await currentCart(Astro, { create: true });
+let cart = await carts.showCart(row);
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const method = String(form.get('shipping_method') || '');
+  if (!method) {
+    error = 'Choose a delivery method.';
+  } else {
+    try {
+      cart = await carts.setDelivery(row, { shipping_method: method });
+      return Astro.redirect('/checkout/payment', 303);
+    } catch (err) {
+      error = err?.message || 'That did not work.';
+    }
+  }
+}
+
+const empty = cart.lines.length === 0;
+const noAddress = !cart.shipping_address || !cart.email;
+---
+<Shell title="How it gets there — Vela" current="shop">
+  <h1 class="page-title">How it gets there</h1>
+  <CheckoutSteps step={2} />
+
+  {empty ? (
+    <div class="empty"><p>Your cart is empty.</p><p><a href="/shop">Go to the shop</a></p></div>
+  ) : noAddress ? (
+    <div class="notice notice-progress">
+      <p><strong>We need the address first.</strong></p>
+      <p><a href="/checkout/where-it-goes">Go back to where it goes</a></p>
+    </div>
+  ) : (
+    <div class="checkout-layout">
+      <form method="post" class="checkout-form">
+        {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+        <fieldset class="radio-group">
+          <legend class="section-title">Delivery method</legend>
+          {/* No method is preselected. */}
+          {SHIPPING_METHODS.map((method) => (
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="shipping_method"
+                value={method.code}
+                checked={cart.shipping_method === method.code}
+                required
+              />
+              <span class="method-name">{method.label}</span>
+              <span class="method-window">{method.window}</span>
+              <span class="method-price price tabular">{formatMinor(method.price_minor)}</span>
+            </label>
+          ))}
+        </fieldset>
+
+        <div class="checkout-actions">
+          <a class="button button-quiet" href="/checkout/where-it-goes">Back</a>
+          <button class="button" type="submit">Continue to payment</button>
+        </div>
+      </form>
+
+      <CheckoutSummary cart={cart} exact={Boolean(cart.shipping_method)} />
+    </div>
+  )}
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  .checkout-form { max-width: 40rem; }
+  .method-name { font-weight: 700; }
+  .method-window { color: var(--ink-quiet); font-size: 14px; }
+  .method-price { margin-left: auto; }
+  .checkout-actions { display: flex; gap: calc(var(--unit) * 3); margin-top: calc(var(--unit) * 6); flex-wrap: wrap; }
+</style>

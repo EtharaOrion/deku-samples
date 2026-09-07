@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "tile.html" import tile, caption %}
+{% block content %}
+<article class="detail">
+  <h1 class="detail__title display">{{ work['title'] }}</h1>
+  <div class="detail__ordinal">{{ work['ordinal'] }}</div>
+
+  {% if work['credits'] %}
+  <div class="detail__credits">
+    {%- for credit in work['credits'] %}
+    <span class="detail__credit-role">{{ credit['role'] }}</span>
+    {%- if credit['talent_slug'] %}
+    <a class="credit-link" href="/talents/{{ credit['talent_slug'] }}" data-nav-link
+       data-cursor-label="{{ credit['name'] }}">{{ credit['name'] }}</a>
+    {%- else %}
+    <span>{{ credit['name'] }}</span>
+    {%- endif %}
+    {%- endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No credits are recorded for this film.</p>
+  {% endif %}
+
+  {% if work['reel'] %}
+  <div class="detail__reel">
+    {{ tile(work['reel'], work['title'], reveal=true, reel=work['reel']) }}
+  </div>
+  {% endif %}
+
+  <div class="detail__sequence">
+    {%- for media in work['gallery'] %}
+    {{ tile(media, work['title']) }}
+    {%- else %}
+    {%- if not work['reel'] %}
+    <p class="empty-state">No stills are attached to this film.</p>
+    {%- endif %}
+    {%- endfor %}
+  </div>
+
+  {% if work['previous'] and work['next'] %}
+  <nav class="detail__neighbours" aria-label="Works">
+    <a class="link" href="/works/{{ work['previous']['slug'] }}" data-nav-link
+       data-cursor-label="{{ work['previous']['title'] }}">
+      <span class="neighbour__label">PREVIOUS {{ work['previous']['ordinal'] }}</span>
+      <span class="neighbour__title display--sentence"
+        >{{ work['previous']['title'] }}</span>
+    </a>
+    <a class="link" href="/works/{{ work['next']['slug'] }}" data-nav-link
+       data-cursor-label="{{ work['next']['title'] }}">
+      <span class="neighbour__label">NEXT {{ work['next']['ordinal'] }}</span>
+      <span class="neighbour__title display--sentence">{{ work['next']['title'] }}</span>
+    </a>
+  </nav>
+  {% endif %}
+</article>
+
+{% include "footer.html" %}
+{% endblock %}

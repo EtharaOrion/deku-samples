@@ -1,0 +1,129 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { apiGet, formatMinor, formatDate, readOrderTokens } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const { number } = Astro.params;
+const v = await viewer(Astro);
+const placed = Astro.url.searchParams.get('placed') === '1';
+
+// One order by its access token, or by a bearer token for the customer who owns it.
+const held = readOrderTokens(Astro);
+const accessToken = Astro.url.searchParams.get('access_token') || held[number] || null;
+
+const query = accessToken ? `?access_token=${encodeURIComponent(accessToken)}` : '';
+const res = await apiGet(Astro.request, `/orders/${encodeURIComponent(number)}${query}`, { token: v.token });
+const order = res.ok ? res.data.order : null;
+---
+<Shell title={order ? `Order ${order.number} — Vela` : 'Order — Vela'} signedIn={v.signedIn} cartCount={v.cartCount}>
+  {!order ? (
+    <div>
+      <h1 class="page-title">That order does not exist.</h1>
+      <p class="page-lede">
+        The link may have expired, or the order may belong to a different account.
+      </p>
+      <p><a class="btn btn-secondary" href="/shop">Go to the shop</a></p>
+    </div>
+  ) : (
+    <div>
+      {placed && (
+        <div class="notice notice-done" role="status" style="margin-bottom:calc(var(--unit)*6)">
+          {/* Success is stated in words before it is coloured. */}
+          <p style="font-weight:700">
+            Order {order.number} is confirmed. We have emailed {order.email}.
+          </p>
+          <p class="small" style="margin-top:calc(var(--unit)*2)">
+            <a class="btn btn-secondary btn-sm" href={`/account/orders/${order.number}`}>Keep track of this order</a>
+          </p>
+        </div>
+      )}
+
+      <h1 class="page-title">
+        Order <span class="order-number">{order.number}</span>
+      </h1>
+      <p class="page-lede">
+        Placed {formatDate(order.placed_at)}. <span class="chip">{order.state_phrase}</span>
+      </p>
+
+      <section class="section" aria-labelledby="lines-h">
+        <h2 class="section-title" id="lines-h">What you bought</h2>
+        <table class="data" style="max-width:60rem">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col">SKU</th>
+              <th scope="col" class="num">Quantity</th>
+              <th scope="col" class="num">Unit</th>
+              <th scope="col" class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.lines.map((l) => (
+              <tr>
+                <td>{l.title}</td>
+                <td class="mono small">{l.sku}</td>
+                <td class="num tnum">{l.quantity}</td>
+                <td class="num money">{formatMinor(l.unit_price_minor)}</td>
+                <td class="num money">{formatMinor(l.total_minor)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Subtotal</th><td class="num money">{formatMinor(order.subtotal_minor)}</td></tr>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Delivery ({order.shipping_method})</th><td class="num money">{formatMinor(order.shipping_minor)}</td></tr>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Tax</th><td class="num money">{formatMinor(order.tax_minor)}</td></tr>
+            <tr><th scope="row" colspan="4">Total</th><td class="num money" style="font-weight:700">{formatMinor(order.total_minor)}</td></tr>
+          </tfoot>
+        </table>
+      </section>
+
+      {order.serials.length > 0 && (
+        <section class="section" aria-labelledby="serials-h">
+          <h2 class="section-title" id="serials-h">Serial numbers</h2>
+          <p class="small muted" style="margin-bottom:calc(var(--unit)*3)">
+            This is the only place you will find these without the camera in hand.
+          </p>
+          <table class="data" style="max-width:48rem">
+            <thead>
+              <tr>
+                <th scope="col">Serial</th>
+                <th scope="col">Model</th>
+                <th scope="col">Registered</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.serials.map((s) => (
+                <tr>
+                  <td class="serial">{s.serial}</td>
+                  <td>{s.model}</td>
+                  <td>
+                    {s.registered ? (
+                      <span class="chip chip-done">Registered</span>
+                    ) : (
+                      <a class="btn btn-secondary btn-sm" href={`/account/cameras?serial=${encodeURIComponent(s.serial)}`}>
+                        Register this camera
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <section class="section" aria-labelledby="addr-h">
+        <h2 class="section-title" id="addr-h">Where it goes</h2>
+        <p class="small">{order.shipping_address.name}</p>
+        <p class="small muted">{order.shipping_address.line1}</p>
+        {order.shipping_address.line2 && <p class="small muted">{order.shipping_address.line2}</p>}
+        <p class="small muted">
+          {order.shipping_address.city}, {order.shipping_address.region}{' '}
+          <span class="tnum">{order.shipping_address.postal_code}</span>
+        </p>
+        <p class="small muted">{order.shipping_address.country}</p>
+        <p class="small muted" style="margin-top:calc(var(--unit)*2)">{order.email}</p>
+      </section>
+    </div>
+  )}
+</Shell>

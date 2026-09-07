@@ -1,0 +1,158 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { cartFromCookies, customerFromCookies, formValues, redirect } from '../../lib/actions.js';
+import { readCart, setDelivery } from '../../../server/services/cart.js';
+
+const cart = await cartFromCookies(Astro.cookies);
+const customer = await customerFromCookies(Astro.cookies);
+let problem = null;
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  try {
+    await setDelivery(cart, {
+      email: body.email,
+      marketing_consent: body.marketing_consent === 'on' || body.marketing_consent === 'true',
+      shipping_address: {
+        name: body.name,
+        line1: body.line1,
+        line2: body.line2,
+        city: body.city,
+        region: body.region,
+        postal_code: body.postal_code,
+        country: body.country || 'US',
+        phone: body.phone,
+      },
+    });
+    return redirect('/checkout/how-it-gets-there');
+  } catch (err) {
+    problem = err.message || 'That did not work.';
+  }
+}
+
+const fresh = await cartFromCookies(Astro.cookies);
+const view = await readCart(fresh);
+const address = view.shipping_address || {};
+const email = view.email || (customer ? customer.email : '');
+
+if (!view.lines.length) return redirect('/cart');
+---
+
+<Shell title="Where it goes">
+  <nav aria-label="Checkout steps" class="steps">
+    <ol>
+      <li aria-current="step"><span class="mono">1</span> Where it goes</li>
+      <li><span class="mono">2</span> How it gets there</li>
+      <li><span class="mono">3</span> Payment</li>
+    </ol>
+  </nav>
+
+  <h1 class="page-title">Where it goes</h1>
+
+  <div class="checkout-layout">
+    <form method="post" class="stack" novalidate>
+      {problem ? <p class="notice wrong" role="alert">{problem}</p> : null}
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value={email} required autocomplete="email" />
+        <p class="hint">We send the confirmation here.</p>
+      </div>
+
+      <label class="row" style="gap:calc(var(--unit) * 2);align-items:flex-start">
+        <input type="checkbox" name="marketing_consent" style="width:auto;min-height:0" checked={view.marketing_consent} />
+        <span>Write to me when there is something new. Rarely.</span>
+      </label>
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" value={address.name || ''} required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="line1">Address</label>
+        <input id="line1" name="line1" type="text" value={address.line1 || ''} required autocomplete="address-line1" />
+      </div>
+
+      <div class="field">
+        <label for="line2">Address, second line</label>
+        <input id="line2" name="line2" type="text" value={address.line2 || ''} autocomplete="address-line2" />
+      </div>
+
+      <div class="grid two" style="gap:calc(var(--unit) * 4)">
+        <div class="field">
+          <label for="city">City</label>
+          <input id="city" name="city" type="text" value={address.city || ''} required autocomplete="address-level2" />
+        </div>
+        <div class="field">
+          <label for="region">Region</label>
+          <input id="region" name="region" type="text" value={address.region || ''} required autocomplete="address-level1" />
+        </div>
+      </div>
+
+      <div class="grid two" style="gap:calc(var(--unit) * 4)">
+        <div class="field">
+          <label for="postal_code">Postal code</label>
+          <input
+            id="postal_code"
+            name="postal_code"
+            type="text"
+            value={address.postal_code || ''}
+            required
+            autocomplete="postal-code"
+            class="tnum"
+          />
+        </div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country" name="country" required>
+            <option value="US" selected={(address.country || 'US') === 'US'}>United States</option>
+          </select>
+          <p class="hint">We ship inside the United States only.</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="phone">Phone, optional</label>
+        <input id="phone" name="phone" type="tel" value={address.phone || ''} autocomplete="tel" />
+      </div>
+
+      <div class="row">
+        <button class="btn" type="submit">Continue to delivery</button>
+        <a href="/cart">Back to cart</a>
+      </div>
+    </form>
+
+    <CheckoutSummary view={view} step={1} />
+  </div>
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  .steps ol {
+    display: flex;
+    gap: calc(var(--unit) * 6);
+    list-style: none;
+    margin: 0 0 calc(var(--unit) * 6);
+    padding: 0;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--ink-quiet);
+    flex-wrap: wrap;
+  }
+  .steps li[aria-current='step'] {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

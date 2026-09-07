@@ -1,0 +1,71 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { customerFromCookies, redirect } from '../../../lib/actions.js';
+import { listCustomerOrders } from '../../../../server/services/orders.js';
+import { formatMinor, formatDate } from '../../../lib/format.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+
+const cursor = Astro.url.searchParams.get('cursor');
+let parsed = null;
+if (cursor) {
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    parsed = null;
+  }
+}
+
+let orders = { data: [], hasMore: false, lastKey: null };
+let failed = false;
+try {
+  orders = await listCustomerOrders({ customerId: customer.id, pageSize: 20, cursor: parsed });
+} catch {
+  failed = true;
+}
+const nextCursor = orders.hasMore && orders.lastKey
+  ? Buffer.from(JSON.stringify(orders.lastKey), 'utf8').toString('base64url')
+  : null;
+---
+
+<Shell title="Orders">
+  <h1 class="page-title">Orders</h1>
+  <p class="page-lede">Newest first. Every order keeps the lines exactly as they were bought.</p>
+
+  {
+    failed ? (
+      <p class="notice wrong">We could not read your orders. Try the page again in a moment.</p>
+    ) : orders.data.length === 0 ? (
+      <div class="empty">
+        <p>No orders yet.</p>
+        <p style="margin-top:calc(var(--unit) * 3)"><a href="/shop">Go to the shop</a>.</p>
+      </div>
+    ) : (
+      <table data-test="order-list">
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Date</th>
+            <th scope="col">Contents</th>
+            <th scope="col" class="num">Total</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.data.map((o) => (
+            <tr>
+              <th scope="row" class="mono"><a href={`/account/orders/${o.number}`}>{o.number}</a></th>
+              <td>{formatDate(o.placed_at)}</td>
+              <td>{o.summary_title}{o.extra_line_count ? ` and ${o.extra_line_count} more` : ''}</td>
+              <td class="num tnum">{formatMinor(o.total_minor)} {o.currency.toUpperCase()}</td>
+              <td><span class="chip">{o.state_chip}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
+  {nextCursor ? <p style="margin-top:calc(var(--unit) * 4)"><a class="btn quiet" href={`/account/orders?cursor=${nextCursor}`}>Older orders</a></p> : null}
+</Shell>

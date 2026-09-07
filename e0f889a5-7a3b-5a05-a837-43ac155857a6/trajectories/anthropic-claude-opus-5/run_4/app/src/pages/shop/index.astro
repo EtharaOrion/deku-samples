@@ -1,0 +1,127 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import { listProducts } from '../../lib/server.js';
+import { formatMinor } from '../../lib/format.js';
+
+// Ordered by the editorial position and never by price or name. No search and
+// no filter.
+let products = [];
+let failed = false;
+try {
+  products = await listProducts();
+} catch {
+  failed = true;
+}
+
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+function priceLabel(product) {
+  const prices = product.variants.map((v) => Number(v.price_minor));
+  const low = Math.min(...prices);
+  const varies = prices.some((p) => p !== low);
+  // A product whose variants differ in price reads "From " and the lowest.
+  return varies ? `From ${formatMinor(low)}` : formatMinor(low);
+}
+---
+<Shell title="Shop — Vela" description="Two cameras, the accessories and the spares.">
+  <div class="stack stack-8">
+    <header class="stack stack-2">
+      <h1>Shop</h1>
+      <p class="hint">Two cameras, the accessories that fit them and the spares that keep them running.</p>
+    </header>
+
+    {failed ? (
+      <p class="notice notice-danger">We could not load the catalogue. Reload the page to try again.</p>
+    ) : products.length === 0 ? (
+      <div class="empty card">
+        <p>Nothing is on the table right now.</p>
+        <a href="/downloads">Downloads</a>
+      </div>
+    ) : (
+      <>
+        <ul class="grid grid-wide">
+          {cameras.map((product) => (
+            <li class="card cell">
+              <a class="cell-link" href={`/shop/${product.handle}`}>
+                <ProductMedia handle={product.handle} option={product.variants[0]?.option_value} ratio="16 / 9" />
+                <div class="cell-body">
+                  <div class="row-between">
+                    <h2 class="cell-title">{product.title}</h2>
+                    <span class="money tnum">{priceLabel(product)}</span>
+                  </div>
+                  <p class="hint">{product.subtitle}</p>
+                  {product.availability.state !== 'available' && (
+                    <span class:list={['chip', { 'chip-danger': product.availability.state === 'sold_out' }]}>
+                      {product.availability.label}
+                    </span>
+                  )}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <ul class="grid grid-dense">
+          {rest.map((product) => (
+            <li class="card cell">
+              <a class="cell-link" href={`/shop/${product.handle}`}>
+                <ProductMedia handle={product.handle} option={product.variants[0]?.option_value} ratio="4 / 3" />
+                <div class="cell-body">
+                  <div class="row-between">
+                    <h2 class="cell-title">{product.title}</h2>
+                    <span class="money tnum">{priceLabel(product)}</span>
+                  </div>
+                  <p class="hint">{product.subtitle}</p>
+                  {product.availability.state !== 'available' && (
+                    <span class:list={['chip', { 'chip-danger': product.availability.state === 'sold_out' }]}>
+                      {product.availability.label}
+                    </span>
+                  )}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  .grid {
+    list-style: none;
+    display: grid;
+    gap: calc(var(--space) * 4);
+  }
+  /* Cameras render at full width, accessories in a denser row beneath them. */
+  .grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .cell { overflow: hidden; }
+  .cell-link { display: block; text-decoration: none; color: inherit; }
+  .cell-body {
+    padding: calc(var(--space) * 3);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+  .cell-title { font-size: 18px; line-height: 24px; }
+
+  .empty {
+    padding: calc(var(--space) * 6);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+
+  /* The whole grid falls to one column on a narrow viewport; nothing scrolls
+     sideways. */
+  @media (max-width: 63.999rem) {
+    .grid-wide, .grid-dense { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

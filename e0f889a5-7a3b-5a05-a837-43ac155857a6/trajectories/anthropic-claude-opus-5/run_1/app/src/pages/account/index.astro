@@ -1,0 +1,125 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import StateChip from '../../components/StateChip.astro';
+import { currentCustomer, devices, orders, firmware, signInRedirect, formatMinor, formatDateLong } from '../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+// Blocks fail independently, so a failed camera list never blanks the orders
+// beside it.
+const [cameras, recentOrders, latest] = await Promise.all([
+  devices.listCustomerDevices(customer.id, { pageSize: 6 }).then((r) => ({ ok: true, ...r }), () => ({ ok: false, data: [] })),
+  orders.listCustomerOrders(customer.id, { pageSize: 2 }).then((r) => ({ ok: true, ...r }), () => ({ ok: false, data: [] })),
+  firmware.latestRelease().then((r) => ({ ok: true, release: r }), () => ({ ok: false, release: null })),
+]);
+---
+<Shell title="Your account — Vela" current="account" description="Your cameras, your orders and your software.">
+  <h1 class="page-title">{customer.name}</h1>
+  <p class="page-lede">{customer.email}</p>
+
+  <!-- Cameras first, then the two most recent orders, then the software:
+       deliberately not a shop's order. -->
+  <section class="block" aria-labelledby="cameras-heading">
+    <div class="block-head">
+      <h2 class="section-title" id="cameras-heading">Your cameras</h2>
+      <a href="/account/cameras">All cameras</a>
+    </div>
+    {!cameras.ok ? (
+      <p class="notice notice-wrong" role="alert">That list did not load. Reload the page to try again.</p>
+    ) : cameras.data.length === 0 ? (
+      <div class="empty">
+        <p>No cameras registered yet.</p>
+        <p><a href="/account/cameras">Register one</a></p>
+      </div>
+    ) : (
+      <div class="grid grid-dense">
+        {cameras.data.map((device) => (
+          <article class="card camera-card">
+            <h3 class="camera-model"><a href={`/account/cameras/${device.serial}`}>{device.nickname || device.model}</a></h3>
+            <p class="camera-serial mono">{device.serial}</p>
+            <p class="camera-chips">
+              <StateChip
+                state={device.firmware_state}
+                label={
+                  device.firmware_state === 'update_available' ? 'Update available'
+                  : device.firmware_state === 'not_connected' ? 'Not yet connected'
+                  : `Firmware ${device.firmware_version}`
+                }
+              />
+            </p>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="orders-heading">
+    <div class="block-head">
+      <h2 class="section-title" id="orders-heading">Recent orders</h2>
+      <a href="/account/orders">All orders</a>
+    </div>
+    {!recentOrders.ok ? (
+      <p class="notice notice-wrong" role="alert">That list did not load. Reload the page to try again.</p>
+    ) : recentOrders.data.length === 0 ? (
+      <div class="empty">
+        <p>No orders yet.</p>
+        <p><a href="/shop">Go to the shop</a></p>
+      </div>
+    ) : (
+      <table class="table">
+        <thead>
+          <tr><th>Number</th><th>Placed</th><th>What</th><th class="num">Total</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          {recentOrders.data.map((order) => (
+            <tr>
+              <td class="mono"><a href={`/account/orders/${order.number}`}>{order.number}</a></td>
+              <td>{formatDateLong(order.placed_at)}</td>
+              <td>
+                {order.lines[0]?.title_snapshot}
+                {order.lines.length > 1 && <span class="and-more"> and {order.lines.length - 1} more</span>}
+              </td>
+              <td class="num tabular">{formatMinor(order.total_minor)}</td>
+              <td><span class={`chip ${order.status === 'confirmed' ? 'chip-done' : 'chip-progress'}`}>{order.state_phrase}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="software-heading">
+    <h2 class="section-title" id="software-heading">Your software</h2>
+    {!latest.ok || !latest.release ? (
+      <p class="notice notice-wrong" role="alert">That did not load. Reload the page to try again.</p>
+    ) : (
+      <div class="card software-card">
+        <p class="software-version">
+          The current version of Arranger is <span class="mono">{latest.release.version}</span>,
+          released {formatDateLong(latest.release.released_on)}.
+        </p>
+        <p class="software-note">
+          {cameras.data.some((d) => d.update_available)
+            ? 'One of your cameras has firmware waiting. Arranger writes it.'
+            : 'Your cameras are on the newest firmware we have published.'}
+        </p>
+        <p><a class="button button-quiet" href="/downloads">Go to downloads</a></p>
+      </div>
+    )}
+  </section>
+</Shell>
+
+<style>
+  .block { margin-top: calc(var(--unit) * 10); }
+  .block-head { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--unit) * 4); }
+  .block-head a { font-size: 14px; }
+  .camera-model { font-size: 16px; margin: 0; }
+  .camera-model a { text-decoration: none; }
+  .camera-serial { margin: var(--unit) 0 calc(var(--unit) * 2); font-size: 13px; }
+  .camera-chips { margin: 0; }
+  .and-more { color: var(--ink-quiet); }
+  .software-card { max-width: 44rem; }
+  .software-version { margin: 0 0 var(--unit); }
+  .software-note { color: var(--ink-quiet); font-size: 14px; }
+</style>

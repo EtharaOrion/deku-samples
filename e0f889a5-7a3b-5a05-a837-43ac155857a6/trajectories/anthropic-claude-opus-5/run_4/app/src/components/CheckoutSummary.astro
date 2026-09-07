@@ -1,0 +1,84 @@
+---
+import { formatMinor } from '../lib/format.js';
+
+// A persistent summary sits beside all three steps.
+const { cart, exact = false } = Astro.props;
+const label = exact ? '' : 'Estimated ';
+---
+<aside class="summary card" aria-label="Order summary">
+  <h2>Summary</h2>
+
+  <ul class="lines">
+    {cart.lines.map((line) => (
+      <li>
+        <span class="l-title">{line.title} <span class="hint">× {line.quantity}</span></span>
+        <span class="money tnum">{formatMinor(line.line_total_minor)}</span>
+      </li>
+    ))}
+  </ul>
+
+  <dl class="totals">
+    <div>
+      <dt>Subtotal</dt>
+      <dd class="money tnum">{formatMinor(cart.subtotal_minor)}</dd>
+    </div>
+    <div>
+      <dt>{label}delivery</dt>
+      <dd class="money tnum">{formatMinor(cart.shipping_minor)}</dd>
+    </div>
+    {cart.protection_minor > 0 && (
+      <div>
+        <dt>Shipment protection</dt>
+        <dd class="money tnum">{formatMinor(cart.protection_minor)}</dd>
+      </div>
+    )}
+    <div>
+      <dt>{label}tax</dt>
+      <dd class="money tnum">{formatMinor(cart.tax_minor)}</dd>
+    </div>
+    <div class="grand">
+      <dt>Total</dt>
+      <dd class="money tnum">{formatMinor(cart.total_minor)}</dd>
+    </div>
+  </dl>
+
+  {!exact && (
+    <p class="hint">Estimated. We will show the exact amount once we know where it is going.</p>
+  )}
+</aside>
+
+<style>
+  .summary {
+    padding: calc(var(--space) * 4);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 4);
+    position: sticky;
+    top: calc(var(--header-h) + var(--space) * 4);
+  }
+  .summary h2 { font-size: 16px; }
+  .lines {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 2);
+    font-size: 14px;
+    border-bottom: var(--border-w) solid var(--rule);
+    padding-bottom: calc(var(--space) * 3);
+  }
+  .lines li { display: flex; justify-content: space-between; gap: calc(var(--space) * 3); }
+  .l-title { min-width: 0; }
+  .totals { display: flex; flex-direction: column; gap: calc(var(--space) * 2); font-size: 14px; }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--space) * 3); }
+  .totals dd { margin: 0; }
+  .grand {
+    border-top: var(--border-w) solid var(--rule);
+    padding-top: calc(var(--space) * 2);
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  @media (max-width: 63.999rem) {
+    .summary { position: static; }
+  }
+</style>

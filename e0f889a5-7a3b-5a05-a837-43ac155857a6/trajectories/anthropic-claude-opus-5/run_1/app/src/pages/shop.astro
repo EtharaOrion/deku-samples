@@ -1,0 +1,98 @@
+---
+import Shell from '../layouts/Shell.astro';
+import ProductMedia from '../components/ProductMedia.astro';
+import StateChip from '../components/StateChip.astro';
+import Price from '../components/Price.astro';
+import { listProducts } from '../lib/server.js';
+
+let products = [];
+let failed = false;
+try {
+  const out = await listProducts({ pageSize: 100 });
+  products = out.data;
+} catch {
+  failed = true;
+}
+
+// Ordered by the editorial position, never by price or name.
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+---
+<Shell title="Shop — Vela" current="shop" description="Two cameras, the accessories that go with them and the spares that keep them running.">
+  <h1 class="page-title">Shop</h1>
+  <p class="page-lede">Two cameras, the accessories that go with them, and the spares that keep them running.</p>
+
+  {failed && (
+    <div class="notice notice-wrong" role="alert" style="margin-top:16px;">
+      <strong>The catalogue did not load.</strong> Reload the page to try again.
+    </div>
+  )}
+
+  {!failed && products.length === 0 && (
+    <div class="empty" style="margin-top:24px;">
+      <p>Nothing is on the table right now.</p>
+      <p><a href="/downloads">Go to downloads</a></p>
+    </div>
+  )}
+
+  {cameras.length > 0 && (
+    <section style="margin-top:28px;" aria-labelledby="cameras-heading">
+      <h2 class="section-title" id="cameras-heading">Cameras</h2>
+      <div class="grid grid-cameras">
+        {cameras.map((p) => (
+          <article class="card product-card">
+            <a class="product-link" href={`/shop/${p.handle}`}>
+              <ProductMedia handle={p.handle} kind={p.kind} title={p.title} tall />
+              <div class="product-head">
+                <h3 class="product-title">{p.title}</h3>
+                {p.availability.state !== 'available' && (
+                  <StateChip state={p.availability.state} label={p.availability.label} />
+                )}
+              </div>
+              <p class="product-subtitle">{p.subtitle}</p>
+              <p class="product-price"><Price minor={p.price_minor} from={p.price_varies} /></p>
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {rest.length > 0 && (
+    <section style="margin-top:32px;" aria-labelledby="rest-heading">
+      <h2 class="section-title" id="rest-heading">Accessories and spares</h2>
+      <div class="grid grid-dense">
+        {rest.map((p) => (
+          <article class="card product-card">
+            <a class="product-link" href={`/shop/${p.handle}`}>
+              <ProductMedia handle={p.handle} kind={p.kind} title={p.title} />
+              <div class="product-head">
+                <h3 class="product-title">{p.title}</h3>
+                {p.availability.state !== 'available' && (
+                  <StateChip state={p.availability.state} label={p.availability.label} />
+                )}
+              </div>
+              <p class="product-subtitle">{p.subtitle}</p>
+              <p class="product-price"><Price minor={p.price_minor} from={p.price_varies} /></p>
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+</Shell>
+
+<style>
+  .product-card { padding: calc(var(--unit) * 3); }
+  .product-link { display: block; text-decoration: none; color: inherit; }
+  .product-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 2);
+    margin-top: calc(var(--unit) * 3);
+  }
+  .product-title { font-size: 18px; line-height: 24px; }
+  .product-subtitle { margin: var(--unit) 0 0; color: var(--ink-quiet); font-size: 14px; line-height: 20px; }
+  .product-price { margin: calc(var(--unit) * 2) 0 0; font-size: 16px; }
+</style>

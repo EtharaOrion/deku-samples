@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_tile.html" import tile %}
+{% block content %}
+{# Server-rendered in full: every talent and both filter controls arrive in the
+   document. Alpine only filters, advances and marks; it renders nothing. #}
+<section class="roster" x-data="roster()" x-init="init()" @keydown.window="onKey($event)">
+
+  {# Focus order follows visual order: the filter controls precede the talent.
+     The filter labels and the discipline labels are the same derived strings. #}
+  <div class="roster__filter" role="group" aria-label="Filter by discipline">
+    <span class="roster__marker" aria-hidden="true"
+          :style="`transform: translateY(${markerY}px)`"></span>
+    {% for d in disciplines %}
+    <button type="button" class="roster__filter-item" data-discipline="{{ d }}"
+            aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            :aria-pressed="active === '{{ d }}'"
+            @click="select('{{ d }}')">{{ d | upper }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="roster__stage" x-ref="stage">
+    {% for t in talents %}
+    <article class="roster__entry {{ 'is-active' if loop.first else '' }}"
+             data-talent
+             data-discipline="{{ t.discipline }}"
+             data-name="{{ t.title }}"
+             {% if not loop.first %}aria-hidden="true"{% endif %}>
+      {% if loop.first %}
+      <h1 class="roster__name display display--title-case">{{ t.title }}</h1>
+      {% else %}
+      <h2 class="roster__name display display--title-case">{{ t.title }}</h2>
+      {% endif %}
+      <p class="roster__discipline">{{ t.discipline | upper }}</p>
+      <a class="roster__portrait" href="{{ t.href }}" data-nav
+         data-cursor-label="{{ t.title }}"
+         aria-label="{{ t.title }}, {{ t.discipline }}">
+        {{ tile(t.poster, reveal=true) }}
+      </a>
+    </article>
+    {% endfor %}
+
+    {% if not talents %}
+    <p class="empty-state" style="position:absolute;top:50%;left:0;right:0;text-align:center">
+      No talent is published yet.</p>
+    {% endif %}
+    <p class="empty-state" x-show="count === 0" x-cloak
+       style="position:absolute;top:50%;left:0;right:0;text-align:center">
+      No talent is published in that discipline.</p>
+  </div>
+
+  {% if talents %}
+  <p class="roster__counter">
+    <span x-text="String(count ? index + 1 : 0).padStart(3, '0')">001</span>
+    /
+    <span x-text="String(count).padStart(3, '0')">{{ '%03d' % talents|length }}</span>
+  </p>
+  {% endif %}
+
+  {# The current name is announced on change. #}
+  <p class="visually-hidden" role="status" aria-live="polite" x-text="announce"></p>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

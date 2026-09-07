@@ -1,0 +1,323 @@
+/* The front page is one document and the whole of the front page.
+   Its stacking system is fixed and nothing may introduce another layer:
+
+     1 stage      the film, at the lowest layer
+     2 still      a frame above it that dissolves away once there is footage
+     3 speckle    a very faint animated grain so a large dark gradient cannot band
+     4 darken     a gradient panel drawn from the bottom upward by scroll
+     5 flatten    a flat panel that removes the film entirely once darkening is full
+     6 writing    the letter itself
+     7 wordmark   fixed, above all of it
+*/
+
+.letter {
+  --layer-stage: 1;
+  --layer-still: 2;
+  --layer-speckle: 3;
+  --layer-darken: 4;
+  --layer-flatten: 5;
+  --layer-writing: 6;
+  --layer-wordmark: 7;
+
+  position: relative;
+  background: var(--ground-dark);
+  color: var(--ink-dark);
+  min-height: 100vh;
+}
+
+.letter__stage {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-stage);
+  overflow: hidden;
+  background: var(--ground-dark);
+  /* If everything fails the stage is flat ground and the letter reads from the
+     first line. This gradient is keyed to the letter's own colours. */
+  background-image:
+    radial-gradient(120% 90% at 32% 18%, #6b5136 0%, #3a2c1e 42%, #14110f 100%);
+}
+
+.letter__film,
+.letter__still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.letter__still {
+  z-index: var(--layer-still);
+  /* The still dissolves away once there is enough footage to play. */
+  opacity: 1;
+  transition: opacity 400ms var(--easing);
+}
+.letter__stage[data-film='playing'] .letter__still { opacity: 0; }
+
+.letter__speckle {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-speckle);
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* Darkens the whole stage from the bottom upward as the reader scrolls. It is a
+   pure function of scroll position, never a fade that plays once on a timer,
+   and it is never removed under reduced motion. */
+.letter__darken {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-darken);
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--ground-dark) 0%,
+    var(--ground-dark) 18%,
+    color-mix(in srgb, var(--ground-dark) 82%, transparent) 44%,
+    color-mix(in srgb, var(--ground-dark) 42%, transparent) 72%,
+    color-mix(in srgb, var(--ground-dark) 8%, transparent) 100%
+  );
+  transform: translate3d(0, calc(100% - var(--darken, 0) * 100%), 0);
+  will-change: transform;
+}
+
+/* When the panel is fully drawn a flat panel removes the film entirely, so the
+   footer begins against true ground rather than against a dimmed picture. */
+.letter__flatten {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-flatten);
+  pointer-events: none;
+  background: var(--ground-dark);
+  opacity: var(--flatten, 0);
+}
+
+.letter__writing {
+  position: relative;
+  z-index: var(--layer-writing);
+}
+
+.letter__wordmark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--layer-wordmark);
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+  pointer-events: none;
+}
+.letter__wordmark a {
+  pointer-events: auto;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: var(--wordmark-h);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--ink-dark);
+  text-shadow: 0 1px 3px rgba(20, 17, 15, 0.55);
+}
+
+/* ------------------------------------------------------------ the writing */
+
+.letter__head {
+  padding: calc(var(--header-h) + 12vh) var(--gutter) 8vh;
+}
+
+.letter__title {
+  font-size: var(--display-fs);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+.letter__dateline {
+  margin-top: calc(var(--unit) * 4);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.02em;
+}
+
+.letter__body {
+  padding: 0 var(--gutter) 12vh;
+}
+
+/* The writing carries a faint shadow at every width: invisible against the dark
+   ground and load-bearing against the lit one. */
+.letter__title,
+.letter__dateline,
+.letter__p,
+.letter__closing {
+  text-shadow: 0 1px 4px rgba(20, 17, 15, 0.5);
+}
+
+.letter__p {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  font-weight: 400;
+  /* The letter's paragraph rhythm is 1em above and below so it scales with the
+     fluid type rather than with the spacing unit. */
+  margin: 1em 0;
+}
+
+.letter__closing {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  margin: 2em 0 1em;
+  /* The only place the accent appears on this surface. */
+  color: var(--accent-on-dark);
+}
+
+@media (min-width: 64rem) {
+  .letter__p,
+  .letter__closing {
+    letter-spacing: 0.02em;
+  }
+  .letter__head {
+    padding-top: calc(var(--header-h) + 18vh);
+  }
+  .letter__title {
+    /* Aligned to the start edge above the tier, at 0.95 of the size. */
+    line-height: 0.95;
+  }
+  /* On a wide screen the letter is a narrow column standing beside the film. */
+  .letter__head,
+  .letter__body {
+    max-width: 34rem;
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 1550px) {
+  .letter__title { letter-spacing: -0.02em; }
+}
+
+/* ------------------------------------------- the driven layer, below 64rem */
+
+/* Every paragraph exists twice: once in normal flow, which is what the markup
+   carries and what a reader with no scripting receives in correct reading
+   order, and once in an inert layer that the scroll drives. The driven layer is
+   never the only copy. */
+.letter__driven {
+  display: none;
+}
+
+@media (max-width: 63.999rem) {
+  .letter__driven {
+    display: block;
+    position: relative;
+    z-index: var(--layer-writing);
+    padding: 0 var(--gutter);
+  }
+  /* Below the tier the letter becomes a different page: each paragraph is a
+     half width block, and the blocks alternate between the left and right
+     halves in a pattern that follows the argument. */
+  .letter__block {
+    width: 62%;
+    margin: 34vh 0;
+  }
+  .letter__block[data-side='end'] {
+    margin-left: auto;
+  }
+  .letter__block[data-side='start'] {
+    margin-right: auto;
+  }
+  /* Each block fades in and out in exact step with the scroll. */
+  .letter__block .letter__p {
+    opacity: var(--block-opacity, 1);
+  }
+  /* The flow copy is hidden from sight below the tier but stays in the document
+     for a reader with no scripting, who receives it in reading order. */
+  .letter__flow[data-driven='on'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* On a wide screen the paragraphs do not fade at all; only the picture behind
+   them changes. */
+@media (min-width: 64rem) {
+  .letter__block .letter__p { opacity: 1; }
+}
+
+/* --------------------------------------------------------------- the footer */
+
+.footer {
+  position: relative;
+  z-index: var(--layer-writing);
+  background: var(--ground-dark);
+  color: var(--ink-dark);
+  border-radius: 0;
+  padding: calc(var(--unit) * 12) var(--gutter) calc(var(--unit) * 6);
+}
+
+.footer__canvas-wrap {
+  /* The canvas is the width of the page inside its gutters. */
+  width: 100%;
+  height: clamp(120px, 22vw, 260px);
+  border-radius: 0;
+}
+.footer__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 0;
+}
+
+.footer__bottom {
+  margin-top: calc(var(--unit) * 8);
+  padding-top: calc(var(--unit) * 4);
+  border-top: var(--border) solid color-mix(in srgb, var(--ink-dark) 20%, transparent);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 4);
+  flex-wrap: wrap;
+}
+
+.footer__wordmark {
+  font-weight: 700;
+  font-size: 20px;
+  line-height: var(--wordmark-h);
+  letter-spacing: -0.01em;
+}
+
+.footer__rights {
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--ink-dark) 72%, transparent);
+}
+
+.footer__links {
+  margin-left: auto;
+  display: flex;
+  gap: calc(var(--unit) * 5);
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+}
+.footer__links li,
+.footer__links a {
+  font-size: 14px;
+  line-height: 21px;
+}
+.footer__links span {
+  color: color-mix(in srgb, var(--ink-dark) 62%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The film is dropped, but the darkening is never removed, because the
+     writing is light and the film is lit. */
+  .letter__still { transition: none; }
+}

@@ -1,0 +1,225 @@
+/* ---------------------------------------------------------------------------
+   Vela design tokens.
+
+   Two grounds, each surface declaring which it is rather than inheriting one.
+   Nothing states black or white directly, so one declaration inverts a surface.
+   --------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/vela-grotesque-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/vela-grotesque-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The fallback carries metric overrides so the swap does not move the letter
+   when the real face arrives. */
+@font-face {
+  font-family: 'Vela Fallback';
+  src: local('system-ui'), local('-apple-system'), local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  /* Type */
+  --font-display: 'Vela Grotesque', 'Vela Fallback', system-ui, sans-serif;
+  /* Identifiers are system-only monospace, used for nothing else. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* The two fluid values. Below 64rem they are viewport units; above, they are
+     pinned so they land on 48.932px and 20.9709px at 1440px. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  /* Frame */
+  --header-h: 80px;
+  --gutter: 20px;
+  --unit: 0.25rem;
+  --radius: 0.5rem;
+  --radius-flat: 0;
+  --border-w: 1px;
+  --shadow: 0px 2px 4px rgb(0 0 0 / 5%);
+  --measure: 68ch;
+
+  /* Motion is mechanical: every transition moves at one speed. */
+  --speed: 120ms;
+  --ease: linear;
+
+  /* Light ground. Colour carries meaning and nothing else. */
+  --ground: #f7f6f4;
+  --surface: #fdfcfb;
+  --surface-sunken: #efedea;
+  --fg: #16150f;
+  --fg-muted: #55524a;
+  --fg-faint: #6d6a61;
+  --line: #d9d5cf;
+  --line-strong: #b4afa6;
+
+  /* One accent, a saturated warm hue, at most once per screen, never behind text. */
+  --accent: #d8420a;
+
+  /* Three further meanings, each used nowhere else. */
+  --error: #a3160c;
+  --progress: #7a4a05;
+  --done: #1c5a33;
+
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+}
+
+/* One declaration inverts a surface. */
+.on-dark,
+[data-ground='dark'] {
+  --ground: #12110d;
+  --surface: #1a1913;
+  --surface-sunken: #0d0c09;
+  --fg: #f4f2ec;
+  --fg-muted: #c3bfb4;
+  --fg-faint: #9d9890;
+  --line: #34322a;
+  --line-strong: #4d4a40;
+  --accent: #ff6b2c;
+  --error: #ff9b8f;
+  --progress: #f0c169;
+  --done: #86d6a4;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 24px;
+  background: var(--ground);
+  color: var(--fg);
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* There is no italic anywhere in the product. */
+i, em, cite, address, dfn, var {
+  font-style: normal;
+}
+
+/* Tabular numerals wherever figures stack. */
+.num,
+.money,
+.serial,
+.version,
+.build,
+.bytes,
+td.num,
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Identifiers are monospace: serials, versions, builds, digests, order numbers. */
+.mono,
+.serial,
+.version,
+.build,
+.digest,
+.order-number,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Focus is a ring in the surface's own foreground token, never the accent,
+   never removed. */
+:focus-visible {
+  outline: var(--focus-ring) solid var(--fg);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius);
+}
+
+/* Every page carries a skip link as its first focusable element. */
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: -100px;
+  z-index: 100;
+  background: var(--surface);
+  color: var(--fg);
+  border: var(--border-w) solid var(--fg);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  transition: top var(--speed) var(--ease);
+}
+.skip-link:focus {
+  top: calc(var(--unit) * 2);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+/* Reduced motion drops every transition; the letter's darkening is never
+   dropped and is handled on its own surface. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,234 @@
+---
+import { formatMoney } from '../lib/api';
+
+interface Props {
+  product: any;
+  selectedSku: string | null;
+}
+const { product, selectedSku } = Astro.props;
+const variants = product.variants || [];
+const selected = variants.find((v: any) => v.sku === selectedSku) || variants[0];
+const single = variants.length === 1;
+// One radio group per option rather than a select when there are five or fewer.
+const useRadios = variants.length <= 5;
+---
+
+<section class="buy" data-buy data-handle={product.handle} data-sku={selected?.sku} aria-labelledby="buy-heading">
+  <h2 class="visually-hidden" id="buy-heading">Buy</h2>
+
+  <p class="price tnum" data-price>{formatMoney(selected?.price_minor ?? 0)}</p>
+
+  <p class="availability" data-availability data-state={selected?.availability?.state}>
+    {selected?.availability?.state === 'available' ? '' : selected?.availability?.label}
+  </p>
+
+  {/* A single-variant product still carries its variant's state for the island. */}
+  {single && selected && (
+    <input
+      type="hidden"
+      data-variant-input
+      value={selected.sku}
+      data-price-minor={selected.price_minor}
+      data-available={selected.available}
+      data-state={selected.availability.state}
+      data-label={selected.availability.label}
+    />
+  )}
+
+  {!single && useRadios && (
+    <fieldset class="options">
+      <legend>Colour</legend>
+      <div class="radios">
+        {variants.map((v: any) => (
+          <label class="radio" data-option-label={v.sku}>
+            <input
+              type="radio"
+              name="variant"
+              value={v.sku}
+              checked={v.sku === selected?.sku}
+              data-variant-input
+              data-price-minor={v.price_minor}
+              data-available={v.available}
+              data-state={v.availability.state}
+              data-label={v.availability.label}
+            />
+            <span>{v.option_value}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )}
+
+  {!single && !useRadios && (
+    <div class="field">
+      <label for="variant-select">Colour</label>
+      <select id="variant-select" data-variant-select>
+        {variants.map((v: any) => (
+          <option value={v.sku} selected={v.sku === selected?.sku}>{v.option_value}</option>
+        ))}
+      </select>
+    </div>
+  )}
+
+  <div class="qty">
+    <label for="qty-input">Quantity</label>
+    <div class="stepper">
+      <button type="button" class="btn btn-secondary btn-small" data-qty-down aria-label="One fewer">&minus;</button>
+      <input id="qty-input" type="number" class="tnum" value="1" min="1" max="10" step="1" data-qty inputmode="numeric" />
+      <button type="button" class="btn btn-secondary btn-small" data-qty-up aria-label="One more">+</button>
+    </div>
+  </div>
+
+  <button class="btn buy-control" type="button" data-add>Add to cart</button>
+
+  <p class="buy-status" data-status role="status" aria-live="polite"></p>
+</section>
+
+<script>
+  (() => {
+    const root = document.querySelector<HTMLElement>('[data-buy]');
+    if (!root) return;
+
+    const priceEl = root.querySelector<HTMLElement>('[data-price]')!;
+    const availEl = root.querySelector<HTMLElement>('[data-availability]')!;
+    const qtyInput = root.querySelector<HTMLInputElement>('[data-qty]')!;
+    const addBtn = root.querySelector<HTMLButtonElement>('[data-add]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+
+    // Money in the browser is integer minor units too.
+    const money = (minor: number) => {
+      const n = Math.trunc(minor);
+      return `$${Math.trunc(n / 100).toLocaleString('en-US')}.${String(Math.abs(n % 100)).padStart(2, '0')}`;
+    };
+
+    /* The chosen variant: a checked radio, a hidden input on a single-variant
+       product, or the current option of the select. */
+    function currentVariant(): HTMLInputElement | HTMLOptionElement | null {
+      const checked = root.querySelector<HTMLInputElement>('[data-variant-input]:checked');
+      if (checked) return checked;
+      const hidden = root.querySelector<HTMLInputElement>('input[type="hidden"][data-variant-input]');
+      if (hidden) return hidden;
+      const select = root.querySelector<HTMLSelectElement>('[data-variant-select]');
+      if (select) return select.selectedOptions[0] as unknown as HTMLOptionElement;
+      return null;
+    }
+
+    function selectedSku(): string {
+      return (currentVariant() as HTMLInputElement)?.value || root.dataset.sku || '';
+    }
+
+    function apply() {
+      const el = currentVariant() as HTMLInputElement | null;
+      if (!el) return;
+      const price = Number(el.dataset.priceMinor || 0);
+      const available = Number(el.dataset.available || 0);
+      const state = el.dataset.state || 'available';
+      const label = el.dataset.label || '';
+
+      priceEl.textContent = money(price);
+      availEl.textContent = state === 'available' ? '' : label;
+      availEl.dataset.state = state;
+
+      // The stepper runs from one to the lesser of ten and available stock.
+      const max = Math.max(1, Math.min(10, available));
+      qtyInput.max = String(max);
+      if (Number(qtyInput.value) > max) qtyInput.value = String(max);
+
+      const purchasable = state !== 'sold_out' && state !== 'discontinued';
+      addBtn.disabled = !purchasable;
+      addBtn.textContent = state === 'sold_out' ? 'Sold out'
+        : state === 'discontinued' ? 'We no longer sell this' : 'Add to cart';
+
+      // Choosing an option updates the address by replacing history rather than
+      // pushing it, so the back control leaves the product page. A product with
+      // one variant has no option to choose, so it names none.
+      if (el.type !== 'hidden') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('variant', el.value);
+        history.replaceState(history.state, '', url);
+      }
+    }
+
+    root.querySelectorAll('[data-variant-input]').forEach((input) => {
+      input.addEventListener('change', apply);
+    });
+    root.querySelector('[data-variant-select]')?.addEventListener('change', apply);
+
+    root.querySelector('[data-qty-down]')?.addEventListener('click', () => {
+      qtyInput.value = String(Math.max(1, Number(qtyInput.value) - 1));
+    });
+    root.querySelector('[data-qty-up]')?.addEventListener('click', () => {
+      qtyInput.value = String(Math.min(Number(qtyInput.max || 10), Number(qtyInput.value) + 1));
+    });
+
+    addBtn.addEventListener('click', async () => {
+      const sku = selectedSku();
+      if (!sku) return;
+      addBtn.disabled = true;
+      const previous = addBtn.textContent;
+      addBtn.textContent = 'Adding';
+      status.textContent = '';
+      try {
+        const res = await fetch('/api/cart/lines', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku, quantity: Number(qtyInput.value) || 1 }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          // The reason is stated, never a blank screen.
+          status.textContent = body?.error?.message || 'That did not work.';
+          status.className = 'buy-status is-error';
+          addBtn.textContent = previous;
+          addBtn.disabled = false;
+          return;
+        }
+        // Success is stated in words before it is coloured.
+        status.textContent = 'Added to your cart.';
+        status.className = 'buy-status is-done';
+        document.dispatchEvent(new CustomEvent('vela:cart', { detail: body }));
+        addBtn.textContent = previous;
+        addBtn.disabled = false;
+      } catch {
+        status.textContent = 'That did not work. Check your connection and try again.';
+        status.className = 'buy-status is-error';
+        addBtn.textContent = previous;
+        addBtn.disabled = false;
+      }
+    });
+
+    apply();
+  })();
+</script>
+
+<style>
+  .buy { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); }
+  .price { font-size: 28px; font-weight: 700; }
+  .availability { color: var(--fg-muted); font-size: 14px; min-height: 21px; }
+  .availability[data-state='low'] { color: var(--state-progress); }
+
+  .options { border: 0; padding: 0; margin: 0; }
+  .options legend { font-size: 14px; color: var(--fg-muted); padding: 0 0 calc(var(--unit) * 2); }
+  .radios { display: flex; gap: calc(var(--unit) * 2); flex-wrap: wrap; }
+  .radio {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+    border: var(--border-w) solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    cursor: pointer;
+    transition: border-color var(--speed) var(--ease);
+  }
+  .radio:has(input:checked) { border-color: var(--fg); font-weight: 700; }
+
+  .qty { display: flex; flex-direction: column; gap: var(--unit); }
+  .qty label { font-size: 14px; color: var(--fg-muted); }
+  .stepper { display: inline-flex; align-items: center; gap: calc(var(--unit) * 2); }
+  .stepper input { width: calc(var(--unit) * 16); text-align: center; }
+
+  .buy-control { align-self: flex-start; min-width: calc(var(--unit) * 40); }
+  .buy-status { font-size: 14px; min-height: 21px; }
+  .is-error { color: var(--state-error); }
+  .is-done { color: var(--state-done); }
+</style>

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+{% if talents %}
+<section class="roster" id="roster" x-data="roster()" x-init="init()"
+         @keydown.window.arrow-down.prevent="advance(1)"
+         @keydown.window.arrow-up.prevent="advance(-1)"
+         @keydown.window.arrow-right.prevent="advance(1)"
+         @keydown.window.arrow-left.prevent="advance(-1)">
+
+  <div class="filter" role="group" aria-label="Filter by discipline">
+    {%- for discipline in disciplines %}
+    <div class="filter__row" :data-active="active === '{{ discipline }}'"
+         data-active="{{ 'true' if loop.first else 'false' }}">
+      <span class="filter__marker" aria-hidden="true"></span>
+      <button class="filter__button" type="button"
+              @click="select('{{ discipline }}')"
+              :aria-pressed="active === '{{ discipline }}' ? 'true' : 'false'"
+              aria-pressed="{{ 'true' if loop.first else 'false' }}"
+        >{{ discipline|upper }}</button>
+    </div>
+    {%- endfor %}
+  </div>
+
+  <div class="roster__frame">
+    {%- for talent in talents %}
+    <div class="roster__block" data-talent-block
+         data-discipline="{{ talent['discipline'] }}"
+         x-show="visible.length && visible[index] === {{ loop.index0 }}"
+         {% if not loop.first %}style="display: none;"{% endif %}>
+      {% if loop.first %}<h1 class="roster__name display--sentence"
+        >{{ talent['title'] }}</h1>{% else %}
+      <p class="roster__name display--sentence">{{ talent['title'] }}</p>{% endif %}
+      <p class="roster__discipline discipline-label"
+        >{{ talent['discipline']|upper }}</p>
+      {% if talent['poster'] %}
+      <a class="roster__portrait tile" href="/talents/{{ talent['slug'] }}"
+         data-nav-link data-cursor-label="{{ talent['title'] }}">
+        <div class="tile__frame reveal reveal--in"
+             style="aspect-ratio: {{ talent['poster']['width'] }} / {{ talent['poster']['height'] }};">
+          <div class="tile__placeholder" aria-hidden="true"></div>
+          <img class="tile__media" src="{{ talent['poster']['url'] }}"
+               width="{{ talent['poster']['width'] }}"
+               height="{{ talent['poster']['height'] }}"
+               alt="{{ talent['poster']['alt'] }}" decoding="async" data-still>
+        </div>
+      </a>
+      {% endif %}
+    </div>
+    {%- endfor %}
+  </div>
+
+  <p class="roster__counter" aria-live="polite">
+    <span x-text="counter()">001 / {{ talents|length }}</span>
+  </p>
+</section>
+{% else %}
+<div class="centred-line empty-state">No talent is published yet.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_tile.html" import tile, caption %}
+{% block content %}
+<article class="work-detail">
+  <header class="work-head">
+    <p class="work-ordinal">{{ work.ordinal }}</p>
+    <h1 class="work-title">{{ work.title }}</h1>
+  </header>
+
+  {% if work.credits %}
+  <dl class="credits" aria-label="Credits">
+    {% for credit in work.credits %}
+    <div class="credit-row">
+      <dt class="credit-role">{{ credit.role|upper }}</dt>
+      <dd class="credit-name">
+        {% if credit.talent_href %}
+        <a href="{{ credit.talent_href }}" data-route-link data-cursor-label="{{ credit.name }}">{{ credit.name|upper }}</a>
+        {% else %}{{ credit.name|upper }}{% endif %}
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="empty-state">NO CREDITS ARE RECORDED FOR THIS WORK.</p>
+  {% endif %}
+
+  {% if work.reel %}
+  <section class="work-reel" aria-label="Showreel">
+    <div class="tile tile-bleed tile-colour" data-tile data-reveal
+         data-reel="{{ work.reel.url }}" data-reel-seed="{{ work.reel.seed }}">
+      <div class="tile-frame" style="aspect-ratio: {{ work.reel.width }} / {{ work.reel.height }};">
+        <img class="tile-img" src="{{ work.reel.url }}" alt="{{ work.reel.alt }}"
+             width="{{ work.reel.width }}" height="{{ work.reel.height }}"
+             data-media decoding="async">
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if work.gallery %}
+  <section class="work-sequence" aria-label="Stills">
+    {% for m in work.gallery %}
+    {% set v = 'left' if m.width == 598 else ('centre' if m.width == 1006 else 'right') %}
+    <div class="sequence-item sequence-{{ v }}">
+      <div class="tile tile-{{ v }} tile-colour" data-tile data-reveal>
+        <div class="tile-frame" style="aspect-ratio: {{ m.width }} / {{ m.height }};">
+          <img class="tile-img" src="{{ m.url }}" alt="{{ m.alt }}"
+               width="{{ m.width }}" height="{{ m.height }}"
+               data-media loading="lazy" decoding="async">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% else %}
+  <p class="empty-state">NO STILLS ARE ATTACHED TO THIS WORK.</p>
+  {% endif %}
+
+  {% if work.previous and work.next %}
+  <nav class="work-neighbours" aria-label="Works">
+    <a class="neighbour neighbour-prev" href="{{ work.previous.href }}" data-route-link
+       data-cursor-label="{{ work.previous.title }}"
+       aria-label="Previous work, {{ work.previous.title }}">
+      <span class="neighbour-label">PREVIOUS</span>
+      <span class="neighbour-ordinal">{{ work.previous.ordinal }}</span>
+      <span class="neighbour-title">{{ work.previous.title }}</span>
+    </a>
+    <a class="neighbour neighbour-next" href="{{ work.next.href }}" data-route-link
+       data-cursor-label="{{ work.next.title }}"
+       aria-label="Next work, {{ work.next.title }}">
+      <span class="neighbour-label">NEXT</span>
+      <span class="neighbour-ordinal">{{ work.next.ordinal }}</span>
+      <span class="neighbour-title">{{ work.next.title }}</span>
+    </a>
+  </nav>
+  {% endif %}
+</article>
+{% endblock %}

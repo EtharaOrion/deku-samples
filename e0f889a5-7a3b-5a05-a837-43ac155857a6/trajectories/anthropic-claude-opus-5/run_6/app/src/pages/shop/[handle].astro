@@ -1,0 +1,227 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import BuyPanel from '../../islands/BuyPanel.jsx';
+import { getProduct } from '../../../server/services/catalogue.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+
+const { handle } = Astro.params;
+let product = null;
+try {
+  product = await getProduct(handle);
+} catch {
+  return Astro.rewrite('/404');
+}
+
+const wanted = Astro.url.searchParams.get('variant');
+const selected =
+  (wanted && product.variants.find((v) => v.sku.toLowerCase() === wanted.toLowerCase())) || product.variants[0];
+const variantKnown = Boolean(wanted && product.variants.some((v) => v.sku.toLowerCase() === wanted.toLowerCase()));
+
+const lede = product.blocks.find((b) => b.kind === 'lede');
+const specGroups = product.blocks.filter((b) => b.kind === 'spec_group');
+const box = product.blocks.find((b) => b.kind === 'in_the_box');
+const compatibility = product.blocks.find((b) => b.kind === 'compatibility');
+const discontinued = product.status === 'discontinued';
+const availabilityLine = discontinued
+  ? 'We no longer sell this.'
+  : selected.available <= 0
+    ? 'Sold out'
+    : selected.available <= 10
+      ? `Only ${selected.available} left`
+      : 'Available';
+const maxQty = Math.max(1, Math.min(10, selected.available));
+const buyDisabled = discontinued || selected.available <= 0;
+const buyLabel = discontinued ? 'No longer sold' : selected.available <= 0 ? 'Sold out' : 'Add to cart';
+---
+
+<Shell title={product.title} description={product.subtitle}>
+  <nav aria-label="Breadcrumb" style="margin-bottom:calc(var(--unit) * 4)">
+    <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+  </nav>
+
+  <div class="product">
+    <div class="gallery" role="group" aria-label={`${product.title} images`}>
+      <ul class="gallery-list">
+        {
+          product.variants.map((v, i) => (
+            <li>
+              <a
+                href={`/shop/${product.handle}?variant=${v.sku}`}
+                aria-label={`${product.title}, ${v.option_value}`}
+                class="gallery-item"
+              >
+                <ProductMedia handle={product.handle} title={`${product.title} ${v.option_value}`} index={i} />
+                <span class="hint">{v.option_value}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="buy">
+      <h1 class="page-title" style="margin-bottom:var(--unit)">{product.title}</h1>
+      <p class="hint" style="margin-bottom:calc(var(--unit) * 4)">{product.subtitle}</p>
+
+      <noscript>
+        <p class="price" style="font-size:24px;font-weight:700">{formatMinor(selected.price_minor)}</p>
+        <p class="hint">{availabilityLine}</p>
+        <form method="post" action="/cart/add" class="stack">
+          <input type="hidden" name="sku" value={selected.sku} />
+          <label for="qty-nojs">Quantity</label>
+          <input id="qty-nojs" name="quantity" type="number" min="1" max={maxQty} value="1" />
+          <button class="btn" type="submit" disabled={buyDisabled}>{buyLabel}</button>
+        </form>
+      </noscript>
+
+      <BuyPanel
+        client:load
+        product={{ handle: product.handle, status: product.status, variants: product.variants }}
+        initialSku={selected.sku}
+        variantKnown={variantKnown}
+      />
+
+      {
+        discontinued && product.support_until ? (
+          <p class="notice" style="margin-top:calc(var(--unit) * 4)">
+            We no longer sell this. We will support it until {formatDate(product.support_until)}.
+          </p>
+        ) : null
+      }
+      {
+        !discontinued && product.support_until ? (
+          <p class="hint" style="margin-top:calc(var(--unit) * 4)">
+            We will support this camera until {formatDate(product.support_until)}.
+          </p>
+        ) : null
+      }
+    </div>
+  </div>
+
+  <div class="blocks">
+    {lede ? <p class="lede">{lede.payload.text}</p> : null}
+
+    {
+      specGroups.map((g) => (
+        <section style="margin-top:calc(var(--unit) * 8)">
+          <h2 class="block-heading">{g.payload.title}</h2>
+          <table>
+            <caption class="visually-hidden">{`${product.title}, ${g.payload.title}`}</caption>
+            <tbody>
+              {g.payload.rows.map(([k, v]) => (
+                <tr>
+                  <th scope="row" style="width:40%">
+                    {k}
+                  </th>
+                  <td class="num tnum mono">{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))
+    }
+
+    {
+      box ? (
+        <section style="margin-top:calc(var(--unit) * 8)">
+          <h2 class="block-heading">In the box</h2>
+          <ul class="box-list">
+            {box.payload.items.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null
+    }
+
+    {
+      compatibility ? (
+        <section style="margin-top:calc(var(--unit) * 8)">
+          <h2 class="block-heading">Compatibility</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th scope="row" style="width:40%">
+                  Minimum operating system
+                </th>
+                <td class="num mono">{compatibility.payload.min_os}</td>
+              </tr>
+              <tr>
+                <th scope="row">Minimum application version</th>
+                <td class="num mono">{compatibility.payload.min_app}</td>
+              </tr>
+              {compatibility.payload.note ? (
+                <tr>
+                  <th scope="row">Firmware</th>
+                  <td class="num mono">{compatibility.payload.note}</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </section>
+      ) : null
+    }
+  </div>
+</Shell>
+
+<style>
+  .product {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+    gap: calc(var(--unit) * 10);
+    align-items: start;
+  }
+  .gallery-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: calc(var(--unit) * 3);
+  }
+  .gallery-item {
+    display: block;
+    text-decoration: none;
+    border: var(--border-w) solid var(--rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--ground-raised);
+  }
+  .gallery-item .hint {
+    display: block;
+    padding: calc(var(--unit) * 2);
+  }
+  .buy {
+    position: sticky;
+    top: calc(var(--unit) * 4);
+  }
+  .blocks {
+    margin-top: calc(var(--unit) * 12);
+    max-width: 72ch;
+  }
+  .lede {
+    font-size: 18px;
+    line-height: 27px;
+  }
+  .block-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: calc(var(--unit) * 2);
+  }
+  .box-list {
+    margin: 0;
+    padding-left: 1.2em;
+  }
+  @media (max-width: 63.999rem) {
+    .product {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .buy {
+      position: static;
+    }
+  }
+</style>

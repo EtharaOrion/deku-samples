@@ -1,0 +1,114 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { apiFetch } from '../../lib/api.js';
+import { requireCustomer } from '../../lib/guard.js';
+import { formatMinor, formatDate, formatDateShort } from '../../lib/format.js';
+import '../../styles/account.css';
+
+const guard = await requireCustomer(Astro);
+if (guard.redirect) return guard.redirect;
+const customer = guard.customer;
+
+// Blocks fail independently, so a failed camera list never blanks the orders beside it.
+const [devRes, ordRes, relRes] = await Promise.all([
+  apiFetch(Astro, '/api/account/devices?page_size=100'),
+  apiFetch(Astro, '/api/account/orders?page_size=2'),
+  apiFetch(Astro, '/api/releases?page_size=1'),
+]);
+
+const devices = devRes.status === 200 ? devRes.data.data : null;
+const orders = ordRes.status === 200 ? ordRes.data.data : null;
+const newest = relRes.status === 200 ? relRes.data.data[0] : null;
+
+// Whether the current application version is newer than the one this account
+// last saw. We hold no telemetry, so "last seen" is the newest firmware minimum
+// this account's cameras already meet.
+const seen = devices && devices.length
+  ? devices.map((d) => d.firmware_version).filter(Boolean)
+  : [];
+---
+<Shell title="Account" current="account">
+  <div class="page-head">
+    <h1>Your account</h1>
+    <p>{customer.name} · {customer.email}</p>
+  </div>
+
+  <div class="overview-cols">
+    <section aria-labelledby="ov-cameras">
+      <h2 class="section-head" id="ov-cameras">Your cameras</h2>
+
+      {devices === null && (
+        <p class="notice notice-wrong">We could not load your cameras. The rest of this page is fine.</p>
+      )}
+      {devices && devices.length === 0 && (
+        <p class="empty">No cameras registered yet. <a href="/account/cameras">Register one.</a></p>
+      )}
+      {devices && devices.length > 0 && (
+        <div class="acct-grid">
+          {devices.slice(0, 3).map((d) => (
+            <article class="cam-card">
+              <h3 class="cam-model">{d.model}</h3>
+              <p class="cam-nick">{d.nickname || 'No name yet'}</p>
+              <a class="cam-serial serial" href={`/account/cameras/${d.serial}`}>{d.serial}</a>
+              <div class="cam-chips">
+                <span class={`chip ${d.update_available ? 'chip-progress' : d.firmware_version ? 'chip-finished' : 'chip-neutral'}`}>
+                  {d.update_available ? 'Update available' : d.firmware_version ? `Firmware ${d.firmware_version}` : 'Not yet connected'}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+      {devices && devices.length > 0 && (
+        <p style="margin-top: 1rem"><a href="/account/cameras" class="small">All your cameras</a></p>
+      )}
+    </section>
+
+    <section aria-labelledby="ov-orders">
+      <h2 class="section-head" id="ov-orders">Your two most recent orders</h2>
+
+      {orders === null && (
+        <p class="notice notice-wrong">We could not load your orders. The rest of this page is fine.</p>
+      )}
+      {orders && orders.length === 0 && (
+        <p class="empty">No orders yet. <a href="/shop">Look at what we build.</a></p>
+      )}
+      {orders && orders.length > 0 && (
+        <div>
+          {orders.map((o) => (
+            <a class="order-row" href={`/account/orders/${o.number}`}>
+              <span>
+                <span class="order-number">{o.number}</span><br />
+                <span class="muted small">{formatDateShort(o.placed_at)}</span>
+              </span>
+              <span>{o.lines.filter((l) => l.kind !== 'protection')[0]?.title_snapshot || ''}</span>
+              <span class="money">{formatMinor(o.total_minor)}</span>
+              <span>
+                <span class={`chip ${o.fulfilment_status === 'fulfilled' ? 'chip-finished' : 'chip-progress'}`}>{o.state_phrase}</span>
+              </span>
+            </a>
+          ))}
+          <p style="margin-top: 1rem"><a href="/account/orders" class="small">All your orders</a></p>
+        </div>
+      )}
+    </section>
+
+    <section aria-labelledby="ov-software">
+      <h2 class="section-head" id="ov-software">The software</h2>
+      {!newest && <p class="notice notice-wrong">We could not load the current version.</p>}
+      {newest && (
+        <>
+          <p class="small">
+            The current version is Arranger <span class="version">{newest.version}</span>, released on {formatDate(newest.released_on)}.
+            {seen.length > 0
+              ? ' Your cameras have all reported a version, so you will see whether each one is behind on its own card.'
+              : ' None of your cameras has reported a version yet, so we cannot say whether any is behind.'}
+          </p>
+          <p style="margin-top: 1rem">
+            <a class="btn btn-quiet btn-small" href="/downloads">Downloads</a>
+          </p>
+        </>
+      )}
+    </section>
+  </div>
+</Shell>

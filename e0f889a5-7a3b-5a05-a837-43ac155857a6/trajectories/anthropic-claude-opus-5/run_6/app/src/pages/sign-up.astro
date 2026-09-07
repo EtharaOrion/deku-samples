@@ -1,0 +1,55 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { formValues, redirect, setCookie, AUTH_COOKIE } from '../lib/actions.js';
+import { signup } from '../../server/services/auth.js';
+
+const next = Astro.url.searchParams.get('next') || '/account';
+let problem = null;
+let values = { email: '', name: '' };
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  values = { email: String(body.email || ''), name: String(body.name || '') };
+  try {
+    const result = await signup({ email: values.email, name: values.name, password: body.password });
+    setCookie(Astro.cookies, AUTH_COOKIE, result.access_token);
+    const target = String(body.next || '/account');
+    return redirect(target.startsWith('/') ? target : '/account');
+  } catch (err) {
+    problem = err.message || 'That did not work.';
+  }
+}
+---
+
+<Shell title="Create an account">
+  <h1 class="page-title">Create an account</h1>
+  <p class="page-lede">An account keeps your cameras and your orders together. It is not needed to buy anything.</p>
+
+  <form method="post" class="stack auth-form">
+    {problem ? <p class="notice wrong" role="alert" data-test="sign-up-problem">{problem}</p> : null}
+    <input type="hidden" name="next" value={next} />
+
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" value={values.name} required autocomplete="name" />
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" value={values.email} required autocomplete="email" />
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" />
+      <p class="hint">At least eight characters.</p>
+    </div>
+
+    <button class="btn" type="submit">Create the account</button>
+    <p class="hint">Already have one? <a href="/sign-in">Sign in</a>.</p>
+  </form>
+</Shell>
+
+<style>
+  .auth-form { max-width: 34rem; }
+</style>

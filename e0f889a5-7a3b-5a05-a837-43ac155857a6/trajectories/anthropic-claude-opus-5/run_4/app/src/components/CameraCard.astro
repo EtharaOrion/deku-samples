@@ -1,0 +1,56 @@
+---
+import { formatDate, groupSerial } from '../lib/format.js';
+
+const { device } = Astro.props;
+---
+<article class="camera card">
+  <div class="head">
+    <h3 class="model">{device.model}</h3>
+    {device.nickname && <p class="nickname">{device.nickname}</p>}
+  </div>
+
+  <p class="serial ident">{groupSerial(device.serial)}</p>
+
+  <div class="chips">
+    {/* A camera whose firmware is behind reads "Update available"; one never
+        heard from reads "Not yet connected". */}
+    {device.firmware_state === 'unknown' ? (
+      <span class="chip">Not yet connected</span>
+    ) : device.update_available ? (
+      <span class="chip chip-progress">Update available</span>
+    ) : (
+      <span class="chip">Firmware <span class="ident">{device.firmware_version}</span></span>
+    )}
+
+    {/* An expired warranty reads as a neutral state and never as a warning,
+        because an expired warranty is not a problem. */}
+    {device.warranty_until ? (
+      <span class="chip">
+        {device.warranty_active
+          ? `Warranty to ${formatDate(device.warranty_until)}`
+          : `Warranty ended ${formatDate(device.warranty_until)}`}
+      </span>
+    ) : (
+      <span class="chip">No warranty on record</span>
+    )}
+  </div>
+
+  <p class="more">
+    <a href={`/account/cameras/${device.serial}`}>Open this camera</a>
+  </p>
+</article>
+
+<style>
+  .camera {
+    padding: calc(var(--space) * 4);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 3);
+  }
+  .head { display: flex; flex-direction: column; gap: 2px; }
+  .model { font-size: 16px; line-height: 24px; }
+  .nickname { font-size: 14px; color: var(--fg-muted); }
+  .serial { font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: calc(var(--space) * 2); }
+  .more { font-size: 14px; margin-top: auto; }
+</style>

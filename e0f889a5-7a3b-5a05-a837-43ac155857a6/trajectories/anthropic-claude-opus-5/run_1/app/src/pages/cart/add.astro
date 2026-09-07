@@ -1,0 +1,19 @@
+---
+// The no-scripting path for adding to the cart. It goes through the same
+// service the island's endpoint uses.
+import { currentCart, carts } from '../../lib/server.js';
+
+if (Astro.request.method !== 'POST') return Astro.redirect('/shop', 303);
+
+const form = await Astro.request.formData();
+const sku = String(form.get('sku') || '');
+const quantity = Number(form.get('quantity') || 1);
+
+try {
+  const row = await currentCart(Astro, { create: true });
+  await carts.addLine(row, sku, quantity);
+  return Astro.redirect('/cart', 303);
+} catch {
+  return Astro.redirect('/cart?add=failed', 303);
+}
+---

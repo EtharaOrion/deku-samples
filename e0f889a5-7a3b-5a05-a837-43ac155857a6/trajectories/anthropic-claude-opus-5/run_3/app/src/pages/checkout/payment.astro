@@ -1,0 +1,108 @@
+---
+import Shell from '../../components/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { redirectKeeping } from '../../lib/guard.js';
+import { formatMoney } from '../../lib/money.js';
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+
+const empty = !cart || cart.lines.length === 0;
+if (!empty && !cart.shipping_address) return redirectKeeping(Astro, '/checkout/where-it-goes');
+if (!empty && !cart.shipping_method) return redirectKeeping(Astro, '/checkout/how-it-gets-there');
+
+const address = cart?.shipping_address ?? {};
+---
+
+<Shell
+  title="Payment — Vela"
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">Payment</h1>
+  </div>
+
+  <CheckoutSteps step={3} />
+
+  {
+    empty ? (
+      <div class="empty">
+        <p>Your cart is empty.</p>
+        <p>
+          <a href="/shop">Shop</a>
+        </p>
+      </div>
+    ) : (
+      <div class="checkout">
+        <div class="stack">
+          <section class="panel">
+            <h2 class="section-title">Where it goes</h2>
+            <p class="review">
+              {cart.email}
+              <br />
+              {address.name}
+              <br />
+              {address.line1}
+              {address.line2 ? <>
+                <br />
+                {address.line2}
+              </> : null}
+              <br />
+              {address.city}, {address.region} <span class="num">{address.postal_code}</span>
+              <br />
+              {address.country}
+            </p>
+            <a class="btn btn--quiet btn--small" href="/checkout/where-it-goes">
+              Change
+            </a>
+          </section>
+
+          <section class="panel">
+            <h2 class="section-title">How it gets there</h2>
+            <p class="review">
+              <span class="strong">{cart.shipping_method}</span>
+              <span class="money"> {formatMoney(cart.shipping_minor)}</span>
+            </p>
+            <a class="btn btn--quiet btn--small" href="/checkout/how-it-gets-there">
+              Change
+            </a>
+          </section>
+
+          <section class="panel">
+            <h2 class="section-title">Place the order</h2>
+            <p class="muted small">
+              We raise an invoice for this order and email the confirmation to {cart.email}.
+            </p>
+            <PlaceOrder client:load totalMinor={cart.total_minor} />
+          </section>
+        </div>
+
+        {/* The final step shows the exact figure that will be authorized. */}
+        <CheckoutSummary cart={cart} exact={true} />
+      </div>
+    )
+  }
+</Shell>
+
+<style>
+  .checkout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  .review {
+    margin: 0 0 calc(var(--unit) * 3);
+    line-height: 24px;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

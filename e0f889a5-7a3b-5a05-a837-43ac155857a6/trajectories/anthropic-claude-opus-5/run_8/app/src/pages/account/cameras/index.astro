@@ -1,0 +1,110 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiFetch } from '../../../lib/api.js';
+import { requireCustomer } from '../../../lib/guard.js';
+import { formatDate } from '../../../lib/format.js';
+import '../../../styles/account.css';
+
+const guard = await requireCustomer(Astro);
+if (guard.redirect) return guard.redirect;
+
+let error = null;
+
+// The no-scripting path: the register row posts normally, and the one-click
+// control on an order page posts here too.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || 'register');
+  const serial = String(form.get('serial') || '').replace(/[\s-]/g, '').toUpperCase();
+
+  if (action === 'release') {
+    const res = await apiFetch(Astro, `/api/account/devices/${encodeURIComponent(serial)}`, { method: 'DELETE' });
+    if (res.status === 200) return Astro.redirect('/account/cameras?released=1', 303);
+    error = res.data?.message || 'That did not work.';
+  } else {
+    const res = await apiFetch(Astro, '/api/account/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serial }),
+    });
+    if (res.status === 201) return Astro.redirect(`/account/cameras?registered=${encodeURIComponent(res.data.serial)}`, 303);
+    error = res.data?.message || 'That did not work.';
+  }
+}
+
+const registered = Astro.url.searchParams.get('registered') || null;
+const released = Astro.url.searchParams.get('released') === '1';
+const res = await apiFetch(Astro, '/api/account/devices?page_size=100');
+const devices = res.status === 200 ? res.data.data : [];
+const failed = res.status !== 200;
+---
+<Shell title="Cameras" current="cameras">
+  <div class="page-head">
+    <h1>Cameras</h1>
+    <p>A camera outlives the order that bought it. Register the ones you own and they stay here.</p>
+  </div>
+
+  <p class="vh" role="status" aria-live="polite" data-register-live></p>
+
+  {registered && <p class="flash" role="status">Registered. <span class="serial">{registered}</span> is on your account.</p>}
+  {released && <p class="flash" role="status">Removed. That camera now belongs to nobody.</p>}
+
+  <div class="register-row">
+    <form method="POST" data-register>
+      <input type="hidden" name="action" value="register" />
+      <label class="field">
+        <span>Register a camera by its serial</span>
+        <input
+          type="text"
+          name="serial"
+          class="serial"
+          data-serial-input
+          maxlength="14"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="VA2609KTMHX4"
+          required
+        />
+      </label>
+      <button type="submit" class="btn" data-register-button>Register</button>
+    </form>
+    <p class="small muted" style="margin: 0.5rem 0 0" data-shape-hint>Twelve characters, from the underside of the camera.</p>
+    <p class="small" style="color: var(--state-wrong); margin: 0.5rem 0 0" data-register-error hidden></p>
+    {error && <p class="small" style="color: var(--state-wrong); margin: 0.5rem 0 0" role="alert">{error}</p>}
+  </div>
+
+  {failed && <p class="notice notice-wrong">We could not load your cameras. Reload the page and it will try again.</p>}
+
+  {!failed && devices.length === 0 && (
+    <p class="empty">No cameras registered yet.</p>
+  )}
+
+  {devices.length > 0 && (
+    <div class="acct-grid" data-camera-grid>
+      {devices.map((d) => (
+        <article class="cam-card">
+          <h2 class="cam-model">{d.model}</h2>
+          <p class="cam-nick">{d.nickname || 'No name yet'}</p>
+          <a class="cam-serial serial" href={`/account/cameras/${d.serial}`}>{d.serial}</a>
+          <div class="cam-chips">
+            <span class={`chip ${d.update_available ? 'chip-progress' : d.firmware_version ? 'chip-finished' : 'chip-neutral'}`}>
+              {d.update_available ? 'Update available' : d.firmware_version ? `Firmware ${d.firmware_version}` : 'Not yet connected'}
+            </span>
+            <span class="chip chip-neutral">
+              {d.warranty_until
+                ? d.warranty_active ? `Warranty to ${formatDate(d.warranty_until)}` : `Warranty ended ${formatDate(d.warranty_until)}`
+                : 'No warranty on record'}
+            </span>
+          </div>
+          <div class="cam-actions">
+            <a class="btn btn-quiet btn-small" href={`/account/cameras/${d.serial}`}>Open</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+
+  <script>
+    import '../../../scripts/register.js';
+  </script>
+</Shell>

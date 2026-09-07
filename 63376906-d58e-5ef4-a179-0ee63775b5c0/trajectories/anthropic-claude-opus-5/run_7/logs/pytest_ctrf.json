@@ -1,0 +1,899 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 85,
+            "passed": 47,
+            "failed": 38,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788702251.0776129,
+            "stop": 1788702291.9323146
+        },
+        "tests": [
+            {
+                "name": "test_mass.py::test_health_and_deployment_surface",
+                "status": "passed",
+                "duration": 0.02123083299920836,
+                "start": 1788702251.3598592,
+                "stop": 1788702251.3812675,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_accounts_sign_in_through_the_identity_provider",
+                "status": "passed",
+                "duration": 0.3679667089982104,
+                "start": 1788702251.3814363,
+                "stop": 1788702251.7496302,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_sites_and_capacity_are_exact",
+                "status": "passed",
+                "duration": 0.009931000997312367,
+                "start": 1788702251.749879,
+                "stop": 1788702251.7599537,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_collectors_and_approval_periods_are_stored",
+                "status": "passed",
+                "duration": 0.14472866599862755,
+                "start": 1788702251.760156,
+                "stop": 1788702251.9050741,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_batches_are_persisted_with_derived_dry_mass",
+                "status": "passed",
+                "duration": 0.012934041000335128,
+                "start": 1788702251.9053154,
+                "stop": 1788702251.9183986,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_runs_and_consumption_rows_carry_their_masses",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.01366162599697418,
+                "start": 1788702251.918602,
+                "stop": 1788702251.978278,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff844fad20>\n\n    def test_seeded_runs_and_consumption_rows_carry_their_masses(plant):\n        rows = conftest.runs(plant)\n        for reference, seed in conftest.SEEDED_RUNS.items():\n            assert reference in rows, (\n                \"the seeded run %r is absent; the board carried %r\"\n                % (reference, sorted(rows)))\n            where = \"run %s\" % reference\n            row = rows[reference]\n            assert str(conftest.field(row, \"run_type\", where)) == seed[\"run_type\"], (\n                \"%s reports run_type %r, the brief seeds %r\"\n                % (where, row.get(\"run_type\"), seed[\"run_type\"]))\n            assert str(row.get(\"run_type\")) in conftest.RUN_TYPES, (\n                \"%s reports a run type outside the pinned four: %r\"\n                % (where, row.get(\"run_type\")))\n            assert str(conftest.field(row, \"recipe_version\", where)) == seed[\"recipe_version\"], (\n                \"%s reports recipe_version %r, the brief seeds %r\"\n                % (where, row.get(\"recipe_version\"), seed[\"recipe_version\"]))\n            detail = conftest.as_object(\n                conftest.get_json(plant, \"/runs/%s\" % reference), \"/runs/%s\" % reference)\n            consumptions = conftest.field(detail, \"consumptions\", where)\n            assert isinstance(consumptions, list) and consumptions, (\n                \"%s carries no consumption rows; the edge is what carries the mass\"\n                % where)\n            observed = {}\n            for entry in consumptions:\n                key = str(entry.get(\"input\"))\n                observed[key] = observed.get(key, 0) + int(entry.get(\"mass_g\", 0))\n>           assert observed == seed[\"consumes\"], (\n                \"%s consumed %r, the brief seeds %r\" % (where, observed, seed[\"consumes\"]))\nE           AssertionError: run RUN-D-0001 consumed {'None': 600000}, the brief seeds {'BATCH-1001': 300000, 'BATCH-1002': 300000}\nE           assert {'None': 600000} == {'BATCH-1001'...1002': 300000}\nE             \nE             Left contains 1 more item:\nE             {'None': 600000}\nE             Right contains 2 more items:\nE             {'BATCH-1001': 300000, 'BATCH-1002': 300000}\nE             Use -v to get more diff\n\n/tests/test_mass.py:247: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_seeded_outputs_losses_and_lots_reconcile",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0057715420007298235,
+                "start": 1788702251.9784145,
+                "stop": 1788702252.0242903,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff8355d970>\n\n    def test_seeded_outputs_losses_and_lots_reconcile(plant):\n>       produced = conftest.collection(plant, \"/outputs\")\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n/tests/test_mass.py:270: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:627: in collection\n    return index(as_list(get_json(client, path), path), key)\n                         ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nclient = <httpx.Client object at 0xffff8355d970>, path = '/outputs'\nparams = None\n\n    def get_json(client, path: str, params: dict | None = None):\n        response = client.get(api(path), params=params or {})\n>       assert response.status_code == 200, (\n            \"GET /api%s params=%r returned %s\" % (path, params or {}, describe(response)))\nE       AssertionError: GET /api/outputs params={} returned 404: {\"error\":\"not_found\",\"path\":\"/api/outputs\"}\nE       assert 404 == 200\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/conftest.py:592: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_seeded_carbon_method_and_figure_are_exact",
+                "status": "passed",
+                "duration": 0.04663266599709459,
+                "start": 1788702252.0244474,
+                "stop": 1788702252.0712302,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_seeded_certificates_and_the_gapless_sequence_are_exact",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.045205124999483814,
+                "start": 1788702252.0714269,
+                "stop": 1788702252.1565459,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "signer2 = <httpx.Client object at 0xffff8355c620>\n\n    def test_seeded_certificates_and_the_gapless_sequence_are_exact(signer2):\n        rows = conftest.certificates(signer2)\n        for number in (conftest.CERT_WITHDRAWN, conftest.CERT_ISSUED):\n            assert number in rows, (\n                \"the seeded certificate %r is absent; the register carried %r\"\n                % (number, sorted(rows)))\n        withdrawn = rows[conftest.CERT_WITHDRAWN]\n        where = \"certificate %s\" % conftest.CERT_WITHDRAWN\n        assert str(conftest.field(withdrawn, \"state\", where)) == \"withdrawn\", (\n            \"%s reports state %r, the brief seeds it withdrawn\"\n            % (where, withdrawn.get(\"state\")))\n>       assert str(conftest.field(withdrawn, \"withdrawn_on\", where)) == conftest.CERT_WITHDRAWN_ON, (\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n            \"%s reports withdrawn_on %r, the brief pins %r\"\n            % (where, withdrawn.get(\"withdrawn_on\"), conftest.CERT_WITHDRAWN_ON))\n\n/tests/test_mass.py:393: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nrow = {'carbon': {'boundary': 'cradle-to-gate', 'comparator': {'dataset': 'EcoBase 2025', 'dataset_year': 2025, 'material': ... 'condition': 'carbon_figure_complete', 'detail': 'Satisfied at the moment of signing.', 'satisfied': True}, ...], ...}\nname = 'withdrawn_on', where = 'certificate CERT-PILOT-000001'\n\n    def field(row: dict, name: str, where: str):\n>       assert name in row, \"%s carries no %r field: %.300r\" % (where, name, row)\nE       AssertionError: certificate CERT-PILOT-000001 carries no 'withdrawn_on' field: {'number': 'CERT-PILOT-000001', 'version': 1, 'site': 'SITE-PILOT', 'lots': [{'mass_g': 200000, 'reference': 'LOT-N6-0003'}], 'recipient': 'CUS-HELIOS', 'recipient_name': 'Helios Technical Fibres', 'grade': 'N6', 'specification_version': 3, 'claim_type': 'mass_balance', 'content_bp': 7500, 'category\nE       assert 'withdrawn_on' in {'carbon': {'boundary': 'cradle-to-gate', 'comparator': {'dataset': 'EcoBase 2025', 'dataset_year': 2025, 'material': ... 'condition': 'carbon_figure_complete', 'detail': 'Satisfied at the moment of signing.', 'satisfied': True}, ...], ...}\n\n/tests/conftest.py:615: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_every_role_is_denied_outside_its_grants",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.06668679199901817,
+                "start": 1788702252.1567059,
+                "stop": 1788702252.2577028,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff835624e0>\nquality = <httpx.Client object at 0xffff83561610>\nclaims = <httpx.Client object at 0xffff83560bf0>\nanalyst = <httpx.Client object at 0xffff83563d70>\n\n    def test_every_role_is_denied_outside_its_grants(plant, quality, claims, analyst):\n        denied = [\n            (plant, \"POST\", \"/collectors/%s/approvals\" % conftest.COL_ALDER,\n             {\"state\": \"approved\", \"valid_from\": \"2026-08-01\", \"valid_to\": \"2026-12-31\"}),\n            (plant, \"POST\", \"/lots/%s/disposition\" % conftest.LOT_1,\n             {\"disposition\": \"released\"}),\n            (analyst, \"POST\", \"/lots/%s/disposition\" % conftest.LOT_1,\n             {\"disposition\": \"released\"}),\n            (quality, \"POST\", \"/balance-periods/%s/close\" % conftest.PERIOD_OPEN, {}),\n            (claims, \"POST\", \"/carbon-methods/%s/versions\" % conftest.METHOD,\n             {\"version\": \"3\", \"boundary\": conftest.METHOD_BOUNDARY}),\n            (claims, \"POST\", \"/certificates\",\n             {\"lot\": conftest.LOT_1, \"recipient\": conftest.CUS_HELIOS,\n              \"password\": conftest.SEED_PASSWORD}),\n        ]\n        for client, verb, path, payload in denied:\n            response = client.post(conftest.api(path), json=payload,\n                                   headers=conftest.idem())\n>           assert response.status_code in conftest.STATUS_DENIED, (\n                \"%s /api%s must be refused for a role the brief does not grant it to, \"\n                \"got %s\" % (verb, path, conftest.describe(response)))\nE           AssertionError: POST /api/carbon-methods/CM-PA6/versions must be refused for a role the brief does not grant it to, got 404: 404 Not Found\nE           assert 404 in (401, 403)\nE            +  where 404 = <Response [404 Not Found]>.status_code\nE            +  and   (401, 403) = conftest.STATUS_DENIED\n\n/tests/test_mass.py:433: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_the_four_separations_are_refused_on_the_server",
+                "status": "passed",
+                "duration": 0.02369929199994658,
+                "start": 1788702252.2578313,
+                "stop": 1788702252.2816992,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_signer_outside_scope_is_forbidden_to_sign",
+                "status": "passed",
+                "duration": 0.1189305419993616,
+                "start": 1788702252.281908,
+                "stop": 1788702252.4010258,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_auditor_role_is_denied_at_every_mutating_route",
+                "status": "passed",
+                "duration": 0.11966899999970337,
+                "start": 1788702252.4012322,
+                "stop": 1788702252.5211632,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_collector_role_cannot_read_lots_runs_or_yields",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009154125000350177,
+                "start": 1788702252.5213802,
+                "stop": 1788702252.5679882,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "anon = <httpx.Client object at 0xffff83573b90>\n\n    def test_collector_role_cannot_read_lots_runs_or_yields(anon):\n        hidden = anon.get(conftest.api(\"/lots\"))\n        assert hidden.status_code in conftest.STATUS_NOT_VISIBLE, (\n            \"the lot register is not public: %s\" % conftest.describe(hidden))\n        for path in (\"/runs\", \"/reconciliation\", \"/balance-periods/%s\" % conftest.PERIOD_OPEN,\n                     \"/lots/%s/genealogy\" % conftest.LOT_1,\n                     \"/collectors/%s\" % conftest.COL_ALDER):\n            response = anon.get(conftest.api(path))\n>           assert response.status_code in conftest.STATUS_NOT_VISIBLE, (\n                \"GET /api%s is scoped to the producer and must refuse an unscoped \"\n                \"caller, got %s\" % (path, conftest.describe(response)))\nE           AssertionError: GET /api/collectors/COL-ALDER is scoped to the producer and must refuse an unscoped caller, got 200: {\"reference\":\"COL-ALDER\",\"name\":\"Alder Reclaim\",\"country\":\"PT\",\"registration\":\"WCR-PT-4471\",\"registration_expiry\":\"2027-03-31\",\"collection_site_types\":[\"municipal_textile_bank\",\"retail_take_back\"],\"declared_streams\":[\"post_consumer_apparel\"],\"scheme_status\":\"member\",\"findings\":[],\"approval_periods\":\nE           assert 200 in (401, 403, 404)\nE            +  where 200 = <Response [200 OK]>.status_code\nE            +  and   (401, 403, 404) = conftest.STATUS_NOT_VISIBLE\n\n/tests/test_mass.py:542: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_public_routes_answer_and_console_routes_refuse_anonymous",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009272124001654447,
+                "start": 1788702252.5681767,
+                "stop": 1788702252.6117787,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "anon = <httpx.Client object at 0xffff8355b3b0>\n\n    def test_public_routes_answer_and_console_routes_refuse_anonymous(anon):\n        root = appclient.app_url()\n        for route in conftest.PUBLIC_ROUTES:\n            response = anon.get(root + route)\n            assert response.status_code == 200, (\n                \"the public route %s must answer with no session, got %s\"\n                % (route, conftest.describe(response)))\n        for route in conftest.CONSOLE_ROUTES:\n            response = anon.get(root + route, follow_redirects=False)\n>           assert response.status_code in (301, 302, 303, 307, 308, 401, 403), (\n                \"the console route %s must send an anonymous reader to the sign-in \"\n                \"route rather than rendering, got %s\"\n                % (route, conftest.describe(response)))\nE           AssertionError: the console route /console must send an anonymous reader to the sign-in route rather than rendering, got 200: <!doctype html>\nE             <html lang=\"en\" class=\"no-js\">\nE               <head>\nE                 <meta charset=\"utf-8\" />\nE                 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\nE                 <title>Ravel</title>\nE                 <meta name=\"description\" content=\"Ravel produces low-carbon, virgin-quality recycled polymers, starting with ny\nE           assert 200 in (301, 302, 303, 307, 308, 401, ...)\nE            +  where 200 = <Response [200 OK]>.status_code\n\n/tests/test_mass.py:565: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_batch_claimability_resolves_against_the_approval_in_force",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.031080667000424,
+                "start": 1788702252.6119535,
+                "stop": 1788702252.677898,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff8356b890>\nquality = <httpx.Client object at 0xffff835683b0>\n\n    def test_batch_claimability_resolves_against_the_approval_in_force(plant, quality):\n        rows = conftest.batches(plant)\n        lapsed = rows[conftest.BATCH_1003]\n        assert bool(lapsed.get(\"claimable\")) is False, (\n            \"%s was received on %s, after the approval of %s ended, so the batch is \"\n            \"processed as non-claimable input; it reports %r\"\n            % (conftest.BATCH_1003, conftest.SEEDED_BATCHES[conftest.BATCH_1003][\"received_on\"],\n               conftest.COL_BRINE, lapsed.get(\"claimable\")))\n        reason = str(lapsed.get(\"claimable_reason\"))\n        assert \"approval\" in reason or \"lapsed\" in reason, (\n            \"%s must name why the batch cannot be claimed; it reports %r\"\n            % (conftest.BATCH_1003, reason))\n        flagged = rows[conftest.BATCH_1004]\n        assert bool(flagged.get(\"claimable\")) is True, (\n            \"%s came from a conditional collector on a lapsed weighing device; the \"\n            \"batch stays claimable and carries a flag, it reports %r\"\n            % (conftest.BATCH_1004, flagged.get(\"claimable\")))\n        booked = conftest.book_batch(plant, collector=conftest.COL_BRINE,\n                                     received_on=\"2026-08-14\")\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"material from a lapsed collector is still accepted; the plant needs \"\n            \"feeding: %s\" % conftest.describe(booked))\nE       AssertionError: material from a lapsed collector is still accepted; the plant needs feeding: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:593: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_batch_category_cannot_change_after_acceptance",
+                "status": "passed",
+                "duration": 3.054224501000135,
+                "start": 1788702252.6780841,
+                "stop": 1788702255.7327504,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_intake_records_mass_custody_and_contamination",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.018387250001978828,
+                "start": 1788702255.7333293,
+                "stop": 1788702255.800797,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff8356b470>\n\n    def test_intake_records_mass_custody_and_contamination(plant):\n        booked = conftest.book_batch(plant, net_g=240000, moisture_bp=2500)\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"POST /api/batches must accept a complete booking: %s\"\n            % conftest.describe(booked))\nE       AssertionError: POST /api/batches must accept a complete booking: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:630: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_custody_gap_makes_a_batch_non_claimable_until_evidence_arrives",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.014117333999820403,
+                "start": 1788702255.8009703,
+                "stop": 1788702255.8499029,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83576b40>\n\n    def test_custody_gap_makes_a_batch_non_claimable_until_evidence_arrives(plant):\n        detail = conftest.as_object(\n            conftest.get_json(plant, \"/batches/%s\" % conftest.BATCH_1005),\n            \"/batches/BATCH-1005\")\n        assert bool(detail.get(\"claimable\")) is False, (\n            \"%s is missing a custody link, so the batch is non-claimable; it reports %r\"\n            % (conftest.BATCH_1005, detail.get(\"claimable\")))\n        assert bool(detail.get(\"custody_complete\")) is False, (\n            \"%s must report custody_complete false: %.300r\"\n            % (conftest.BATCH_1005, detail))\n        reason = str(detail.get(\"claimable_reason\"))\n>       assert conftest.MISSING_LINK_ON_1005 in reason, (\n            \"%s must name the missing link %r; it reports %r\"\n            % (conftest.BATCH_1005, conftest.MISSING_LINK_ON_1005, reason))\nE       AssertionError: BATCH-1005 must name the missing link 'transport'; it reports 'custody_link_missing'\nE       assert 'transport' in 'custody_link_missing'\nE        +  where 'transport' = conftest.MISSING_LINK_ON_1005\n\n/tests/test_mass.py:689: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_partial_rejection_and_idempotent_booking_keep_one_stored_row",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009308708000389743,
+                "start": 1788702255.8500545,
+                "stop": 1788702255.892959,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83575f70>\n\n    def test_partial_rejection_and_idempotent_booking_keep_one_stored_row(plant):\n        booked = conftest.book_batch(plant, net_g=200000)\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"the booking must succeed before a rejection is recorded against it: %s\"\n            % conftest.describe(booked))\nE       AssertionError: the booking must succeed before a rejection is recorded against it: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:716: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_closed_run_refuses_a_second_close",
+                "status": "passed",
+                "duration": 3.042578083999615,
+                "start": 1788702255.8931735,
+                "stop": 1788702258.9361155,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_run_close_queues_rather_than_reporting_completion",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.033521291999932146,
+                "start": 1788702258.9365456,
+                "stop": 1788702259.0077834,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83576e70>\n\n    def test_run_close_queues_rather_than_reporting_completion(plant):\n        opened = plant.post(\n            conftest.api(\"/runs\"),\n            json={\"run_type\": \"purification\", \"site\": conftest.SITE_DEMO,\n                  \"equipment\": \"PURI-1\", \"recipe_version\": conftest.RECIPE_PURI,\n                  \"operator\": conftest.PLANT_EMAIL, \"started_at\": \"2026-06-02T08:00:00Z\"},\n            headers=conftest.idem())\n        assert opened.status_code in conftest.STATUS_OK, (\n            \"a run must open before its close can be observed: %s\"\n            % conftest.describe(opened))\n        reference = str(opened.json().get(\"reference\"))\n        closed = plant.post(conftest.api(\"/runs/%s/close\" % reference),\n                            json={\"ended_at\": \"2026-06-02T15:00:00Z\"},\n                            headers=conftest.idem())\n        assert closed.status_code in conftest.STATUS_OK, (\n            \"the close must answer: %s\" % conftest.describe(closed))\n        body = closed.json()\n        state = str(body.get(\"state\"))\n        assert state in (\"closed\", \"queued\"), (\n            \"a close reports either closed or queued; a queued close is never reported \"\n            \"as complete, got %r\" % state)\n        detail = conftest.as_object(conftest.get_json(plant, \"/runs/%s\" % reference),\n                                    \"/runs\")\n        booked = conftest.book_batch(plant, net_g=60000)\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"intake continues to accept a batch while the rest of the system is \"\n            \"degraded: %s\" % conftest.describe(booked))\nE       AssertionError: intake continues to accept a batch while the rest of the system is degraded: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:816: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_genealogy_is_a_graph_with_one_node_per_batch",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.021697500998925534,
+                "start": 1788702259.0079195,
+                "stop": 1788702259.0609646,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff8356bb60>\n\n    def test_genealogy_is_a_graph_with_one_node_per_batch(plant):\n        graph = conftest.genealogy(plant, conftest.LOT_1)\n        nodes = conftest.field(graph, \"nodes\", \"the genealogy of %s\" % conftest.LOT_1)\n        edges = conftest.field(graph, \"edges\", \"the genealogy of %s\" % conftest.LOT_1)\n        assert isinstance(nodes, list) and isinstance(edges, list), (\n            \"the genealogy must carry nodes and edges as lists: %.300r\" % (graph,))\n        batch_nodes = [n for n in nodes\n                       if str(n.get(\"reference\")) == conftest.BATCH_1001]\n        assert len(batch_nodes) == 1, (\n            \"%s reaches %s through %s and %s, so the graph draws it once rather than \"\n            \"%d times\" % (conftest.BATCH_1001, conftest.LOT_1, conftest.RUN_D1,\n                          conftest.RUN_D3, len(batch_nodes)))\n        node = batch_nodes[0]\n        where = \"the %s node in the genealogy of %s\" % (conftest.BATCH_1001, conftest.LOT_1)\n        assert conftest.integer(node, \"mass_g\", where) == 450000, (\n            \"%s reports mass_g %r; the batch contributed 300000 grams through %s and \"\n            \"150000 through %s, so the node carries 450000\"\n            % (where, node.get(\"mass_g\"), conftest.RUN_D1, conftest.RUN_D3))\n        assert conftest.field(node, \"kind\", where), \"%s carries no kind\" % where\n        split = conftest.field(node, \"category_split\", where)\n>       assert isinstance(split, dict) and set(split) <= set(conftest.CATEGORIES), (\n            \"%s reports a category split %r outside the pinned two\" % (where, split))\nE       AssertionError: the BATCH-1001 node in the genealogy of LOT-N6-0001 reports a category split {'post_consumer': 450000, 'pre_consumer': 0, 'non_claimable': 0} outside the pinned two\nE       assert (True and {'non_claimab...pre_consumer'} <= {'post_consum...pre_consumer'}\nE        +  where True = isinstance({'non_claimable': 0, 'post_consumer': 450000, 'pre_consumer': 0}, dict)\nE         \nE         Extra items in the left set:\nE         'non_claimable')\n\n/tests/test_mass.py:844: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_reverse_traversal_returns_every_lot_certificate_recipient",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007467542001904803,
+                "start": 1788702259.061114,
+                "stop": 1788702259.1040156,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83570260>\n\n    def test_reverse_traversal_returns_every_lot_certificate_recipient(plant):\n        path = \"/batches/%s/impact\" % conftest.BATCH_1001\n        body = conftest.as_object(conftest.get_json(plant, path), path)\n        where = \"the reverse traversal from %s\" % conftest.BATCH_1001\n        found_lots = [str(x) for x in conftest.field(body, \"lots\", where)]\n        for reference in (conftest.LOT_1, conftest.LOT_2):\n>           assert reference in found_lots, (\n                \"%s contributed to %s, so the traversal names it; it named %r\"\n                % (conftest.BATCH_1001, reference, found_lots))\nE           AssertionError: BATCH-1001 contributed to LOT-N6-0001, so the traversal names it; it named [\"{'reference': 'LOT-N6-0001', 'grade': 'N6', 'site': 'SITE-DEMO', 'mass_g': 400000, 'disposition': 'released', 'claim_type': 'mass_balance'}\", \"{'reference': 'LOT-N6-0002', 'grade': 'N6', 'site': 'SITE-DEMO', 'mass_g': 300000, 'disposition': 'quarantined', 'claim_type': 'mass_balance'}\"]\nE           assert 'LOT-N6-0001' in [\"{'reference': 'LOT-N6-0001', 'grade': 'N6', 'site': 'SITE-DEMO', 'mass_g': 400000, 'disposition': 'released', 'claim...2', 'grade': 'N6', 'site': 'SITE-DEMO', 'mass_g': 300000, 'disposition': 'quarantined', 'claim_type': 'mass_balance'}\"]\n\n/tests/test_mass.py:876: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_laboratory_result_without_a_method_is_refused",
+                "status": "passed",
+                "duration": 0.016675874998327345,
+                "start": 1788702259.1042826,
+                "stop": 1788702259.1211052,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_open_deviation_blocks_release_of_its_lot",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.019024040999283898,
+                "start": 1788702259.1216025,
+                "stop": 1788702259.1729403,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "quality = <httpx.Client object at 0xffff83573650>\n\n    def test_open_deviation_blocks_release_of_its_lot(quality):\n        deviations = conftest.collection(quality, \"/deviations\")\n        for reference in (conftest.DEVIATION_OPEN, conftest.DEVIATION_CLOSED):\n            assert reference in deviations, (\n                \"the seeded deviation %r is absent; the register carried %r\"\n                % (reference, sorted(deviations)))\n        closed = deviations[conftest.DEVIATION_CLOSED]\n        assert str(closed.get(\"outcome\")) == \"cause_not_established\", (\n            \"%s is seeded closed with an honest outcome; it reports %r\"\n            % (conftest.DEVIATION_CLOSED, closed.get(\"outcome\")))\n        assert str(closed.get(\"outcome\")) in conftest.DEVIATION_OUTCOMES, (\n            \"%s reports an outcome outside the pinned two: %r\"\n            % (conftest.DEVIATION_CLOSED, closed.get(\"outcome\")))\n        blocked = quality.post(\n            conftest.api(\"/lots/%s/disposition\" % conftest.LOT_2),\n            json={\"disposition\": \"released\"}, headers=conftest.idem())\n        assert blocked.status_code in conftest.STATUS_REFUSED, (\n            \"%s is held by the open deviation %s, so a release must be refused, got %s\"\n            % (conftest.LOT_2, conftest.DEVIATION_OPEN, conftest.describe(blocked)))\n        lot = conftest.as_object(conftest.get_json(quality, \"/lots/%s\" % conftest.LOT_2),\n                                 \"/lots/LOT-N6-0002\")\n        travelling = [str(d) for d in lot.get(\"deviations\", [])]\n>       assert conftest.DEVIATION_OPEN in travelling, (\n            \"a deviation travels with every lot it touches; %s reports %r\"\n            % (conftest.LOT_2, travelling))\nE       AssertionError: a deviation travels with every lot it touches; LOT-N6-0002 reports [\"{'reference': 'DEV-0001', 'state': 'open', 'description': 'Purification residence time ran short and the lot is held pending investigation', 'outcome': None}\"]\nE       assert 'DEV-0001' in [\"{'reference': 'DEV-0001', 'state': 'open', 'description': 'Purification residence time ran short and the lot is held pending investigation', 'outcome': None}\"]\nE        +  where 'DEV-0001' = conftest.DEVIATION_OPEN\n\n/tests/test_mass.py:942: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_override_review_is_denied_to_its_own_authoriser",
+                "status": "passed",
+                "duration": 3.0419555439984833,
+                "start": 1788702259.1731102,
+                "stop": 1788702262.2156937,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_ledger_credits_match_the_seeded_consumptions",
+                "status": "passed",
+                "duration": 0.019596290998379118,
+                "start": 1788702262.2166748,
+                "stop": 1788702262.2365496,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_balance_period_reports_every_derived_figure",
+                "status": "passed",
+                "duration": 0.012790334001692827,
+                "start": 1788702262.2368207,
+                "stop": 1788702262.2498538,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_over_allocation_is_refused_with_its_margin",
+                "status": "passed",
+                "duration": 3.0420605009985593,
+                "start": 1788702262.250209,
+                "stop": 1788702265.2926607,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_concurrent_allocations_yield_one_success_and_one_refusal",
+                "status": "passed",
+                "duration": 3.0736268349992315,
+                "start": 1788702265.2931604,
+                "stop": 1788702268.367141,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_no_route_accepts_a_typed_percentage",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.06384195899772749,
+                "start": 1788702268.3674853,
+                "stop": 1788702268.4699788,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff8355f080>\nquality = <httpx.Client object at 0xffff8355ce60>\nsigner = <httpx.Client object at 0xffff8355ade0>\n\n    def test_no_route_accepts_a_typed_percentage(claims, quality, signer):\n        attempts = [\n            (claims, \"/balance-periods/%s/allocations\" % conftest.PERIOD_OPEN,\n             {\"lot\": conftest.LOT_1, \"category\": conftest.POST_CONSUMER,\n              \"content_bp\": 9500}),\n            (signer, \"/certificates\",\n             {\"lot\": conftest.LOT_1, \"recipient\": conftest.CUS_HELIOS,\n              \"content_bp\": 9500, \"password\": conftest.SEED_PASSWORD}),\n            (quality, \"/lots/%s/disposition\" % conftest.LOT_1,\n             {\"disposition\": \"released\", \"content_bp\": 9500}),\n        ]\n        for client, path, payload in attempts:\n            response = client.post(conftest.api(path), json=payload,\n                                   headers=conftest.idem())\n>           assert response.status_code not in conftest.STATUS_OK, (\n                \"POST /api%s accepted a typed percentage; every percentage is computed \"\n                \"from the ledger, got %s\" % (path, conftest.describe(response)))\nE           AssertionError: POST /api/lots/LOT-N6-0001/disposition accepted a typed percentage; every percentage is computed from the ledger, got 201: {\"reference\":\"LOT-N6-0001\",\"disposition\":\"released\",\"dispositioned_by\":\"quality@example.com\"}\nE           assert 201 not in (200, 201)\nE            +  where 201 = <Response [201 Created]>.status_code\nE            +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1135: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_conversion_factor_is_versioned_and_provisional_where_new",
+                "status": "passed",
+                "duration": 0.007178166999437963,
+                "start": 1788702268.4701388,
+                "stop": 1788702268.4774468,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_closed_period_refuses_reopening_and_opens_a_restatement",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.012692374999460299,
+                "start": 1788702268.4775593,
+                "stop": 1788702268.5252311,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff83573800>\n\n    def test_closed_period_refuses_reopening_and_opens_a_restatement(claims):\n        body = conftest.period(claims, conftest.PERIOD_CLOSED)\n        where = \"the closed period %s\" % conftest.PERIOD_CLOSED\n        assert str(conftest.field(body, \"state\", where)) == \"closed\", (\n            \"%s reports state %r, the brief seeds it closed\" % (where, body.get(\"state\")))\n        assert str(conftest.field(body, \"closed_on\", where)) == conftest.PERIOD_CLOSED_ON, (\n            \"%s reports closed_on %r, the brief pins %r\"\n            % (where, body.get(\"closed_on\"), conftest.PERIOD_CLOSED_ON))\n        assert str(conftest.field(body, \"cut_off\", where)) == conftest.PERIOD_CUT_OFF, (\n            \"%s reports a cut-off of %r, the brief pins %r\"\n            % (where, body.get(\"cut_off\"), conftest.PERIOD_CUT_OFF))\n        reopen = claims.post(\n            conftest.api(\"/balance-periods/%s/reopen\" % conftest.PERIOD_CLOSED),\n            json={}, headers=conftest.idem())\n        assert reopen.status_code not in conftest.STATUS_OK, (\n            \"a closed period can never be reopened, got %s\" % conftest.describe(reopen))\n        write = conftest.allocate(claims, 1000, ident=conftest.PERIOD_CLOSED)\n        assert write.status_code in conftest.STATUS_REFUSED, (\n            \"a closed period refuses every further write, got %s\"\n            % conftest.describe(write))\n        late = claims.post(\n            conftest.api(\"/balance-periods/%s/consumptions\" % conftest.PERIOD_CLOSED),\n            json={\"run\": conftest.RUN_D1, \"input\": conftest.BATCH_1002, \"mass_g\": 1000,\n                  \"effective_on\": \"2025-12-30\"}, headers=conftest.idem())\n>       assert late.status_code in conftest.STATUS_OK + conftest.STATUS_CONFLICT, (\n            \"a late record answers rather than erroring: %s\" % conftest.describe(late))\nE       AssertionError: a late record answers rather than erroring: 404: 404 Not Found\nE       assert 404 in ((200, 201) + (409, 422))\nE        +  where 404 = <Response [404 Not Found]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\nE        +  and   (409, 422) = conftest.STATUS_CONFLICT\n\n/tests/test_mass.py:1205: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_restatement_resolves_each_certificate_exactly_once",
+                "status": "passed",
+                "duration": 0.013481293000950245,
+                "start": 1788702268.5253537,
+                "stop": 1788702268.5389745,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_one_allocation_basis_governs_claim_and_emissions",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.013680416999704903,
+                "start": 1788702268.539142,
+                "stop": 1788702268.5894597,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff8357ede0>\nquality = <httpx.Client object at 0xffff83580740>\n\n    def test_one_allocation_basis_governs_claim_and_emissions(claims, quality):\n        period_body = conftest.period(claims)\n        basis = str(period_body.get(\"allocation_basis\"))\n        assert basis in conftest.ALLOCATION_BASES, (\n            \"the period reports an allocation basis %r outside the pinned three\"\n            % basis)\n        assert basis == conftest.ALLOCATION_BASIS, (\n            \"the brief seeds the basis %r; the period reports %r\"\n            % (conftest.ALLOCATION_BASIS, basis))\n        figure = conftest.carbon(claims)\n        assert str(figure.get(\"allocation_basis\")) == basis, (\n            \"the carbon figure and the ledger share one allocation basis; the figure \"\n            \"reports %r against the period's %r\"\n            % (figure.get(\"allocation_basis\"), basis))\n        mismatch = quality.post(\n            conftest.api(\"/carbon-methods/%s/versions\" % conftest.METHOD),\n            json={\"version\": \"3\", \"standard\": conftest.METHOD_STANDARD,\n                  \"functional_unit\": conftest.METHOD_FUNCTIONAL_UNIT,\n                  \"boundary\": conftest.METHOD_BOUNDARY, \"allocation_basis\": \"economic\",\n                  \"reviewer\": conftest.METHOD_REVIEWER},\n            headers=conftest.idem())\n>       assert mismatch.status_code in conftest.STATUS_OK, (\n            \"a quality manager publishes a method version: %s\"\n            % conftest.describe(mismatch))\nE       AssertionError: a quality manager publishes a method version: 404: 404 Not Found\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1293: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_carbon_figure_never_returns_without_its_four_components",
+                "status": "passed",
+                "duration": 0.041039041001567966,
+                "start": 1788702268.589585,
+                "stop": 1788702268.6307538,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_carbon_breakdown_lines_sum_to_the_value",
+                "status": "passed",
+                "duration": 0.006506542000352056,
+                "start": 1788702268.630901,
+                "stop": 1788702268.6374958,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_energy_instrument_counts_only_when_retired_and_matched",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.015197165999779827,
+                "start": 1788702268.637586,
+                "stop": 1788702268.6892917,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff844e4da0>\n\n    def test_energy_instrument_counts_only_when_retired_and_matched(claims):\n        rows = conftest.collection(claims, \"/energy-instruments\")\n        for reference in (conftest.INSTRUMENT_RETIRED, conftest.INSTRUMENT_HELD):\n            assert reference in rows, (\n                \"the seeded instrument %r is absent; the register carried %r\"\n                % (reference, sorted(rows)))\n        held = rows[conftest.INSTRUMENT_HELD]\n        assert str(held.get(\"state\")) == \"held\", (\n            \"%s is seeded held rather than retired; it reports %r\"\n            % (conftest.INSTRUMENT_HELD, held.get(\"state\")))\n        refused = claims.post(\n            conftest.api(\"/energy-instruments/%s/retire\" % conftest.INSTRUMENT_HELD),\n            json={\"period\": conftest.PERIOD_OPEN}, headers=conftest.idem())\n        assert refused.status_code in conftest.STATUS_REFUSED, (\n            \"an instrument that is held rather than retired is refused, got %s\"\n            % conftest.describe(refused))\n        body = refused.text.lower()\n        assert \"vintage\" in body or \"retire\" in body, (\n            \"the refusal names why the instrument does not apply: %s\"\n            % conftest.describe(refused))\n        over = claims.post(\n            conftest.api(\"/energy-instruments/%s/retire\" % conftest.INSTRUMENT_RETIRED),\n            json={\"period\": conftest.PERIOD_OPEN,\n                  \"quantity_kwh\": conftest.METERED_KWH + 1000},\n            headers=conftest.idem())\n>       assert over.status_code in conftest.STATUS_REFUSED, (\n            \"a retired quantity exceeding the metered consumption is refused, got %s\"\n            % conftest.describe(over))\nE       AssertionError: a retired quantity exceeding the metered consumption is refused, got 201: {\"reference\":\"EAC-2026-0007\",\"period\":\"BP-DEMO-N6-2026H1\",\"quantity_kwh\":250000,\"metered_kwh\":300000,\"retired_kwh\":250000,\"unmatched_kwh\":50000}\nE       assert 201 in (400, 403, 404, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\nE        +  and   (400, 403, 404, 409, 422) = conftest.STATUS_REFUSED\n\n/tests/test_mass.py:1413: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_certificate_preview_returns_eight_conditions",
+                "status": "passed",
+                "duration": 0.05511508400013554,
+                "start": 1788702268.6894162,
+                "stop": 1788702268.7446923,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_certificate_carries_every_derived_field",
+                "status": "passed",
+                "duration": 0.006313250001767301,
+                "start": 1788702268.7452009,
+                "stop": 1788702268.7516122,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_certificate_issue_sends_mail_to_the_recipient",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.04545429099925968,
+                "start": 1788702268.751719,
+                "stop": 1788702268.8411825,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "signer2 = <httpx.Client object at 0xffff8355b170>\ninbox = <capabilities.HttpInbox object at 0xffff835808f0>\n\n    def test_certificate_issue_sends_mail_to_the_recipient(signer2, inbox):\n        response = signer2.post(\n            conftest.api(\"/certificates\"),\n            json={\"lot\": conftest.LOT_3, \"recipient\": conftest.CUS_HELIOS,\n                  \"password\": conftest.SEED_PASSWORD}, headers=conftest.idem())\n>       assert response.status_code in conftest.STATUS_OK, (\n            \"%s holds scope at %s, and %s is released, so a certificate must issue: %s\"\n            % (conftest.SIGNER2_EMAIL, conftest.SITE_PILOT, conftest.LOT_3,\n               conftest.describe(response)))\nE       AssertionError: signer2@example.com holds scope at SITE-PILOT, and LOT-N6-0003 is released, so a certificate must issue: 409: {\"error\":\"conditions_not_satisfied\",\"conditions\":[{\"condition\":\"lot_released\",\"satisfied\":true,\"blocking_reference\":null,\"detail\":\"The lot is released.\"},{\"condition\":\"no_open_deviation\",\"satisfied\":true,\"blocking_reference\":null,\"detail\":\"No deviation touching this lot is open.\"},{\"condition\":\"no_u\nE       assert 409 in (200, 201)\nE        +  where 409 = <Response [409 Conflict]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1503: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_withdrawal_performs_five_consequences_and_mails_the_recipient",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007724709001195151,
+                "start": 1788702268.8413236,
+                "stop": 1788702268.8819768,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "signer2 = <httpx.Client object at 0xffff845373b0>\ninbox = <capabilities.HttpInbox object at 0xffff835808f0>\n\n    def test_withdrawal_performs_five_consequences_and_mails_the_recipient(signer2, inbox):\n        response = signer2.post(\n            conftest.api(\"/certificates/%s/withdraw\" % conftest.CERT_ISSUED),\n            json={\"reason\": \"A weighing device calibration lapsed before the intake\"},\n            headers=conftest.idem())\n>       assert response.status_code in conftest.STATUS_OK, (\n            \"a signer within scope withdraws a certificate: %s\"\n            % conftest.describe(response))\nE       AssertionError: a signer within scope withdraws a certificate: 409: {\"error\":\"already_withdrawn\",\"number\":\"CERT-PILOT-000002\",\"rule\":\"A withdrawal is a fact about a document; the remedy is a new certificate.\"}\nE       assert 409 in (200, 201)\nE        +  where 409 = <Response [409 Conflict]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1531: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_certificate_withdrawal_mail_enumerates_the_void_statements",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.04249337500186812,
+                "start": 1788702268.8821173,
+                "stop": 1788702268.955037,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "signer = <httpx.Client object at 0xffff83581010>\ninbox = <capabilities.HttpInbox object at 0xffff835808f0>\n\n    def test_certificate_withdrawal_mail_enumerates_the_void_statements(signer, inbox):\n        issued = signer.post(\n            conftest.api(\"/certificates\"),\n            json={\"lot\": conftest.LOT_3, \"recipient\": conftest.CUS_VANTA,\n                  \"password\": conftest.SEED_PASSWORD}, headers=conftest.idem())\n>       assert issued.status_code in conftest.STATUS_OK, (\n            \"a certificate must issue before its withdrawal can be observed: %s\"\n            % conftest.describe(issued))\nE       AssertionError: a certificate must issue before its withdrawal can be observed: 409: {\"error\":\"conditions_not_satisfied\",\"conditions\":[{\"condition\":\"lot_released\",\"satisfied\":true,\"blocking_reference\":null,\"detail\":\"The lot is released.\"},{\"condition\":\"no_open_deviation\",\"satisfied\":true,\"blocking_reference\":null,\"detail\":\"No deviation touching this lot is open.\"},{\"condition\":\"no_u\nE       assert 409 in (200, 201)\nE        +  where 409 = <Response [409 Conflict]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1566: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_public_verification_answers_without_a_session",
+                "status": "passed",
+                "duration": 0.0064157079996221,
+                "start": 1788702268.9551828,
+                "stop": 1788702268.9616983,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_verification_hides_yield_collector_and_genealogy",
+                "status": "passed",
+                "duration": 0.013472958000420476,
+                "start": 1788702268.9617982,
+                "stop": 1788702268.9754226,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_retroactive_suspension_enumerates_its_window",
+                "status": "passed",
+                "duration": 6.103088002000732,
+                "start": 1788702268.9755666,
+                "stop": 1788702275.0787416,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_specification_versions_and_conformance_are_stored",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.013554667000789777,
+                "start": 1788702275.0792024,
+                "stop": 1788702275.143198,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "quality = <httpx.Client object at 0xffff8357fa10>\n\n    def test_specification_versions_and_conformance_are_stored(quality):\n        path = \"/specifications/%s/versions/%s\" % (conftest.GRADE_N6, conftest.SPEC_VERSION)\n>       body = conftest.as_object(conftest.get_json(quality, path), path)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n/tests/test_mass.py:1691: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nclient = <httpx.Client object at 0xffff8357fa10>\npath = '/specifications/N6/versions/3', params = None\n\n    def get_json(client, path: str, params: dict | None = None):\n        response = client.get(api(path), params=params or {})\n>       assert response.status_code == 200, (\n            \"GET /api%s params=%r returned %s\" % (path, params or {}, describe(response)))\nE       AssertionError: GET /api/specifications/N6/versions/3 params={} returned 404: {\"error\":\"not_found\"}\nE       assert 404 == 200\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/conftest.py:592: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_change_notice_blocks_release_until_customers_are_mailed",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.008239959001002717,
+                "start": 1788702275.1433346,
+                "stop": 1788702275.1855342,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "quality = <httpx.Client object at 0xffff8355ade0>\ninbox = <capabilities.HttpInbox object at 0xffff835808f0>\n\n    def test_change_notice_blocks_release_until_customers_are_mailed(quality, inbox):\n        raised = quality.post(\n            conftest.api(\"/change-notices\"),\n            json={\"what_changes\": \"The depolymerisation recipe moves its set point\",\n                  \"against_version\": conftest.RECIPE_DEPO,\n                  \"parameter\": \"temperature\",\n                  \"qualification_relevant\": True},\n            headers=conftest.idem())\n>       assert raised.status_code in conftest.STATUS_OK, (\n            \"a quality manager raises a change notice: %s\" % conftest.describe(raised))\nE       AssertionError: a quality manager raises a change notice: 400: {\"error\":\"missing_field\",\"required\":[\"description\",\"parameter\"]}\nE       assert 400 in (200, 201)\nE        +  where 400 = <Response [400 Bad Request]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:1749: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_contract_projection_reports_unreachable_rather_than_refusing",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007775084000968491,
+                "start": 1788702275.1856976,
+                "stop": 1788702275.2318652,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff8357ef00>\n\n    def test_contract_projection_reports_unreachable_rather_than_refusing(claims):\n        path = \"/contracts/%s/projection\" % conftest.CONTRACT_HELIOS\n        body = conftest.as_object(conftest.get_json(claims, path), path)\n        where = \"the projection of %s\" % conftest.CONTRACT_HELIOS\n        for key in (\"delivered_kg\", \"committed_kg\", \"running_content_bp\", \"floor_bp\",\n                    \"required_remaining_bp\", \"state\"):\n            assert key in body, \"%s carries no %r: %.400r\" % (where, key, body)\n        assert conftest.integer(body, \"committed_kg\", where) == conftest.CONTRACT_HELIOS_COMMITTED_KG, (\n            \"%s reports committed %r, the brief seeds %d\"\n            % (where, body.get(\"committed_kg\"), conftest.CONTRACT_HELIOS_COMMITTED_KG))\n        assert conftest.integer(body, \"floor_bp\", where) == conftest.CONTRACT_HELIOS_FLOOR_BP, (\n            \"%s reports a floor of %r, the brief seeds %d\"\n            % (where, body.get(\"floor_bp\"), conftest.CONTRACT_HELIOS_FLOOR_BP))\n        assert str(body.get(\"state\")) in conftest.PROJECTION_STATES, (\n            \"%s reports a state outside the pinned two: %r\" % (where, body.get(\"state\")))\n        vanta = conftest.as_object(\n>           conftest.get_json(claims, \"/contracts/%s\" % conftest.CONTRACT_VANTA),\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n            \"/contracts/CON-VANTA-1\")\n\n/tests/test_mass.py:1796: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nclient = <httpx.Client object at 0xffff8357ef00>\npath = '/contracts/CON-VANTA-1', params = None\n\n    def get_json(client, path: str, params: dict | None = None):\n        response = client.get(api(path), params=params or {})\n>       assert response.status_code == 200, (\n            \"GET /api%s params=%r returned %s\" % (path, params or {}, describe(response)))\nE       AssertionError: GET /api/contracts/CON-VANTA-1 params={} returned 404: {\"error\":\"not_found\",\"path\":\"/api/contracts/CON-VANTA-1\"}\nE       assert 404 == 200\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/conftest.py:592: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_record_is_append_only_and_its_digest_chain_holds",
+                "status": "passed",
+                "duration": 0.01866370900279435,
+                "start": 1788702275.231982,
+                "stop": 1788702275.2507992,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_export_is_scoped_and_is_itself_an_entry",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.024332708000656567,
+                "start": 1788702275.2509353,
+                "stop": 1788702275.307315,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "auditor = <httpx.Client object at 0xffff83563f50>\n\n    def test_export_is_scoped_and_is_itself_an_entry(auditor):\n        before = len(conftest.as_list(conftest.get_json(auditor, \"/record\"), \"/record\"))\n        response = auditor.post(\n            conftest.api(\"/exports\"),\n            json={\"period\": conftest.PERIOD_OPEN, \"sites\": [conftest.SITE_DEMO],\n                  \"grades\": [conftest.GRADE_N6], \"certificates\": []},\n            headers=conftest.idem())\n        assert response.status_code in conftest.STATUS_OK, (\n            \"an auditor exports within an agreed scope: %s\" % conftest.describe(response))\n        body = response.json()\n        for key in (\"scope\", \"derivations\", \"digests\"):\n>           assert key in body, (\n                \"an export is self-contained and carries its derivations and digests; \"\n                \"it carries no %r: %.400r\" % (key, body))\nE           AssertionError: an export is self-contained and carries its derivations and digests; it carries no 'digests': {'reference': 'EXP-0001', 'requested_by': 'auditor@example.com', 'exported_at': '2026-09-06T13:44:35.263Z', 'read_at': '2026-09-06T13:44:35.263Z', 'scope': {'period': 'BP-DEMO-N6-2026H1', 'sites': ['SITE-DEMO'], 'grades': ['N6'], 'certificates': [], 'lots': []}, 'entries': [{'seq': 2, 'act': 'site_recorded', 'person': 'system', 'person_id': None, 'at': '2026-01-01T00:00:00.000Z', 'site': 'SITE-DEM\nE           assert 'digests' in {'anchors': {'chain': {'entries': 190, 'first_failure': None, 'holds': True}, 'first_digest': '24f1bb7459bde95ca5ec50a...ry_mass_consumed_g * factor_bp / 10000, floored', 'dry_mass_g': 'net_g * (10000 - moisture_bp) / 10000, floored'}, ...}\n\n/tests/test_mass.py:1871: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_reconciliation_returns_six_figures",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0203095429988025,
+                "start": 1788702275.3074346,
+                "stop": 1788702275.3597522,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "auditor = <httpx.Client object at 0xffff8355d220>\n\n    def test_reconciliation_returns_six_figures(auditor):\n        body = conftest.as_object(conftest.get_json(auditor, \"/reconciliation\"),\n                                  \"/reconciliation\")\n        where = \"the reconciliation view\"\n        for key in (\"mass_balance_residual_g\", \"credit_margin_g\",\n                    \"consumptions_on_open_runs\", \"batches_with_broken_custody\",\n                    \"certificates_with_superseded_figures\", \"integration_ages\"):\n            assert key in body, \"%s carries no %r: %.400r\" % (where, key, body)\n>       assert isinstance(body.get(\"integration_ages\"), dict), (\n            \"%s reports the age of the most recent record per inbound source: %.300r\"\n            % (where, body))\nE       AssertionError: the reconciliation view reports the age of the most recent record per inbound source: {'mass_balance_residual_g': 0, 'credit_margin_g': 436000, 'consumptions_on_open_runs': 0, 'batches_with_broken_custody': 5, 'certificates_with_superseded_figures': 0, 'integration_ages': [{'source': 'weighbridge', 'age_hours': 4759, 'last_received_at': '2026-02-20T06:14:00.000Z'}, {'source': 'contro\nE       assert False\nE        +  where False = isinstance([{'age_hours': 4759, 'last_received_at': '2026-02-20T06:14:00.000Z', 'source': 'weighbridge'}, {'age_hours': 4455, 'la...09:02:00.000Z', 'source': 'laboratory'}, {'age_hours': None, 'last_received_at': None, 'source': 'customer_reporting'}], dict)\nE        +    where [{'age_hours': 4759, 'last_received_at': '2026-02-20T06:14:00.000Z', 'source': 'weighbridge'}, {'age_hours': 4455, 'la...09:02:00.000Z', 'source': 'laboratory'}, {'age_hours': None, 'last_received_at': None, 'source': 'customer_reporting'}] = <built-in method get of dict object at 0xffff82482540>('integration_ages')\nE        +      where <built-in method get of dict object at 0xffff82482540> = {'batches_with_broken_custody': 5, 'certificates_with_superseded_figures': 0, 'consumptions_on_open_runs': 0, 'credit_margin_g': 436000, ...}.get\n\n/tests/test_mass.py:1897: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_published_statistics_carry_source_year_and_geography",
+                "status": "passed",
+                "duration": 0.006196833999638329,
+                "start": 1788702275.3598835,
+                "stop": 1788702275.3661826,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_positions_news_and_derived_counts_are_exact",
+                "status": "passed",
+                "duration": 0.0068727500020031584,
+                "start": 1788702275.3662896,
+                "stop": 1788702275.3732662,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_enquiry_routes_four_types_to_four_destinations",
+                "status": "passed",
+                "duration": 0.21661575000143785,
+                "start": 1788702275.3734052,
+                "stop": 1788702275.5902545,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_no_mail_is_sent_by_a_non_notifying_act",
+                "status": "passed",
+                "duration": 3.031362584000817,
+                "start": 1788702275.5904696,
+                "stop": 1788702278.6220684,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_every_answer_carries_its_derivation",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0166154579983413,
+                "start": 1788702278.6223233,
+                "stop": 1788702278.6882415,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff81c64830>\n\n    def test_every_answer_carries_its_derivation(claims):\n        for path in (\"/balance-periods/%s\" % conftest.PERIOD_OPEN,\n                     \"/lots/%s/carbon\" % conftest.LOT_1,\n                     \"/contracts/%s/projection\" % conftest.CONTRACT_HELIOS):\n            body = conftest.as_object(conftest.get_json(claims, path), path)\n            assert \"derivation\" in body or \"derivations\" in body, (\n                \"GET /api%s returns a figure with no derivation; an answer that cannot \"\n                \"state where it came from is not returned: %.400r\" % (path, body))\n>           assert \"versions\" in body or \"method_version\" in body or \"conversion_factors\" in body, (\n                \"GET /api%s returns a figure without the versions it was computed \"\n                \"against: %.400r\" % (path, body))\nE           AssertionError: GET /api/contracts/CON-HELIOS-1/projection returns a figure without the versions it was computed against: {'contract': 'CON-HELIOS-1', 'recipient': 'CUS-HELIOS', 'site': 'SITE-DEMO', 'period': '2026-H1', 'delivered_kg': 0, 'committed_kg': 200, 'running_content_bp': 0, 'floor_bp': 5000, 'required_remaining_bp': 5000, 'state': 'on_track', 'unreachable_on': None, 'unreachable_allocation': None, 'shortfall_consequence': 'a replacement volume from the following period at the contracted price', 'planned_sit\nE           assert ('versions' in {'allocations': [], 'committed_kg': 200, 'contract': 'CON-HELIOS-1', 'delivered_kg': 0, ...} or 'method_version' in {'allocations': [], 'committed_kg': 200, 'contract': 'CON-HELIOS-1', 'delivered_kg': 0, ...} or 'conversion_factors' in {'allocations': [], 'committed_kg': 200, 'contract': 'CON-HELIOS-1', 'delivered_kg': 0, ...})\n\n/tests/test_mass.py:2039: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_versioned_definitions_supersede_rather_than_overwrite",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009713584002383868,
+                "start": 1788702278.6884067,
+                "stop": 1788702278.735906,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "quality = <httpx.Client object at 0xffff81c65ac0>\nclaims = <httpx.Client object at 0xffff81c64380>\n\n    def test_versioned_definitions_supersede_rather_than_overwrite(quality, claims):\n        published = quality.post(\n            conftest.api(\"/carbon-methods/%s/versions\" % conftest.METHOD),\n            json={\"version\": \"4\", \"standard\": conftest.METHOD_STANDARD,\n                  \"functional_unit\": conftest.METHOD_FUNCTIONAL_UNIT,\n                  \"boundary\": conftest.METHOD_BOUNDARY,\n                  \"allocation_basis\": conftest.ALLOCATION_BASIS,\n                  \"reviewer\": conftest.METHOD_REVIEWER},\n            headers=conftest.idem())\n>       assert published.status_code in conftest.STATUS_OK, (\n            \"a new method version must publish: %s\" % conftest.describe(published))\nE       AssertionError: a new method version must publish: 404: 404 Not Found\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2063: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_out_of_scope_routes_do_not_exist",
+                "status": "passed",
+                "duration": 0.01564358399809862,
+                "start": 1788702278.736063,
+                "stop": 1788702278.7518344,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_every_collection_route_answers_in_the_pinned_shape",
+                "status": "passed",
+                "duration": 0.09988016699935542,
+                "start": 1788702278.7519472,
+                "stop": 1788702278.852002,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_records_accounts_and_mail_live_in_the_real_services",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.016469249001602293,
+                "start": 1788702278.8521383,
+                "stop": 1788702278.9085295,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "db = <capabilities.PostgresBackend object at 0xffff844e5520>\ninbox = <capabilities.HttpInbox object at 0xffff835808f0>\nplant = <httpx.Client object at 0xffff83583200>\n\n    def test_records_accounts_and_mail_live_in_the_real_services(db, inbox, plant):\n        tables = db.query(\n            \"SELECT count(*) AS n FROM information_schema.tables \"\n            \"WHERE table_schema = 'public'\")\n        assert tables and int(tables[0][\"n\"]) > 0, (\n            \"every record lives in the database rather than in memory; the public \"\n            \"schema holds no table\")\n        booked = conftest.book_batch(plant, net_g=77000)\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"a booking must succeed before its persistence can be observed: %s\"\n            % conftest.describe(booked))\nE       AssertionError: a booking must succeed before its persistence can be observed: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2169: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_stylesheet_carries_one_palette_only",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.006522876001326949,
+                "start": 1788702278.9087095,
+                "stop": 1788702278.9554224,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "anon = <httpx.Client object at 0xffff8355eed0>\n\n    def test_stylesheet_carries_one_palette_only(anon):\n        root = appclient.app_url()\n        page = anon.get(root + \"/\")\n        assert page.status_code == 200, (\n            \"the home route must answer before its stylesheet can be read: %s\"\n            % conftest.describe(page))\n        text = page.text\n        sheets = []\n        for fragment in text.split('href=\"')[1:]:\n            candidate = fragment.split('\"')[0]\n            if candidate.endswith(\".css\"):\n                sheets.append(candidate)\n        body = text\n        for href in sheets:\n            target = href if href.startswith(\"http\") else root + \"/\" + href.lstrip(\"/\")\n            response = anon.get(target)\n            assert response.status_code == 200, (\n                \"the stylesheet at %s must be served from the origin the app \"\n                \"controls, got %s\" % (target, conftest.describe(response)))\n            body += response.text\n        lowered = body.lower()\n        for value in conftest.BANNED_COLOURS:\n            assert value not in lowered, (\n                \"the stock template value %r ships in the built stylesheet; one \"\n                \"palette means the second one is removed\" % value)\n        assert \"deleted|variable\" not in lowered, (\n            \"a token name carrying a deletion marker is still shipping\")\n        literals = set()\n        for match in re.findall(r\"#[0-9a-f]{3,8}\b\", lowered):\n            digits = match[1:]\n            if len(digits) == 3:\n                digits = \"\".join(ch * 2 for ch in digits)\n            literals.add(digits[:6])\n        assert len(literals) <= conftest.MAX_COLOUR_LITERALS, (\n            \"the built stylesheet declares %d distinct colour literals; the brief allows \"\n            \"at most %d, an alpha variant of a role counting as that role: %r\"\n            % (len(literals), conftest.MAX_COLOUR_LITERALS, sorted(literals)))\n>       assert literals, (\n            \"the built stylesheet declares no colour at all; six roles must reach it\")\nE       AssertionError: the built stylesheet declares no colour at all; six roles must reach it\nE       assert set()\n\n/tests/test_mass.py:2224: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_certificate_document_reads_as_plain_text",
+                "status": "passed",
+                "duration": 0.011033956998289796,
+                "start": 1788702278.9555628,
+                "stop": 1788702278.9667346,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_published_copy_matches_the_brief",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0061287089993129484,
+                "start": 1788702278.966851,
+                "stop": 1788702279.0139217,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "anon = <httpx.Client object at 0xffff83561df0>\n\n    def test_published_copy_matches_the_brief(anon):\n        root = appclient.app_url()\n        home = anon.get(root + \"/\")\n        assert home.status_code == 200, (\n            \"the home route must answer: %s\" % conftest.describe(home))\n        for line in (conftest.HOME_HEADLINE, conftest.TECH_HEADLINE,\n                     conftest.LOOP_HEADLINE):\n>           assert line in home.text, (\n                \"the home route carries the pinned line %r\" % line)\nE           AssertionError: the home route carries the pinned line \"Tomorrow's materials. Made from today's waste.\"\nE           assert \"Tomorrow's materials. Made from today's waste.\" in '<!doctype html>\\n<html lang=\"en\" class=\"no-js\">\\n  <head>\\n    <meta charset=\"utf-8\" />\\n    <meta name=\"viewport\" co...s plain text at\\n        /api/certificates/&lt;number&gt;/document.\\n      </p>\\n    </noscript>\\n  </body>\\n</html>\\n'\nE            +  where '<!doctype html>\\n<html lang=\"en\" class=\"no-js\">\\n  <head>\\n    <meta charset=\"utf-8\" />\\n    <meta name=\"viewport\" co...s plain text at\\n        /api/certificates/&lt;number&gt;/document.\\n      </p>\\n    </noscript>\\n  </body>\\n</html>\\n' = <Response [200 OK]>.text\n\n/tests/test_mass.py:2265: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_consequential_states_carry_their_word",
+                "status": "passed",
+                "duration": 0.05238162500063481,
+                "start": 1788702279.0140917,
+                "stop": 1788702279.0666165,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_invalid_payloads_are_refused",
+                "status": "passed",
+                "duration": 0.023997374999453314,
+                "start": 1788702279.0670767,
+                "stop": 1788702279.0912185,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_inbound_sources_keep_their_payloads_verbatim",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.011342792002324131,
+                "start": 1788702279.0916662,
+                "stop": 1788702279.13887,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff84537650>\nauditor = <httpx.Client object at 0xffff84534290>\n\n    def test_inbound_sources_keep_their_payloads_verbatim(plant, auditor):\n        rows = conftest.as_list(conftest.get_json(auditor, \"/inbound\"), \"/inbound\")\n        by_source = {}\n        for row in rows:\n            by_source.setdefault(str(row.get(\"source\")), []).append(row)\n        for source in conftest.INBOUND_SOURCES:\n            seeded = conftest.SEEDED_INBOUND.get(source)\n            if seeded is None:\n                assert source not in by_source, (\n                    \"the %r source has never sent, so the register carries nothing for it; \"\n                    \"it carried %d entries\" % (source, len(by_source.get(source, []))))\n                continue\n            assert source in by_source, (\n                \"the seeded %r record is absent; the register carried %r\"\n                % (source, sorted(by_source)))\n            row = by_source[source][0]\n            where = \"the seeded %s record\" % source\n>           assert str(conftest.field(row, \"received_at\", where)) == seeded, (\n                \"%s reports received_at %r, the brief pins %r\"\n                % (where, row.get(\"received_at\"), seeded))\nE           AssertionError: the seeded weighbridge record reports received_at '2026-02-20T06:14:00.000Z', the brief pins '2026-02-20T06:14:00Z'\nE           assert '2026-02-20T06:14:00.000Z' == '2026-02-20T06:14:00Z'\nE             \nE             - 2026-02-20T06:14:00Z\nE             + 2026-02-20T06:14:00.000Z\nE             ?                    ++++\n\n/tests/test_mass.py:2381: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_certificate_figures_replay_from_recorded_inputs",
+                "status": "passed",
+                "duration": 0.010207916999206645,
+                "start": 1788702279.1390228,
+                "stop": 1788702279.1493425,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_record_queries_return_complete_sets",
+                "status": "passed",
+                "duration": 0.023118082999644685,
+                "start": 1788702279.1494815,
+                "stop": 1788702279.1727726,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_retention_is_computed_and_a_hold_refuses_deletion",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.01638449900019623,
+                "start": 1788702279.1729448,
+                "stop": 1788702279.2259617,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "auditor = <httpx.Client object at 0xffff8357d520>\nclaims = <httpx.Client object at 0xffff81c803e0>\n\n    def test_retention_is_computed_and_a_hold_refuses_deletion(auditor, claims):\n        rows = conftest.as_list(conftest.get_json(auditor, \"/record\"), \"/record\")\n        seq = int(sorted(rows, key=lambda r: int(r.get(\"seq\", 0)))[0][\"seq\"])\n        path = \"/record/%d/retention\" % seq\n        body = conftest.as_object(conftest.get_json(auditor, path), path)\n        where = \"the retention of record entry %d\" % seq\n        for key in (\"scheme_months\", \"statutory_months\", \"referenced_until\", \"retain_until\"):\n            assert key in body, \"%s carries no %r: %.300r\" % (where, key, body)\n        assert conftest.integer(body, \"scheme_months\", where) == conftest.SCHEME_RETENTION_MONTHS, (\n            \"%s reports a scheme basis of %r months, the brief pins %d\"\n            % (where, body.get(\"scheme_months\"), conftest.SCHEME_RETENTION_MONTHS))\n        assert conftest.integer(body, \"statutory_months\", where) == conftest.STATUTORY_RETENTION_MONTHS, (\n            \"%s reports a statutory basis of %r months, the brief pins %d\"\n            % (where, body.get(\"statutory_months\"), conftest.STATUTORY_RETENTION_MONTHS))\n>       assert str(body[\"retain_until\"]) >= str(body[\"referenced_until\"]), (\n            \"%s reports retain_until %r before referenced_until %r; the retention is the \"\n            \"longest of the three\" % (where, body.get(\"retain_until\"),\n                                      body.get(\"referenced_until\")))\nE       AssertionError: the retention of record entry 1 reports retain_until '2036-01-01' before referenced_until None; the retention is the longest of the three\nE       assert '2036-01-01' >= 'None'\nE        +  where '2036-01-01' = str('2036-01-01')\nE        +  and   'None' = str(None)\n\n/tests/test_mass.py:2500: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_party_rename_keeps_the_name_in_force_at_the_time",
+                "status": "passed",
+                "duration": 3.0335415010013094,
+                "start": 1788702279.2261124,
+                "stop": 1788702282.259995,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_inter_site_transfer_lands_as_an_inbound_credit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.02391991600052279,
+                "start": 1788702282.2604897,
+                "stop": 1788702282.3341987,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff8357cd40>\n\n    def test_inter_site_transfer_lands_as_an_inbound_credit(claims):\n        demo_before = conftest.period(claims, conftest.PERIOD_OPEN)\n        pilot_before = conftest.period(claims, conftest.PERIOD_PILOT)\n        inbound = demo_before.get(\"inbound_credits\")\n        assert isinstance(inbound, list), (\n            \"the receiving ledger reports its inbound credits: %.400r\" % (demo_before,))\n        seeded = [c for c in inbound if str(c.get(\"reference\")) == conftest.TRANSFER]\n        assert seeded, (\n            \"the seeded transfer %r is absent from the demonstration ledger; it carried %r\"\n            % (conftest.TRANSFER, inbound))\n        entry = seeded[0]\n        where = \"the inbound credit from %s\" % conftest.TRANSFER\n        assert conftest.integer(entry, \"mass_g\", where) == conftest.TRANSFER_MASS_G, (\n            \"%s reports %r grams, the brief pins %d\"\n            % (where, entry.get(\"mass_g\"), conftest.TRANSFER_MASS_G))\n        assert str(conftest.field(entry, \"origin_site\", where)) == conftest.SITE_PILOT, (\n            \"%s names origin %r, the brief pins %r\"\n            % (where, entry.get(\"origin_site\"), conftest.SITE_PILOT))\n        assert str(conftest.field(entry, \"movement\", where)) == conftest.TRANSFER, (\n            \"%s names the movement %r, the brief pins %r\"\n            % (where, entry.get(\"movement\"), conftest.TRANSFER))\n        assert bool(entry.get(\"fresh_credit\", False)) is False, (\n            \"a transfer is never a fresh credit: %.300r\" % (entry,))\n    \n        def total(period):\n            holder = period[\"credits_in_g\"]\n            return int(holder.get(conftest.POST_CONSUMER, 0)) + int(\n                holder.get(conftest.PRE_CONSUMER, 0))\n    \n        combined_before = total(demo_before) + total(pilot_before)\n        moved = claims.post(\n            conftest.api(\"/balance-periods/%s/transfers\" % conftest.PERIOD_PILOT),\n            json={\"to\": conftest.PERIOD_OPEN, \"mass_g\": 10000,\n                  \"category\": conftest.POST_CONSUMER, \"on\": \"2026-06-05\"},\n            headers=conftest.idem())\n>       assert moved.status_code in conftest.STATUS_OK, (\n            \"a claims manager moves material between sites: %s\" % conftest.describe(moved))\nE       AssertionError: a claims manager moves material between sites: 400: {\"error\":\"missing_field\",\"field\":\"from_period\"}\nE       assert 400 in (200, 201)\nE        +  where 400 = <Response [400 Bad Request]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2606: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_concurrent_acts_settle_in_the_stated_order",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.017910083999595372,
+                "start": 1788702282.3343494,
+                "stop": 1788702282.399224,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims_token = 'eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImNsYWltc0BleGFtcGxlLmNvbSIsIm5hbWUiOiJPc2VpIERhbnF1YWgiLCJyb2xlcyI6WyJjbGFpbXNfbWFu...E2ODM1MSIsImlhdCI6MTc4ODcwMjI1MiwiaXNzIjoicmF2ZWwiLCJleHAiOjE3ODg3NDU0NTJ9.7cKChZjJ6_PCWDjR_bWpZy1MJ2s5prEZ7eUwXFN20Jk'\nquality = <httpx.Client object at 0xffff84537d70>\nsigner2 = <httpx.Client object at 0xffff81c83ce0>\n\n    def test_concurrent_acts_settle_in_the_stated_order(claims_token, quality, signer2):\n        with appclient.client(claims_token) as reader:\n            before = conftest.carbon(reader)\n        started_under = str(before.get(\"method_version\"))\n        published = quality.post(\n            conftest.api(\"/carbon-methods/%s/versions\" % conftest.METHOD),\n            json={\"version\": \"5\", \"standard\": conftest.METHOD_STANDARD,\n                  \"functional_unit\": conftest.METHOD_FUNCTIONAL_UNIT,\n                  \"boundary\": conftest.METHOD_BOUNDARY,\n                  \"allocation_basis\": conftest.ALLOCATION_BASIS,\n                  \"reviewer\": conftest.METHOD_REVIEWER},\n            headers=conftest.idem())\n>       assert published.status_code in conftest.STATUS_OK, (\n            \"a method version must publish: %s\" % conftest.describe(published))\nE       AssertionError: a method version must publish: 404: 404 Not Found\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2628: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_yield_is_denied_to_a_collector_and_absent_from_a_certificate",
+                "status": "passed",
+                "duration": 0.03172966799866117,
+                "start": 1788702282.3993464,
+                "stop": 1788702282.4313025,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_derived_integers_are_floored_rather_than_rounded",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.014980500000092434,
+                "start": 1788702282.431496,
+                "stop": 1788702282.4870508,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83560b00>\nclaims = <httpx.Client object at 0xffff83580b00>\n\n    def test_derived_integers_are_floored_rather_than_rounded(plant, claims):\n        booked = conftest.book_batch(plant, net_g=conftest.FLOOR_NET_G,\n                                     moisture_bp=conftest.FLOOR_MOISTURE_BP)\n>       assert booked.status_code in conftest.STATUS_OK, (\n            \"the flooring probe batch must book in: %s\" % conftest.describe(booked))\nE       AssertionError: the flooring probe batch must book in: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2688: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_repeated_idempotency_key_with_a_changed_body_is_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.016700667998520657,
+                "start": 1788702282.4872036,
+                "stop": 1788702282.5424788,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "plant = <httpx.Client object at 0xffff83562c30>\n\n    def test_repeated_idempotency_key_with_a_changed_body_is_refused(plant):\n        key = conftest.idem()\n        first = conftest.book_batch(plant, net_g=131000, headers=key)\n>       assert first.status_code in conftest.STATUS_OK, (\n            \"the first write under a key must succeed: %s\" % conftest.describe(first))\nE       AssertionError: the first write under a key must succeed: 500: {\"error\":\"internal_error\",\"message\":\"The act was not completed and nothing was changed.\"}\nE       assert 500 in (200, 201)\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\nE        +  and   (200, 201) = conftest.STATUS_OK\n\n/tests/test_mass.py:2719: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_conversion_factor_reconciles_with_its_derivation_window",
+                "status": "passed",
+                "duration": 0.020086624999748892,
+                "start": 1788702282.5427196,
+                "stop": 1788702282.5629423,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_blending_computes_the_mass_weighted_content",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.01129820800088055,
+                "start": 1788702282.5631099,
+                "stop": 1788702282.612731,
+                "retries": 0,
+                "file_path": "test_mass.py",
+                "trace": "claims = <httpx.Client object at 0xffff835828a0>\n\n    def test_blending_computes_the_mass_weighted_content(claims):\n        response = claims.post(conftest.api(\"/lots/%s/blend\" % conftest.LOT_1),\n                               json={\"with\": conftest.LOT_3}, headers=conftest.idem())\n        assert response.status_code in conftest.STATUS_OK, (\n            \"blending %s with %s must succeed: %s\"\n            % (conftest.LOT_1, conftest.LOT_3, conftest.describe(response)))\n        body = response.json()\n        where = \"the blend of %s and %s\" % (conftest.LOT_1, conftest.LOT_3)\n        assert conftest.integer(body, \"mass_g\", where) == conftest.BLEND_MASS_G, (\n            \"%s reports %r grams; %d plus %d is %d\"\n            % (where, body.get(\"mass_g\"), conftest.SEEDED_LOTS[conftest.LOT_1][\"mass_g\"],\n               conftest.SEEDED_LOTS[conftest.LOT_3][\"mass_g\"], conftest.BLEND_MASS_G))\n        expected = ((conftest.SEEDED_LOTS[conftest.LOT_1][\"mass_g\"]\n                     * conftest.CONTENT_AFTER_FULL_ALLOCATION_BP\n                     + conftest.SEEDED_LOTS[conftest.LOT_3][\"mass_g\"]\n                     * conftest.LOT_3_CONTENT_BP) // conftest.BLEND_MASS_G)\n        assert expected == conftest.BLEND_CONTENT_BP, (\n            \"the pinned blend content is inconsistent with its own arithmetic\")\n>       assert conftest.integer(body, \"content_bp\", where) == expected, (\n            \"%s reports %r bp; the mass-weighted content of %d bp over %d grams and %d bp \"\n            \"over %d grams is %d bp\"\n            % (where, body.get(\"content_bp\"), conftest.CONTENT_AFTER_FULL_ALLOCATION_BP,\n               conftest.SEEDED_LOTS[conftest.LOT_1][\"mass_g\"], conftest.LOT_3_CONTENT_BP,\n               conftest.SEEDED_LOTS[conftest.LOT_3][\"mass_g\"], expected))\nE       AssertionError: the blend of LOT-N6-0001 and LOT-N6-0003 reports 8516 bp; the mass-weighted content of 9000 bp over 400000 grams and 7500 bp over 200000 grams is 8500 bp\nE       assert 8516 == 8500\nE        +  where 8516 = <function integer at 0xffff844b4fe0>({'certification_scope': 'certified', 'claim_type': 'mass_balance', 'components': [{'claim_type': 'mass_balance', 'cont...laim_type': 'mass_balance', 'content_bp': 7500, 'lot': 'LOT-N6-0003', 'mass_g': 200000, ...}], 'content_bp': 8516, ...}, 'content_bp', 'the blend of LOT-N6-0001 and LOT-N6-0003')\nE        +    where <function integer at 0xffff844b4fe0> = conftest.integer\n\n/tests/test_mass.py:2813: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_mass.py::test_carry_over_limit_expires_credit_at_close",
+                "status": "passed",
+                "duration": 3.0370436670000345,
+                "start": 1788702282.6128805,
+                "stop": 1788702285.6503239,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_concurrent_signing_yields_a_gapless_sequence",
+                "status": "passed",
+                "duration": 3.1338772929993866,
+                "start": 1788702285.6516118,
+                "stop": 1788702288.785746,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_conditions_are_redecided_between_preview_and_signing",
+                "status": "passed",
+                "duration": 3.0981573759981984,
+                "start": 1788702288.7860181,
+                "stop": 1788702291.8843436,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_complete_set_routes_refuse_pagination",
+                "status": "passed",
+                "duration": 0.028793167000912945,
+                "start": 1788702291.8845334,
+                "stop": 1788702291.9134977,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_certificate_document_is_byte_stable",
+                "status": "passed",
+                "duration": 0.007248834001075011,
+                "start": 1788702291.914157,
+                "stop": 1788702291.9215355,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            },
+            {
+                "name": "test_mass.py::test_restatement_recomputes_content_and_enumerates",
+                "status": "passed",
+                "duration": 0.010272707999320119,
+                "start": 1788702291.9216826,
+                "stop": 1788702291.9321105,
+                "retries": 0,
+                "file_path": "test_mass.py"
+            }
+        ]
+    }
+}

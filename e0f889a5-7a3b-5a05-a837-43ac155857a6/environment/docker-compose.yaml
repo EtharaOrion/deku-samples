@@ -1,0 +1,88 @@
+services:
+  main:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      killbill-init:
+        condition: service_healthy
+    ports:
+      - "4173:4173"
+  postgres:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_USER: deku_admin
+      POSTGRES_PASSWORD: deku-local-dev
+      POSTGRES_DB: deku
+    volumes:
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/10-app-role.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deku_admin -d deku && PGPASSWORD=deku-local-dev psql -h 127.0.0.1 -U deku_app -d deku -c 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    environment:
+      MP_MAX_MESSAGES: "500"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v1/messages > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+  killbill-db:
+    image: killbill/mariadb:0.24
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill-db-root-4c1f8ab2
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill-db-root-4c1f8ab2
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill-db-root-4c1f8ab2
+      KB_org_killbill_security_shiroResourcePath: file:/init/shiro.ini
+    volumes:
+      - ./killbill-shiro.ini:/init/shiro.ini:ro
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/1.0/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  killbill-init:
+    image: killbill/killbill:0.24.21
+    entrypoint: ["/bin/sh", "-c", "/bin/sh /init/killbill-init.sh && touch /tmp/killbill-init.done && tail -f /dev/null"]
+    environment:
+      PAYMENTS_API_URL: http://killbill:8080
+      PAYMENTS_ADMIN_USER: orbit-admin
+      PAYMENTS_ADMIN_PASSWORD: kb-admin-9c41f7be
+      PAYMENTS_API_KEY: orbit-labs
+      PAYMENTS_API_SECRET: orbit-labs-secret-9f14c73e
+    volumes:
+      - ./killbill-init.sh:/init/killbill-init.sh:ro
+    depends_on:
+      killbill:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/killbill-init.done"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s

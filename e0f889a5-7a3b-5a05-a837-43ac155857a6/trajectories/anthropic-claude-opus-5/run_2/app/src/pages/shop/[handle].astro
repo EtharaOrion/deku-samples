@@ -1,0 +1,177 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import BuyPanel from '../../islands/BuyPanel.astro';
+import { apiGet, formatDate } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const { handle } = Astro.params;
+const variantParam = Astro.url.searchParams.get('variant');
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<any>(
+  Astro.request,
+  `/products/${handle}${variantParam ? `?variant=${encodeURIComponent(variantParam)}` : ''}`,
+);
+
+if (!result.ok && result.status === 404) {
+  return new Response(null, { status: 302, headers: { location: '/shop' } });
+}
+
+const product = result.ok ? result.data : null;
+const blocks = product?.blocks ?? [];
+const lede = blocks.find((b: any) => b.kind === 'lede');
+const specs = blocks.filter((b: any) => b.kind === 'spec_group');
+const inTheBox = blocks.find((b: any) => b.kind === 'in_the_box');
+const compatibility = blocks.find((b: any) => b.kind === 'compatibility');
+const supportNote = blocks.find((b: any) => b.kind === 'support_note');
+const selected = product?.variants?.find((v: any) => v.sku === product.selected_sku) || product?.variants?.[0];
+---
+
+<Shell
+  title={product ? `${product.title} — Vela` : 'Vela'}
+  description={product?.subtitle}
+  current="shop"
+  customer={viewer.customer}
+  cartCount={viewer.cartCount}
+>
+  {!product && (
+    <p class="notice notice-error" role="alert">
+      {result.ok ? 'That product does not exist.' : result.error.message}
+    </p>
+  )}
+
+  {product && (
+    <>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+      </nav>
+
+      <div class="product">
+        <!-- A keyboard navigable gallery on one side. -->
+        <section class="gallery" aria-label={`${product.title} images`}>
+          <ul class="frames">
+            {product.variants.map((v: any, i: number) => (
+              <li>
+                <button
+                  class="frame"
+                  type="button"
+                  aria-label={`${product.title}, ${v.option_value}`}
+                  aria-pressed={v.sku === selected?.sku ? 'true' : 'false'}
+                >
+                  <ProductMedia handle={product.handle} option={v.option_value} title={product.title} ratio="4 / 3" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div class="detail">
+          <h1>{product.title}</h1>
+          <p class="subtitle">{product.subtitle}</p>
+
+          {product.status === 'discontinued' && supportNote && (
+            <p class="notice" data-support-note>{supportNote.payload.text}</p>
+          )}
+
+          <BuyPanel product={product} selectedSku={product.selected_sku} />
+        </div>
+      </div>
+
+      <!-- The typed blocks render as themselves. -->
+      <div class="blocks">
+        {lede && <p class="lede">{lede.payload.text}</p>}
+
+        {specs.length > 0 && (
+          <section class="block" aria-labelledby="specs-heading">
+            <h2 id="specs-heading">Specifications</h2>
+            {specs.map((group: any) => (
+              <table class="table">
+                <caption class="visually-hidden">{group.payload.title}</caption>
+                <thead>
+                  <tr><th scope="col" colspan="2">{group.payload.title}</th></tr>
+                </thead>
+                <tbody>
+                  {group.payload.rows.map((row: any) => (
+                    <tr>
+                      <th scope="row">{row.label}</th>
+                      <td class="num tnum">{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
+          </section>
+        )}
+
+        {inTheBox && (
+          <section class="block" aria-labelledby="box-heading">
+            <h2 id="box-heading">In the box</h2>
+            <ul class="box-list">
+              {inTheBox.payload.items.map((item: string) => <li>{item}</li>)}
+            </ul>
+          </section>
+        )}
+
+        {compatibility && (
+          <section class="block" aria-labelledby="compat-heading">
+            <h2 id="compat-heading">Compatibility</h2>
+            <p>{compatibility.payload.text}</p>
+            <dl class="compat">
+              <div><dt>Minimum operating system</dt><dd class="mono">{compatibility.payload.minimum_os}</dd></div>
+              <div><dt>Minimum application version</dt><dd class="mono">{compatibility.payload.minimum_app}</dd></div>
+            </dl>
+          </section>
+        )}
+
+        {product.support_until && (
+          <p class="support-until">
+            Supported until <time datetime={product.support_until}>{formatDate(product.support_until)}</time>.
+          </p>
+        )}
+      </div>
+    </>
+  )}
+</Shell>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .crumbs a { color: var(--fg-muted); }
+
+  .product {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: calc(var(--unit) * 10);
+    align-items: start;
+  }
+
+  .frames { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 3); }
+  .frame {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: var(--border-w) solid var(--line);
+    background: var(--surface);
+    cursor: pointer;
+    border-radius: 0;
+  }
+  .frame[aria-pressed='true'] { border-color: var(--fg); }
+
+  h1 { font-size: 32px; line-height: 1.2; }
+  .subtitle { color: var(--fg-muted); margin: var(--unit) 0 calc(var(--unit) * 5); }
+  .detail { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); }
+
+  .blocks { margin-top: calc(var(--unit) * 12); display: flex; flex-direction: column; gap: calc(var(--unit) * 10); max-width: var(--measure); }
+  .lede { font-size: 18px; line-height: 27px; }
+  .block h2 { font-size: 20px; margin-bottom: calc(var(--unit) * 3); }
+  .block .table { margin-bottom: calc(var(--unit) * 5); }
+  .box-list { margin: 0; padding-left: calc(var(--unit) * 5); display: flex; flex-direction: column; gap: var(--unit); }
+  .compat { margin: calc(var(--unit) * 3) 0 0; display: grid; gap: calc(var(--unit) * 2); }
+  .compat div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); border-bottom: var(--border-w) solid var(--line); padding-bottom: var(--unit); }
+  .compat dt { color: var(--fg-muted); font-size: 14px; }
+  .compat dd { margin: 0; }
+  .support-until { color: var(--fg-muted); font-size: 14px; }
+
+  @media (max-width: 63.999rem) {
+    .product { grid-template-columns: minmax(0, 1fr); gap: calc(var(--unit) * 6); }
+  }
+</style>

@@ -1,0 +1,95 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import PlatformNote from '../../islands/PlatformNote.jsx';
+import { apiGet, formatBytes } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const v = await viewer(Astro);
+const rel = await apiGet(Astro.request, '/releases?page_size=100');
+const releases = rel.ok ? rel.data.data : [];
+const newest = releases[0];
+
+const fw = await apiGet(Astro.request, '/firmware/manifest?model=compact');
+const firmware = fw.ok ? fw.data.entries[0] : null;
+---
+<Shell title="Downloads — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <h1 class="page-title">Downloads</h1>
+
+  {!newest ? (
+    <div class="empty"><p>There is nothing to download yet.</p></div>
+  ) : (
+    <div>
+      <p class="page-lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+
+      <section class="section">
+        <div class="row" style="gap:calc(var(--unit)*4)">
+          <a class="btn" href={`/downloads/${newest.version}`} download={newest.artifact_name}>
+            Download Arranger {newest.version}
+          </a>
+          <span class="small muted bytes">{formatBytes(newest.size_bytes)}</span>
+          <span class="tiny muted digest" style="word-break:break-all;max-width:44ch">{newest.sha256}</span>
+        </div>
+
+        {/* The control adapts to the reader's platform but is never disabled and
+            never hidden: fetching an installer for a machine at home is ordinary. */}
+        <PlatformNote client:load />
+      </section>
+
+      <section class="section" aria-labelledby="fw-h">
+        <h2 class="section-title" id="fw-h">Firmware</h2>
+        <div class="row" style="gap:calc(var(--unit)*5);align-items:flex-start">
+          <div>
+            <a class="btn btn-secondary" href="/downloads" data-firmware>
+              Download Vela Cricket Firmware {firmware ? firmware.version : '7.2'}
+            </a>
+            {firmware && (
+              <p class="small muted" style="margin-top:calc(var(--unit)*2)">
+                <span class="bytes">{formatBytes(firmware.size_bytes)}</span>
+                <span class="muted"> · needs firmware </span>
+                <span class="version">{firmware.min_firmware}</span>
+                <span class="muted"> or later</span>
+              </p>
+            )}
+          </div>
+
+          {/* The web path is never the primary control. */}
+          <div style="max-width:34ch">
+            <a class="btn-quiet" href="/doctor">Firmware install (web-based)</a>
+            <p class="small muted" style="margin-top:var(--unit)">
+              Only use this if Arranger cannot see your camera.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="archive-h">
+        <h2 class="section-title" id="archive-h">Release archive</h2>
+        {releases.map((r, i) => (
+          <div>
+            {i > 0 && <div class="release-rule" aria-hidden="true"></div>}
+            {/* Only the newest release is expanded on arrival. */}
+            <ReleaseBlock release={r} open={i === 0} />
+          </div>
+        ))}
+      </section>
+    </div>
+  )}
+</Shell>
+
+<style is:global>
+  /* A plain horizontal bar carrying a dashed rule inside it: the only decorative
+     element on the page. */
+  .release-rule {
+    height: calc(var(--unit) * 4);
+    border-top: var(--border-w) solid var(--line);
+    border-bottom: var(--border-w) solid var(--line);
+    position: relative;
+  }
+  .release-rule::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    border-top: 1px dashed var(--line-strong);
+  }
+</style>

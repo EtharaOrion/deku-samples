@@ -1,0 +1,65 @@
+{% from 'partials/tile.html' import tile, caption %}
+{# The work detail's own components. The preview harness renders this exact
+   partial, so what the producer sees is what a visitor will see. #}
+<article class="work-detail">
+  <header class="work-head">
+    <h1 class="work-title">{{ work.title }}</h1>
+    <p class="work-ordinal">{{ work.ordinal or '—' }}</p>
+  </header>
+
+  {% if work.credits %}
+  <dl class="credits" aria-label="Credits">
+    {% for credit in work.credits %}
+    <div class="credit-row">
+      <dt class="credit-role">{{ credit.role }}</dt>
+      <dd class="credit-name">
+        {% if credit.talent_slug %}
+        <a href="/talents/{{ credit.talent_slug }}" data-cursor-label="{{ credit.name }}">{{ credit.name }}</a>
+        {% else %}{{ credit.name }}{% endif %}
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="empty-state">No credits are listed for this film.</p>
+  {% endif %}
+
+  {% if work.reel %}
+  <div class="work-reel">
+    {{ tile(work.reel, 'bleed', work.title, reel=work.reel) }}
+  </div>
+  {% endif %}
+
+  <div class="work-sequence">
+    {% if work.gallery %}
+    {% for still in work.gallery %}
+    <div class="sequence-item sequence-{{ ['left','centre','right'][loop.index0 % 3] }}">
+      {{ tile(still, ['left','centre','right'][loop.index0 % 3], work.title) }}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="empty-state">No further stills for this film.</p>
+    {% endif %}
+  </div>
+
+  {% if work.previous or work.next %}
+  <nav class="work-neighbours" aria-label="Neighbouring films">
+    {% if work.previous %}
+    <a class="neighbour neighbour-prev" href="/works/{{ work.previous.slug }}"
+       data-nav data-cursor-label="{{ work.previous.title }}">
+      <span class="neighbour-label">PREVIOUS</span>
+      <span class="neighbour-ordinal">{{ work.previous.ordinal }}</span>
+      <span class="neighbour-title">{{ work.previous.title }}</span>
+    </a>
+    {% endif %}
+    {% if work.next %}
+    <a class="neighbour neighbour-next" href="/works/{{ work.next.slug }}"
+       data-nav data-cursor-label="{{ work.next.title }}">
+      <span class="neighbour-label">NEXT</span>
+      <span class="neighbour-ordinal">{{ work.next.ordinal }}</span>
+      <span class="neighbour-title">{{ work.next.title }}</span>
+    </a>
+    {% endif %}
+  </nav>
+  {% endif %}
+</article>

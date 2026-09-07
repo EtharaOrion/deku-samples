@@ -1,0 +1,184 @@
+---
+import Shell from '../../components/Shell.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { formatMoney } from '../../lib/money.js';
+import { orderChip, formatDateShort } from '../../lib/domain.js';
+
+const { number } = Astro.params;
+const accessToken = Astro.url.searchParams.get('access_token');
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+
+const query = accessToken ? `?access_token=${encodeURIComponent(accessToken)}` : '';
+const { ok, status, body } = await apiGet(
+  `/api/orders/${encodeURIComponent(number)}${query}`,
+  Astro,
+);
+
+// Another customer's order reads as not found, never forbidden.
+if (!ok) return new Response(null, { status: status === 404 ? 404 : status });
+
+const order = body.order;
+const chip = orderChip(order);
+const goods = order.lines.filter((l) => l.kind !== 'protection');
+const protection = order.lines.find((l) => l.kind === 'protection');
+---
+
+<Shell
+  title={`Order ${order.number} — Vela`}
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">
+      Order <span class="order-number">{order.number}</span> is confirmed.
+    </h1>
+    <p class="page-sub">We have emailed {order.email}.</p>
+  </div>
+
+  <div class="row confirm-row">
+    <span class={`chip chip--${chip.tone}`}>{chip.text}</span>
+    <!-- Signed in, the order is in the account history; signed out, the
+         address carrying the access token is the way back to it. -->
+    <a
+      class="btn"
+      href={customer ? `/account/orders/${order.number}` : Astro.url.pathname + Astro.url.search}
+    >
+      Keep track of this order
+    </a>
+  </div>
+
+  <div class="order-grid">
+    <section class="panel">
+      <h2 class="section-title">What you bought</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            <th scope="col" class="right">Quantity</th>
+            <th scope="col" class="right">Unit</th>
+            <th scope="col" class="right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            goods.map((line) => (
+              <tr>
+                <td>
+                  {line.title}
+                  <br />
+                  <span class="mono small faint">{line.sku}</span>
+                </td>
+                <td class="right num">{line.quantity}</td>
+                <td class="right money">{formatMoney(line.unit_price_minor)}</td>
+                <td class="right money">{formatMoney(line.total_minor)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+
+      {
+        order.serials.length > 0 && (
+          <div class="serials">
+            <h3>Serial numbers</h3>
+            <ul class="serial-list" role="list">
+              {order.serials.map((s) => (
+                <li>
+                  <span class="serial">{s.serial}</span>
+                  <span class="muted small"> {s.model}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      }
+    </section>
+
+    <aside class="panel">
+      <h2 class="section-title">Totals</h2>
+      <dl class="totals">
+        <div class="totals__row">
+          <dt>Subtotal</dt>
+          <dd class="money">{formatMoney(order.subtotal_minor)}</dd>
+        </div>
+        <div class="totals__row">
+          <dt>Delivery ({order.shipping_method})</dt>
+          <dd class="money">{formatMoney(order.shipping_minor)}</dd>
+        </div>
+        <div class="totals__row">
+          <dt>Tax</dt>
+          <dd class="money">{formatMoney(order.tax_minor)}</dd>
+        </div>
+        <div class="totals__row totals__row--total">
+          <dt>Total</dt>
+          <dd class="money strong">{formatMoney(order.total_minor)}</dd>
+        </div>
+      </dl>
+
+      <h3 class="addr-head">Where it goes</h3>
+      <p class="small muted addr">
+        {order.shipping_address.name}<br />
+        {order.shipping_address.line1}<br />
+        {order.shipping_address.city}, {order.shipping_address.region}{' '}
+        <span class="num">{order.shipping_address.postal_code}</span><br />
+        {order.shipping_address.country}
+      </p>
+
+      <p class="small faint">
+        Placed <time datetime={order.placed_at}>{formatDateShort(order.placed_at)}</time>
+      </p>
+    </aside>
+  </div>
+</Shell>
+
+<style>
+  .confirm-row {
+    margin-bottom: calc(var(--unit) * 6);
+  }
+  .order-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  .totals__row {
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 1) 0;
+  }
+  .totals__row dt,
+  .totals__row dd {
+    margin: 0;
+  }
+  .totals__row--total {
+    border-top: var(--border-w) solid var(--line);
+    margin-top: calc(var(--unit) * 2);
+    padding-top: calc(var(--unit) * 2);
+  }
+  .addr-head {
+    margin-top: calc(var(--unit) * 5);
+  }
+  .addr {
+    line-height: 21px;
+  }
+  .serials {
+    margin-top: calc(var(--unit) * 5);
+  }
+  .serial-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .serial-list li {
+    padding: calc(var(--unit) * 1) 0;
+  }
+  @media (max-width: 63.999rem) {
+    .order-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

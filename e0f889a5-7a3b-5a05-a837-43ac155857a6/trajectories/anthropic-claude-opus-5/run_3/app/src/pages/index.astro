@@ -1,0 +1,277 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import LetterStage from '../islands/LetterStage.jsx';
+import LetterDriven from '../islands/LetterDriven.jsx';
+
+// The front page is one document: a two word lowercase title, the dateline,
+// sixteen paragraphs, and a closing line. There is no navigation, no call to
+// action, no price and no form.
+const paragraphs = [
+  'This is the table the cameras are made on. It is in a room above a tyre shop, it is too small for the number of people now standing around it, and everything we sell has been on it at some point with its back off.',
+  'We started because the camera one of us wanted did not exist. Not a better sensor, not more frames a second. A camera with one dial that does one thing, a menu that stays where it was left, and a shutter you can feel through a glove.',
+  'The first Cricket took nineteen months. Fourteen of those were the shutter. We had a working body in the fifth month and spent the rest of that year deciding it was not good enough, which is not a story that shortens well.',
+  'We build in small runs, and each run tells us what the last one got wrong. The A1 you can buy today is the fourth version of a body that has never changed shape. Only the parts inside it that were annoying.',
+  'A camera is not a phone. It should not be replaced every two years, and it should not stop working because a company decided it was finished with it. We publish the firmware for every body we have ever sold, and we sell the parts.',
+  'The industry we sit in the middle of does not agree. A large maker will build a body for eighteen months, support it for three years, and then remove the drivers from its own website.',
+  'It sells the replacement on the strength of a number that was already high enough on the model before it, and it calls the pattern progress, because the alternative is admitting the camera it sold you was finished when it left the factory.',
+  'We are not going to fix that, and we are not pretending we can. We can only be one small company that does not do it, and put the release notes for a five year old body where anyone can read them.',
+  'So the software here is free and stays free. Arranger reads both bodies, it opens a folder of forty thousand frames without a wait, and it does not have an account, a cloud, or a subscription anywhere inside it.',
+  'When a camera stops talking to Arranger, there is a page on this site that writes firmware from the browser. It is the last thing anyone should need and it is the first thing we made sure worked.',
+  'We repair a camera whether or not it is in warranty, and whether or not the person holding it is the person who bought it. A serial number is a camera. It is not a receipt, and it is not a customer.',
+  'That has a practical consequence we like: cameras get sold on. A Cricket bought here in the first run has had three owners that we know about, and it is still on the current firmware.',
+  'We do not have a shop floor, a sales team, or a marketing department. There are nine of us. Two of us answer the mail, and both of them also build cameras, which is the only reason the answers are any use.',
+  'What we sell fits on one page, and it will stay that way. Two bodies. A case, a mount we no longer make, and the cable that goes missing first. If a thing does not earn a place on the table, it does not go on the table.',
+  'The mount is the honest example. We stopped building it, we did not pretend it never existed, and we will hold parts for it until September 2029. That date is on the product page, which is where it belongs.',
+  'If you buy one of these, it will arrive in a box with your serial number written inside the lid, and it will have been switched on by hand, at this table, before it was sealed.',
+];
+
+// The three consecutive paragraphs about mass market electronics are pulled to
+// one side together; the rest alternate in a pattern that follows the argument
+// rather than a rule.
+const sides = [
+  'left', 'right', 'left', 'right',
+  'left',
+  'right', 'right', 'right',
+  'left', 'right', 'left', 'right',
+  'left', 'right', 'left', 'right',
+];
+
+const closing = 'See you soon.';
+---
+
+<Base
+  title="the table — Vela Electronics"
+  description="A letter from the table the cameras are made on."
+  ground="dark"
+  bodyClass="letter-body"
+>
+  <LetterStage client:load />
+
+  <!-- The fixed wordmark sits above every layer. There is no navigation here
+       beyond a wordmark and the footer. -->
+  <div class="letter-mark">
+    <span class="wordmark">Vela</span>
+  </div>
+
+  <main id="main" class="letter" data-ground="dark">
+    <h1 class="letter__title">the table</h1>
+    <p class="letter__dateline"><time datetime="2026-06-01">June 1, 2026</time></p>
+
+    <!-- The normal-flow copy: what the markup carries and what a reader with no
+         scripting receives, in correct reading order. -->
+    <div class="letter__flow">
+      {paragraphs.map((text) => <p class="letter__p">{text}</p>)}
+      <p class="letter__closing">{closing}</p>
+    </div>
+  </main>
+
+  <!-- The driven layer, hidden from assistive technology and never the only
+       copy. -->
+  <LetterDriven client:load paragraphs={paragraphs} sides={sides} closing={closing} />
+
+  <Footer />
+</Base>
+
+<style is:global>
+  .letter-body {
+    background: #12110d;
+  }
+
+  /* The whole stacking system for this page. Nothing may introduce another. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .stage__ground {
+    position: absolute;
+    inset: 0;
+    background: #12110d;
+  }
+  .stage__film,
+  .stage__poster,
+  .stage__fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+    /* The film is inert: not focusable, hidden from assistive technology, and
+       dragging on it scrolls the page. */
+    pointer-events: none;
+    user-select: none;
+  }
+  .stage__poster {
+    transition: opacity 600ms linear;
+  }
+  /* If the still frame fails, a gradient keyed to the letter's own colours. */
+  .stage__fallback {
+    background:
+      radial-gradient(60% 50% at 36% 32%, rgba(255, 214, 150, 0.30), transparent 70%),
+      radial-gradient(46% 42% at 72% 66%, rgba(255, 196, 120, 0.16), transparent 72%),
+      linear-gradient(180deg, #3a2f23 0%, #241c14 60%, #14110c 100%);
+  }
+  /* A very faint animated speckle so a large dark gradient cannot band. */
+  .stage__speckle {
+    position: absolute;
+    inset: -10%;
+    opacity: 0.035;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.5px, transparent 0.5px);
+    background-size: 3px 3px;
+    animation: speckle 900ms steps(3) infinite;
+  }
+  @keyframes speckle {
+    0% { transform: translate3d(0, 0, 0); }
+    33% { transform: translate3d(-1px, 1px, 0); }
+    66% { transform: translate3d(1px, -1px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+  /* The gradient panel darkens the stage from the bottom upward. */
+  .stage__veil {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, #12110d 8%, rgba(18, 17, 13, 0.86) 38%, rgba(18, 17, 13, 0.5) 68%, rgba(18, 17, 13, 0.22) 100%);
+  }
+  /* When it is fully drawn a flat panel removes the film entirely. */
+  .stage__flat {
+    position: absolute;
+    inset: 0;
+    background: #12110d;
+  }
+
+  .letter-mark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--gutter);
+    z-index: 4;
+    color: #f4f2ec;
+    pointer-events: none;
+  }
+  .letter-mark .wordmark {
+    pointer-events: auto;
+  }
+
+  .letter {
+    position: relative;
+    z-index: 3;
+    padding: calc(var(--header-h) + 6vh) var(--gutter) 14vh;
+    color: #f4f2ec;
+    /* As insurance the writing carries a faint shadow at every width:
+       invisible against the dark ground, load-bearing against the lit one. */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  .letter__title {
+    font-size: var(--display-fs);
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-align: center;
+    margin: 0 0 0.4em;
+    text-transform: lowercase;
+  }
+
+  .letter__dateline {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    color: #d8d3c7;
+    text-align: center;
+    margin: 0 0 12vh;
+  }
+
+  .letter__p,
+  .letter__closing {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    font-weight: 400;
+    /* The letter's paragraph rhythm is 1em above and below, so it scales with
+       the fluid type. */
+    margin: 1em 0;
+  }
+
+  /* The closing line is the only place the accent appears on this surface. */
+  .letter__closing {
+    color: #ff6b2c;
+  }
+
+  .letter__flow {
+    max-width: 46ch;
+  }
+
+  @media (min-width: 64rem) {
+    .letter {
+      padding-top: calc(var(--header-h) + 10vh);
+    }
+    /* On a wide screen the letter is a narrow column standing beside the film. */
+    .letter__title,
+    .letter__dateline {
+      text-align: left;
+      letter-spacing: -0.02em;
+    }
+    .letter__title {
+      line-height: 0.95;
+      max-width: 12ch;
+    }
+    .letter__flow {
+      max-width: 34ch;
+    }
+    .letter__p,
+    .letter__closing {
+      letter-spacing: 0.02em;
+    }
+  }
+
+  /* The driven layer. It repeats the letter for the scroll to move; it is
+     hidden from assistive technology and carries no new text. */
+  .driven {
+    position: relative;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .driven--column {
+    display: none;
+  }
+  .driven--blocks {
+    display: block;
+    padding: 0 var(--gutter) 12vh;
+    color: #f4f2ec;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+  .driven__p,
+  .driven__closing {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    margin: 1em 0;
+    width: 50%;
+    transition: opacity var(--speed) var(--ease);
+  }
+  .driven__p--right {
+    margin-left: auto;
+  }
+  .driven__closing {
+    color: #ff6b2c;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Reduced motion drops the film and every transition. The darkening is
+       never dropped; it is handled by the stage itself. */
+    .stage__speckle {
+      animation: none;
+    }
+    .stage__poster {
+      transition: none;
+    }
+    .driven__p {
+      transition: none;
+    }
+  }
+</style>

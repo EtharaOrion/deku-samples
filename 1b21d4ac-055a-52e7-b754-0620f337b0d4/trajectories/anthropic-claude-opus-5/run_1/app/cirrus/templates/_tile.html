@@ -1,0 +1,42 @@
+{# The media tile: one component with a width variant, not three components.
+   Reserves its space from the stored intrinsic size before its pixels arrive
+   and clears its placeholder on decode or failure. #}
+{% macro tile(entry, variant=None, link=True, colour_return=True, reel=None) %}
+{% set poster = entry.poster %}
+{% set v = variant or entry.variant or 'left' %}
+<div class="tile tile-{{ v }}{% if colour_return %} tile-colour{% endif %}"
+     data-tile data-reveal
+     {% if reel %}data-reel="{{ reel.url }}" data-reel-seed="{{ reel.seed }}"{% endif %}>
+  <div class="tile-frame"
+       style="aspect-ratio: {{ poster.width if poster else 598 }} / {{ poster.height if poster else 320 }};">
+    {% if poster %}
+    <img class="tile-img" src="{{ poster.url }}" alt="{{ poster.alt }}"
+         width="{{ poster.width }}" height="{{ poster.height }}"
+         data-media loading="lazy" decoding="async">
+    {% else %}
+    <span class="tile-empty">NO IMAGE YET</span>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# The caption row: a 4px square, 8px, the ordinal at the left edge, the title
+   in the display face flush with the still's right edge. #}
+{% macro caption(entry) %}
+<div class="caption-row">
+  <span class="caption-square" aria-hidden="true"></span>
+  <span class="caption-ordinal">{{ entry.ordinal }}</span>
+  <span class="caption-title">{{ entry.title }}</span>
+</div>
+{% endmacro %}
+
+{% macro index_entry(entry) %}
+<article class="index-entry index-entry-{{ entry.variant }}">
+  <a class="index-link" href="{{ entry.href }}" data-route-link
+     data-cursor-label="{{ entry.title }}"
+     aria-label="{{ entry.title }}, work {{ entry.ordinal }}">
+    {{ tile(entry, entry.variant) }}
+    {{ caption(entry) }}
+  </a>
+</article>
+{% endmacro %}

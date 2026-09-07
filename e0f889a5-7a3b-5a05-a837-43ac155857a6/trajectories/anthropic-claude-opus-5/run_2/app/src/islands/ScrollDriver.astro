@@ -1,0 +1,120 @@
+---
+/**
+ * The scroll driver. Two properties are requirements rather than taste:
+ * the darkening is a pure function of scroll position, so stopping halfway
+ * leaves it halfway, and it is never removed under reduced motion.
+ */
+---
+<script>
+  (() => {
+    const stage = document.querySelector<HTMLElement>('[data-stage]');
+    const veil = document.querySelector<HTMLElement>('[data-veil]');
+    const flat = document.querySelector<HTMLElement>('[data-flat]');
+    const driven = document.querySelector<HTMLElement>('[data-driven]');
+    if (!stage || !veil) return;
+
+    const blocks = driven ? Array.from(driven.querySelectorAll<HTMLElement>('[data-block]')) : [];
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const wide = window.matchMedia('(min-width: 64rem)');
+
+    let ticking = false;
+
+    const clamp = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+    function paint() {
+      ticking = false;
+      const doc = document.documentElement;
+      const scrollable = Math.max(1, doc.scrollHeight - window.innerHeight);
+      const progress = clamp(window.scrollY / scrollable);
+
+      // A pure function of scroll position, in exact proportion, both ways.
+      veil.style.opacity = String(progress);
+      // Once the panel is fully drawn the flat panel removes the film entirely,
+      // so the footer begins against true ground.
+      if (flat) flat.style.opacity = String(clamp((progress - 0.86) / 0.14));
+
+      // On a wide screen the paragraphs do not fade at all; only the picture
+      // behind them changes.
+      if (blocks.length && !wide.matches) {
+        const viewH = window.innerHeight;
+        for (const block of blocks) {
+          const rect = block.getBoundingClientRect();
+          const centre = rect.top + rect.height / 2;
+          const d = Math.abs(centre - viewH / 2) / (viewH * 0.62);
+          block.style.opacity = String(clamp(1 - d));
+        }
+      } else if (blocks.length) {
+        for (const block of blocks) block.style.opacity = '1';
+      }
+    }
+
+    function onScroll() {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(paint);
+      }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    wide.addEventListener?.('change', onScroll);
+    paint();
+
+    /* ---- The film ------------------------------------------------------ */
+    const video = stage.querySelector<HTMLVideoElement>('video');
+    const still = stage.querySelector<HTMLElement>('[data-still]');
+    if (!video) return;
+
+    const conn = (navigator as any).connection;
+    const metered = Boolean(conn && (conn.saveData || /(^|-)2g$/.test(String(conn.effectiveType || ''))));
+
+    // It refuses to start at all under reduced motion or a metered connection,
+    // in which case the still frame simply stays.
+    if (reduced.matches || metered) return;
+
+    let started = false;
+    const dissolveStill = () => {
+      if (still) still.style.opacity = '0';
+    };
+
+    // It never starts before the still frame has painted.
+    const begin = () => {
+      if (started) return;
+      started = true;
+      video.play().then(dissolveStill).catch(() => {
+        // If it will not play, the still frame stays and the page is complete.
+        started = false;
+      });
+    };
+
+    if (video.readyState >= 3) begin();
+    video.addEventListener('canplaythrough', begin, { once: true });
+
+    // Pauses when the document is hidden and when the stage leaves the viewport.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) video.pause();
+      else if (started && isOnScreen) video.play().catch(() => {});
+    });
+
+    let isOnScreen = true;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          isOnScreen = entry.isIntersecting;
+          if (!entry.isIntersecting) video.pause();
+          else if (started && !document.hidden) video.play().catch(() => {});
+        }
+      }, { threshold: 0 }).observe(stage);
+    }
+
+    // If the still frame fails too, a generated gradient keyed to the letter's
+    // own colours takes its place.
+    if (still) {
+      const img = still.querySelector('img');
+      img?.addEventListener('error', () => {
+        still.classList.add('still-fallback');
+        img.remove();
+      }, { once: true });
+    }
+  })();
+</script>

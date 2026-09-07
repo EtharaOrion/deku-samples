@@ -1,0 +1,371 @@
+{
+  "banner": "GENERATED SECTION. DO NOT HAND-EDIT.",
+  "source_of_truth": "solution/trinity/grounding.yaml",
+  "task": "deku/hardware-companion-storefront",
+  "schema": [
+    "id",
+    "dimension",
+    "weight",
+    "evaluation_target",
+    "criterion",
+    "judgment",
+    "evidence",
+    "mode"
+  ],
+  "compiled_weight_share": 1.0,
+  "items": [
+    {
+      "id": "R1",
+      "dimension": "functionality",
+      "weight": 10,
+      "evaluation_target": "database-row",
+      "criterion": "A guest checkout for one compact camera and one travel case stores an order whose subtotal, tax and total are 37800, 3780 and 41580 minor units.",
+      "judgment": "Read the order row and compare the three stored figures against the pinned journey values.",
+      "evidence": [
+        "database-row",
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R2",
+      "dimension": "functionality",
+      "weight": 10,
+      "evaluation_target": "external-service",
+      "criterion": "A confirmed order leaves one invoice for 415.80 USD on the billing account whose external key is the order email.",
+      "judgment": "List the billing accounts and the invoices, and match the external key and the amount.",
+      "evidence": [
+        "external-service",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R3",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "external-service",
+      "criterion": "A submission replayed under one idempotency key leaves one order, one billing account and one invoice.",
+      "judgment": "Count the stored orders for the address, the billing accounts for the external key and the invoices for the amount.",
+      "evidence": [
+        "database-row",
+        "external-service"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R4",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "external-service",
+      "criterion": "A confirmed order leaves one message in the mail server addressed to the buyer alone with the order number in the subject.",
+      "judgment": "Read the inbox for the buying address and for an unrelated address, and count the messages.",
+      "evidence": [
+        "external-service"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R5",
+      "dimension": "instruction_following",
+      "weight": 6,
+      "evaluation_target": "external-service",
+      "criterion": "A cart change and a device registration leave the mail server untouched.",
+      "judgment": "Count the inbox before and after a cart mutation and a registration.",
+      "evidence": [
+        "external-service"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R6",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "database-row",
+      "criterion": "Two simultaneous checkouts for the last yellow flagship leave one order and an available count of zero.",
+      "judgment": "Fire both placements together, read the two responses, and read the inventory level.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R7",
+      "dimension": "functionality",
+      "weight": 5,
+      "evaluation_target": "database-row",
+      "criterion": "Placing an order lowers available and raises committed by the ordered quantity in the same step.",
+      "judgment": "Read the inventory level before and after one placement.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R8",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "http-response-body",
+      "criterion": "A cart read carries the snapshotted line price and a notices collection, and a priced cart carries the computed tax.",
+      "judgment": "Read the cart payload and the priced cart payload against the stored variant price.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R9",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "database-row",
+      "criterion": "An order's stored lines sum to its stored subtotal and its stored total reconciles with shipping and tax.",
+      "judgment": "Read the order row and its lines and recompute the totals.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R10",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "database-row",
+      "criterion": "Registering an unowned serial writes exactly one live ownership row and moves the device to registered.",
+      "judgment": "Read the device row and count the ownership rows whose release timestamp is empty.",
+      "evidence": [
+        "database-row",
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R11",
+      "dimension": "instruction_following",
+      "weight": 8,
+      "evaluation_target": "database-row",
+      "criterion": "Registering a serial owned by another account is refused with the pinned message and leaves the prior owner in place.",
+      "judgment": "Read the response body and the live ownership row before and after.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R12",
+      "dimension": "instruction_following",
+      "weight": 6,
+      "evaluation_target": "http-response-body",
+      "criterion": "A camera owned by another account cannot be read, renamed, released or listed by this customer.",
+      "judgment": "Call each account device route for the other customer's serial and read the device listing.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R13",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "http-response-body",
+      "criterion": "An order belonging to another customer cannot be read or listed by this customer.",
+      "judgment": "Call the order route and the account order listing as the other customer.",
+      "evidence": [
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R14",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "http-response-body",
+      "criterion": "A signed-out request and a stale-token request for an account route are refused and change nothing.",
+      "judgment": "Call the account routes with no token and with an invalid token, and read the ownership rows.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R15",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "http-response-body",
+      "criterion": "An unknown serial and a serial of the wrong shape are refused, and neither becomes a stored device.",
+      "judgment": "Read the refusal bodies and confirm no device row was created.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R16",
+      "dimension": "instruction_following",
+      "weight": 4,
+      "evaluation_target": "database-row",
+      "criterion": "A blocked device is refused registration and stays blocked with no owner.",
+      "judgment": "Read the device row and the ownership rows after a refused claim.",
+      "evidence": [
+        "database-row",
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R17",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "database-row",
+      "criterion": "Two simultaneous registrations of one serial leave exactly one live ownership row.",
+      "judgment": "Fire both registrations together and count the live ownership rows.",
+      "evidence": [
+        "database-row",
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R18",
+      "dimension": "functionality",
+      "weight": 8,
+      "evaluation_target": "database-row",
+      "criterion": "Completing a flash session records the version the device reported rather than the version requested.",
+      "judgment": "Start a session for the newest build, complete it with an older reported version, and read the device row.",
+      "evidence": [
+        "database-row",
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R19",
+      "dimension": "instruction_following",
+      "weight": 5,
+      "evaluation_target": "database-row",
+      "criterion": "A failed flash session leaves the device firmware version exactly as it was.",
+      "judgment": "Read the device firmware version before the session and after the failure.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R20",
+      "dimension": "instruction_following",
+      "weight": 6,
+      "evaluation_target": "database-row",
+      "criterion": "A flash session below the device's minimum firmware is refused before any session row is written.",
+      "judgment": "Start a session for the oldest build and count the session rows before and after.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R21",
+      "dimension": "instruction_following",
+      "weight": 6,
+      "evaluation_target": "database-row",
+      "criterion": "A flash session naming another product's image is refused before any session row is written.",
+      "judgment": "Start a session for the flagship build against a compact camera and count the session rows.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R22",
+      "dimension": "functionality",
+      "weight": 6,
+      "evaluation_target": "http-response-body",
+      "criterion": "The release archive reads newest build first, with the two releases sharing a date ordered by build.",
+      "judgment": "Read the release listing and compare the build order and the position of the two shared-date releases.",
+      "evidence": [
+        "http-response-body"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R23",
+      "dimension": "functionality",
+      "weight": 6,
+      "evaluation_target": "http-response-body",
+      "criterion": "Every firmware manifest entry matches the stored firmware row it came from.",
+      "judgment": "Read the manifest for the compact camera and compare each entry against the firmware rows.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R24",
+      "dimension": "functionality",
+      "weight": 6,
+      "evaluation_target": "database-row",
+      "criterion": "The seeded catalogue holds the five products and the ten variants with their pinned prices and stock levels.",
+      "judgment": "Read the product, variant and inventory rows and compare against the pinned seed.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R25",
+      "dimension": "functionality",
+      "weight": 5,
+      "evaluation_target": "database-row",
+      "criterion": "The seeded devices hold their pinned statuses, owners and reported firmware versions.",
+      "judgment": "Read the device rows and their live ownership rows.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R26",
+      "dimension": "functionality",
+      "weight": 5,
+      "evaluation_target": "database-row",
+      "criterion": "The seeded archive holds the four application releases and the four firmware images with their builds and digests.",
+      "judgment": "Read the release and firmware rows and compare against the pinned seed.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R27",
+      "dimension": "instruction_following",
+      "weight": 4,
+      "evaluation_target": "database-row",
+      "criterion": "The seed leaves no duplicate handle, sku, release version or live ownership row.",
+      "judgment": "Count the distinct handles, skus and versions against their totals.",
+      "evidence": [
+        "database-row"
+      ],
+      "mode": "compiled"
+    },
+    {
+      "id": "R28",
+      "dimension": "functionality",
+      "weight": 5,
+      "evaluation_target": "http-response-body",
+      "criterion": "The health route answers 200 and every list response carries a data array beside its cursor and its further-page flag.",
+      "judgment": "Call the health route, the product listing and a missing product, and read the payload shapes.",
+      "evidence": [
+        "http-response-body",
+        "database-row"
+      ],
+      "mode": "compiled"
+    }
+  ]
+}

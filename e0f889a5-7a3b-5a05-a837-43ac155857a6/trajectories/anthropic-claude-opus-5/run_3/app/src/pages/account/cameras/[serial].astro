@@ -1,0 +1,129 @@
+---
+import Shell from '../../../components/Shell.astro';
+import CameraActions from '../../../islands/CameraActions.jsx';
+import { requirePageCustomer } from '../../../lib/guard.js';
+import { apiGet, pageCart } from '../../../lib/server-fetch.js';
+import { formatDateLong } from '../../../lib/domain.js';
+
+const { serial } = Astro.params;
+const { customer, redirect } = await requirePageCustomer(Astro);
+if (redirect) return redirect;
+
+const cart = await pageCart(Astro);
+const res = await apiGet(`/api/account/devices/${encodeURIComponent(serial)}`, Astro);
+
+// Another customer's serial reads as not found, never forbidden.
+if (!res.ok) return new Response(null, { status: 404 });
+const device = res.body.device;
+---
+
+<Shell
+  title={`${device.model} — Vela`}
+  current="cameras"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <nav class="crumbs small" aria-label="Breadcrumb">
+    <a href="/account/cameras">Cameras</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page" class="serial">{device.serial}</span>
+  </nav>
+
+  <div class="page-head">
+    <h1 class="page-title">{device.model}</h1>
+    {device.nickname && <p class="page-sub">{device.nickname}</p>}
+  </div>
+
+  <div class="camera-detail">
+    <section class="panel">
+      <h2 class="section-title">This camera</h2>
+      <table class="table">
+        <tbody>
+          <tr>
+            <th scope="row">Serial</th>
+            <td class="right serial">{device.serial}</td>
+          </tr>
+          <tr>
+            <th scope="row">Colour</th>
+            <td class="right">{device.option_value ?? '—'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Firmware</th>
+            <td class="right">
+              {
+                device.firmware_version ? (
+                  <span class="version">{device.firmware_version}</span>
+                ) : (
+                  'Not yet connected'
+                )
+              }
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Latest firmware</th>
+            <td class="right">
+              <span class="version">{device.latest_firmware_version ?? '—'}</span>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Warranty</th>
+            <td class="right">
+              {device.warranty_until ? formatDateLong(device.warranty_until) : '—'}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="row camera-detail__chips">
+        {
+          device.never_connected ? (
+            <span class="chip chip--neutral">Not yet connected</span>
+          ) : device.update_available ? (
+            <span class="chip chip--progress">Update available</span>
+          ) : (
+            <span class="chip chip--done">Up to date</span>
+          )
+        }
+        {
+          device.warranty_expired && (
+            <span class="chip chip--neutral">Warranty ended</span>
+          )
+        }
+      </div>
+
+      {
+        device.update_available && (
+          <p class="small muted">
+            Update it with Arranger, or use the <a href="/doctor">firmware installer</a> if
+            Arranger cannot see it.
+          </p>
+        )
+      }
+    </section>
+
+    <CameraActions client:load serial={device.serial} nickname={device.nickname} />
+  </div>
+</Shell>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: calc(var(--unit) * 2);
+    margin-bottom: calc(var(--unit) * 4);
+    color: var(--fg-muted);
+  }
+  .camera-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  .camera-detail__chips {
+    margin: calc(var(--unit) * 4) 0 calc(var(--unit) * 2);
+  }
+  @media (max-width: 63.999rem) {
+    .camera-detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

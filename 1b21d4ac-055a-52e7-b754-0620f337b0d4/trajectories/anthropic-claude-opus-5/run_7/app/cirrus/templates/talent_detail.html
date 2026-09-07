@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "partials/tile.html" import tile, caption %}
+{% block html_class %}route-talent-detail ground-light{% if preview is defined and preview %} route-preview{% endif %}{% endblock %}
+{% block content %}
+{% if preview is defined and preview %}
+<p class="preview-marker t-ui" role="status">PREVIEW - NOT PUBLISHED</p>
+{% endif %}
+<article class="talent-detail">
+  <header class="talent-head">
+    <h1 class="t-display talent-name" data-fit>{{ talent.title }}</h1>
+    <p class="t-ui talent-discipline">{{ talent.discipline|upper }}</p>
+  </header>
+
+  {% if talent.reel %}
+  <div class="talent-reel" data-reveal>
+    <div class="tile-frame tile-frame-bleed" style="aspect-ratio: {{ talent.reel.width }} / {{ talent.reel.height }};">
+      <div class="tile-media" data-media data-src="{{ talent.reel.url }}"
+           data-width="{{ talent.reel.width }}" data-height="{{ talent.reel.height }}"
+           data-reel="{{ talent.reel.url }}" data-reel-seed="{{ talent.reel.media_id }}" data-reel-autoplay>
+        <img class="tile-img" src="{{ talent.reel.url }}" width="{{ talent.reel.width }}"
+             height="{{ talent.reel.height }}" alt="{{ talent.reel.alt }}" decoding="async" data-tile-img>
+      </div>
+    </div>
+  </div>
+  {% elif talent.poster %}
+  <div class="talent-portrait" data-reveal>
+    <div class="tile-frame" style="aspect-ratio: {{ talent.poster.width }} / {{ talent.poster.height }};">
+      <img class="tile-img" src="{{ talent.poster.url }}" width="{{ talent.poster.width }}"
+           height="{{ talent.poster.height }}" alt="{{ talent.poster.alt }}" decoding="async" data-tile-img>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="selected-work" aria-label="Selected work">
+    <h2 class="t-ui section-label">SELECTED WORK</h2>
+    {% if talent.selected_work %}
+      {% for work in talent.selected_work %}
+      <div class="works-entry works-entry-{{ work.variant }}">
+        {% if work.poster %}
+          {{ tile(work.poster, work.variant, work.href, work.title, work.ordinal_label, work.reel) }}
+        {% endif %}
+        {{ caption(work.ordinal_label, work.title, work.href) }}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-state t-ui">No published work carries this credit yet.</p>
+    {% endif %}
+  </section>
+
+  <p class="talent-contact t-ui">
+    ENQUIRIES —
+    <a href="mailto:{{ house.contact_email }}" aria-label="{{ house.contact_email }}">{{ house.contact_email|upper }}</a>
+  </p>
+</article>
+{% endblock %}
+{% block footer %}{% if not (preview is defined and preview) %}{{ super() }}{% endif %}{% endblock %}

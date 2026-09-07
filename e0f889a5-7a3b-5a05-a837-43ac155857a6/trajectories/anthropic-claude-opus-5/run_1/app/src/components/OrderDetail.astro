@@ -1,0 +1,113 @@
+---
+import { formatMinor, formatDateLong } from '../lib/server.js';
+const { order, showRegister = false } = Astro.props;
+---
+<section class="order-detail">
+  <div class="order-head">
+    <div>
+      <h2 class="section-title">Order <span class="mono">{order.number}</span></h2>
+      <p class="order-date">Placed {formatDateLong(order.placed_at)}</p>
+    </div>
+    <span class={`chip ${order.status === 'confirmed' ? 'chip-done' : order.status === 'cancelled' ? 'chip-wrong' : 'chip-progress'}`}>
+      {order.state_phrase}
+    </span>
+  </div>
+
+  <table class="table order-lines">
+    <caption class="visually-hidden">The lines as they were bought</caption>
+    <thead>
+      <tr>
+        <th scope="col">Item</th>
+        <th scope="col">SKU</th>
+        <th scope="col" class="num">Quantity</th>
+        <th scope="col" class="num">Unit price</th>
+        <th scope="col" class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {order.lines.map((line) => (
+        <tr>
+          <td>{line.title_snapshot}{line.option_snapshot ? ` — ${line.option_snapshot}` : ''}</td>
+          <td class="mono">{line.sku_snapshot}</td>
+          <td class="num tabular">{line.quantity}</td>
+          <td class="num tabular">{formatMinor(line.unit_price_minor)}</td>
+          <td class="num tabular">{formatMinor(line.total_minor)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <dl class="order-totals">
+    <div><dt>Subtotal</dt><dd class="tabular">{formatMinor(order.subtotal_minor)}</dd></div>
+    <div><dt>Delivery ({order.shipping_method_label})</dt><dd class="tabular">{formatMinor(order.shipping_minor)}</dd></div>
+    <div><dt>Tax</dt><dd class="tabular">{formatMinor(order.tax_minor)}</dd></div>
+    {order.discount_minor > 0 && (
+      <div><dt>Discount</dt><dd class="tabular">−{formatMinor(order.discount_minor)}</dd></div>
+    )}
+    <div class="order-total"><dt>Total</dt><dd class="tabular">{formatMinor(order.total_minor)}</dd></div>
+  </dl>
+
+  <div class="order-columns">
+    <section>
+      <h3 class="order-subhead">Sent to</h3>
+      <p class="order-address">
+        {order.shipping_address.name}<br />
+        {order.shipping_address.line1}{order.shipping_address.line2 ? <><br />{order.shipping_address.line2}</> : null}<br />
+        {order.shipping_address.city}, {order.shipping_address.region} <span class="tabular">{order.shipping_address.postal_code}</span><br />
+        {order.shipping_address.country}
+      </p>
+    </section>
+    <section>
+      <h3 class="order-subhead">Confirmation sent to</h3>
+      <p>{order.email}</p>
+    </section>
+  </div>
+
+  {order.serials.length > 0 && (
+    <section class="order-serials">
+      <h3 class="order-subhead">Serial numbers</h3>
+      <p class="order-serials-note">
+        This is the only place a person finds these without the camera in hand.
+      </p>
+      <ul class="serial-list">
+        {order.serials.map((s) => (
+          <li class="serial-row">
+            <span class="mono serial-value">{s.serial}</span>
+            {s.registered ? (
+              <span class="chip chip-done">Registered</span>
+            ) : showRegister ? (
+              <form method="post" action="/account/cameras">
+                <input type="hidden" name="serial" value={s.serial} />
+                <button class="button button-quiet button-small" type="submit">
+                  Register to this account<span class="visually-hidden"> the camera {s.serial}</span>
+                </button>
+              </form>
+            ) : (
+              <span class="chip">Not registered</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+</section>
+
+<style>
+  .order-head { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); align-items: flex-start; flex-wrap: wrap; }
+  .order-date { margin: 0 0 calc(var(--unit) * 4); font-size: 14px; color: var(--ink-quiet); }
+  .order-lines { margin-bottom: calc(var(--unit) * 6); }
+  .order-totals { display: grid; gap: calc(var(--unit) * 2); max-width: 24rem; margin: 0 0 calc(var(--unit) * 8); margin-left: auto; }
+  .order-totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .order-totals dt, .order-totals dd { margin: 0; font-size: 14px; }
+  .order-total { border-top: var(--border-w) solid var(--rule); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .order-total dt, .order-total dd { font-size: 17px; }
+  .order-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--unit) * 6); }
+  @media (max-width: 47.999rem) { .order-columns { grid-template-columns: minmax(0, 1fr); } }
+  .order-subhead { font-size: 14px; margin: 0 0 calc(var(--unit) * 2); }
+  .order-address { margin: 0; line-height: 22px; font-size: 15px; }
+  .order-serials { margin-top: calc(var(--unit) * 8); }
+  .order-serials-note { font-size: 13px; color: var(--ink-quiet); margin: 0 0 calc(var(--unit) * 3); }
+  .serial-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .serial-row { display: flex; gap: calc(var(--unit) * 3); align-items: center; flex-wrap: wrap; }
+  .serial-value { font-size: 15px; }
+</style>

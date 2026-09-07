@@ -1,0 +1,210 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiGet, authHeaders, formatDate } from '../../../lib/api';
+import { viewerFor, signInRedirect } from '../../../lib/page';
+
+const { serial } = Astro.params;
+const viewer = await viewerFor(Astro.request);
+if (!viewer.customer) return signInRedirect(`/account/cameras/${serial}`);
+
+const result = await apiGet<any>(
+  Astro.request, `/account/devices/${serial}`, { headers: authHeaders(Astro.request) },
+);
+// Another customer's serial reads as not found, never forbidden.
+const device = result.ok ? result.data : null;
+---
+
+<Shell
+  title={device ? `${device.nickname || device.model} — Vela` : 'Camera — Vela'}
+  current="cameras"
+  customer={viewer.customer}
+  cartCount={viewer.cartCount}
+>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/account/cameras">Cameras</a> <span aria-hidden="true">/</span> <span class="mono">{serial}</span>
+  </nav>
+
+  {!device && (
+    <div class="empty-state">
+      <p>That camera is not on your account.</p>
+      <a class="btn btn-secondary" href="/account/cameras">Back to your cameras</a>
+    </div>
+  )}
+
+  {device && (
+    <div class="camera" data-camera data-serial={device.serial}>
+      <header class="head">
+        <h1 data-title>{device.nickname || device.model}</h1>
+        <p class="model">{device.model} · <span class="serial mono">{device.serial}</span></p>
+      </header>
+
+      <dl class="facts">
+        <div>
+          <dt>Firmware</dt>
+          <dd>
+            {device.firmware_version
+              ? <span class="version mono">{device.firmware_version}</span>
+              : <span class="muted">Not yet connected</span>}
+            {device.update_available && <span class="chip chip-progress">Update available</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Latest available</dt>
+          <dd><span class="version mono">{device.latest_firmware || '—'}</span></dd>
+        </div>
+        <div>
+          <dt>Warranty</dt>
+          <dd>
+            {device.warranty_until
+              ? <span class="chip chip-neutral">{device.warranty_expired ? `Ended ${formatDate(device.warranty_until)}` : `To ${formatDate(device.warranty_until)}`}</span>
+              : <span class="muted">Not recorded</span>}
+          </dd>
+        </div>
+      </dl>
+
+      <section class="block">
+        <h2>Name</h2>
+        <form class="rename" data-rename novalidate>
+          <label class="visually-hidden" for="nickname">Nickname</label>
+          <input id="nickname" name="nickname" type="text" value={device.nickname || ''} placeholder="The one in the bag" maxlength="60" />
+          <button class="btn btn-secondary" type="submit">Save the name</button>
+        </form>
+        <p class="status" data-rename-status role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="block">
+        <h2>Firmware</h2>
+        <p class="muted">Arranger writes firmware. If it cannot see this camera, the browser installer can.</p>
+        <a class="btn btn-secondary" href="/doctor">Open the firmware installer</a>
+      </section>
+
+      <!-- Removing and handing on are different actions and the copy never
+           blurs them. -->
+      <section class="block danger">
+        <h2>Remove from my account</h2>
+        <p class="muted">
+          This releases the camera without giving it to anyone. It is what you do when you sell it
+          to a stranger: they can then register it themselves.
+        </p>
+        <button class="btn btn-secondary" type="button" data-release>Remove from my account</button>
+        <p class="status" data-release-status role="status" aria-live="polite"></p>
+      </section>
+
+      <!-- Every destructive action confirms first; Escape closes the overlay. -->
+      <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-heading">
+        <h2 id="confirm-heading">Remove this camera from your account?</h2>
+        <p>
+          It stops being yours. Nobody else receives it, and you can register it again later if you
+          still have it.
+        </p>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" type="button" data-cancel>Keep it</button>
+          <button class="btn" type="button" data-confirm-release>Remove it</button>
+        </div>
+      </dialog>
+    </div>
+  )}
+</Shell>
+
+<script>
+  (() => {
+    const root = document.querySelector<HTMLElement>('[data-camera]');
+    if (!root) return;
+    const serial = root.dataset.serial!;
+
+    const renameForm = root.querySelector<HTMLFormElement>('[data-rename]');
+    const renameStatus = root.querySelector<HTMLElement>('[data-rename-status]')!;
+    renameForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = renameForm.querySelector<HTMLInputElement>('#nickname')!;
+      renameStatus.textContent = '';
+      try {
+        const res = await fetch(`/api/account/devices/${serial}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ nickname: input.value.trim() }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          renameStatus.textContent = body?.error?.message || 'That did not work.';
+          renameStatus.className = 'status is-error';
+          return;
+        }
+        renameStatus.textContent = 'Saved.';
+        renameStatus.className = 'status is-done';
+        const title = root.querySelector<HTMLElement>('[data-title]')!;
+        title.textContent = body.nickname || body.model;
+      } catch {
+        renameStatus.textContent = 'That did not work.';
+        renameStatus.className = 'status is-error';
+      }
+    });
+
+    const dialog = root.querySelector<HTMLDialogElement>('[data-confirm-dialog]')!;
+    const releaseStatus = root.querySelector<HTMLElement>('[data-release-status]')!;
+
+    root.querySelector('[data-release]')?.addEventListener('click', () => {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    });
+    root.querySelector('[data-cancel]')?.addEventListener('click', () => dialog.close());
+
+    root.querySelector('[data-confirm-release]')?.addEventListener('click', async () => {
+      try {
+        const res = await fetch(`/api/account/devices/${serial}`, { method: 'DELETE' });
+        const body = await res.json();
+        dialog.close();
+        if (!res.ok) {
+          releaseStatus.textContent = body?.error?.message || 'That did not work.';
+          releaseStatus.className = 'status is-error';
+          return;
+        }
+        window.location.assign('/account/cameras');
+      } catch {
+        dialog.close();
+        releaseStatus.textContent = 'That did not work.';
+        releaseStatus.className = 'status is-error';
+      }
+    });
+  })();
+</script>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .crumbs a { color: var(--fg-muted); }
+  .camera { display: flex; flex-direction: column; gap: calc(var(--unit) * 8); max-width: 46rem; }
+  h1 { font-size: 32px; line-height: 1.2; }
+  .model { color: var(--fg-muted); margin-top: var(--unit); }
+
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--unit) * 4); }
+  .facts div { display: flex; flex-direction: column; gap: var(--unit); }
+  .facts dt { font-size: 14px; color: var(--fg-muted); }
+  .facts dd { margin: 0; display: flex; align-items: center; gap: calc(var(--unit) * 2); flex-wrap: wrap; }
+
+  .block { display: flex; flex-direction: column; gap: calc(var(--unit) * 3); align-items: flex-start; border-top: var(--border-w) solid var(--line); padding-top: calc(var(--unit) * 5); }
+  .block h2 { font-size: 16px; }
+  .muted { color: var(--fg-muted); font-size: 14px; line-height: 21px; }
+  .rename { display: flex; gap: calc(var(--unit) * 3); width: 100%; max-width: 34rem; }
+  .status { font-size: 14px; min-height: 21px; }
+  .is-error { color: var(--state-error); }
+  .is-done { color: var(--state-done); }
+
+  .confirm-dialog {
+    border: var(--border-w) solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 6);
+    max-width: 30rem;
+    background: var(--surface);
+    color: var(--fg);
+    box-shadow: var(--elevation);
+  }
+  .confirm-dialog h2 { font-size: 20px; margin-bottom: calc(var(--unit) * 3); }
+  .confirm-dialog p { line-height: 24px; margin-bottom: calc(var(--unit) * 5); }
+  .dialog-actions { display: flex; gap: calc(var(--unit) * 3); justify-content: flex-end; }
+  .confirm-dialog::backdrop { background: rgba(12, 12, 11, 0.5); }
+
+  @media (max-width: 63.999rem) {
+    .facts { grid-template-columns: minmax(0, 1fr); }
+    .rename { flex-direction: column; }
+  }
+</style>

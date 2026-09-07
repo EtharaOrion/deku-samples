@@ -1,0 +1,48 @@
+{# The six shared units: the media tile, the caption row, the reveal layer,
+   the counter well, the blur block and the display line. #}
+
+{% macro split(word, delay_base=0) -%}
+{#- a split label exposes its whole word as its accessible name; the characters are hidden -#}
+<span class="split" aria-label="{{ word }}"><span aria-hidden="true">
+{%- for ch in word -%}<span class="split-char" style="transition-delay:{{ (loop.index0 * 24) + delay_base }}ms">{{ ch }}</span>{%- endfor -%}
+</span></span>
+{%- endmacro %}
+
+{% macro tile(media, classes='', reveal=true, reel=none, sizing='ratio', label=none) -%}
+{% if media %}
+{#- tojson escapes ' but not ", so every attribute carrying it is single quoted -#}
+<div class="tile-frame {{ 'tile-reveal' if reveal else '' }}"
+     x-data='tile({{ {"seed": media.media_id, "reel": (reel.media_id if reel else none), "reveal": reveal}|tojson }})'
+     x-ref="frame"
+     :class="{ 'is-revealed': revealed }"
+     style="aspect-ratio: {{ media.width }} / {{ media.height }};">
+  <div class="tile-placeholder" x-show="!ready" x-cloak></div>
+  <img class="tile-media" src="/api/media/{{ media.media_id }}"
+       width="{{ media.width }}" height="{{ media.height }}"
+       alt="{{ media.alt }}" loading="lazy" decoding="async"
+       x-ref="still" @load="ready = true" @error="ready = true">
+  <canvas class="tile-canvas" x-ref="canvas" aria-hidden="true" x-show="reelPlaying" x-cloak></canvas>
+  <div class="tile-grain" aria-hidden="true"></div>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro caption(ordinal, title) -%}
+<div class="caption">
+  <div class="caption-left">
+    <span class="caption-square" aria-hidden="true"></span>
+    <span class="t-default">{{ ordinal }}</span>
+  </div>
+  <span class="display d-caption display-title">{{ title }}</span>
+</div>
+{%- endmacro %}
+
+{% macro index_entry(work, gap='') -%}
+<a class="tile index-entry" href="{{ work.href }}" data-variant="{{ work.variant }}"
+   {% if gap %}data-gap="{{ gap }}"{% endif %}
+   data-cursor-label="{{ work.title }}"
+   aria-label="{{ work.title }}, work {{ work.ordinal }}">
+  {{ tile(work.poster, reel=work.reel) }}
+  {{ caption(work.ordinal, work.title) }}
+</a>
+{%- endmacro %}

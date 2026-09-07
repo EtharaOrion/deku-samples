@@ -1,0 +1,202 @@
+---
+import Shell from '../../components/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { redirectKeeping } from '../../lib/guard.js';
+
+const customer = await pageCustomer(Astro);
+let cart = await pageCart(Astro);
+let error = null;
+
+// The step is a real route with its own address; the form posts to itself, so
+// the back control works and every entered value survives a reload.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const payload = {
+    email: String(form.get('email') ?? '').trim(),
+    marketing_consent: form.get('marketing_consent') === 'on',
+    shipping_address: {
+      name: String(form.get('name') ?? ''),
+      line1: String(form.get('line1') ?? ''),
+      line2: String(form.get('line2') ?? ''),
+      city: String(form.get('city') ?? ''),
+      region: String(form.get('region') ?? ''),
+      postal_code: String(form.get('postal_code') ?? ''),
+      country: String(form.get('country') ?? 'US'),
+      phone: String(form.get('phone') ?? ''),
+    },
+  };
+
+  const res = await apiGet('/api/cart/delivery', Astro, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.ok) {
+    return redirectKeeping(Astro, '/checkout/how-it-gets-there');
+  }
+  error = res.body?.message || 'That did not work.';
+  // Keep what was typed rather than clearing the form.
+  cart = { ...cart, email: payload.email, shipping_address: payload.shipping_address };
+}
+
+const address = cart?.shipping_address ?? {};
+const email = cart?.email ?? customer?.email ?? '';
+const empty = !cart || cart.lines.length === 0;
+---
+
+<Shell
+  title="Where it goes — Vela"
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">Where it goes</h1>
+  </div>
+
+  <CheckoutSteps step={1} />
+
+  {
+    empty ? (
+      <div class="empty">
+        <p>Your cart is empty.</p>
+        <p>
+          <a href="/shop">Shop</a>
+        </p>
+      </div>
+    ) : (
+      <div class="checkout">
+        <form class="checkout__form" method="POST">
+          {error && (
+            <div class="notice notice--error" role="alert">
+              <span class="notice__body">{error}</span>
+            </div>
+          )}
+
+          <label class="field">
+            <span class="field__label">Email</span>
+            <input
+              class="input"
+              type="email"
+              name="email"
+              value={email}
+              required
+              autocomplete="email"
+            />
+          </label>
+
+          <label class="checkbox-row">
+            <input type="checkbox" name="marketing_consent" />
+            <span>Send me an email when there is a new firmware or release.</span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Name</span>
+            <input
+              class="input"
+              name="name"
+              value={address.name ?? customer?.name ?? ''}
+              required
+              autocomplete="name"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Address</span>
+            <input
+              class="input"
+              name="line1"
+              value={address.line1 ?? ''}
+              required
+              autocomplete="address-line1"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Address line 2</span>
+            <input
+              class="input"
+              name="line2"
+              value={address.line2 ?? ''}
+              autocomplete="address-line2"
+            />
+          </label>
+
+          <div class="grid grid--2">
+            <label class="field">
+              <span class="field__label">City</span>
+              <input
+                class="input"
+                name="city"
+                value={address.city ?? ''}
+                required
+                autocomplete="address-level2"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Region</span>
+              <input
+                class="input"
+                name="region"
+                value={address.region ?? ''}
+                required
+                autocomplete="address-level1"
+              />
+            </label>
+          </div>
+
+          <div class="grid grid--2">
+            <label class="field">
+              <span class="field__label">Postal code</span>
+              <input
+                class="input num"
+                name="postal_code"
+                value={address.postal_code ?? ''}
+                required
+                autocomplete="postal-code"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Country</span>
+              <input
+                class="input"
+                name="country"
+                value={address.country ?? 'US'}
+                required
+                autocomplete="country"
+              />
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field__label">Phone (optional)</span>
+            <input class="input num" name="phone" value={address.phone ?? ''} autocomplete="tel" />
+          </label>
+
+          <button class="btn" type="submit">Continue to delivery</button>
+        </form>
+
+        <CheckoutSummary cart={cart} />
+      </div>
+    )
+  }
+</Shell>
+
+<style>
+  .checkout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

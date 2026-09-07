@@ -1,0 +1,122 @@
+---
+import Shell from '../layouts/Shell.astro';
+import ReleaseBlock from './ReleaseBlock.astro';
+import PlatformNote from '../islands/PlatformNote.jsx';
+import { firmware, formatBytes } from '../lib/server.js';
+
+const { expandedVersion = null, notFoundVersion = null } = Astro.props;
+
+let releases = [];
+let latest = null;
+let cricketFirmware = null;
+let failed = false;
+
+try {
+  const out = await firmware.releases({ pageSize: 100 });
+  releases = out.data; // newest build first; released_on is not a sort key
+  latest = releases[0] || null;
+  const manifest = await firmware.manifestFor('compact');
+  cricketFirmware = manifest.entries[0] || null;
+} catch {
+  failed = true;
+}
+
+// Only the newest release is expanded on arrival, unless one is named.
+const expanded = expandedVersion || latest?.version || null;
+---
+<Shell title={expandedVersion ? `Arranger ${expandedVersion} — Vela` : 'Downloads — Vela'} current="downloads" description="Arranger, the firmware for each camera, and the whole archive of release notes.">
+  <h1 class="page-title">Downloads</h1>
+
+  {notFoundVersion && (
+    <p class="notice notice-wrong" role="alert" style="margin-top:16px;">
+      There is no release numbered <span class="mono">{notFoundVersion}</span>. The whole archive is below.
+    </p>
+  )}
+
+  {failed ? (
+    <div class="notice notice-wrong" role="alert" style="margin-top:16px;">
+      <strong>The archive did not load.</strong> Reload the page to try again.
+    </div>
+  ) : (
+    <div>
+      <section class="app-row">
+        <p class="app-requirement">Arranger requires macOS 13.0 or later. Download the app below.</p>
+        {latest && (
+          <p class="app-controls">
+            <a class="button" href={`/api/releases/${latest.version}/artifact`} download>
+              Download Arranger {latest.version}
+            </a>
+            <span class="app-size tabular">{formatBytes(latest.size_bytes)}</span>
+            <span class="app-digest mono">{latest.sha256}</span>
+          </p>
+        )}
+        {/* The control adapts to the reader's platform but is never disabled
+            and never hidden. */}
+        <PlatformNote client:idle />
+      </section>
+
+      <hr class="rule" />
+
+      <section class="firmware-row" aria-labelledby="firmware-heading">
+        <h2 class="section-title" id="firmware-heading">Camera firmware</h2>
+        <div class="firmware-paths">
+          <p class="firmware-primary">
+            {cricketFirmware && (
+              <a class="button" href={`/api/firmware/${cricketFirmware.build}/artifact`} download>
+                Download Vela Cricket Firmware {cricketFirmware.version}
+              </a>
+            )}
+          </p>
+          <div class="firmware-secondary">
+            <a class="firmware-web" href="/doctor">Firmware install (web-based)</a>
+            <p class="firmware-warning">Only use this if Arranger cannot see your camera.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule dashed-rule" />
+
+      <section aria-labelledby="archive-heading">
+        <h2 class="section-title" id="archive-heading">The archive</h2>
+        {releases.length === 0 ? (
+          <div class="empty"><p>There are no releases yet.</p></div>
+        ) : (
+          <div class="archive">
+            {releases.map((release, i) => (
+              <div>
+                {i > 0 && <hr class="rule dashed-rule" />}
+                <ReleaseBlock release={release} expanded={release.version === expanded} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )}
+</Shell>
+
+<style>
+  .app-requirement { font-size: 17px; margin: calc(var(--unit) * 4) 0; max-width: 60ch; }
+  .app-controls { display: flex; gap: calc(var(--unit) * 4); align-items: center; flex-wrap: wrap; margin: 0; }
+  .app-size { font-size: 14px; color: var(--ink-quiet); }
+  .app-digest { font-size: 12px; color: var(--ink-quiet); word-break: break-all; }
+  .firmware-paths { display: flex; gap: calc(var(--unit) * 8); align-items: flex-start; flex-wrap: wrap; }
+  .firmware-primary { margin: 0; }
+  /* The web path is never the primary control. */
+  .firmware-secondary { max-width: 32ch; }
+  .firmware-web { font-size: 14px; }
+  .firmware-warning { font-size: 13px; color: var(--ink-quiet); margin: var(--unit) 0 0; }
+  /* A plain horizontal bar carrying a dashed rule inside it: the only
+     decorative element on the page. */
+  .dashed-rule {
+    border-top: var(--border-w) solid var(--rule);
+    position: relative;
+    margin: calc(var(--unit) * 6) 0;
+  }
+  .dashed-rule::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; top: 3px;
+    border-top: 1px dashed var(--rule);
+  }
+</style>

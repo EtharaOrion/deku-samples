@@ -1,0 +1,42 @@
+---
+import { formatDate } from '../lib/api';
+
+interface Props { device: any }
+const { device } = Astro.props;
+
+// A camera whose firmware is behind reads `Update available`; one never heard
+// from reads `Not yet connected`.
+const firmwareChip = !device.firmware_version
+  ? { tone: 'neutral', label: 'Not yet connected' }
+  : device.update_available
+    ? { tone: 'progress', label: 'Update available' }
+    : { tone: 'done', label: `Firmware ${device.firmware_version}` };
+
+// An expired warranty reads as a neutral state and never as a warning.
+const warrantyChip = !device.warranty_until
+  ? null
+  : device.warranty_expired
+    ? { tone: 'neutral', label: `Warranty ended ${formatDate(device.warranty_until)}` }
+    : { tone: 'neutral', label: `Warranty to ${formatDate(device.warranty_until)}` };
+---
+
+<article class="camera card">
+  <div class="camera-head">
+    <h3>{device.nickname || device.model}</h3>
+    {device.nickname && <p class="model">{device.model}</p>}
+  </div>
+  <p class="serial mono">{device.serial}</p>
+  <div class="chips">
+    <span class={`chip chip-${firmwareChip.tone}`}>{firmwareChip.label}</span>
+    {warrantyChip && <span class={`chip chip-${warrantyChip.tone}`}>{warrantyChip.label}</span>}
+  </div>
+  <a class="btn btn-secondary btn-small" href={`/account/cameras/${device.serial}`}>Open</a>
+</article>
+
+<style>
+  .camera { padding: calc(var(--unit) * 4); display: flex; flex-direction: column; gap: calc(var(--unit) * 3); align-items: flex-start; }
+  h3 { font-size: 16px; }
+  .model { font-size: 14px; color: var(--fg-muted); }
+  .serial { font-size: 14px; }
+  .chips { display: flex; gap: calc(var(--unit) * 2); flex-wrap: wrap; }
+</style>

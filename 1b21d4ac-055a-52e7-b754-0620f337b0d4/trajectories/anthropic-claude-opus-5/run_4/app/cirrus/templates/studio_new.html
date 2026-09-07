@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="studio">
+  <div class="form" x-data="recordForm('{{ kind }}')">
+    <h1 class="page-heading display display--title-case">
+      New {{ kind }}</h1>
+    <p class="empty-state">A record is created unlisted. Publishing is a separate act.</p>
+
+    <form @submit.prevent="submit()">
+      <template x-if="error">
+        <p class="form__error" role="alert" x-text="error"></p>
+      </template>
+
+      <div class="form__field">
+        <label class="form__label" for="title">TITLE</label>
+        <input class="form__input" id="title" x-model="title" @input="syncSlug()"
+               required style="text-transform:none">
+      </div>
+
+      <div class="form__field">
+        <label class="form__label" for="slug">SLUG — LOWERCASE KEBAB, ASSIGNED ONCE</label>
+        <input class="form__input" id="slug" x-model="slug" required
+               pattern="[a-z0-9\-]+" style="text-transform:none">
+      </div>
+
+      {% if kind == 'talent' %}
+      <div class="form__field">
+        <label class="form__label" for="discipline">DISCIPLINE</label>
+        <select class="form__select" id="discipline" x-model="discipline" required>
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </div>
+      {% else %}
+      <div class="form__field">
+        <label class="form__label" for="variant">WIDTH VARIANT</label>
+        <select class="form__select" id="variant" x-model="variant" required>
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </div>
+      {% endif %}
+
+      <fieldset style="border:1px solid var(--color-dark);padding:14px;margin:0 0 18px">
+        <legend class="form__label">POSTER — GENERATED FROM A SEED</legend>
+        <div class="form__field">
+          <label class="form__label" for="alt">WRITTEN ALTERNATIVE — REQUIRED TO PUBLISH</label>
+          <input class="form__input" id="alt" x-model="alt" required style="text-transform:none">
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="seed">SEED</label>
+          <input class="form__input" id="seed" type="number" x-model="seed" required>
+        </div>
+      </fieldset>
+
+      <div class="form__actions">
+        <button class="button" type="submit" :disabled="busy"
+                x-text="busy ? 'CREATING...' : 'CREATE'">CREATE</button>
+        <a class="button" href="/studio" data-nav>BACK TO PALETTE</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

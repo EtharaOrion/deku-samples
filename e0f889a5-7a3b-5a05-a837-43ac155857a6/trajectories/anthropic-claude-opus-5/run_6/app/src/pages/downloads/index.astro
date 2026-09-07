@@ -1,0 +1,73 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import PlatformNote from '../../islands/PlatformNote.jsx';
+import { listReleases } from '../../../server/services/firmware.js';
+import { manifestFor } from '../../../server/services/firmware.js';
+import { formatBytes } from '../../lib/format.js';
+
+const { data: releases } = await listReleases({ pageSize: 100, cursor: null });
+const newest = releases[0];
+const cricket = await manifestFor({ model: 'compact', channels: [] });
+const firmware = cricket.entries[0];
+---
+
+<Shell title="Downloads" description="Arranger, firmware, and every release note we have written.">
+  <h1 class="page-title">Downloads</h1>
+  <p class="page-lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+
+  <section class="card" style="margin-bottom:calc(var(--unit) * 8)">
+    <div class="row" style="gap:calc(var(--unit) * 4)">
+      <a class="btn" href={`/api/downloads/arranger/${newest.version}`} download data-test="download-arranger">
+        Download Arranger {newest.version}
+      </a>
+      <span class="hint tnum">{formatBytes(newest.size_bytes)}</span>
+      <span class="hint mono digest">{newest.sha256}</span>
+    </div>
+    <PlatformNote client:load />
+  </section>
+
+  <section class="card" style="margin-bottom:calc(var(--unit) * 8)">
+    <h2 class="block-heading">Firmware</h2>
+    <div class="row" style="gap:calc(var(--unit) * 4);align-items:flex-start">
+      <a class="btn secondary" href={`/api/firmware/manifest?model=compact`} data-test="download-firmware">
+        Download {cricket.product.title} Firmware {firmware.version}
+      </a>
+      <span class="hint tnum">{formatBytes(firmware.size_bytes)}</span>
+      <span class="quiet-path">
+        <a href="/doctor">Firmware install (web-based)</a>
+        <span class="hint">Only use this if Arranger cannot see your camera.</span>
+      </span>
+    </div>
+  </section>
+
+  <section aria-labelledby="archive-heading">
+    <h2 id="archive-heading" class="block-heading">The archive</h2>
+    <p class="hint">Every release we have shipped, newest build first.</p>
+    {releases.map((r, i) => <ReleaseBlock release={r} open={i === 0} />)}
+  </section>
+</Shell>
+
+<style>
+  .block-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: calc(var(--unit) * 2);
+  }
+  .digest {
+    word-break: break-all;
+    font-size: 12px;
+    line-height: 18px;
+    max-width: 46ch;
+  }
+  .quiet-path {
+    display: flex;
+    flex-direction: column;
+    gap: var(--unit);
+    font-size: 14px;
+    line-height: 21px;
+  }
+</style>

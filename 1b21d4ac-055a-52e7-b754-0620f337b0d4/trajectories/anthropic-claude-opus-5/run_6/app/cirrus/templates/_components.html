@@ -1,0 +1,55 @@
+{# The six shared units. The media tile is one component with a width variant. #}
+
+{% macro media_tile(media, alt, variant='left', reveal=True, colour_return=True, classes='') %}
+  {% if media %}
+  <div class="tile tile-{{ variant }} {{ classes }}{% if reveal %} tile-reveal{% endif %}"
+       data-reveal="{{ 1 if reveal else 0 }}"
+       style="aspect-ratio: {{ media.width }} / {{ media.height }};">
+    <div class="tile-inner">
+      <img class="tile-img{% if colour_return %} tile-colour{% endif %}"
+           src="{{ media.url }}" width="{{ media.width }}" height="{{ media.height }}"
+           alt="{{ alt or media.alt }}" loading="lazy" decoding="async"
+           onload="this.closest('.tile').classList.add('is-loaded')"
+           onerror="this.closest('.tile').classList.add('is-loaded','is-failed')">
+    </div>
+  </div>
+  {% else %}
+  <div class="tile tile-{{ variant }} tile-empty {{ classes }}" role="img"
+       aria-label="{{ alt or 'No still yet' }}"></div>
+  {% endif %}
+{% endmacro %}
+
+{% macro caption_row(ordinal, title, variant='left') %}
+  <div class="caption-row caption-{{ variant }}">
+    <span class="caption-left">
+      <span class="caption-square" aria-hidden="true"></span>
+      <span class="caption-ordinal">{{ ordinal }}</span>
+    </span>
+    <span class="caption-title">{{ title }}</span>
+  </div>
+{% endmacro %}
+
+{# One index entry: the tile, its colour return and its caption row. #}
+{% macro index_entry(work) %}
+  <article class="index-entry entry-{{ work.variant }}" data-entry>
+    <a class="entry-link" href="/works/{{ work.slug }}" data-nav
+       data-cursor-label="{{ work.title }}"
+       aria-label="{{ work.title }}, work {{ work.ordinal }}">
+      {{ media_tile(work.poster, work.title ~ ', work ' ~ work.ordinal, work.variant) }}
+      {{ caption_row(work.ordinal, work.title, work.variant) }}
+    </a>
+  </article>
+{% endmacro %}
+
+{% macro reel_block(reel, alt) %}
+  {% if reel %}
+  <div class="reel-block" data-reel data-seed-url="{{ reel.url }}"
+       style="aspect-ratio: {{ reel.width }} / {{ reel.height }};">
+    <img class="reel-still" src="{{ reel.url }}" width="{{ reel.width }}"
+         height="{{ reel.height }}" alt="{{ alt or reel.alt }}" decoding="async"
+         onload="this.closest('.reel-block').classList.add('is-loaded')"
+         onerror="this.closest('.reel-block').classList.add('is-loaded','is-failed')">
+    <canvas class="reel-canvas" aria-hidden="true"></canvas>
+  </div>
+  {% endif %}
+{% endmacro %}

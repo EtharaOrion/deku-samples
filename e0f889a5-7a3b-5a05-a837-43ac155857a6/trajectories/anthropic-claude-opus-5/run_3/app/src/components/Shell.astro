@@ -1,0 +1,115 @@
+---
+import Base from '../layouts/Base.astro';
+import RailToggle from '../islands/RailToggle.jsx';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: string;
+  customer?: { name: string; email: string } | null;
+  cartCount?: number;
+}
+
+const { title, description, current = '', customer = null, cartCount = 0 } = Astro.props;
+
+const shopLinks = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+];
+
+const accountLinks = [
+  { href: '/account', label: 'Overview', key: 'account' },
+  { href: '/account/orders', label: 'Orders', key: 'orders' },
+  { href: '/account/cameras', label: 'Cameras', key: 'cameras' },
+];
+
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+---
+
+<Base title={title} description={description}>
+  <div class="shell">
+    <header class="topbar">
+      <a class="wordmark" href="/">Vela</a>
+      <div class="topbar__spacer"></div>
+      {
+        customer ? (
+          <form method="POST" action="/sign-out" class="row">
+            <span class="small muted">{customer.email}</span>
+            <button class="btn btn--secondary btn--small" type="submit">Sign out</button>
+          </form>
+        ) : (
+          <a class="btn btn--secondary btn--small" href="/sign-in">Sign in</a>
+        )
+      }
+      <!-- The cart control's accessible name states the item count. -->
+      <a
+        class="cart-control"
+        href="/cart"
+        aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
+      >
+        <span aria-hidden="true">Cart</span>
+        {cartCount > 0 && <span class="cart-badge num" aria-hidden="true">{badge}</span>}
+      </a>
+    </header>
+
+    <div class="layout">
+      <RailToggle client:idle />
+      <nav class="rail" id="rail" aria-label="Sections">
+        <div class="rail__group">
+          <div class="rail__label" id="rail-shop">Store</div>
+          <ul class="rail__list" role="list" aria-labelledby="rail-shop">
+            {
+              shopLinks.map((l) => (
+                <li>
+                  <a
+                    class="rail__link"
+                    href={l.href}
+                    aria-current={current === l.key ? 'page' : undefined}
+                  >
+                    <span class="rail__marker" aria-hidden="true" />
+                    <span>{l.label}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        {
+          customer && (
+            <div class="rail__group">
+              <div class="rail__label" id="rail-account">Account</div>
+              <ul class="rail__list" role="list" aria-labelledby="rail-account">
+                {accountLinks.map((l) => (
+                  <li>
+                    <a
+                      class="rail__link"
+                      href={l.href}
+                      aria-current={current === l.key ? 'page' : undefined}
+                    >
+                      <span class="rail__marker" aria-hidden="true" />
+                      <span>{l.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+      </nav>
+
+      <main class="content" id="main">
+        <slot />
+      </main>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .rail__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+</style>

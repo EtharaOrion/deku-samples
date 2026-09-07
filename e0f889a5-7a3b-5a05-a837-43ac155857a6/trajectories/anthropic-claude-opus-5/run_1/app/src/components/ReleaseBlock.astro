@@ -1,0 +1,73 @@
+---
+import { formatDateLong, formatBytes } from '../lib/server.js';
+const { release, expanded = false } = Astro.props;
+const groups = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+---
+<!-- A disclosure that works with no scripting and is keyboard operable. The
+     whole archive is present in the markup whatever the collapse state. -->
+<details class="release" open={expanded}>
+  <summary class="release-summary">
+    <span class="release-title">Arranger <span class="mono">{release.version}</span></span>
+    <span class="release-dateline">Released on {formatDateLong(release.released_on)}</span>
+    <span class="release-build mono">build {release.build}</span>
+  </summary>
+
+  <div class="release-body">
+    <p class="release-controls">
+      <a class="button button-quiet button-small" href={`/api/releases/${release.version}/artifact`} download>
+        Download Arranger {release.version}
+      </a>
+      <span class="release-meta tabular">{formatBytes(release.size_bytes)}</span>
+      <a class="release-permalink" href={`/downloads/${release.version}`}>Open this release</a>
+    </p>
+    <p class="release-digest mono">{release.sha256}</p>
+
+    {release.description && <p class="release-description">{release.description}</p>}
+
+    {groups.filter((g) => release.notes[g]).map((group) => (
+      <section class="note-group">
+        <h4 class="note-heading">{group}</h4>
+        <ul class="note-list">
+          {release.notes[group].map((note) => (
+            <li>
+              {note.text}
+              {note.issue && <span class="note-issue mono"> {note.issue}</span>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+
+    <p class="release-signoff">The Vela team.</p>
+  </div>
+</details>
+
+<style>
+  .release { border: 0; padding: calc(var(--unit) * 4) 0; }
+  .release-summary {
+    display: flex;
+    gap: calc(var(--unit) * 4);
+    align-items: baseline;
+    flex-wrap: wrap;
+    cursor: pointer;
+    list-style: none;
+  }
+  .release-summary::-webkit-details-marker { display: none; }
+  .release-summary::before { content: '+'; font-weight: 700; width: 1ch; }
+  .release[open] .release-summary::before { content: '−'; }
+  .release-title { font-weight: 700; font-size: 18px; }
+  .release-dateline { color: var(--ink-quiet); font-size: 14px; }
+  .release-build { color: var(--ink-quiet); font-size: 13px; margin-left: auto; }
+  .release-body { padding-top: calc(var(--unit) * 3); padding-left: calc(var(--unit) * 5); }
+  .release-controls { display: flex; gap: calc(var(--unit) * 3); align-items: center; flex-wrap: wrap; margin: 0 0 var(--unit); }
+  .release-meta { font-size: 13px; color: var(--ink-quiet); }
+  .release-permalink { font-size: 13px; }
+  .release-digest { font-size: 12px; color: var(--ink-quiet); word-break: break-all; margin: 0 0 calc(var(--unit) * 4); }
+  .release-description { margin: 0 0 calc(var(--unit) * 4); font-size: 15px; }
+  .note-group { margin-bottom: calc(var(--unit) * 4); }
+  .note-heading { font-size: 14px; margin: 0 0 var(--unit); }
+  .note-list { margin: 0; padding-left: calc(var(--unit) * 5); font-size: 15px; line-height: 24px; }
+  /* The issue reference is 0.9 of the body size. */
+  .note-issue { font-size: 0.9em; color: var(--ink-quiet); }
+  .release-signoff { font-size: 14px; color: var(--ink-quiet); margin: calc(var(--unit) * 4) 0 0; }
+</style>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_tile.html" import tile %}
+{% block content %}
+<h1 class="visually-hidden">Cirrus, a production house for picture and its makers</h1>
+
+{# A loose cluster of stills, authored positions, stable overlap order. Every
+   still is a published work and a real link with a written name. #}
+<div class="cluster" x-data="{}">
+  {% for c in cluster %}
+  <a class="cluster__still" href="{{ c.work.href }}" data-nav
+     style="left: {{ c.x }}%; top: {{ c.y }}%; width: {{ c.width }}px; z-index: {{ c.depth }};"
+     data-cursor-label="{{ c.work.title }}"
+     aria-label="{{ c.work.title }}, {{ c.work.ordinal_label }}">
+    {# Eager: the counter reports real progress against the cluster's own
+       stills, so they must actually be fetched rather than deferred. #}
+    {{ tile(c.poster, reveal=false, eager=true) }}
+    <span class="cluster__caption">{{ c.work.title }} — {{ c.work.ordinal_label }}</span>
+  </a>
+  {% endfor %}
+  {% if not cluster %}
+  <p class="empty-state" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">
+    No work is published yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

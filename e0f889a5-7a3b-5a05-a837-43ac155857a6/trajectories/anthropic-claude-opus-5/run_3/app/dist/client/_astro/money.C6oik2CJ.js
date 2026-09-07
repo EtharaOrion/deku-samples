@@ -1,0 +1,1 @@
+function s(o){const t=Math.trunc(Number(o)),r=t<0,n=Math.abs(t),a=Math.floor(n/100),c=n%100,e=String(a).replace(/\B(?=(\d{3})+(?!\d))/g,",");return`${r?"-":""}$${e}.${String(c).padStart(2,"0")}`}export{s as f};

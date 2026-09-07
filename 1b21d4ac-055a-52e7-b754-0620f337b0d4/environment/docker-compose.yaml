@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_USER: deku_admin
+      POSTGRES_PASSWORD: deku-local-dev
+      POSTGRES_DB: deku
+    volumes:
+      - deku_pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/10-app-role.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deku_admin -d deku"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  main:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "4173:4173"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  deku_pgdata:

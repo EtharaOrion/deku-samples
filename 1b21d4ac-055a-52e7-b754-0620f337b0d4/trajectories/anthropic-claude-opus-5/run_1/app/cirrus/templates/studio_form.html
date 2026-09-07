@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+{# the record travels in a data island rather than in an attribute, so a title
+   carrying a quote cannot break the expression #}
+<script type="application/json" id="studio-item">{{ (item or none)|tojson }}</script>
+<section class="studio studio-form-route"
+         x-data="itemForm('{{ kind }}')" x-init="init()">
+  <header class="studio-head">
+    <h1 class="studio-title" x-text="item ? item.title : (kind === 'talent' ? 'New talent' : 'New work')">
+      {{ item.title if item else ('New talent' if kind == 'talent' else 'New work') }}</h1>
+    <p class="studio-account"><a href="/studio">BACK TO THE PALETTE</a></p>
+  </header>
+
+  <p class="auth-error" x-show="error" x-cloak x-text="error" role="alert"></p>
+  <p class="auth-note" x-show="note" x-cloak x-text="note" role="status"></p>
+
+  <form class="studio-form" @submit.prevent="save()" novalidate>
+    <label class="field">
+      <span class="field-label">TITLE</span>
+      <input class="field-input" type="text" x-model="form.title" required>
+    </label>
+
+    <label class="field" x-show="!item">
+      <span class="field-label">SLUG</span>
+      <input class="field-input" type="text" x-model="form.slug"
+             placeholder="LOWERCASE-KEBAB">
+    </label>
+
+    <template x-if="kind === 'talent'">
+      <label class="field">
+        <span class="field-label">DISCIPLINE</span>
+        <select class="field-input" x-model="form.discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </label>
+    </template>
+
+    <template x-if="kind === 'work'">
+      <label class="field">
+        <span class="field-label">VARIANT</span>
+        <select class="field-input" x-model="form.variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </label>
+    </template>
+
+    <fieldset class="field-set">
+      <legend class="field-label">POSTER</legend>
+      <label class="field">
+        <span class="field-label">WRITTEN ALTERNATIVE</span>
+        <input class="field-input" type="text" x-model="form.alt">
+      </label>
+      <div class="field-pair">
+        <label class="field">
+          <span class="field-label">WIDTH</span>
+          <input class="field-input" type="number" x-model.number="form.width" min="1">
+        </label>
+        <label class="field">
+          <span class="field-label">HEIGHT</span>
+          <input class="field-input" type="number" x-model.number="form.height" min="1">
+        </label>
+      </div>
+    </fieldset>
+
+    <button class="button" type="submit" :disabled="busy"
+            x-text="busy ? 'SAVING' : (item ? 'SAVE' : 'CREATE')">SAVE</button>
+  </form>
+
+  <div class="studio-actions" x-show="item" x-cloak>
+    <p class="section-label">THIS RECORD</p>
+    <p class="record-state-line">
+      <span x-text="item && item.published ? 'LIVE' : 'UNLISTED'"></span>
+      <span x-show="item"> / <span x-text="item ? item.slug : ''"></span></span>
+    </p>
+
+    <div class="action-row">
+      <button type="button" class="button" @click="mintPreview()" :disabled="busy">MINT A PREVIEW TOKEN</button>
+      <a class="button" x-show="previewUrl" x-cloak :href="previewUrl">OPEN THE PREVIEW</a>
+    </div>
+
+    <div class="action-row">
+      <button type="button" class="button" @click="publish(true)" :disabled="busy"
+              x-show="item && !item.published">PUBLISH</button>
+      <button type="button" class="button" @click="publish(false)" :disabled="busy"
+              x-show="item && item.published">UNLIST</button>
+    </div>
+
+    <div class="action-row">
+      <label class="field">
+        <span class="field-label">CHANGE THE SLUG</span>
+        <input class="field-input" type="text" x-model="newSlug">
+      </label>
+      <button type="button" class="button" @click="changeSlug()" :disabled="busy">SET THE SLUG</button>
+    </div>
+
+    <template x-if="kind === 'work'">
+      <div class="action-row">
+        <p class="section-label">ADD A CREDIT</p>
+        <label class="field">
+          <span class="field-label">ROLE</span>
+          <input class="field-input" type="text" x-model="credit.role">
+        </label>
+        <label class="field">
+          <span class="field-label">NAME</span>
+          <input class="field-input" type="text" x-model="credit.name">
+        </label>
+        <button type="button" class="button" @click="addCredit()" :disabled="busy">ADD THE CREDIT</button>
+      </div>
+    </template>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

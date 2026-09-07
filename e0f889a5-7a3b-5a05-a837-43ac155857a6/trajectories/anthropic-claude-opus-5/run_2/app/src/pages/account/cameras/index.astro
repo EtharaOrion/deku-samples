@@ -1,0 +1,51 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraCard from '../../../components/CameraCard.astro';
+import RegisterRow from '../../../islands/RegisterRow.astro';
+import { apiGet, authHeaders } from '../../../lib/api';
+import { viewerFor, signInRedirect } from '../../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+if (!viewer.customer) return signInRedirect('/account/cameras');
+
+const result = await apiGet<{ data: any[] }>(
+  Astro.request, '/account/devices?page_size=100', { headers: authHeaders(Astro.request) },
+);
+const devices = result.ok ? result.data.data : [];
+---
+
+<Shell title="Cameras — Vela" current="cameras" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>Cameras</h1>
+
+  <RegisterRow />
+
+  {!result.ok && (
+    <p class="notice notice-error" role="alert">
+      {result.error.message}
+      {result.error.request_id && <span class="mono"> Reference {result.error.request_id}.</span>}
+    </p>
+  )}
+
+  {result.ok && devices.length === 0 && (
+    <div class="empty-state">
+      <p>No cameras registered yet.</p>
+      <p class="muted">Register one with the serial engraved on its underside.</p>
+    </div>
+  )}
+
+  {devices.length > 0 && (
+    <ul class="grid">
+      {devices.map((device) => <li><CameraCard device={device} /></li>)}
+    </ul>
+  )}
+</Shell>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 6); }
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--unit) * 4); }
+  .muted { color: var(--fg-muted); font-size: 14px; }
+
+  @media (max-width: 63.999rem) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

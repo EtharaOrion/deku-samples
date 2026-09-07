@@ -1,0 +1,35 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { currentCustomer, signInRedirect, readOrderFor, publicOrder } from '../../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const { number } = Astro.params;
+// Another customer's order reads as not found, never forbidden.
+const found = await readOrderFor(number, { customerId: customer.id, customerEmail: customer.email });
+if (!found) {
+  return new Response(null, { status: 404 });
+}
+const order = publicOrder(found);
+---
+<Shell title={`Order ${order.number} — Vela`} description={`Order ${order.number}.`}>
+  <div class="stack stack-8">
+    <header class="stack stack-3">
+      <p><a href="/account/orders">Your orders</a></p>
+      <div class="row-between">
+        <h1>Order <span class="ident">{order.number}</span></h1>
+        <span class="chip">{order.state_phrase}</span>
+      </div>
+    </header>
+
+    <!-- Each unregistered serial carries a one-click control to register it to
+         this account. -->
+    <OrderDetail order={order} showRegister={true} />
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+</style>

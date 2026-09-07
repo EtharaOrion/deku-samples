@@ -1,0 +1,114 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { apiGet, formatMinor, mediaFor } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const v = await viewer(Astro);
+const res = await apiGet(Astro.request, '/products?page_size=50');
+const products = res.ok ? res.data.data : [];
+const failed = !res.ok;
+
+// Ordered by the editorial position and never by price or name.
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+function chipFor(p) {
+  // A state chip only when the product is not simply available.
+  if (p.status === 'discontinued') return { label: 'Discontinued', cls: 'chip' };
+  if (p.availability.state === 'sold_out') return { label: 'Sold out', cls: 'chip chip-danger' };
+  if (p.availability.state === 'low') return { label: p.availability.label, cls: 'chip' };
+  return null;
+}
+---
+<Shell title="Shop — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <h1 class="page-title">Shop</h1>
+  <p class="page-lede">Two cameras, the accessories that go with them and the spares we keep on the shelf.</p>
+
+  {failed && (
+    <div class="notice notice-danger" role="alert">
+      <p><strong>We could not load the catalogue.</strong></p>
+      <p class="small">Something went wrong at our end. Reload the page to try again.</p>
+    </div>
+  )}
+
+  {!failed && products.length === 0 && (
+    <div class="empty">
+      <p>Nothing is on the table right now.</p>
+      <p class="small"><a href="/downloads">Downloads are still here.</a></p>
+    </div>
+  )}
+
+  {cameras.length > 0 && (
+    <section class="section" aria-labelledby="cameras-h">
+      <h2 class="section-title" id="cameras-h">Cameras</h2>
+      <div class="stack" style="gap:calc(var(--unit) * 4)">
+        {cameras.map((p) => {
+          const chip = chipFor(p);
+          return (
+            <article class="card">
+              <a href={`/shop/${p.handle}`} class="card-wide-link">
+                <img class="media" src={mediaFor(p.handle)} alt={`${p.title}`} width="800" height="600" loading="lazy" />
+                <div>
+                  <div class="row-between" style="align-items:flex-start">
+                    <div>
+                      <h3 style="font-size:22px;line-height:28px">{p.title}</h3>
+                      <p class="muted small" style="margin-top:var(--unit)">{p.subtitle}</p>
+                    </div>
+                    {chip && <span class={chip.cls}>{chip.label}</span>}
+                  </div>
+                  <p class="money" style="margin-top:calc(var(--unit) * 3);font-size:20px;font-weight:700">
+                    {p.price_from ? 'From ' : ''}{formatMinor(p.price_minor)}
+                  </p>
+                  <p class="small muted" style="margin-top:calc(var(--unit) * 2)">
+                    {p.variants.length} {p.variants.length === 1 ? 'option' : 'options'}
+                  </p>
+                </div>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
+  {rest.length > 0 && (
+    <section class="section" aria-labelledby="rest-h">
+      <h2 class="section-title" id="rest-h">Accessories and spares</h2>
+      <div class="grid-3">
+        {rest.map((p) => {
+          const chip = chipFor(p);
+          return (
+            <article class="card">
+              <a href={`/shop/${p.handle}`} style="text-decoration:none;display:block">
+                <img class="media" src={mediaFor(p.handle)} alt={p.title} width="800" height="600" loading="lazy" style="aspect-ratio:16/10" />
+                <div class="row-between" style="margin-top:calc(var(--unit) * 3);align-items:flex-start">
+                  <h3 style="font-size:16px;line-height:24px">{p.title}</h3>
+                  {chip && <span class={chip.cls}>{chip.label}</span>}
+                </div>
+                <p class="muted small" style="margin-top:var(--unit)">{p.subtitle}</p>
+                <p class="money" style="margin-top:calc(var(--unit) * 2);font-weight:700">
+                  {p.price_from ? 'From ' : ''}{formatMinor(p.price_minor)}
+                </p>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  )}
+</Shell>
+
+<style>
+  /* Cameras render at full width; the grid falls to one column on a narrow viewport. */
+  .card-wide-link {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: calc(var(--unit) * 5);
+    text-decoration: none;
+    align-items: start;
+  }
+  .card-wide-link:hover h3 { text-decoration: underline; }
+  @media (max-width: 63.999rem) {
+    .card-wide-link { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

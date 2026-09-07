@@ -1,0 +1,82 @@
+---
+import Base from './Base.astro';
+import { cartSummary, currentCustomer } from '../lib/server.js';
+
+const { title, description, current = '' } = Astro.props;
+
+const customer = await currentCustomer(Astro);
+const cart = await cartSummary(Astro);
+const count = Number(cart.item_count || 0);
+const badge = count > 99 ? '99+' : String(count);
+
+const primary = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+];
+const account = [
+  { href: '/account', label: 'Overview', key: 'account' },
+  { href: '/account/orders', label: 'Orders', key: 'orders' },
+  { href: '/account/cameras', label: 'Cameras', key: 'cameras' },
+];
+---
+<Base title={title} description={description}>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="shell">
+    <!-- A persistent left rail sits on every surface but the letter. -->
+    <div class="rail" id="rail" data-open="false">
+      <button
+        class="rail-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="rail-nav"
+        onclick="var r=document.getElementById('rail');var open=r.dataset.open!=='true';r.dataset.open=String(open);this.setAttribute('aria-expanded',String(open));this.textContent=(open?'Close menu':'Menu');"
+      >Menu</button>
+      <nav class="rail-nav" id="rail-nav" aria-label="Sections">
+        <a class="rail-brand" href="/">Vela</a>
+        <div class="rail-group">
+          {primary.map((item) => (
+            <a
+              class="rail-link"
+              href={item.href}
+              aria-current={current === item.key ? 'page' : undefined}
+            >{item.label}</a>
+          ))}
+        </div>
+        {customer ? (
+          <div class="rail-group">
+            <h2 class="rail-heading">Your account</h2>
+            {account.map((item) => (
+              <a
+                class="rail-link"
+                href={item.href}
+                aria-current={current === item.key ? 'page' : undefined}
+              >{item.label}</a>
+            ))}
+            <form method="post" action="/sign-out" style="padding: 8px 20px 0;">
+              <button class="button button-quiet button-small" type="submit">Sign out</button>
+            </form>
+          </div>
+        ) : (
+          <div class="rail-group">
+            <a class="rail-link" href="/sign-in" aria-current={current === 'sign-in' ? 'page' : undefined}>Sign in</a>
+            <a class="rail-link" href="/sign-up" aria-current={current === 'sign-up' ? 'page' : undefined}>Create an account</a>
+          </div>
+        )}
+      </nav>
+    </div>
+
+    <div class="content">
+      <header class="topbar">
+        <a class="topbar-wordmark" href="/">Vela</a>
+        <a class="cart-control" href="/cart" aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`}>
+          <span aria-hidden="true">Cart</span>
+          {count > 0 && <span class="cart-badge tabular" aria-hidden="true">{badge}</span>}
+        </a>
+      </header>
+      <main id="main" class="page">
+        <slot />
+      </main>
+    </div>
+  </div>
+</Base>

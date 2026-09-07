@@ -1,0 +1,111 @@
+---
+import { formatBytes } from '../lib/money.js';
+import { formatDateLong, NOTE_GROUPS } from '../lib/domain.js';
+
+interface Props {
+  release: any;
+  open: boolean;
+}
+const { release, open } = Astro.props;
+---
+
+<!-- A disclosure that works with no scripting and is keyboard operable. The
+     whole archive is present in the markup whatever the collapse state, so an
+     in-page find and a crawler both see all of it. -->
+<article class="release">
+  <details open={open}>
+    <summary class="release__summary">
+      <h3 class="release__title">
+        Arranger <span class="version">{release.version}</span>
+      </h3>
+      <p class="release__dateline small muted">
+        Released on <time datetime={release.released_on}>{formatDateLong(release.released_on)}</time>
+      </p>
+    </summary>
+
+    <div class="release__body">
+      <p class="muted">{release.description}</p>
+
+      <div class="row release__meta">
+        <a class="btn btn--secondary btn--small" href={`/downloads/${release.version}`}>
+          Download Arranger {release.version}
+        </a>
+        <span class="small faint bytes">{formatBytes(release.size_bytes)} bytes</span>
+      </div>
+
+      <p class="digest small faint release__digest">{release.sha256}</p>
+
+      {
+        NOTE_GROUPS.filter((group) => release.notes?.[group]?.length).map((group) => (
+          <section class="release__group">
+            <h4 class="release__group-title">{group}</h4>
+            <ul class="release__notes">
+              {release.notes[group].map((note) => (
+                <li>{note}</li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+
+      <p class="release__sign">The Vela team.</p>
+    </div>
+  </details>
+</article>
+
+<style>
+  .release {
+    padding: calc(var(--unit) * 4) 0;
+  }
+  .release__summary {
+    cursor: pointer;
+    list-style: none;
+    display: block;
+  }
+  .release__summary::-webkit-details-marker {
+    display: none;
+  }
+  .release__summary:focus-visible {
+    outline: var(--focus-ring) solid var(--fg);
+    outline-offset: var(--focus-offset);
+  }
+  .release__title {
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .release__dateline {
+    margin: calc(var(--unit) * 0.5) 0 0;
+  }
+  .release__body {
+    margin-top: calc(var(--unit) * 3);
+  }
+  .release__meta {
+    margin: calc(var(--unit) * 3) 0 calc(var(--unit) * 1);
+  }
+  .release__digest {
+    word-break: break-all;
+    margin: 0 0 calc(var(--unit) * 4);
+  }
+  .release__group {
+    margin-bottom: calc(var(--unit) * 3);
+  }
+  .release__group-title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 700;
+    margin: 0 0 calc(var(--unit) * 1);
+  }
+  .release__notes {
+    margin: 0;
+    padding-left: calc(var(--unit) * 5);
+  }
+  .release__notes li {
+    margin-bottom: calc(var(--unit) * 1);
+  }
+  .release__sign {
+    margin: calc(var(--unit) * 4) 0 0;
+    color: var(--fg-muted);
+  }
+</style>

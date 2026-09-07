@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<script type="application/json" id="record-data">
+  {{ (item if item else none)|tojson }}
+</script>
+<section class="studio" x-data="itemForm('{{ item_kind }}')">
+  <h1 class="studio__heading display--sentence"
+      x-text="item ? 'Edit record' : (kind === 'talent' ? 'New talent' : 'New work')"
+    >{{ 'Edit record' if item else ('New talent' if item_kind == 'talent' else 'New work') }}</h1>
+
+  <form class="form" @submit.prevent="save()">
+    <div class="form__row">
+      <label class="form__label" for="title">TITLE</label>
+      <input class="form__input" id="title" type="text" x-model="form.title"
+             required style="text-transform: none;">
+    </div>
+
+    <div class="form__row" x-show="!item">
+      <label class="form__label" for="slug">SLUG, LEAVE BLANK TO DERIVE</label>
+      <input class="form__input" id="slug" type="text" x-model="form.slug"
+             style="text-transform: none;">
+    </div>
+
+    <template x-if="kind === 'talent'">
+      <div class="form__row">
+        <label class="form__label" for="discipline">DISCIPLINE</label>
+        <select class="form__select" id="discipline" x-model="form.discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </div>
+    </template>
+
+    <template x-if="kind === 'work'">
+      <div class="form__row">
+        <label class="form__label" for="variant">WIDTH VARIANT</label>
+        <select class="form__select" id="variant" x-model="form.variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </div>
+    </template>
+
+    <fieldset style="border: 1px solid var(--color-dark); padding: 16px;
+                     margin: 0 0 18px;" x-show="!item || !hasPoster()">
+      <legend class="form__label">POSTER, GENERATED FROM A SEED</legend>
+      <div class="form__row">
+        <label class="form__label" for="alt">WRITTEN ALTERNATIVE, REQUIRED</label>
+        <input class="form__input" id="alt" type="text" x-model="form.alt"
+               style="text-transform: none;">
+      </div>
+      <div class="form__row">
+        <label class="form__label" for="seed">SEED</label>
+        <input class="form__input" id="seed" type="number" x-model="form.seed">
+      </div>
+    </fieldset>
+
+    <p class="form__message" x-show="message" x-text="message" x-cloak
+       role="alert" style="display: none;"></p>
+
+    <div class="form__actions">
+      <button class="button" type="submit"
+              x-text="busy ? 'SAVING...' : (item ? 'SAVE' : 'CREATE')">SAVE</button>
+      <button class="button" type="button" x-show="item" @click="mintPreview()"
+              x-cloak style="display: none;">MINT PREVIEW TOKEN</button>
+      <button class="button" type="button" x-show="item" @click="publish(true)"
+              x-cloak style="display: none;">PUBLISH</button>
+      <button class="button" type="button" x-show="item && item.published"
+              @click="publish(false)" x-cloak style="display: none;">UNLIST</button>
+      <a class="button" href="/studio">BACK TO THE PALETTE</a>
+    </div>
+
+    <p x-show="previewPath" x-cloak style="display: none; margin-top: 18px;">
+      <a class="link" :href="previewPath" x-text="'OPEN THE PREVIEW'"></a>
+      <span class="card__meta" x-text="' EXPIRES ' + previewExpires"></span>
+    </p>
+  </form>
+
+  <template x-if="item">
+    <div style="margin-top: 40px;">
+      <p class="palette__heading">MEDIA</p>
+      <div class="cards">
+        <template x-for="media in item.media" :key="media.media_id">
+          <div class="card">
+            <span class="card__title" x-text="media.role"></span>
+            <span class="card__meta"
+                  x-text="media.width + ' x ' + media.height + ' - ' + media.alt"></span>
+          </div>
+        </template>
+      </div>
+      <p class="empty-state" x-show="!item.media.length">NO MEDIA IS ATTACHED YET.</p>
+    </div>
+  </template>
+</section>
+{% endblock %}

@@ -1,0 +1,194 @@
+---
+import Base from './Base.astro';
+import CartControl from '../islands/CartControl.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: string;
+  customer?: { name: string; email: string } | null;
+  cartCount?: number;
+}
+
+const { title, description, current = '', customer = null, cartCount = 0 } = Astro.props;
+
+// The rail carries these entries, plus the account ones once signed in.
+const primary = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+];
+const account = [
+  { href: '/account', label: 'Overview', key: 'account' },
+  { href: '/account/orders', label: 'Orders', key: 'orders' },
+  { href: '/account/cameras', label: 'Cameras', key: 'cameras' },
+];
+---
+
+<Base title={title} description={description}>
+  <div class="shell">
+    <!-- A compact bar beside the rail: the wordmark and the cart control. -->
+    <header class="bar">
+      <a class="wordmark" href="/">Vela</a>
+      <div class="bar-end">
+        <CartControl count={cartCount} />
+        {customer ? (
+          <form method="POST" action="/sign-out" class="bar-account">
+            <span class="bar-email">{customer.email}</span>
+            <button class="btn btn-quiet btn-small" type="submit">Sign out</button>
+          </form>
+        ) : (
+          <a class="btn btn-quiet btn-small" href="/sign-in">Sign in</a>
+        )}
+      </div>
+    </header>
+
+    <!-- On a narrow viewport the rail collapses to one control above the content. -->
+    <details class="rail-toggle">
+      <summary class="btn btn-secondary btn-small">Menu</summary>
+      <nav class="rail-collapsed" aria-label="Sections">
+        {primary.map((item) => (
+          <a href={item.href} aria-current={current === item.key ? 'page' : undefined}>{item.label}</a>
+        ))}
+        {customer && account.map((item) => (
+          <a href={item.href} aria-current={current === item.key ? 'page' : undefined}>{item.label}</a>
+        ))}
+      </nav>
+    </details>
+
+    <nav class="rail" aria-label="Sections">
+      <ul>
+        {primary.map((item) => (
+          <li>
+            <a href={item.href} aria-current={current === item.key ? 'page' : undefined}>
+              <span class="marker" aria-hidden="true"></span>{item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {customer && (
+        <>
+          <p class="rail-heading" id="rail-account">Account</p>
+          <ul aria-labelledby="rail-account">
+            {account.map((item) => (
+              <li>
+                <a href={item.href} aria-current={current === item.key ? 'page' : undefined}>
+                  <span class="marker" aria-hidden="true"></span>{item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </nav>
+
+    <main id="main" class="content">
+      <slot />
+    </main>
+  </div>
+</Base>
+
+<style>
+  .shell {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-areas: 'bar bar' 'rail content';
+    min-height: 100vh;
+    column-gap: calc(var(--unit) * 8);
+  }
+
+  .bar {
+    grid-area: bar;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--gutter);
+    background: var(--bg);
+    border-bottom: var(--border-w) solid var(--line);
+  }
+  .wordmark {
+    font-weight: 700;
+    font-size: 40px; /* half of the 80px bar */
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+  .bar-end { display: flex; align-items: center; gap: calc(var(--unit) * 4); }
+  .bar-account { display: flex; align-items: center; gap: calc(var(--unit) * 2); }
+  .bar-email { font-size: 14px; color: var(--fg-muted); }
+
+  .rail {
+    grid-area: rail;
+    position: sticky;
+    top: var(--header-h);
+    align-self: start;
+    height: calc(100vh - var(--header-h));
+    padding: calc(var(--unit) * 6) 0 calc(var(--unit) * 6) var(--gutter);
+    border-right: var(--border-w) solid var(--line);
+    overflow-y: auto;
+  }
+  .rail ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--unit); }
+  .rail a {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    text-decoration: none;
+    border-radius: var(--radius);
+    color: var(--fg-muted);
+    transition: color var(--speed) var(--ease), background var(--speed) var(--ease);
+  }
+  .rail a:hover { background: var(--surface-sunken); color: var(--fg); }
+  /* The current entry is marked with weight and a marker as well as colour. */
+  .rail a[aria-current='page'] { color: var(--fg); font-weight: 700; background: var(--surface-sunken); }
+  .marker { width: 3px; height: 1em; border-radius: 2px; background: transparent; }
+  .rail a[aria-current='page'] .marker { background: var(--fg); }
+  .rail-heading {
+    font-size: 14px;
+    color: var(--fg-muted);
+    margin: calc(var(--unit) * 6) 0 calc(var(--unit) * 2);
+    padding-left: calc(var(--unit) * 3);
+  }
+
+  .content {
+    grid-area: content;
+    padding: calc(var(--unit) * 8) var(--gutter) calc(var(--unit) * 16);
+    min-width: 0;
+  }
+
+  .rail-toggle { display: none; }
+
+  @media (max-width: 63.999rem) {
+    .shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'toggle' 'content'; }
+    .rail { display: none; }
+    .rail-toggle {
+      display: block;
+      grid-area: toggle;
+      padding: calc(var(--unit) * 4) var(--gutter) 0;
+    }
+    .rail-toggle summary { list-style: none; display: inline-flex; cursor: pointer; }
+    .rail-toggle summary::-webkit-details-marker { display: none; }
+    .rail-collapsed {
+      display: flex;
+      flex-direction: column;
+      gap: var(--unit);
+      margin-top: calc(var(--unit) * 3);
+      border: var(--border-w) solid var(--line);
+      border-radius: var(--radius);
+      padding: calc(var(--unit) * 2);
+      background: var(--surface);
+    }
+    .rail-collapsed a {
+      padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+      text-decoration: none;
+      border-radius: var(--radius);
+      color: var(--fg-muted);
+    }
+    .rail-collapsed a[aria-current='page'] { color: var(--fg); font-weight: 700; background: var(--surface-sunken); }
+    .wordmark { font-size: 32px; }
+  }
+</style>

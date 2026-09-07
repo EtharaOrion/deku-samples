@@ -1,0 +1,498 @@
+/* ---------------------------------------------------------------- the faces */
+
+/* Archivo, SIL Open Font License 1.1 (Omnibus-Type). A grotesque with a large
+   x-height, closed apertures and single-storey lowercase forms. Two weights and
+   no more; a weight the build does not load is never named. */
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/archivo-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vela Grotesque';
+  src: url('/fonts/archivo-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The fallback carries metric overrides so the swap does not move the letter
+   when the real face arrives. */
+@font-face {
+  font-family: 'Vela Fallback';
+  src: local('system-ui'), local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  --display-family: 'Vela Grotesque', 'Vela Fallback', system-ui, sans-serif;
+  /* System-only, loads no web font, and is used for nothing but identifiers. */
+  --mono-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* The two fluid values. Below 64rem they are pure viewport units. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  /* Grounds. Nothing states black or white directly, so one declaration
+     inverts a surface. */
+  --ground-light: #f4f1ec;
+  --ink-light: #14110f;
+  --ground-dark: #14110f;
+  --ink-dark: #f4f1ec;
+
+  /* Colour otherwise carries meaning and nothing else. One accent, a saturated
+     warm hue, at most once per screen, never behind text. Each ground carries
+     the tone that clears WCAG AA against it: 4.55:1 on the light ground and
+     7.23:1 on the dark one, where the letter's closing line sits. */
+  --accent: #c04503;
+  --accent-on-dark: #ff7a2f;
+  --meaning-wrong: #a4161a;   /* something gone wrong */
+  --meaning-progress: #1d4ed8;/* in progress */
+  --meaning-done: #14663c;    /* finished */
+
+  --rule: color-mix(in srgb, currentColor 18%, transparent);
+  --rule-strong: color-mix(in srgb, currentColor 34%, transparent);
+  --quiet: color-mix(in srgb, currentColor 66%, transparent);
+  --inset: color-mix(in srgb, currentColor 5%, transparent);
+
+  /* The frame. */
+  --header-h: 80px;
+  --wordmark-h: 40px;
+  --gutter: 20px;
+  --unit: 0.25rem;
+  --radius: 0.5rem;
+  --border: 1px;
+  --elevation: 0px 2px 4px rgba(20, 17, 15, 0.05);
+
+  /* Motion is mechanical: every transition moves at one speed, short and linear. */
+  --speed: 120ms;
+  --easing: linear;
+
+  color-scheme: light;
+}
+
+/* Every surface declares which ground it is rather than inheriting one. */
+.ground-light {
+  background: var(--ground-light);
+  color: var(--ink-light);
+}
+.ground-dark {
+  background: var(--ground-dark);
+  color: var(--ink-dark);
+}
+
+/* Above 64rem the letter is a narrow column beside the film, so both fluid
+   values turn over and fall. They land on 48.932px and 20.9709px at 1440px. */
+@media (min-width: 64rem) {
+  :root {
+    --display-fs: calc(-2.900962vw + 90.705846px);
+    --body-fs: calc(-1.208918vw + 38.379323px);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--display-family);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* There is no italic anywhere in the product. */
+i, em, cite, address, dfn, var {
+  font-style: normal;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  margin: 0;
+}
+
+p { margin: 0; }
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img, video, canvas, svg { display: block; max-width: 100%; }
+
+/* Media, the film and the footer canvas carry no radius. */
+img, video, canvas { border-radius: 0; }
+
+/* Focus is a 2px solid ring in the surface's own foreground token, offset 2px,
+   at the element's own radius, never removed and never the accent. */
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Identifiers: serials, versions, builds, digests and order numbers. */
+.mono {
+  font-family: var(--mono-family);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabular numerals wherever figures stack. */
+.tnum,
+.money,
+.figure {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Every page carries a skip link as its first focusable element. */
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: -100px;
+  z-index: 100;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  background: var(--ground-light);
+  color: var(--ink-light);
+  border: var(--border) solid currentColor;
+  border-radius: var(--radius);
+  transition: top var(--speed) var(--easing);
+}
+.skip-link:focus {
+  top: calc(var(--unit) * 2);
+}
+
+/* -------------------------------------------------------------- the shell */
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.shell__bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 3);
+  padding: 0 var(--gutter);
+  background: var(--ground-light);
+  border-bottom: var(--border) solid var(--rule);
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 20px;
+  line-height: var(--wordmark-h);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  height: var(--wordmark-h);
+}
+
+.shell__body {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.rail {
+  padding: calc(var(--unit) * 4) var(--gutter);
+  border-bottom: var(--border) solid var(--rule);
+}
+
+.rail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--unit) * 2);
+}
+
+.rail__group-label {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--quiet);
+  margin: calc(var(--unit) * 4) 0 calc(var(--unit) * 2);
+}
+
+.rail__link {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 2);
+  padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background var(--speed) var(--easing);
+}
+.rail__link:hover { background: var(--inset); }
+
+/* The current entry is marked with weight and a marker as well as colour. */
+.rail__link[aria-current='page'] {
+  font-weight: 700;
+  background: var(--inset);
+}
+.rail__marker {
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  opacity: 0;
+  border-radius: 0;
+}
+.rail__link[aria-current='page'] .rail__marker { opacity: 1; }
+
+.content {
+  padding: calc(var(--unit) * 6) var(--gutter) calc(var(--unit) * 16);
+  max-width: 1550px;
+  width: 100%;
+}
+
+@media (min-width: 64rem) {
+  .shell__body {
+    grid-template-columns: 15rem minmax(0, 1fr);
+    align-items: start;
+  }
+  .rail {
+    position: sticky;
+    top: var(--header-h);
+    height: calc(100vh - var(--header-h));
+    overflow-y: auto;
+    border-bottom: 0;
+    border-right: var(--border) solid var(--rule);
+    padding: calc(var(--unit) * 6) calc(var(--unit) * 4);
+  }
+  .rail__list { flex-direction: column; flex-wrap: nowrap; gap: var(--unit); }
+  .content { padding: calc(var(--unit) * 8) calc(var(--unit) * 8) calc(var(--unit) * 20); }
+}
+
+/* Below the tier the rail collapses to one control above the content column.
+   This is the only place in the product where a control replaces navigation. */
+.rail__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--unit) * 2);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  background: transparent;
+  border: var(--border) solid var(--rule-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+@media (min-width: 64rem) {
+  .rail__toggle { display: none; }
+  .rail__nav { display: block !important; }
+}
+
+/* --------------------------------------------------------------- controls */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--unit) * 2);
+  min-height: 40px;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  border-radius: var(--radius);
+  border: var(--border) solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 400;
+  transition: background var(--speed) var(--easing), color var(--speed) var(--easing);
+}
+.button:hover { background: var(--inset); }
+
+.button--primary {
+  background: var(--ink-light);
+  color: var(--ground-light);
+  border-color: var(--ink-light);
+  font-weight: 700;
+}
+.button--primary:hover {
+  background: color-mix(in srgb, var(--ink-light) 86%, var(--ground-light));
+}
+
+.button[disabled],
+.button[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button--quiet {
+  border-color: var(--rule-strong);
+  min-height: 32px;
+  padding: var(--unit) calc(var(--unit) * 2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit);
+}
+.field > label {
+  font-size: 14px;
+  line-height: 21px;
+}
+.input {
+  min-height: 40px;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  border: var(--border) solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: transparent;
+}
+.input:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.card {
+  border: var(--border) solid var(--rule);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 4);
+  box-shadow: var(--elevation);
+  background: var(--ground-light);
+}
+
+/* One chip vocabulary. Colour never carries meaning alone: every chip states
+   its meaning in words. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--unit);
+  padding: 0 calc(var(--unit) * 2);
+  min-height: 24px;
+  border: var(--border) solid currentColor;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 21px;
+}
+.chip--wrong { color: var(--meaning-wrong); }
+.chip--progress { color: var(--meaning-progress); }
+.chip--done { color: var(--meaning-done); }
+
+.notice {
+  border: var(--border) solid currentColor;
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 3);
+  color: var(--meaning-wrong);
+}
+.notice--progress { color: var(--meaning-progress); }
+.notice--done { color: var(--meaning-done); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3) calc(var(--unit) * 2) 0;
+  border-bottom: var(--border) solid var(--rule);
+  vertical-align: baseline;
+}
+.table th { font-weight: 700; }
+.table td.figure,
+.table th.figure { text-align: right; padding-right: 0; }
+
+.page-title {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.page-lede {
+  color: var(--quiet);
+  margin-top: calc(var(--unit) * 2);
+  max-width: 60ch;
+}
+.section-title {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.stack { display: grid; gap: calc(var(--unit) * 4); }
+.stack--tight { display: grid; gap: calc(var(--unit) * 2); }
+.stack--loose { display: grid; gap: calc(var(--unit) * 8); }
+.row { display: flex; align-items: center; gap: calc(var(--unit) * 3); flex-wrap: wrap; }
+
+.empty-state {
+  border: var(--border) dashed var(--rule-strong);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 8) calc(var(--unit) * 4);
+  text-align: center;
+  color: var(--quiet);
+}
+
+/* Loading states reserve the space their content will occupy so nothing shifts. */
+.skeleton {
+  background: var(--inset);
+  border-radius: var(--radius);
+  min-height: 1em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: pulse 1.2s steps(2, end) infinite; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Grids fall to one column on a narrow viewport; nothing scrolls sideways. */
+.grid { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; }
+@media (min-width: 64rem) {
+  .grid--cards { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+  .grid--wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+html, body { overflow-x: hidden; }
+
+/* Reduced motion drops every transition. The letter's darkening is exempt and
+   is declared with its own rules. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

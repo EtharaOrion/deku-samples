@@ -1,0 +1,46 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { currentCustomer, orders, signInRedirect } from '../../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const { number } = Astro.params;
+
+let order = null;
+try {
+  const row = await orders.orderByNumber(number);
+  // Another customer's order reads as not found, never forbidden.
+  if (row && Number(row.customer_id) === Number(customer.id)) {
+    order = await orders.shapeOrder(row);
+  }
+} catch {
+  order = null;
+}
+
+if (!order) Astro.response.status = 404;
+---
+<Shell title={order ? `Order ${order.number} — Vela` : 'Not found — Vela'} current="orders">
+  {!order ? (
+    <div>
+      <h1 class="page-title">That order does not exist.</h1>
+      <p class="page-lede">It is not an order on this account.</p>
+      <p style="margin-top:24px;"><a class="button" href="/account/orders">Back to your orders</a></p>
+    </div>
+  ) : (
+    <div>
+      <nav aria-label="Breadcrumb" class="crumbs">
+        <a href="/account/orders">Orders</a> <span aria-hidden="true">/</span>
+        <span class="mono">{order.number}</span>
+      </nav>
+      <h1 class="page-title">Order <span class="mono">{order.number}</span></h1>
+      <hr class="rule" />
+      <OrderDetail order={order} showRegister />
+    </div>
+  )}
+</Shell>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--ink-quiet); margin-bottom: calc(var(--unit) * 4); }
+</style>

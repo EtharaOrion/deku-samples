@@ -1,0 +1,28 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { customerFromCookies, redirect, takeFlash } from '../../../lib/actions.js';
+import { requireReadableOrder, serialiseOrder } from '../../../../server/services/orders.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+
+const { number } = Astro.params;
+let order = null;
+try {
+  const row = await requireReadableOrder({ number, customer });
+  order = await serialiseOrder(row);
+} catch {
+  return Astro.rewrite('/404');
+}
+const flash = takeFlash(Astro.cookies);
+---
+
+<Shell title={`Order ${order.number}`}>
+  <nav aria-label="Breadcrumb" style="margin-bottom:calc(var(--unit) * 4)">
+    <a href="/account/orders">Orders</a> <span aria-hidden="true">/</span> <span class="mono">{order.number}</span>
+  </nav>
+  {flash ? <p class={`notice ${flash.tone}`} role="status">{flash.message}</p> : null}
+  <h1 class="page-title">Order <span class="mono">{order.number}</span></h1>
+  <OrderDetail order={order} canRegister={true} />
+</Shell>

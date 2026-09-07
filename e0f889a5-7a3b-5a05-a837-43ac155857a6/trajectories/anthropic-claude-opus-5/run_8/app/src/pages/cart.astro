@@ -1,0 +1,103 @@
+---
+import Shell from '../layouts/Shell.astro';
+import ProductMedia from '../components/ProductMedia.astro';
+import { apiFetch } from '../lib/api.js';
+import { formatMinor } from '../lib/format.js';
+import '../styles/cart.css';
+import '../styles/shop.css';
+
+const res = await apiFetch(Astro, '/api/cart');
+const cart = res.status === 200 ? res.data : null;
+const lines = cart ? cart.lines : [];
+---
+<Shell title="Cart" current="shop">
+  <div class="page-head">
+    <h1>Cart</h1>
+  </div>
+
+  {!cart && <p class="notice notice-wrong">We could not load your cart. Reload the page and it will try again.</p>}
+
+  {cart && lines.length === 0 && (
+    <p class="empty">Your cart is empty. <a href="/shop">Look at what we build.</a></p>
+  )}
+
+  {cart && lines.length > 0 && (
+    <div class="cart-layout" data-cart>
+      <div>
+        <!-- A price or availability change renders above the lines as a
+             persistent notice that cannot be dismissed. -->
+        {cart.notices.map((n) => (
+          <p class="notice notice-progress" role="status">{n.message}</p>
+        ))}
+
+        <p class="vh" role="status" aria-live="polite" data-live></p>
+
+        <ul style="list-style: none; padding: 0; margin: 0">
+          {lines.map((l) => (
+            <li class="cart-line" data-line={l.id} data-unit={l.unit_price_minor} data-title={l.title}>
+              <div class="cart-thumb"><ProductMedia handle={l.handle} label="" /></div>
+              <div>
+                <p class="cart-line-title"><a href={`/shop/${l.handle}?variant=${l.sku}`}>{l.title}</a></p>
+                <p class="cart-line-meta">
+                  {l.option_value} · <span class="mono">{l.sku}</span> · {formatMinor(l.unit_price_minor)} each
+                </p>
+                <div class="stepper" role="group" aria-label={`Quantity of ${l.title}`}>
+                  <button type="button" data-dec aria-label={`One fewer ${l.title}`} disabled={l.quantity <= 1}>−</button>
+                  <input type="number" data-qty value={l.quantity} min="1" max="10" aria-label={`Quantity of ${l.title}`} />
+                  <button type="button" data-inc aria-label={`One more ${l.title}`}>+</button>
+                </div>
+                <p class="small" style="color: var(--state-wrong); margin: 0.5rem 0 0" data-line-error hidden></p>
+              </div>
+              <div class="cart-line-right">
+                <span class="cart-line-total money" data-line-total>{formatMinor(l.total_minor)}</span>
+                <button type="button" class="btn btn-quiet btn-small" data-remove>Remove</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <aside class="summary" aria-labelledby="summary-head">
+        <h2 id="summary-head">Summary</h2>
+
+        <label class="check">
+          <input type="checkbox" data-protection checked={cart.protection_enabled} />
+          <span>{cart.protection_rung.label}</span>
+        </label>
+
+        <table class="totals" data-totals>
+          <tbody>
+            <tr>
+              <td>{cart.estimated ? 'Subtotal' : 'Subtotal'}</td>
+              <td class="money" data-total="subtotal">{formatMinor(cart.subtotal_minor)}</td>
+            </tr>
+            <tr>
+              <td>{cart.estimated ? 'Estimated delivery' : 'Delivery'}</td>
+              <td class="money" data-total="shipping">{formatMinor(cart.shipping_minor)}</td>
+            </tr>
+            <tr>
+              <td>{cart.estimated ? 'Estimated tax' : 'Tax'}</td>
+              <td class="money" data-total="tax">{formatMinor(cart.tax_minor)}</td>
+            </tr>
+            <tr class="total-row">
+              <td>Total</td>
+              <td class="money" data-total="total">{formatMinor(cart.total_minor)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {cart.estimated && (
+          <p class="muted small" style="margin-top: 1rem">
+            Estimated. We will show the exact amount once we know where it is going.
+          </p>
+        )}
+
+        <a class="btn" href="/checkout/where-it-goes" style="width: 100%; margin-top: 1.5rem">Check out</a>
+      </aside>
+    </div>
+  )}
+
+  <script>
+    import '../scripts/cart.js';
+  </script>
+</Shell>

@@ -1,0 +1,56 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { apiGet } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const { version } = Astro.params;
+const viewer = await viewerFor(Astro.request);
+const [releases, one] = await Promise.all([
+  apiGet<{ data: any[] }>(Astro.request, '/releases?page_size=100'),
+  apiGet<any>(Astro.request, `/releases/${version}`),
+]);
+
+const list = releases.ok ? releases.data.data : [];
+const found = one.ok ? one.data : null;
+---
+
+<Shell
+  title={found ? `Arranger ${found.version} — Vela` : 'Downloads — Vela'}
+  current="downloads"
+  customer={viewer.customer}
+  cartCount={viewer.cartCount}
+>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/downloads">Downloads</a> <span aria-hidden="true">/</span> <span class="mono">{version}</span>
+  </nav>
+
+  {!found && (
+    <div class="empty-state">
+      <p>That release does not exist.</p>
+      <a class="btn btn-secondary" href="/downloads">Back to downloads</a>
+    </div>
+  )}
+
+  {found && (
+    <section class="archive" aria-labelledby="archive-heading">
+      <h1 id="archive-heading">Arranger <span class="version mono">{found.version}</span></h1>
+      <!-- This address renders this release expanded with the rest collapsed,
+           and the whole archive is still present in the markup. -->
+      {list.map((release, i) => (
+        <>
+          {i > 0 && <hr class="dashed-bar" />}
+          <ReleaseBlock release={release} expanded={release.version === found.version} />
+        </>
+      ))}
+    </section>
+  )}
+</Shell>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .crumbs a { color: var(--fg-muted); }
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 6); }
+  .archive { display: flex; flex-direction: column; }
+  .dashed-bar { border: 0; border-top: var(--border-w) dashed var(--line-strong); margin: calc(var(--unit) * 2) 0; }
+</style>

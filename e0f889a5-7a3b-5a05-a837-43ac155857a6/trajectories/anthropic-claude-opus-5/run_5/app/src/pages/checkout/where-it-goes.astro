@@ -1,0 +1,115 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { apiFetch, currentCustomer, readCartForPage, redirectWithCookies } from '../../lib/api.js';
+
+const customer = await currentCustomer(Astro.request);
+let error = null;
+
+// Step one is a real route with its own address, so the back control works and
+// every entered value survives a back navigation and a reload: the values live
+// on the cart row rather than in the browser.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const payload = {
+    email: String(form.get('email') ?? '').trim(),
+    marketing_consent: form.get('marketing_consent') === 'on',
+    shipping_address: {
+      name: String(form.get('name') ?? '').trim(),
+      line1: String(form.get('line1') ?? '').trim(),
+      line2: String(form.get('line2') ?? '').trim(),
+      city: String(form.get('city') ?? '').trim(),
+      region: String(form.get('region') ?? '').trim(),
+      postal_code: String(form.get('postal_code') ?? '').trim(),
+      country: String(form.get('country') ?? 'US').trim(),
+      phone: String(form.get('phone') ?? '').trim(),
+    },
+  };
+  const res = await apiFetch(Astro.request, '/api/cart/delivery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) return redirectWithCookies('/checkout/how-it-gets-there', res.headers);
+  error = res.data?.message ?? 'That did not work.';
+}
+
+const cart = await readCartForPage(Astro.request);
+if ((cart.lines ?? []).length === 0) return Astro.redirect('/cart', 302);
+
+const address = cart.shipping_address ?? {};
+const email = cart.email ?? customer?.email ?? '';
+---
+
+<Shell title="Where it goes — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <h1 class="page-title">Where it goes</h1>
+  <CheckoutSteps current="where" />
+
+  <div class="grid grid--wide" style="align-items:start">
+    <form method="POST" class="stack" novalidate>
+      {error && <p class="notice" role="alert">{error}</p>}
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value={email} required autocomplete="email" />
+      </div>
+
+      <label class="row" style="gap:0.5rem;align-items:flex-start">
+        <input type="checkbox" name="marketing_consent" checked={cart.marketing_consent} />
+        <span>Send me an email when there is a new release. Not more often than that.</span>
+      </label>
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input class="input" id="name" name="name" value={address.name ?? customer?.name ?? ''} required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="line1">Address</label>
+        <input class="input" id="line1" name="line1" value={address.line1 ?? ''} required autocomplete="address-line1" />
+      </div>
+
+      <div class="field">
+        <label for="line2">Address line two <span style="color:var(--quiet)">Optional</span></label>
+        <input class="input" id="line2" name="line2" value={address.line2 ?? ''} autocomplete="address-line2" />
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="field">
+          <label for="city">City</label>
+          <input class="input" id="city" name="city" value={address.city ?? ''} required autocomplete="address-level2" />
+        </div>
+        <div class="field">
+          <label for="region">Region</label>
+          <input class="input" id="region" name="region" value={address.region ?? ''} required autocomplete="address-level1" />
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="field">
+          <label for="postal_code">Postal code</label>
+          <input class="input tnum" id="postal_code" name="postal_code" value={address.postal_code ?? ''} required autocomplete="postal-code" />
+        </div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select class="input" id="country" name="country" required autocomplete="country">
+            <option value="US" selected>United States</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="phone">Phone <span style="color:var(--quiet)">Optional</span></label>
+        <input class="input tnum" id="phone" name="phone" type="tel" value={address.phone ?? ''} autocomplete="tel" />
+      </div>
+
+      <div class="row">
+        <button class="button button--primary" type="submit">Continue to delivery</button>
+        <a href="/cart">Back to cart</a>
+      </div>
+    </form>
+
+    <CheckoutSummary cart={cart} step="where" />
+  </div>
+</Shell>

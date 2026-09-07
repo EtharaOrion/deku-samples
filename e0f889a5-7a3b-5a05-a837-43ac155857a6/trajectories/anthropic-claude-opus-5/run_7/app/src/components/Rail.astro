@@ -1,0 +1,126 @@
+---
+// The persistent left rail. On a narrow viewport it collapses to one control at
+// the top of the content column, which is the only place a control replaces
+// navigation.
+const { path = '/', signedIn = false } = Astro.props;
+
+const primary = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' },
+];
+const account = [
+  { href: '/account', label: 'Overview', exact: true },
+  { href: '/account/orders', label: 'Orders' },
+  { href: '/account/cameras', label: 'Cameras' },
+];
+
+function current(href, exact) {
+  if (exact) return path === href;
+  return path === href || path.startsWith(href + '/');
+}
+---
+<nav class="rail" aria-label="Sections" data-rail>
+  <button
+    type="button"
+    class="rail-toggle"
+    aria-expanded="false"
+    aria-controls="rail-body"
+    data-rail-toggle
+  >
+    <span aria-hidden="true">☰</span>
+    <span>Sections</span>
+  </button>
+
+  <div class="rail-body" id="rail-body">
+    <div class="rail-group">
+      <h2 class="rail-heading" id="rail-browse">Browse</h2>
+      <ul style="list-style:none;padding:0;margin:0" aria-labelledby="rail-browse">
+        {primary.map((item) => (
+          <li>
+            <a
+              class="rail-link"
+              href={item.href}
+              aria-current={current(item.href, item.exact) ? 'page' : undefined}
+            >
+              <span class="rail-marker" aria-hidden="true">{current(item.href, item.exact) ? '▸' : ''}</span>
+              <span>{item.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    {signedIn && (
+      <div class="rail-group">
+        <h2 class="rail-heading" id="rail-account">Your account</h2>
+        <ul style="list-style:none;padding:0;margin:0" aria-labelledby="rail-account">
+          {account.map((item) => (
+            <li>
+              <a
+                class="rail-link"
+                href={item.href}
+                aria-current={current(item.href, item.exact) ? 'page' : undefined}
+              >
+                <span class="rail-marker" aria-hidden="true">{current(item.href, item.exact) ? '▸' : ''}</span>
+                <span>{item.label}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <div class="rail-group">
+      <h2 class="rail-heading" id="rail-session">Session</h2>
+      <ul style="list-style:none;padding:0;margin:0" aria-labelledby="rail-session">
+        {signedIn ? (
+          <li>
+            <form method="post" action="/sign-out">
+              <button type="submit" class="rail-link" style="width:100%;background:none;border-0;cursor:pointer;font:inherit;text-align:start;border:0;border-left:3px solid transparent">
+                Sign out
+              </button>
+            </form>
+          </li>
+        ) : (
+          <>
+            <li>
+              <a class="rail-link" href="/sign-in" aria-current={path === '/sign-in' ? 'page' : undefined}>
+                <span class="rail-marker" aria-hidden="true">{path === '/sign-in' ? '▸' : ''}</span>
+                <span>Sign in</span>
+              </a>
+            </li>
+            <li>
+              <a class="rail-link" href="/sign-up" aria-current={path === '/sign-up' ? 'page' : undefined}>
+                <span class="rail-marker" aria-hidden="true">{path === '/sign-up' ? '▸' : ''}</span>
+                <span>Create an account</span>
+              </a>
+            </li>
+          </>
+        )}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<script>
+  // The collapse control is progressive: without it the rail is simply open.
+  const rail = document.querySelector('[data-rail]');
+  const toggle = document.querySelector('[data-rail-toggle]');
+  if (rail && toggle) {
+    const narrow = () => window.matchMedia('(max-width: 63.999rem)').matches;
+    const sync = () => {
+      if (!narrow()) {
+        rail.removeAttribute('data-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    };
+    toggle.addEventListener('click', () => {
+      const open = rail.getAttribute('data-open') === 'true';
+      rail.setAttribute('data-open', open ? 'false' : 'true');
+      toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+    window.addEventListener('resize', sync);
+    sync();
+  }
+</script>

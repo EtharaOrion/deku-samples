@@ -1,0 +1,179 @@
+---
+import Base from './Base.astro';
+import Rail from '../components/Rail.astro';
+import Wordmark from '../components/Wordmark.astro';
+import { currentCustomer, currentCart } from '../lib/server.js';
+
+const { title, description } = Astro.props;
+const path = Astro.url.pathname;
+
+const customer = await currentCustomer(Astro);
+let cart = null;
+try {
+  cart = await currentCart(Astro);
+} catch {
+  cart = null;
+}
+const count = cart ? cart.item_count : 0;
+// A count badge appears only above zero and reads 99+ above ninety-nine.
+const badge = count > 99 ? '99+' : String(count);
+---
+<Base title={title} description={description} ground="light">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="shell">
+    <!-- The compact bar beside the rail: wordmark home, and a cart control
+         whose accessible name states the item count. -->
+    <header class="bar">
+      <a href="/" class="bar-mark" aria-label="Vela, back to the front page">
+        <Wordmark />
+      </a>
+
+      <div class="bar-end">
+        <button
+          class="rail-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="rail-panel"
+          data-rail-toggle
+        >Sections</button>
+
+        <a href="/cart" class="cart-control" aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`}>
+          <span aria-hidden="true">Cart</span>
+          {count > 0 && <span class="cart-badge tnum" aria-hidden="true">{badge}</span>}
+        </a>
+      </div>
+    </header>
+
+    <div class="shell-body">
+      <div class="rail-panel" id="rail-panel" data-rail-panel>
+        <Rail path={path} customer={customer} />
+      </div>
+
+      <main id="main" class="content" tabindex="-1">
+        <slot />
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // The rail collapses to one control on a narrow viewport; this is the only
+    // place in the product where a control replaces navigation.
+    const toggle = document.querySelector('[data-rail-toggle]');
+    const panel = document.querySelector('[data-rail-panel]');
+    if (toggle && panel) {
+      toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!open));
+        panel.classList.toggle('open', !open);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+          toggle.setAttribute('aria-expanded', 'false');
+          panel.classList.remove('open');
+          toggle.focus();
+        }
+      });
+    }
+  </script>
+
+  <style>
+    .shell { min-height: 100vh; }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: calc(var(--space) * 4);
+      padding-inline: var(--gutter);
+      background: var(--bg);
+      border-bottom: var(--border-w) solid var(--rule);
+    }
+    .bar-mark {
+      display: flex;
+      align-items: center;
+      /* The wordmark sits at half the header. */
+      height: calc(var(--header-h) / 2);
+      text-decoration: none;
+    }
+    .bar-end { display: flex; align-items: center; gap: calc(var(--space) * 3); }
+
+    .cart-control {
+      display: inline-flex;
+      align-items: center;
+      gap: calc(var(--space) * 2);
+      min-height: 40px;
+      padding-inline: calc(var(--space) * 3);
+      border: var(--border-w) solid var(--fg);
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: background-color var(--speed) var(--ease);
+    }
+    .cart-control:hover { background: var(--bg-sunken); }
+    .cart-badge {
+      min-width: 20px;
+      height: 20px;
+      padding-inline: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+      background: var(--fg);
+      color: var(--bg);
+      font-size: 12px;
+    }
+
+    .rail-toggle {
+      display: none;
+      min-height: 40px;
+      padding-inline: calc(var(--space) * 3);
+      border: var(--border-w) solid var(--fg);
+      border-radius: var(--radius);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .shell-body {
+      display: grid;
+      grid-template-columns: 232px minmax(0, 1fr);
+      align-items: start;
+    }
+    .rail-panel {
+      position: sticky;
+      top: var(--header-h);
+      max-height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      padding: calc(var(--space) * 4) calc(var(--space) * 2) calc(var(--space) * 4) var(--gutter);
+      border-right: var(--border-w) solid var(--rule);
+      min-height: calc(100vh - var(--header-h));
+      display: flex;
+    }
+    .rail-panel > :global(nav) { flex: 1; }
+
+    .content {
+      padding: calc(var(--space) * 6) var(--gutter) calc(var(--space) * 16);
+      min-width: 0;
+    }
+    .content:focus { outline: none; }
+
+    /* 64rem is the one breakpoint the layout truly changes at. */
+    @media (max-width: 63.999rem) {
+      .rail-toggle { display: inline-flex; }
+      .shell-body { grid-template-columns: minmax(0, 1fr); }
+      .rail-panel {
+        display: none;
+        position: static;
+        max-height: none;
+        min-height: 0;
+        border-right: 0;
+        border-bottom: var(--border-w) solid var(--rule);
+        padding: calc(var(--space) * 3) var(--gutter);
+      }
+      .rail-panel.open { display: flex; }
+    }
+  </style>
+</Base>

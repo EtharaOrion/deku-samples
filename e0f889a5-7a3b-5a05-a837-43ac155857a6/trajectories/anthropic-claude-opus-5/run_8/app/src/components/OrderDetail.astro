@@ -1,0 +1,79 @@
+---
+import { formatMinor, formatDate } from '../lib/format.js';
+const { order, canRegister = false } = Astro.props;
+const a = order.shipping_address || {};
+---
+<div class="checkout-layout">
+  <div>
+    <h2 class="section-head">What you bought</h2>
+    <table class="table">
+      <thead>
+        <tr><th scope="col">Item</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Total</th></tr>
+      </thead>
+      <tbody>
+        {order.lines.map((l) => (
+          <tr>
+            <td>{l.title_snapshot}<br /><span class="muted small mono">{l.sku_snapshot}</span></td>
+            <td class="num tnum">{l.quantity}</td>
+            <td class="num money">{formatMinor(l.total_minor)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    {order.serials.length > 0 && (
+      <>
+        <h2 class="section-head" style="margin-top: 2rem">Serial numbers</h2>
+        <p class="muted small" style="margin-top: -0.5rem">
+          This is the only place you will find these without the camera in hand.
+        </p>
+        <table class="table">
+          <tbody>
+            {order.serials.map((s) => (
+              <tr>
+                <td>{s.model}</td>
+                <td class="serial">{s.serial}</td>
+                <td class="num">
+                  {s.registered
+                    ? <span class="chip chip-finished">Registered</span>
+                    : canRegister
+                      ? <form method="POST" action="/account/cameras" style="display:inline">
+                          <input type="hidden" name="serial" value={s.serial} />
+                          <button type="submit" class="btn btn-quiet btn-small">Register to this account</button>
+                        </form>
+                      : <span class="chip chip-neutral">Not registered</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )}
+
+    <h2 class="section-head" style="margin-top: 2rem">Where it went</h2>
+    <p class="small" style="margin: 0">
+      {a.name}<br />
+      {a.line1}{a.line2 ? <>, {a.line2}</> : null}<br />
+      {a.city}, {a.region} {a.postal_code}<br />
+      {a.country}<br />
+      <span class="muted">{order.email}</span>
+    </p>
+  </div>
+
+  <aside class="summary" aria-labelledby="order-totals">
+    <h2 id="order-totals">Totals</h2>
+    <table class="totals">
+      <tbody>
+        <tr><td>Subtotal</td><td class="money">{formatMinor(order.subtotal_minor)}</td></tr>
+        <tr><td>Delivery</td><td class="money">{formatMinor(order.shipping_minor)}</td></tr>
+        <tr><td>Tax</td><td class="money">{formatMinor(order.tax_minor)}</td></tr>
+        {order.discount_minor > 0 && <tr><td>Discount</td><td class="money">−{formatMinor(order.discount_minor)}</td></tr>}
+        <tr class="total-row"><td>Total</td><td class="money">{formatMinor(order.total_minor)}</td></tr>
+      </tbody>
+    </table>
+    <p class="muted small" style="margin-top: 1.5rem">
+      Placed {formatDate(order.placed_at)}.<br />
+      Delivery: {order.shipping_method === 'express' ? 'Express' : 'Standard'}.
+    </p>
+  </aside>
+</div>

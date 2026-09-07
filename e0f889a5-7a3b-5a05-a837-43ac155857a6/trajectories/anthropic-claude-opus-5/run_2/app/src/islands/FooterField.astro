@@ -1,0 +1,164 @@
+---
+/**
+ * The footer field. A grid of small dots in which the company name is drawn by
+ * the gaps between them rather than by the dots themselves, so it reads as
+ * shapes within a field. It carries no information and is not keyboard operable;
+ * if a drawing context cannot be acquired the footer renders its bottom row
+ * alone and nothing is lost.
+ */
+---
+<div class="field-wrap">
+  <canvas data-footer-field aria-hidden="true"></canvas>
+</div>
+
+<script>
+  (() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-footer-field]');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      // No drawing context: the footer keeps its bottom row and nothing is lost.
+      canvas.parentElement?.remove();
+      return;
+    }
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const WORD = 'VELA';
+    const SPACING = 13;
+    const DOT = 1.6;
+
+    let dots: { x: number; y: number; gap: boolean; level: number }[] = [];
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let raf = 0;
+    let pointer: { x: number; y: number } | null = null;
+    let onScreen = true;
+
+    function measure() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      width = Math.max(1, Math.floor(rect.width));
+      height = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      build();
+    }
+
+    /* The name is cut out of the field: a dot inside a letterform is simply not
+       drawn, so the word appears as the gaps. */
+    function build() {
+      const mask = document.createElement('canvas');
+      mask.width = width;
+      mask.height = height;
+      const mctx = mask.getContext('2d');
+      dots = [];
+      if (!mctx) return;
+
+      const size = Math.min(height * 0.92, (width / (WORD.length * 0.72)));
+      mctx.fillStyle = '#fff';
+      mctx.textAlign = 'center';
+      mctx.textBaseline = 'middle';
+      mctx.font = `700 ${Math.floor(size)}px Archivo, system-ui, sans-serif`;
+      mctx.letterSpacing = `${Math.floor(size * 0.06)}px`;
+      mctx.fillText(WORD, width / 2, height / 2 + size * 0.02);
+      const data = mctx.getImageData(0, 0, width, height).data;
+
+      for (let y = SPACING / 2; y < height; y += SPACING) {
+        for (let x = SPACING / 2; x < width; x += SPACING) {
+          const idx = ((Math.floor(y) * width) + Math.floor(x)) * 4;
+          dots.push({ x, y, gap: data[idx + 3] > 128, level: 0 });
+        }
+      }
+    }
+
+    function draw() {
+      raf = 0;
+      ctx.clearRect(0, 0, width, height);
+      let alive = false;
+
+      for (const dot of dots) {
+        if (dot.gap) continue; // the gaps draw the name
+        if (pointer) {
+          const dx = dot.x - pointer.x;
+          const dy = dot.y - pointer.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const reach = 120;
+          if (dist < reach) {
+            const boost = 1 - dist / reach;
+            if (boost > dot.level) dot.level = boost;
+          }
+        }
+        if (dot.level > 0.001) {
+          // Decay back over about a second, so dragging leaves a fading wake.
+          dot.level = reduced.matches ? 0 : dot.level * 0.94;
+          alive = alive || dot.level > 0.001;
+        } else {
+          dot.level = 0;
+        }
+
+        const base = 0.16;
+        const alpha = base + dot.level * 0.72;
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, DOT + dot.level * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(233, 229, 216, ${alpha})`;
+        ctx.fill();
+      }
+
+      // The loop stops entirely when no dot is above rest and the pointer left.
+      if ((alive || pointer) && onScreen) raf = requestAnimationFrame(draw);
+    }
+
+    function kick() {
+      if (!raf && onScreen) raf = requestAnimationFrame(draw);
+    }
+
+    canvas.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      kick();
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      kick();
+    });
+    canvas.addEventListener('pointerleave', () => {
+      pointer = null;
+      kick();
+    });
+
+    // Never runs while the canvas is off screen.
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          onScreen = entry.isIntersecting;
+          if (onScreen) kick();
+          else if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        }
+      }, { threshold: 0 }).observe(canvas);
+    }
+
+    window.addEventListener('resize', () => { measure(); kick(); }, { passive: true });
+
+    if (document.fonts?.ready) document.fonts.ready.then(() => { measure(); kick(); });
+    measure();
+    kick();
+  })();
+</script>
+
+<style>
+  .field-wrap {
+    width: 100%;
+    /* The footer canvas has no radius. */
+    border-radius: 0;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: clamp(120px, 22vw, 260px);
+    border-radius: 0;
+    touch-action: pan-y;
+  }
+</style>

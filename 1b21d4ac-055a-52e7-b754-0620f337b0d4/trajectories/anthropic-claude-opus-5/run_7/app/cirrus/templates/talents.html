@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block html_class %}route-talents ground-light{% endblock %}
+{% block content %}
+<section class="roster" x-data="roster()" x-init="start()" @keydown.window="onKey($event)">
+  {% if talents %}
+  <div class="filter" role="group" aria-label="Filter by discipline">
+    {% for discipline in disciplines %}
+    <button type="button" class="filter-control t-ui" data-filter="{{ discipline }}"
+            :class="{'is-active': active === '{{ discipline }}'}"
+            :aria-pressed="active === '{{ discipline }}' ? 'true' : 'false'"
+            @click="setDiscipline('{{ discipline }}')">
+      <span class="filter-marker" aria-hidden="true"></span>{{ discipline|upper }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="roster-stage" data-roster-stage>
+    {# The entries stay mounted so the set can advance on its own curve, but only the one
+       on screen is exposed: the route has exactly one top-level heading, the current name. #}
+    {% for talent in talents %}
+    <article class="roster-entry" data-discipline="{{ talent.discipline }}"
+             data-index="{{ loop.index0 }}"
+             x-show="visible({{ loop.index0 }})"
+             :aria-hidden="current === {{ loop.index0 }} ? null : 'true'"
+             :inert="current === {{ loop.index0 }} ? null : true"
+             :class="{'is-current': current === {{ loop.index0 }}}">
+      <h1 class="t-display roster-name" data-fit>{{ talent.title }}</h1>
+      <p class="t-ui roster-discipline">{{ talent.discipline|upper }}</p>
+      <div class="roster-portrait" data-reveal>
+        {% if talent.poster %}
+        <a href="{{ talent.href }}" data-link data-cursor-label="{{ talent.title }}">
+          <span class="tile-frame" style="aspect-ratio: {{ talent.poster.width }} / {{ talent.poster.height }};">
+            <img class="tile-img" src="{{ talent.poster.url }}" width="{{ talent.poster.width }}"
+                 height="{{ talent.poster.height }}" alt="{{ talent.poster.alt }}"
+                 decoding="async" data-tile-img>
+          </span>
+        </a>
+        {% endif %}
+      </div>
+      <p class="roster-open t-ui"><a href="{{ talent.href }}" data-link>OPEN {{ talent.title|upper }}</a></p>
+    </article>
+    {% endfor %}
+    <p class="empty-state t-ui" x-show="count === 0" x-cloak>No talent is published in this discipline.</p>
+  </div>
+
+  <p class="sr-only" aria-live="polite" x-text="announcement"></p>
+  {% else %}
+  <p class="empty-state t-ui">No talent is published yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

@@ -1,0 +1,193 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import BuyControl from '../../islands/BuyControl.jsx';
+import { safeGet, currentCustomer, readCartForPage } from '../../lib/api.js';
+import { formatMinor, formatDateLong } from '../../lib/format.js';
+
+const { handle } = Astro.params;
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+const res = await safeGet(Astro.request, `/api/products/${encodeURIComponent(handle)}`);
+
+if (res.status === 404) return Astro.redirect('/404', 302);
+
+const product = res.data;
+const requested = Astro.url.searchParams.get('variant');
+const selected =
+  product?.variants?.find((v) => v.sku === requested) ?? product?.variants?.[0] ?? null;
+
+const block = (kind) => product?.blocks?.filter((b) => b.kind === kind) ?? [];
+const lede = block('lede')[0]?.payload?.text ?? '';
+const specGroups = block('spec_group');
+const inTheBox = block('in_the_box')[0]?.payload?.items ?? [];
+const compatibility = block('compatibility')[0]?.payload ?? null;
+const supportNote = block('support_note')[0]?.payload?.text ?? null;
+
+// The gallery is keyboard navigable; the frames are drawn stand-ins.
+const frames = ['Front', 'Top', 'Back'];
+---
+
+<Shell
+  title={product ? `${product.title} — Vela` : 'Product — Vela'}
+  description={product?.subtitle}
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+>
+  {!product ? (
+    <div class="empty-state">
+      <p>That product does not exist.</p>
+      <p style="margin-top:0.5rem"><a href="/shop">Back to the shop</a></p>
+    </div>
+  ) : (
+    <>
+      <nav aria-label="Breadcrumb" style="margin-bottom:1rem">
+        <a href="/shop">Shop</a>
+        <span aria-hidden="true" style="color:var(--quiet)"> / </span>
+        <span>{product.title}</span>
+      </nav>
+
+      <div class="grid grid--wide" style="align-items:start">
+        <section aria-label={`${product.title} gallery`}>
+          <div
+            class="gallery"
+            role="group"
+            aria-roledescription="carousel"
+            tabindex="0"
+            data-gallery
+          >
+            {frames.map((frame, i) => (
+              <figure
+                class="gallery__frame"
+                data-frame={i}
+                hidden={i !== 0}
+                aria-label={`${product.title}, ${frame.toLowerCase()}`}
+              >
+                <div class="product-media" aria-hidden="true"></div>
+                <figcaption class="visually-hidden">{product.title}, {frame.toLowerCase()}</figcaption>
+              </figure>
+            ))}
+          </div>
+          <div class="row" style="margin-top:0.5rem" role="tablist" aria-label="Views">
+            {frames.map((frame, i) => (
+              <button
+                class="button button--quiet"
+                type="button"
+                role="tab"
+                aria-selected={i === 0 ? 'true' : 'false'}
+                data-frame-button={i}
+              >{frame}</button>
+            ))}
+          </div>
+        </section>
+
+        <section class="stack">
+          <header class="stack--tight">
+            <h1 class="page-title">{product.title}</h1>
+            <p style="color:var(--quiet)">{product.subtitle}</p>
+          </header>
+
+          {/* The discontinued state is a first class state rather than an afterthought. */}
+          {product.status === 'discontinued' && (
+            <p class="notice" style="color:var(--ink-light)">
+              {supportNote ??
+                `We no longer sell this. We will support it until ${formatDateLong(product.support_until)}.`}
+            </p>
+          )}
+
+          <BuyControl client:load product={product} initialSku={selected?.sku} />
+
+          {product.status === 'active' && product.support_until && (
+            <p style="color:var(--quiet)">
+              Supported until <span class="tnum">{formatDateLong(product.support_until)}</span>.
+            </p>
+          )}
+        </section>
+      </div>
+
+      <div class="stack--loose" style="margin-top:3rem;max-width:70ch">
+        {lede && <p>{lede}</p>}
+
+        {specGroups.map((group) => (
+          <section aria-labelledby={`spec-${group.position}`}>
+            <h2 class="section-title" id={`spec-${group.position}`}>{group.payload.title}</h2>
+            <table class="table" style="margin-top:0.5rem">
+              <tbody>
+                {group.payload.rows.map((row) => (
+                  <tr>
+                    <th scope="row" style="font-weight:400;color:var(--quiet);width:14rem">{row.label}</th>
+                    <td class="tnum">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))}
+
+        {inTheBox.length > 0 && (
+          <section aria-labelledby="in-the-box">
+            <h2 class="section-title" id="in-the-box">In the box</h2>
+            <ul style="margin:0.5rem 0 0;padding-left:1.25rem">
+              {inTheBox.map((item) => <li>{item}</li>)}
+            </ul>
+          </section>
+        )}
+
+        {compatibility && (
+          <section aria-labelledby="compatibility">
+            <h2 class="section-title" id="compatibility">Compatibility</h2>
+            <table class="table" style="margin-top:0.5rem">
+              <tbody>
+                <tr>
+                  <th scope="row" style="font-weight:400;color:var(--quiet);width:14rem">Minimum operating system</th>
+                  <td class="tnum">{compatibility.min_os}</td>
+                </tr>
+                <tr>
+                  <th scope="row" style="font-weight:400;color:var(--quiet)">Minimum application</th>
+                  <td class="mono">Arranger {compatibility.min_app_version}</td>
+                </tr>
+              </tbody>
+            </table>
+            {compatibility.text && <p style="margin-top:0.5rem;color:var(--quiet)">{compatibility.text}</p>}
+          </section>
+        )}
+      </div>
+    </>
+  )}
+</Shell>
+
+<style>
+  .product-media {
+    aspect-ratio: 4 / 3;
+    border-radius: 0;
+    background:
+      radial-gradient(60% 70% at 30% 25%, color-mix(in srgb, currentColor 12%, transparent), transparent 70%),
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, currentColor 6%, transparent) 0 8px,
+        transparent 8px 16px
+      ),
+      var(--inset);
+    border: var(--border) solid var(--rule);
+  }
+  .gallery:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+</style>
+
+<script>
+  // A keyboard navigable gallery: arrow keys move between frames.
+  const gallery = document.querySelector('[data-gallery]');
+  if (gallery) {
+    const frames = Array.from(document.querySelectorAll('[data-frame]'));
+    const buttons = Array.from(document.querySelectorAll('[data-frame-button]'));
+    let index = 0;
+    const show = (next) => {
+      index = (next + frames.length) % frames.length;
+      frames.forEach((f, i) => { f.hidden = i !== index; });
+      buttons.forEach((b, i) => b.setAttribute('aria-selected', String(i === index)));
+    };
+    gallery.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') { show(index + 1); event.preventDefault(); }
+      if (event.key === 'ArrowLeft') { show(index - 1); event.preventDefault(); }
+    });
+    buttons.forEach((b, i) => b.addEventListener('click', () => show(i)));
+  }
+</script>

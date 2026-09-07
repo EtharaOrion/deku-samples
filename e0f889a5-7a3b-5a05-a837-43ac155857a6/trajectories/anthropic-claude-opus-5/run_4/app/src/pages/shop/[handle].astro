@@ -1,0 +1,185 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import BuyControls from '../../islands/BuyControls.jsx';
+import { getProductByHandle } from '../../lib/server.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+
+const { handle } = Astro.params;
+const product = await getProductByHandle(handle);
+
+if (!product || product.kind === 'protection') {
+  return new Response(null, { status: 404 });
+}
+
+// A parameter naming a variant that does not exist renders the default and
+// drops the parameter without comment.
+const requested = Astro.url.searchParams.get('variant');
+const selected = product.variants.find((v) => v.sku === requested) || product.variants[0];
+
+const lede = product.blocks.find((b) => b.kind === 'lede');
+const specs = product.blocks.filter((b) => b.kind === 'spec_group');
+const box = product.blocks.find((b) => b.kind === 'in_the_box');
+const compat = product.blocks.find((b) => b.kind === 'compatibility');
+const supportNote = product.blocks.find((b) => b.kind === 'support_note');
+
+const clientProduct = {
+  handle: product.handle,
+  title: product.title,
+  status: product.status,
+  variants: product.variants.map((v) => ({
+    sku: v.sku,
+    option_value: v.option_value,
+    price_minor: Number(v.price_minor),
+    currency: v.currency,
+    available: Number(v.available),
+  })),
+};
+---
+<Shell title={`${product.title} — Vela`} description={product.subtitle}>
+  <article class="product">
+    <div class="lead">
+      <!-- A keyboard navigable gallery on one side. -->
+      <section class="gallery" aria-label={`${product.title} images`}>
+        <div class="gallery-main">
+          <ProductMedia handle={product.handle} option={selected?.option_value} ratio="4 / 3" />
+        </div>
+        <ul class="thumbs">
+          {product.variants.map((v, i) => (
+            <li>
+              <a
+                class:list={['thumb', { current: v.sku === selected?.sku }]}
+                href={`/shop/${product.handle}?variant=${v.sku}`}
+                aria-label={`${product.title} in ${v.option_value}`}
+                aria-current={v.sku === selected?.sku ? 'true' : undefined}
+              >
+                <ProductMedia handle={product.handle} option={v.option_value} ratio="1 / 1" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="buy-side">
+        <header class="stack stack-2">
+          <h1>{product.title}</h1>
+          <p class="hint">{product.subtitle}</p>
+        </header>
+
+        <!-- The island: options, quantity and the buy control. The price and
+             the availability state are in the server-rendered markup above it
+             too, so first paint is complete without scripting. -->
+        <noscript>
+          <p class="price money tnum">{formatMinor(selected.price_minor)}</p>
+          {/* The state of the variant on show, not the product's aggregate. */}
+          <p class="hint">{selected.availability.label}</p>
+        </noscript>
+
+        <BuyControls client:load product={clientProduct} initialSku={selected?.sku} />
+
+        {/* The discontinued state is a first class state. */}
+        {supportNote && (
+          <p class="notice support-note">{supportNote.payload.text}</p>
+        )}
+        {product.status === 'discontinued' && !supportNote && product.support_until && (
+          <p class="notice support-note">
+            We no longer sell this. We will support it until {formatDate(product.support_until)}.
+          </p>
+        )}
+      </section>
+    </div>
+
+    <!-- The typed blocks render as themselves. -->
+    <div class="blocks">
+      {lede && <p class="lede">{lede.payload.text}</p>}
+
+      {specs.length > 0 && (
+        <section class="block">
+          <h2>Specifications</h2>
+          {specs.map((group) => (
+            <table class="table spec">
+              <caption>{group.payload.title}</caption>
+              <tbody>
+                {group.payload.rows.map(([label, value]) => (
+                  <tr>
+                    <th scope="row">{label}</th>
+                    <td class="num">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        </section>
+      )}
+
+      {box && (
+        <section class="block">
+          <h2>In the box</h2>
+          <ul class="plain-list">
+            {box.payload.items.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      )}
+
+      {compat && (
+        <section class="block">
+          <h2>Compatibility</h2>
+          <table class="table">
+            <tbody>
+              <tr>
+                <th scope="row">Minimum operating system</th>
+                <td>{compat.payload.min_os}</td>
+              </tr>
+              <tr>
+                <th scope="row">Minimum application version</th>
+                <td class="ident">{compat.payload.min_app}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
+    </div>
+  </article>
+</Shell>
+
+<style>
+  .product { display: flex; flex-direction: column; gap: calc(var(--space) * 12); }
+  .lead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: calc(var(--space) * 8);
+    align-items: start;
+  }
+  h1 { font-size: 28px; line-height: 34px; }
+
+  .gallery { display: flex; flex-direction: column; gap: calc(var(--space) * 3); }
+  .thumbs { list-style: none; display: flex; gap: calc(var(--space) * 2); }
+  .thumb {
+    display: block;
+    width: 72px;
+    border: var(--border-w) solid var(--rule);
+    text-decoration: none;
+  }
+  .thumb.current { border-color: var(--fg); border-width: 2px; }
+
+  .buy-side { display: flex; flex-direction: column; gap: calc(var(--space) * 5); }
+  .price { font-size: 24px; font-weight: 700; }
+  .support-note { font-size: 14px; }
+
+  .blocks { display: flex; flex-direction: column; gap: calc(var(--space) * 10); max-width: 74ch; }
+  .lede { font-size: 18px; line-height: 27px; }
+  .block { display: flex; flex-direction: column; gap: calc(var(--space) * 3); }
+  .block h2 { font-size: 18px; line-height: 24px; }
+  .spec caption {
+    text-align: left;
+    font-weight: 700;
+    font-size: 14px;
+    padding-bottom: calc(var(--space) * 2);
+  }
+  .spec { margin-bottom: calc(var(--space) * 4); }
+  .plain-list { list-style: disc; padding-left: 1.2em; font-size: 14px; line-height: 21px; }
+
+  @media (max-width: 63.999rem) {
+    .lead { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

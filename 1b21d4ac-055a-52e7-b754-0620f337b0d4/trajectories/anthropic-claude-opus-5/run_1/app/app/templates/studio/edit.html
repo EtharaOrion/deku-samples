@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<script type="application/json" id="studio-item">{{ (item | tojson) if item else 'null' }}</script>
+<section class="studio-wrap"
+         x-data="itemForm(readJson('studio-item'), '{{ kind }}')"
+         x-init="init()">
+  <h1 class="display" style="font-size:40px;font-weight:200;margin-bottom:24px;"
+      x-text="item ? item.title : (kind === 'talent' ? 'NEW TALENT' : 'NEW WORK')">
+    {{ item.title if item else ('NEW TALENT' if kind == 'talent' else 'NEW WORK') }}</h1>
+
+  <p x-show="item" x-cloak style="margin-bottom:24px;">
+    <span x-text="item && item.published ? 'LIVE' : 'UNLISTED'"></span>
+    &nbsp;/&nbsp;<span x-text="item ? item.slug : ''"></span>
+  </p>
+
+  {# A rejected form keeps what was typed and names what was wrong. #}
+  <p class="field-error" x-show="error" x-text="error" role="alert" x-cloak></p>
+  <p x-show="notice" x-text="notice" role="status" x-cloak></p>
+
+  <form @submit.prevent="save()" novalidate>
+    <div class="field">
+      <label for="title">TITLE</label>
+      <input id="title" type="text" x-model="form.title" required>
+    </div>
+
+    <div class="field" x-show="!item">
+      <label for="slug">SLUG</label>
+      <input id="slug" type="text" x-model="form.slug"
+             placeholder="lowercase-with-hyphens">
+    </div>
+
+    {% if kind == 'talent' %}
+    <div class="field">
+      <label for="discipline">DISCIPLINE</label>
+      <select id="discipline" x-model="form.discipline">
+        {% for d in (disciplines or ['director','photographer','stylist']) %}
+        <option value="{{ d }}">{{ d | upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}
+    <div class="field">
+      <label for="variant">WIDTH</label>
+      <select id="variant" x-model="form.variant">
+        {% for v in (variants or ['left','right','centre']) %}
+        <option value="{{ v }}">{{ v | upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <button class="btn" type="submit" :disabled="busy"
+            x-text="busy ? 'SAVING...' : (item ? 'SAVE' : 'CREATE')">SAVE</button>
+  </form>
+
+  <div x-show="item" x-cloak style="margin-top:50px;">
+    <h2 class="display" style="font-size:27px;font-weight:400;margin-bottom:16px;">POSTER</h2>
+    <p class="form-note">A poster with a written alternative is required before a record
+      can be published.</p>
+    <div class="field">
+      <label for="alt">WRITTEN ALTERNATIVE</label>
+      <input id="alt" type="text" x-model="media.alt">
+    </div>
+    <div class="field">
+      <label for="seed">SEED</label>
+      <input id="seed" type="text" x-model="media.seed">
+    </div>
+    <p style="display:flex;gap:16px;">
+      <button class="btn" type="button" @click="attachPoster()" :disabled="busy">
+        ATTACH POSTER</button>
+    </p>
+    <template x-if="item && item.poster">
+      <p style="margin-top:20px;">
+        <img :src="item.poster.url" :alt="item.poster.alt"
+             :width="item.poster.width" :height="item.poster.height"
+             style="max-width:246px;height:auto;">
+      </p>
+    </template>
+
+    <h2 class="display" style="font-size:27px;font-weight:400;margin:50px 0 16px;">
+      PREVIEW AND PUBLISH</h2>
+    <p style="display:flex;gap:16px;flex-wrap:wrap;">
+      <button class="btn" type="button" @click="mintPreview()" :disabled="busy">
+        MINT PREVIEW TOKEN</button>
+      <a class="btn" x-show="previewUrl" :href="previewUrl" x-cloak>OPEN PREVIEW</a>
+      <button class="btn" type="button" @click="setPublished(true)"
+              x-show="item && !item.published" :disabled="busy">PUBLISH</button>
+      <button class="btn" type="button" @click="setPublished(false)"
+              x-show="item && item.published" :disabled="busy">UNLIST</button>
+      <a class="btn" href="/studio">BACK TO THE PALETTE</a>
+    </p>
+    <p x-show="previewUrl" x-cloak style="margin-top:14px;">
+      PREVIEW GOOD FOR 15 MINUTES:
+      <a :href="previewUrl" x-text="previewUrl"></a>
+    </p>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

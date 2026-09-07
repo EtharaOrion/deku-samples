@@ -1,0 +1,119 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { apiGet, formatBytes } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const [releases, manifest] = await Promise.all([
+  apiGet<{ data: any[] }>(Astro.request, '/releases?page_size=100'),
+  apiGet<any>(Astro.request, '/firmware/manifest?model=compact'),
+]);
+
+// Newest build first; released_on is not a sort key.
+const list = releases.ok ? releases.data.data : [];
+const latest = list[0] || null;
+const firmware = manifest.ok ? manifest.data.entries?.[0] : null;
+---
+
+<Shell title="Downloads — Vela" current="downloads" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>Downloads</h1>
+
+  {!releases.ok && (
+    <p class="notice notice-error" role="alert">
+      {releases.error.message}
+      {releases.error.request_id && <span class="mono"> Reference {releases.error.request_id}.</span>}
+    </p>
+  )}
+
+  {latest && (
+    <section class="primary" aria-labelledby="app-heading">
+      <h2 id="app-heading" class="visually-hidden">Arranger</h2>
+      <p class="requirement">Arranger requires macOS 13.0 or later. Download the app below.</p>
+
+      <div class="primary-row">
+        <!-- The primary control adapts to the reader's platform but is never
+             disabled and never hidden. -->
+        <a class="btn" href={`/downloads/${latest.version}`} download={latest.artifact_name} data-app-download>
+          Download Arranger {latest.version}
+        </a>
+        <span class="meta">
+          <span class="bytes tnum">{formatBytes(latest.size_bytes)}</span>
+          <span class="digest mono">{latest.sha256}</span>
+        </span>
+      </div>
+      <p class="platform-note" data-platform-note hidden>Arranger is a macOS application.</p>
+    </section>
+  )}
+
+  {firmware && (
+    <section class="firmware" aria-labelledby="firmware-heading">
+      <h2 id="firmware-heading">Firmware</h2>
+      <div class="firmware-row">
+        <!-- The ordinary path. -->
+        <a class="btn btn-secondary" href={`/api/firmware/manifest?model=compact`} download>
+          Download Vela Cricket Firmware {firmware.version}
+        </a>
+        <!-- The web path is never the primary control. -->
+        <span class="web-path">
+          <a class="quiet-link" href="/doctor">Firmware install (web-based)</a>
+          <span class="warning">Only use this if Arranger cannot see your camera.</span>
+        </span>
+      </div>
+    </section>
+  )}
+
+  <section class="archive" aria-labelledby="archive-heading">
+    <h2 id="archive-heading">Every release</h2>
+    {list.length === 0 && (
+      <div class="empty-state"><p>There are no releases yet.</p></div>
+    )}
+    {list.map((release, i) => (
+      <>
+        {i > 0 && <hr class="dashed-bar" />}
+        {/* Only the newest release is expanded on arrival. */}
+        <ReleaseBlock release={release} expanded={i === 0} />
+      </>
+    ))}
+  </section>
+</Shell>
+
+<script>
+  // A reader who is not on macOS still gets a working control and a line saying
+  // the application is for macOS.
+  (() => {
+    const note = document.querySelector<HTMLElement>('[data-platform-note]');
+    if (!note) return;
+    const platform = (navigator.userAgentData as any)?.platform || navigator.platform || '';
+    const isMac = /mac/i.test(platform);
+    if (!isMac) note.hidden = false;
+  })();
+</script>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 8); }
+  h2 { font-size: 20px; }
+
+  .primary { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 10); }
+  .requirement { font-size: 18px; }
+  .primary-row { display: flex; align-items: center; gap: calc(var(--unit) * 5); flex-wrap: wrap; }
+  .meta { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--fg-muted); }
+  .digest { font-size: 12px; word-break: break-all; }
+  .platform-note { font-size: 14px; color: var(--fg-muted); }
+
+  .firmware { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 12); }
+  .firmware-row { display: flex; align-items: center; gap: calc(var(--unit) * 8); flex-wrap: wrap; }
+  .web-path { display: flex; flex-direction: column; gap: 2px; }
+  .quiet-link { font-size: 14px; color: var(--fg); }
+  .warning { font-size: 14px; color: var(--state-progress); }
+
+  .archive { display: flex; flex-direction: column; }
+  .archive h2 { margin-bottom: calc(var(--unit) * 4); }
+  /* A plain horizontal bar carrying a dashed rule inside it: the only
+     decorative element on the page. */
+  .dashed-bar {
+    border: 0;
+    border-top: var(--border-w) dashed var(--line-strong);
+    margin: calc(var(--unit) * 2) 0;
+  }
+</style>

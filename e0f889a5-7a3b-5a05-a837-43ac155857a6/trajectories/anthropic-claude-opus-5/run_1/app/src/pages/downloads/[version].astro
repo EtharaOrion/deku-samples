@@ -1,0 +1,21 @@
+---
+import DownloadsPage from '../../components/DownloadsPage.astro';
+import { firmware } from '../../lib/server.js';
+
+const { version } = Astro.params;
+
+// Every release has its own address, which renders it expanded with the rest
+// collapsed. A version we do not have says so and still shows the archive.
+let found = null;
+try {
+  found = await firmware.releaseByVersion(version);
+} catch {
+  found = null;
+}
+
+if (!found) Astro.response.status = 404;
+---
+<DownloadsPage
+  expandedVersion={found ? found.version : null}
+  notFoundVersion={found ? null : version}
+/>

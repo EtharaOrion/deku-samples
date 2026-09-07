@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="sheet" x-data="{ email: '', password: '', error: '', done: false, busy: false,
+  submit: function () {
+    this.error = ''; this.busy = true;
+    var self = this;
+    api('/api/auth/signup', { method: 'POST', body: JSON.stringify({ email: this.email, password: this.password }) })
+      .then(function (r) {
+        self.busy = false;
+        if (!r.ok) { self.error = r.body.error || 'That did not work.'; return; }
+        self.done = true;
+      })
+      .catch(function () { self.busy = false; self.error = 'The site could not be reached.'; });
+  } }">
+  <h1 class="display d-secondary" style="margin:0 0 40px">Sign up</h1>
+
+  <template x-if="done">
+    <p class="t-default">YOU ARE SIGNED IN AS A VIEWER. <a href="/">READ THE WORK</a>.</p>
+  </template>
+
+  <form @submit.prevent="submit()" x-show="!done" novalidate>
+    <p class="form-error t-default" x-show="error" x-text="error" x-cloak role="alert"></p>
+
+    <div class="field">
+      <label for="email">EMAIL</label>
+      <input id="email" type="email" x-model="email" autocomplete="username"
+             style="text-transform:none" required>
+    </div>
+
+    <div class="field">
+      <label for="password">PASSWORD, EIGHT CHARACTERS OR MORE</label>
+      <input id="password" type="password" x-model="password" autocomplete="new-password"
+             style="text-transform:none" required>
+    </div>
+
+    <button class="button t-default" type="submit" :disabled="busy"
+            x-text="busy ? 'CREATING...' : 'CREATE ACCOUNT'">CREATE ACCOUNT</button>
+  </form>
+
+  <p class="t-default" style="margin-top:40px">
+    A VIEWER ACCOUNT READS THE PUBLIC SITE AND NOTHING MORE.
+  </p>
+</section>
+{% endblock %}

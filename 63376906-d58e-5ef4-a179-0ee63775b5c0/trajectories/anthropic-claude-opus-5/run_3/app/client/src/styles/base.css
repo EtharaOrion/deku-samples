@@ -1,0 +1,353 @@
+/* Ravel reads as a printed document that happens to be interactive.
+ * The register is considered, print-like and unhurried, and the reader is an
+ * auditor rather than a shopper. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: var(--body-regular-size);
+  line-height: var(--body-regular-line);
+  font-weight: var(--weight-text);
+  /* No document scrolls sideways. A wide table scrolls inside its own
+     container instead. */
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--selection); color: var(--ink); }
+
+/* ------------------------------------------------- the scale, applied once */
+
+h1, .t-h1 { font-size: var(--h1-size); line-height: var(--h1-line); font-weight: var(--weight-display); }
+h2, .t-h2 { font-size: var(--h2-size); line-height: var(--h2-line); font-weight: var(--weight-display); }
+h3, .t-h3 { font-size: var(--h3-size); line-height: var(--h3-line); font-weight: var(--weight-strong); }
+h4, .t-h4 { font-size: var(--h4-size); line-height: var(--h4-line); font-weight: var(--weight-strong); }
+h5, h6    { font-size: var(--body-big-size); line-height: var(--body-big-line); font-weight: var(--weight-strong); }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-serif);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+p, li, dd, dt, td, th, figcaption, label, input, textarea, select, button, a {
+  /* No element ships without a line height set. */
+  line-height: var(--body-regular-line);
+}
+
+p { margin: 0 0 var(--space-4); max-width: var(--measure); }
+
+.t-body-big { font-size: var(--body-big-size); line-height: var(--body-big-line); }
+.t-body { font-size: var(--body-regular-size); line-height: var(--body-regular-line); }
+.t-small { font-size: var(--body-small-size); line-height: var(--body-small-line); }
+
+.t-eyebrow {
+  font-family: var(--font-grotesk);
+  font-size: var(--eyebrow-size);
+  line-height: var(--eyebrow-line);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+  display: block;
+}
+
+/* The grotesk is reserved for labels, table headers and the top bar. */
+.t-label {
+  font-family: var(--font-grotesk);
+  font-size: var(--eyebrow-size);
+  line-height: var(--eyebrow-line);
+  letter-spacing: 0.04em;
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+}
+
+/* The monospace is reserved for identifiers and for figures compared down a
+   column. It carries tabular figures and a slashed zero, because a certificate
+   number is read aloud over a telephone during an incident. */
+.t-mono, code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: var(--body-small-size);
+  line-height: var(--body-small-line);
+}
+
+.t-figure {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: var(--body-regular-size);
+  line-height: var(--body-regular-line);
+}
+
+.t-muted { color: var(--muted); }
+
+small { font-size: var(--body-small-size); line-height: var(--body-small-line); }
+
+/* ------------------------------------------------------------------ links */
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  /* Every transition is declared per property. `transition: all` appears on no
+     element in this stylesheet, and neither does any other blanket transition. */
+  transition: color var(--duration-quick) var(--ease),
+              text-decoration-color var(--duration-quick) var(--ease);
+}
+
+/* A hover treatment is applied only where a pointer is present, so a hover
+   state never fires on a touch and sticks. */
+@media (hover: hover) and (pointer: fine) {
+  a:hover { text-decoration-color: var(--muted); }
+  button:hover, .button:hover { background-color: var(--wash-strong); }
+  .button-primary:hover { background-color: color-mix(in srgb, var(--ink) 88%, var(--ground)); }
+}
+
+/* The focus state is visible and is not the hover treatment. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-small);
+}
+
+/* ------------------------------------------------------------- the shell */
+
+.page { max-width: var(--page-max); margin: 0 auto; padding: 0 var(--space-4); }
+.page-wide { max-width: 96rem; margin: 0 auto; padding: 0 var(--space-4); }
+@media (min-width: 48rem) { .page, .page-wide { padding: 0 var(--space-6); } }
+
+.stack > * + * { margin-top: var(--space-4); }
+.stack-tight > * + * { margin-top: var(--space-2); }
+.stack-loose > * + * { margin-top: var(--space-6); }
+
+.prose { max-width: var(--measure); }
+.prose-wide { max-width: var(--measure-wide); }
+
+.rule { border: 0; border-top: 1px solid var(--rule); margin: var(--space-6) 0; }
+
+section { margin: 0 0 var(--space-8); }
+@media (min-width: 48rem) { section { margin-bottom: var(--space-9); } }
+
+/* ------------------------------------------------------------- the paper */
+
+.card {
+  background: var(--paper);
+  border-radius: var(--radius-medium);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-low);
+}
+
+.sheet {
+  background: var(--paper);
+  border-radius: var(--radius-large);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-low);
+}
+
+/* ------------------------------------------------------------- controls */
+
+button, .button {
+  font-family: var(--font-grotesk);
+  font-size: var(--body-small-size);
+  line-height: var(--body-small-line);
+  font-weight: var(--weight-strong);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-medium);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  min-height: 2.75rem;
+  transition: background-color var(--duration-quick) var(--ease),
+              border-color var(--duration-quick) var(--ease),
+              color var(--duration-quick) var(--ease);
+}
+
+/* Every interactive element has a hover state, a focus state and an active
+   state, and a primary call to action that does not respond to a pointer reads
+   as decoration. */
+button:active, .button:active { transform: translateY(1px); }
+
+.button-primary {
+  background: var(--ink);
+  color: var(--ground);
+  border-color: var(--ink);
+}
+
+button[disabled], .button[disabled], button[aria-disabled='true'] {
+  color: var(--muted);
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+input, select, textarea {
+  font-family: var(--font-serif);
+  font-size: var(--body-regular-size);
+  line-height: var(--body-regular-line);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-medium);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  min-height: 2.75rem;
+  transition: border-color var(--duration-quick) var(--ease);
+}
+
+label { display: block; }
+
+/* An icon-only control carries a label for a reader who cannot see the icon. */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(-1 * var(--space-9));
+  background: var(--paper);
+  padding: var(--space-3) var(--space-4);
+  z-index: var(--z-top);
+  border-radius: var(--radius-medium);
+  transition: top var(--duration-quick) var(--ease);
+}
+.skip-link:focus { top: var(--space-4); }
+
+/* --------------------------------------------------------------- tables */
+
+table { border-collapse: collapse; width: 100%; }
+
+th {
+  font-family: var(--font-grotesk);
+  font-size: var(--eyebrow-size);
+  line-height: var(--eyebrow-line);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+  text-align: left;
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--rule-strong);
+  vertical-align: bottom;
+}
+
+td {
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--body-small-size);
+  line-height: var(--body-small-line);
+  vertical-align: top;
+}
+
+th:first-child, td:first-child { padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+
+/* A figure that aligns down a column is monospaced and set to the right. */
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums slashed-zero; }
+th.num { font-family: var(--font-grotesk); }
+
+/* A wide table scrolls inside its own container; the document never does.
+   The container stays inside its parent's box: a negative margin wider than the
+   parent's padding is exactly how a document ends up scrolling sideways. */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  /* The twenty-four-pixel fade at the edge of scrolling content. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  padding: 0 24px;
+}
+
+/* --------------------------------------------------------------- motion */
+
+/* The reveal is one component with one distance and one duration: a heading
+   resolves from a blur and an opacity together as the reader arrives, and it is
+   readable before the resolve finishes. */
+.reveal {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(8px);
+  transition: opacity var(--duration-considered) var(--ease),
+              filter var(--duration-considered) var(--ease),
+              transform var(--duration-considered) var(--ease);
+}
+.reveal[data-revealed='true'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+/* The button arrow that translates once on press is the one piece of
+   decorative motion that stays. Nothing loops: no marquee, no perpetual
+   rotation, no animation without a stated end. */
+.button .arrow { transition: transform var(--duration-quick) var(--ease); }
+.button:active .arrow { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  /* Under a reduced motion preference the reveal resolves immediately with
+     nothing left blurred or transparent. */
+  .reveal {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Under a forced-colours preference every state that a colour carried is still
+   carried by its word, and the rules that separate things stay visible. */
+@media (forced-colors: active) {
+  .card, .sheet, .state-word { border: 1px solid CanvasText; }
+  :focus-visible { outline: 3px solid Highlight; }
+}
+
+/* ---------------------------------------------------------------- print */
+
+@media print {
+  /* Print drops the warmth out of the ground rather than introducing a ninth
+     value: the roles are mixed toward nothing, which is still the role. */
+  :root {
+    --ground: color-mix(in srgb, var(--paper) 0%, transparent);
+    --paper: color-mix(in srgb, var(--paper) 0%, transparent);
+  }
+  body { background: transparent; font-size: 11pt; line-height: 1.45; }
+  .top-bar, .site-footer, .no-print, button, .button { display: none !important; }
+  .card, .sheet { box-shadow: none; border: 1px solid var(--rule-strong); }
+  a { text-decoration: none; }
+  h1, h2, h3, h4 { break-after: avoid; }
+  /* The permitted statement never breaks across a page. */
+  .statement, .permitted-statement, .prohibited-statement { break-inside: avoid; }
+  table { break-inside: auto; }
+  tr { break-inside: avoid; }
+  @page { margin: 18mm; }
+}

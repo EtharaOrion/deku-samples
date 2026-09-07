@@ -1,0 +1,83 @@
+---
+import Shell from '../components/Shell.astro';
+import { apiGet, pageCustomer, pageCart } from '../lib/server-fetch.js';
+import { redirectWithCookies, sessionCookie } from '../lib/guard.js';
+
+const next = Astro.url.searchParams.get('next') || '/account';
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+let error = null;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim();
+  const password = String(form.get('password') ?? '');
+  const target = String(form.get('next') ?? '/account');
+
+  const res = await apiGet('/api/auth/login', Astro, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (res.ok) {
+    // Returns to the intended path after signing in. The token rides in an
+    // HttpOnly cookie set on the redirect itself, so it survives the hop.
+    const safe = target.startsWith('/') && !target.startsWith('//') ? target : '/account';
+    return redirectWithCookies(safe, [sessionCookie(res.body.access_token)]);
+  }
+  error = res.body?.message || 'That email and password do not match.';
+}
+---
+
+<Shell title="Sign in — Vela" current="" customer={customer} cartCount={cart?.item_count ?? 0}>
+  <div class="page-head">
+    <h1 class="page-title">Sign in</h1>
+  </div>
+
+  <div class="auth">
+    <form class="panel" method="POST">
+      {
+        error && (
+          <div class="notice notice--error" role="alert">
+            <span class="notice__body">{error}</span>
+          </div>
+        )
+      }
+
+      <input type="hidden" name="next" value={next} />
+
+      <label class="field">
+        <span class="field__label">Email</span>
+        <input class="input" type="email" name="email" value={email} required autocomplete="email" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Password</span>
+        <input
+          class="input"
+          type="password"
+          name="password"
+          required
+          autocomplete="current-password"
+        />
+      </label>
+
+      <button class="btn" type="submit">Sign in</button>
+
+      <p class="small muted auth__alt">
+        No account yet? <a href="/sign-up">Create one</a>.
+      </p>
+    </form>
+  </div>
+</Shell>
+
+<style>
+  .auth {
+    max-width: 26rem;
+  }
+  .auth__alt {
+    margin: calc(var(--unit) * 4) 0 0;
+  }
+</style>

@@ -1,0 +1,137 @@
+{% import "_marks.html" as marks %}<!doctype html>
+<html lang="en" class="{% if route == 'entry' %}route-entry{% endif %}"
+      x-data="siteChrome()" x-init="init()">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ share_image }}">
+<meta name="twitter:card" content="summary_large_image">
+{% block head_extra %}{% endblock %}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" as="style" href="{{ url_for('static', filename='css/site.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+<style>:root { --grain-url: url("{{ url_for('site.grain') }}"); }</style>
+<script defer src="{{ url_for('static', filename='js/site.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/alpine.min.js') }}"></script>
+</head>
+<body class="{% if route == 'entry' %}entry{% endif %}"
+      data-route="{{ route }}"
+      data-house="{{ house.slug if house else '' }}">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# ------------------------------------------------------------------
+   The persistent tree. It mounts once, before the route renders, and
+   survives every navigation. It is never a child of the route outlet.
+   ------------------------------------------------------------------ #}
+<div class="frame" id="site-frame">
+  <a class="wordmark no-cursor-square" href="/" aria-label="Cirrus, home"
+     >{{ (house.name if house else 'cirrus') | lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-centre">
+      <a href="/works" data-nav="works" data-split
+         {% if route == 'works' %}aria-current="page"{% endif %}>WORKS</a>
+    </div>
+    <div class="nav-right">
+      <a href="/talents" data-nav="talents" data-split
+         {% if route == 'talents' %}aria-current="page"{% endif %}>TALENTS</a>
+      {# CONTACT is not a route: no active state, never marked by the current
+         route, and it does not participate in the route transition. #}
+      <a href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         data-contact data-split
+         @click="maybeOverlay($event)">CONTACT</a>
+      <a href="/about" data-nav="about" data-split
+         {% if route == 'about' %}aria-current="page"{% endif %}>ABOUT</a>
+    </div>
+  </nav>
+
+  <div class="centre-mark" id="centre-mark"
+       style="left: {{ marks.mark_offset(centre_mark) | trim }}px;">
+    {{ marks.centre_mark(centre_mark) }}
+  </div>
+
+  <a class="corner-credit no-cursor-square" href="https://example.com/aube"
+     target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    {{ marks.credit_mark() }}
+    <span class="credit-arrows" aria-hidden="true">
+      <span class="credit-arrow-rest">{{ marks.arrow() }}</span>
+      <span class="credit-arrow-arrived">{{ marks.arrow() }}</span>
+    </span>
+  </a>
+</div>
+
+{# The cursor pair at depth 50, above the transition veil. #}
+<div class="cursor-pair" id="cursor-pair" aria-hidden="true">
+  <span class="cursor-square"></span>
+  <span class="cursor-label" id="cursor-label"></span>
+</div>
+
+{# The contact overlay: the narrow-width surface behind CONTACT. #}
+<div class="contact-overlay" id="contact-overlay" role="dialog" aria-modal="true"
+     aria-label="Contact" x-ref="contactOverlay">
+  <button class="contact-close" type="button" @click="closeContact()">CLOSE</button>
+  <div>
+    <p class="contact-item">WORK WITH US</p>
+    <p class="contact-item" style="margin-top:12px">
+      <a href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         aria-label="{{ (house.contact_email if house else 'prod@example.com') | upper }}"
+         >{{ (house.contact_email if house else 'prod@example.com') | upper }}</a>
+    </p>
+  </div>
+</div>
+
+{# Route-scoped chrome (the entry veil and counter, the preview marker). It
+   sits outside the well because it is not route content, but it is swapped
+   with the route because it belongs to it. #}
+<div id="route-chrome">{% block chrome_extra %}{% endblock %}</div>
+
+{# ------------------------------------------------------------------
+   The route tree. It swaps beneath the frame and carries the transition
+   state class.
+   ------------------------------------------------------------------ #}
+<main class="well" id="content" tabindex="-1">
+  {% block content %}{% endblock %}
+</main>
+
+<div id="route-footer">{% block footer %}
+<footer class="site-footer" id="site-footer">
+  <div class="footer-scrim" aria-hidden="true"></div>
+  <div class="footer-cols">
+    <div class="footer-premises">
+      <div>
+        <p class="footer-label">{{ house.street if house else '9 PASSAGE BELLEVUE' }}</p>
+        <p class="footer-label">{{ house.city if house else 'PARIS' }}</p>
+      </div>
+      <div><p class="footer-label">{{ house.district if house else '11' }}</p></div>
+    </div>
+    <div>
+      <p class="footer-label">{{ house.tagline_upper if house else 'FOR PICTURE' }}</p>
+      <p class="footer-label">{{ house.tagline_lower if house else 'AND ITS MAKERS' }}</p>
+    </div>
+    <div>
+      <p class="footer-label">WORK WITH US</p>
+      <p class="footer-label">
+        <a href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+           aria-label="{{ (house.contact_email if house else 'prod@example.com') | upper }}"
+           data-split>{{ (house.contact_email if house else 'prod@example.com') | upper }}</a>
+      </p>
+    </div>
+    <div class="footer-right">
+      <p class="footer-label"><a href="https://instagram.com" target="_blank"
+         rel="noopener noreferrer">INSTAGRAM</a></p>
+      <p class="footer-label"><a href="https://linkedin.com" target="_blank"
+         rel="noopener noreferrer">LINKEDIN</a></p>
+    </div>
+  </div>
+</footer>
+{% endblock %}</div>
+
+<div id="route-scripts">{% block scripts %}{% endblock %}</div>
+</body>
+</html>

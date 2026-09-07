@@ -1,0 +1,16 @@
+---
+import { cartFromCookies, formValues, redirect, setFlash } from '../../lib/actions.js';
+import { updateLine } from '../../../server/services/cart.js';
+
+if (Astro.request.method !== 'POST') return redirect('/cart');
+const body = await formValues(Astro.request);
+const cart = await cartFromCookies(Astro.cookies, { create: false });
+if (cart) {
+  try {
+    await updateLine(cart, body.line_id, Number.parseInt(body.quantity || '1', 10));
+  } catch (err) {
+    setFlash(Astro.cookies, { tone: 'wrong', message: err.message || 'That did not work.' });
+  }
+}
+return redirect('/cart');
+---

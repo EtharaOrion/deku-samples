@@ -1,0 +1,43 @@
+{# The media tile: one component with a width variant, not three components.
+   Space is reserved from the stored intrinsic size before pixels arrive, and
+   the placeholder clears on decode or on failure. #}
+{% macro tile(media, variant='left', title='', href=None, ordinal=None, reel=None, nocursor=False) -%}
+{% if media %}
+<div class="tile tile-{{ variant }}" data-tile data-reveal
+     style="--tile-w:{{ media.width }};--tile-h:{{ media.height }};--tile-ratio:{{ '%.4f' % (media.width / media.height) }}">
+  <div class="tile-frame" style="aspect-ratio:{{ media.width }} / {{ media.height }}">
+    <div class="tile-placeholder" data-placeholder aria-hidden="true"></div>
+    <img class="tile-img" src="{{ media.url }}" alt="{{ media.alt }}"
+         width="{{ media.width }}" height="{{ media.height }}" decoding="async"
+         loading="lazy" data-still>
+    {% if reel %}
+    <canvas class="tile-reel" data-reel data-seed-url="{{ reel.url }}"
+            data-reel-w="{{ reel.width }}" data-reel-h="{{ reel.height }}"
+            aria-hidden="true"></canvas>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{# The caption row: a 4px square, 8px, the ordinal at the left edge, and the
+   title flush with the still's right edge. #}
+{% macro caption(ordinal, title) -%}
+<div class="caption-row">
+  <span class="caption-square" aria-hidden="true"></span>
+  <span class="caption-ordinal">{{ ordinal }}</span>
+  <span class="caption-title">{{ title }}</span>
+</div>
+{%- endmacro %}
+
+{# One work index entry: the tile, its caption, and the colour return. #}
+{% macro entry(work) -%}
+<article class="entry entry-{{ work.variant }}" data-entry>
+  <a class="entry-link" href="/works/{{ work.slug }}"
+     data-cursor-label="{{ work.title }}"
+     aria-label="{{ work.title }}, work {{ work.ordinal }}">
+    {{ tile(work.poster, work.variant, work.title) }}
+    {{ caption(work.ordinal, work.title) }}
+  </a>
+</article>
+{%- endmacro %}

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-route="{{ route }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title|default('Cirrus') }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title|default('Cirrus') }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ public_url }}/static/share.svg">
+<meta name="twitter:card" content="summary_large_image">
+{% if route in ('preview', 'notfound', 'studio', 'signup') %}<meta name="robots" content="noindex">{% endif %}
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060403'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/cirrus.css">
+</head>
+<body class="route-{{ route }}{% if route in ('home','talents','preview') %} noscroll{% endif %}"
+      x-data="site()" x-init="boot()"
+      :class="{ 'is-transitioning': transitioning, 'scrolling': scrolling }">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# ------------------------------------------------ the persistent fixed frame #}
+<div class="frame" id="frame" aria-hidden="false">
+  <a class="wordmark no-cursor" href="/" data-nav aria-label="Cirrus, home">{{ house.name|lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-link nav-works" href="/works" data-nav data-route-name="works"
+       :class="{ 'is-current': route === 'works' }" aria-label="Works">
+      {{ 'WORKS'|split_chars|safe }}
+    </a>
+    <div class="nav-right">
+      <a class="nav-link" href="/talents" data-nav data-route-name="talents"
+         :class="{ 'is-current': route === 'talents' }" aria-label="Talents">
+        {{ 'TALENTS'|split_chars|safe }}
+      </a>
+      <a class="nav-link nav-contact" href="mailto:{{ house.contact_email }}"
+         @click="if (narrow) { $event.preventDefault(); openContact($event.currentTarget) }"
+         aria-label="Contact">
+        {{ 'CONTACT'|split_chars|safe }}
+      </a>
+      <a class="nav-link" href="/about" data-nav data-route-name="about"
+         :class="{ 'is-current': route === 'about' }" aria-label="About">
+        {{ 'ABOUT'|split_chars|safe }}
+      </a>
+    </div>
+  </nav>
+
+  <div class="centre-mark" id="centre-mark" aria-hidden="true">{% include "_marks.html" %}</div>
+
+  <a class="corner-credit" id="corner-credit" href="https://example.org/aube" target="_blank"
+     rel="noopener noreferrer" aria-label="Site by Aube, opens in a new tab">
+    <svg viewBox="0 0 60 16" width="60" height="16" aria-hidden="true" focusable="false">
+      <path d="M2 14 L7 2 L12 14" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M4 10 H10" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M17 2 V14 H22 A3 3 0 0 0 22 8 H17" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M31 2 V10 A4 4 0 0 0 39 10 V2 M44 2 H52 M44 8 H50 M44 14 H52" fill="none"
+            stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="arrow arrow-rest" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2 1 H6 V5" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+      <svg class="arrow arrow-arrived" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2 1 H6 V5" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+    </span>
+  </a>
+
+  {# the counter well: the entry route's progress, the roster's position, the preview's wait #}
+  <div class="counter-well" id="counter-well" x-show="counterVisible" x-cloak
+       aria-live="polite">
+    <span class="counter-value" x-text="counterText"
+          :style="`transform: translateX(${counterShift}px)`"></span>
+  </div>
+
+  {# the cursor pair, depth 50, above the transition veil #}
+  <div class="cursor-pair" id="cursor-pair" aria-hidden="true" x-ref="cursorPair">
+    <span class="cursor-square" x-ref="cursorSquare"></span>
+    <span class="cursor-label" x-ref="cursorLabel"></span>
+  </div>
+</div>
+
+{# ------------------------------------------------ the footer, persistent, arrives on scroll #}
+<footer class="site-footer" id="site-footer" :class="{ 'is-arrived': footerArrived }"
+        x-show="footerEnabled" x-cloak>
+  <div class="footer-scrim" aria-hidden="true"></div>
+  <div class="footer-grid">
+    <div class="footer-col footer-premises">
+      <span>{{ house.street }}</span><span>{{ house.city }}</span>
+    </div>
+    <div class="footer-col footer-district"><span>{{ house.district }}</span></div>
+    <div class="footer-col">
+      <span>{{ house.tagline_upper }}</span><span>{{ house.tagline_lower }}</span>
+    </div>
+    <div class="footer-col">
+      <span>WORK WITH US</span>
+      <a href="mailto:{{ house.contact_email }}" aria-label="{{ house.contact_email|upper }}"
+         class="footer-mail">{{ house.contact_email|upper|split_chars|safe }}</a>
+    </div>
+    <div class="footer-col footer-social">
+      <span>INSTAGRAM</span><span>LINKEDIN</span>
+    </div>
+  </div>
+</footer>
+
+{# ------------------------------------------------ the contact overlay #}
+<div class="contact-overlay" id="contact-overlay" x-show="contactOpen" x-cloak
+     :class="{ 'is-open': contactOpen }" @keydown.escape="closeContact()"
+     role="dialog" aria-modal="true" aria-label="Contact Cirrus" x-ref="contactOverlay">
+  <button type="button" class="contact-close" @click="closeContact()">CLOSE</button>
+  <div class="contact-items">
+    <a class="contact-mail" href="mailto:{{ house.contact_email }}"
+       aria-label="{{ house.contact_email|upper }}">{{ house.contact_email|upper }}</a>
+  </div>
+</div>
+
+{# ------------------------------------------------ the route well #}
+<div class="veil" id="veil" x-show="veilVisible" x-cloak aria-hidden="true"></div>
+
+<main class="well" id="content" data-well tabindex="-1">
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+  window.CIRRUS = { token: {{ (session_token or '')|tojson }}, route: {{ route|tojson }} };
+</script>
+<script src="/static/alpine-store.js"></script>
+<script defer src="/static/alpine.min.js"></script>
+<script src="/static/cirrus.js"></script>
+</body>
+</html>

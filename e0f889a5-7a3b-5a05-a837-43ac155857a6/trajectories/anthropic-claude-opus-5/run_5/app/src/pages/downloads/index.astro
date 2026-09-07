@@ -1,0 +1,16 @@
+---
+import DownloadsPage from '../../components/DownloadsPage.astro';
+import { safeGet, currentCustomer, readCartForPage } from '../../lib/api.js';
+
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+const releasesRes = await safeGet(Astro.request, '/api/releases?page_size=100', { data: [] });
+const firmwareRes = await safeGet(Astro.request, '/api/firmware/manifest?model=compact', { entries: [] });
+---
+
+<DownloadsPage
+  releases={releasesRes.data?.data ?? []}
+  firmware={firmwareRes.data}
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+/>

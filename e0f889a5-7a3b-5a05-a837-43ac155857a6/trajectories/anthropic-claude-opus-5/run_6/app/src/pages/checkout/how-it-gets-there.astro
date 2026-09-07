@@ -1,0 +1,131 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { cartFromCookies, formValues, redirect } from '../../lib/actions.js';
+import { readCart, setDelivery } from '../../../server/services/cart.js';
+import { formatMinor } from '../../lib/format.js';
+
+const cart = await cartFromCookies(Astro.cookies);
+let problem = null;
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  try {
+    if (!body.shipping_method) throw new Error('Delivery method is required.');
+    await setDelivery(cart, { shipping_method: body.shipping_method });
+    return redirect('/checkout/payment');
+  } catch (err) {
+    problem = err.message || 'That did not work.';
+  }
+}
+
+const fresh = await cartFromCookies(Astro.cookies);
+const view = await readCart(fresh);
+if (!view.lines.length) return redirect('/cart');
+if (!view.email || !view.shipping_address) return redirect('/checkout/where-it-goes');
+---
+
+<Shell title="How it gets there">
+  <nav aria-label="Checkout steps" class="steps">
+    <ol>
+      <li><span class="mono">1</span> <a href="/checkout/where-it-goes">Where it goes</a></li>
+      <li aria-current="step"><span class="mono">2</span> How it gets there</li>
+      <li><span class="mono">3</span> Payment</li>
+    </ol>
+  </nav>
+
+  <h1 class="page-title">How it gets there</h1>
+  <p class="page-lede">
+    To {view.shipping_address.name}, {view.shipping_address.city}, {view.shipping_address.region}
+    {' '}<a href="/checkout/where-it-goes">Change</a>
+  </p>
+
+  <div class="checkout-layout">
+    <form method="post" class="stack">
+      {problem ? <p class="notice wrong" role="alert">{problem}</p> : null}
+
+      <fieldset class="methods">
+        <legend class="rail-label">Delivery method</legend>
+        {
+          view.delivery_methods.map((m) => (
+            <label class="method">
+              <input
+                type="radio"
+                name="shipping_method"
+                value={m.code}
+                checked={view.shipping_method === m.code}
+                required
+              />
+              <span class="method-body">
+                <strong>{m.title}</strong>
+                <span class="hint">{m.window_label}</span>
+              </span>
+              <span class="tnum">{formatMinor(m.price_minor)}</span>
+            </label>
+          ))
+        }
+      </fieldset>
+
+      <div class="row">
+        <button class="btn" type="submit">Continue to payment</button>
+        <a href="/checkout/where-it-goes">Back</a>
+      </div>
+    </form>
+
+    <CheckoutSummary view={view} step={2} />
+  </div>
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  .steps ol {
+    display: flex;
+    gap: calc(var(--unit) * 6);
+    list-style: none;
+    margin: 0 0 calc(var(--unit) * 6);
+    padding: 0;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--ink-quiet);
+    flex-wrap: wrap;
+  }
+  .steps li[aria-current='step'] {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .methods {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: calc(var(--unit) * 3);
+  }
+  .method {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 3);
+    border: var(--border-w) solid var(--rule);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 3);
+    cursor: pointer;
+  }
+  .method input {
+    width: auto;
+    min-height: 0;
+  }
+  .method-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

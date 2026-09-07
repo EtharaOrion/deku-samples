@@ -1,0 +1,183 @@
+---
+// The film of the workshop table. It is scenery and never information: inert,
+// unfocusable, hidden from assistive technology, and dragging on it scrolls the
+// page. Layers, lowest first:
+//   1 the stage           the film itself
+//   2 the still frame     dissolves away once there is enough footage to play
+//   3 the speckle         so a large dark gradient cannot band
+//   4 the darkening panel drawn from the bottom upward by scroll
+//   5 the flat panel      removes the film once the darkening is complete
+// The writing sits above all of it and the fixed wordmark above that. Those
+// layers are the whole stacking system for the page.
+---
+<div class="stage" data-stage aria-hidden="true">
+  <video
+    class="film"
+    data-film
+    muted
+    loop
+    playsinline
+    preload="none"
+    tabindex="-1"
+    disablepictureinpicture
+  ></video>
+
+  <!-- The still frame is a generated gradient keyed to the letter's own
+       colours, so nothing is fetched and there is no third-party asset. -->
+  <div class="still" data-still></div>
+
+  <!-- A very faint animated speckle above the picture. -->
+  <div class="speckle" data-speckle></div>
+
+  <!-- Darkens the whole stage from the bottom upward, in exact proportion to
+       scroll. Never removed under reduced motion. -->
+  <div class="darken" data-darken></div>
+
+  <!-- When the darkening is fully drawn this removes the film entirely, so the
+       footer begins against true ground rather than a dimmed picture. -->
+  <div class="flat" data-flat></div>
+</div>
+
+<style>
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    /* Flat ground if every rung below fails. */
+    background: var(--bg);
+    /* Dragging on it scrolls the page. */
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .film, .still, .speckle, .darken, .flat {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .film {
+    object-fit: cover;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity var(--speed) var(--ease);
+  }
+  .film.playing { opacity: 1; }
+
+  /* Layer 2. Sits above the film until there is enough footage to play. */
+  .still {
+    z-index: 2;
+    background:
+      radial-gradient(120% 90% at 22% 18%, hsl(36 34% 30% / 0.95), transparent 60%),
+      radial-gradient(90% 70% at 82% 72%, hsl(20 40% 22% / 0.9), transparent 62%),
+      linear-gradient(168deg, hsl(30 22% 20%), hsl(28 26% 12%) 58%, hsl(26 22% 8%));
+    transition: opacity 240ms var(--ease);
+  }
+  .still.gone { opacity: 0; }
+
+  /* Layer 3. A very faint speckle so a large dark gradient cannot band. */
+  .speckle {
+    z-index: 3;
+    opacity: 0.055;
+    mix-blend-mode: overlay;
+    background-image: var(--speckle-image);
+    background-size: 180px 180px;
+    animation: speckle-shift 1200ms steps(4, end) infinite;
+  }
+  @keyframes speckle-shift {
+    0%   { background-position: 0 0; }
+    25%  { background-position: -18px 12px; }
+    50%  { background-position: 14px -16px; }
+    75%  { background-position: -9px -7px; }
+    100% { background-position: 0 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .speckle { animation: none; }
+  }
+
+  /* Layer 4. A pure function of scroll: stopping halfway leaves it halfway and
+     scrolling back up lifts it in exact proportion. Never a timed fade. */
+  .darken {
+    z-index: 4;
+    background: linear-gradient(to top, hsl(28 10% 7%) 0%, hsl(28 10% 7% / 0.86) 42%, hsl(28 10% 7% / 0) 100%);
+    transform: translateY(calc((1 - var(--darken, 0)) * 100%));
+  }
+
+  /* Layer 5. Removes the film once the darkening is complete. */
+  .flat {
+    z-index: 5;
+    background: hsl(28 10% 9%);
+    opacity: var(--flat, 0);
+  }
+</style>
+
+<script>
+  // The still frame is drawn from the letter's own colours rather than fetched,
+  // so the lowest rung needs no network at all.
+  const stage = document.querySelector('[data-stage]');
+  const film = document.querySelector('[data-film]');
+  const still = document.querySelector('[data-still]');
+  const speckle = document.querySelector('[data-speckle]');
+
+  if (speckle) {
+    const dots = [];
+    for (let i = 0; i < 40; i += 1) {
+      const x = Math.round(Math.random() * 180);
+      const y = Math.round(Math.random() * 180);
+      dots.push(`<circle cx="${x}" cy="${y}" r="${(Math.random() * 0.9 + 0.3).toFixed(2)}" fill="#fff"/>`);
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180">${dots.join('')}</svg>`;
+    speckle.style.setProperty('--speckle-image', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+  }
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const connection = navigator.connection || {};
+  const metered = Boolean(connection.saveData)
+    || ['slow-2g', '2g', '3g'].includes(connection.effectiveType);
+
+  // The film refuses to start at all under reduced motion or a metered
+  // connection: the still frame simply stays, and that is a complete rendering.
+  if (film && !reduced && !metered) {
+    let visible = true;
+
+    const canPlay = () => {
+      film.classList.add('playing');
+      if (still) still.classList.add('gone');
+    };
+
+    // It never starts before the still frame has painted, and never with sound.
+    film.addEventListener('canplaythrough', () => {
+      if (visible && !document.hidden) film.play().then(canPlay).catch(() => {});
+    }, { once: true });
+
+    film.addEventListener('error', () => {
+      // The still frame stays, which is a complete rendering of the page.
+      film.classList.remove('playing');
+      if (still) still.classList.remove('gone');
+    });
+
+    // Pauses when the document is hidden and when the stage leaves the viewport.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) film.pause();
+      else if (visible) film.play().catch(() => {});
+    });
+
+    if ('IntersectionObserver' in window && stage) {
+      new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          visible = entry.isIntersecting;
+          if (!visible) film.pause();
+          else if (!document.hidden) film.play().catch(() => {});
+        }
+      }, { threshold: 0 }).observe(stage);
+    }
+
+    // Generated in the browser from the same palette, so no asset is fetched
+    // and nothing is licensed from anyone.
+    import('../lib/film.js')
+      .then((m) => m.attachGeneratedFilm(film))
+      .catch(() => {});
+  }
+</script>

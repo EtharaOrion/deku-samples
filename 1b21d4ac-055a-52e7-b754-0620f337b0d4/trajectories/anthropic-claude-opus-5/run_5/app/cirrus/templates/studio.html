@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="palette" x-data='palette({{ items|tojson }})'>
+  <h1 class="visually-hidden">Studio</h1>
+
+  <label class="visually-hidden" for="palette-input">Filter this house's records by title or slug</label>
+  <input id="palette-input" class="palette-input" type="text" x-model="term"
+         placeholder="Type a name" autocomplete="off" x-ref="input">
+
+  <div class="palette-actions">
+    <a class="button t-default" href="/studio/talents/new">NEW TALENT</a>
+    <a class="button t-default" href="/studio/works/new">NEW WORK</a>
+    <button class="button t-default" type="button" @click="reorder()">REORDER INDEX</button>
+    <button class="button t-default" type="button" @click="preview()"
+            :disabled="!results.length">PREVIEW</button>
+    <button class="button t-default" type="button" @click="signOut()">SIGN OUT</button>
+  </div>
+
+  <p class="t-default" x-show="message" x-text="message" x-cloak role="status"
+     style="margin-bottom:24px"></p>
+
+  <div class="palette-grid">
+    <template x-for="item in results" :key="item.id">
+      <a class="card" :href="item.studio_href">
+        <span class="display d-caption display-title" x-text="item.title"></span>
+        <span class="t-default card-meta" x-text="item.slug"></span>
+        <span class="t-default card-meta" x-text="item.kind.toUpperCase()"></span>
+        <span class="t-default" x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+      </a>
+    </template>
+  </div>
+
+  <p class="t-default" x-show="results.length === 0" x-cloak>
+    NOTHING HERE MATCHES THAT.
+  </p>
+</section>
+{% endblock %}

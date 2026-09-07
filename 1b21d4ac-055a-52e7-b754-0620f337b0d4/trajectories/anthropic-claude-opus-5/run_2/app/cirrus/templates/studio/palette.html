@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% set hide_footer = True %}
+{% block route %}
+<section class="studio" x-data="palette()">
+  <header class="studio-head">
+    <h1 class="studio-title">Studio</h1>
+    <p class="studio-meta">{{ producer.email | upper }} — {{ producer.house_slug | upper }}
+      <button type="button" class="link-button" @click="signOut()">SIGN OUT</button></p>
+  </header>
+
+  {# The command palette is the producer's entry point and every journey
+     starts here: typing filters this house's own records by title and slug. #}
+  <div class="palette">
+    <label class="sr-only" for="palette-input">Filter records or choose an action</label>
+    <input class="palette-input" id="palette-input" type="text" x-model="q"
+           placeholder="TYPE A NAME, OR CHOOSE AN ACTION" autocomplete="off"
+           @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+           @keydown.enter.prevent="run()">
+
+    <ul class="palette-actions" role="list">
+      <li><a class="palette-action" href="/studio/talents/new" data-action>New talent</a></li>
+      <li><a class="palette-action" href="/studio/works/new" data-action>New work</a></li>
+      <li><button type="button" class="palette-action" @click="reorder = !reorder"
+                  :aria-expanded="reorder ? 'true' : 'false'">Reorder index</button></li>
+      <li><button type="button" class="palette-action" @click="previewSelected()">Preview</button></li>
+    </ul>
+
+    <p class="palette-error" x-show="error" x-text="error" role="alert" x-cloak></p>
+  </div>
+
+  {# Reorder the index: the published order a visitor's ordinals derive from. #}
+  <div class="reorder" x-show="reorder" x-cloak>
+    <h2 class="section-label">REORDER INDEX</h2>
+    <ol class="reorder-list">
+      <template x-for="(item, i) in works" :key="item.id">
+        <li class="reorder-item">
+          <span class="reorder-title" x-text="item.title"></span>
+          <span class="reorder-controls">
+            <button type="button" class="link-button" @click="shift(i, -1)" :disabled="i === 0"
+                    :aria-label="'Move ' + item.title + ' up'">UP</button>
+            <button type="button" class="link-button" @click="shift(i, 1)"
+                    :disabled="i === works.length - 1"
+                    :aria-label="'Move ' + item.title + ' down'">DOWN</button>
+          </span>
+        </li>
+      </template>
+    </ol>
+    <button type="button" class="button" @click="saveOrder()" x-text="busy ? 'SAVING...' : 'SAVE ORDER'">SAVE ORDER</button>
+  </div>
+
+  {# The record list: a card grid, one card per record, compact, published
+     beside unlisted. #}
+  <div class="cards" role="list">
+    <template x-for="item in filtered" :key="item.id">
+      <a class="card" role="listitem" :href="'/studio/items/' + item.id"
+         :aria-label="item.title + ', ' + item.kind + ', ' + (item.published ? 'live' : 'unlisted')">
+        <span class="card-title" x-text="item.title"></span>
+        <span class="card-slug" x-text="item.slug"></span>
+        <span class="card-foot">
+          <span class="card-kind" x-text="item.kind.toUpperCase()"></span>
+          <span class="card-state" x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+        </span>
+      </a>
+    </template>
+  </div>
+
+  <p class="empty-state" x-show="filtered.length === 0" x-cloak>No record matches that.</p>
+
+  <script type="application/json" id="studio-items">{{ items | tojson }}</script>
+</section>
+{% endblock %}

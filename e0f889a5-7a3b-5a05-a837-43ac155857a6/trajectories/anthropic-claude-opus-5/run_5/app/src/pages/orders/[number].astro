@@ -1,0 +1,67 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import OrderDetail from '../../components/OrderDetail.astro';
+import { safeGet, currentCustomer, readCartForPage } from '../../lib/api.js';
+
+const { number } = Astro.params;
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+
+// A visitor opens one order by its access token. The token is kept in a cookie
+// scoped to this order so a reload, or the address without its query, still
+// opens it, and so the token stops appearing in the address bar.
+const cookieName = `vela_order_${number.replace(/[^A-Za-z0-9]/g, '_')}`;
+const fromQuery = Astro.url.searchParams.get('access_token');
+const fromCookie = (() => {
+  const raw = Astro.request.headers.get('cookie') || '';
+  const m = new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`).exec(raw);
+  return m ? decodeURIComponent(m[1]) : null;
+})();
+const accessToken = fromQuery || fromCookie;
+
+if (fromQuery) {
+  Astro.response.headers.append(
+    'set-cookie',
+    `${cookieName}=${encodeURIComponent(fromQuery)}; Path=/orders/${number}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`,
+  );
+}
+
+const query = accessToken ? `?access_token=${encodeURIComponent(accessToken)}` : '';
+const res = await safeGet(Astro.request, `/api/orders/${encodeURIComponent(number)}${query}`);
+const order = res.data;
+---
+
+<Shell
+  title={order ? `Order ${order.number} — Vela` : 'Order — Vela'}
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+>
+  {!order ? (
+    <div class="empty-state">
+      <p>That order does not exist.</p>
+      <p style="margin-top:0.5rem">
+        An order opens from the link in its confirmation email, or from
+        <a href="/account/orders"> your order history</a>.
+      </p>
+    </div>
+  ) : (
+    <>
+      <header class="stack--tight" style="margin-bottom:1.5rem">
+        <h1 class="page-title">
+          Order <span class="mono">{order.number}</span> is confirmed.
+          We have emailed {order.email}.
+        </h1>
+        <p class="page-lede">
+          Keep this address. It opens the order without signing in.
+        </p>
+        <p style="margin-top:0.5rem">
+          <a class="button button--primary" href={customer ? '/account/orders' : '/downloads'}>
+            Keep track of this order
+          </a>
+        </p>
+      </header>
+
+      <OrderDetail order={order} showRegister={Boolean(customer)} />
+    </>
+  )}
+</Shell>

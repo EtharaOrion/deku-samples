@@ -1,0 +1,121 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import RegisterCamera from '../../../islands/RegisterCamera.jsx';
+import StateChip from '../../../components/StateChip.astro';
+import { currentCustomer, devices, signInRedirect, formatDateLong } from '../../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+let error = '';
+
+// The no-scripting path, and the one-click control on an order page.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    await devices.registerDevice(customer.id, String(form.get('serial') || ''));
+    return Astro.redirect('/account/cameras', 303);
+  } catch (err) {
+    error = err?.message || 'That did not work.';
+  }
+}
+
+let list = { data: [] };
+let failed = false;
+try {
+  list = await devices.listCustomerDevices(customer.id, { pageSize: 100 });
+} catch {
+  failed = true;
+}
+---
+<Shell title="Cameras — Vela" current="cameras" description="The cameras registered to your account.">
+  <h1 class="page-title">Cameras</h1>
+  <p class="page-lede">
+    A camera is a record in its own right. Registering one links it to this account; releasing it
+    ends that link and gives it to nobody.
+  </p>
+
+  {error && <p class="notice notice-wrong" role="alert" style="margin-top:16px;">{error}</p>}
+
+  <!-- Registration happens in place at the top of the grid. -->
+  <div class="register-mount">
+    <RegisterCamera client:load />
+    <noscript>
+      <form method="post" class="register-row card">
+        <div class="register-field">
+          <label class="field-label" for="serial-noscript">Register a camera</label>
+          <input class="input mono" id="serial-noscript" name="serial" type="text" placeholder="VA2609KTMHX4" />
+        </div>
+        <button class="button" type="submit">Register</button>
+      </form>
+    </noscript>
+  </div>
+
+  {failed ? (
+    <div class="notice notice-wrong" role="alert" style="margin-top:24px;">
+      <strong>The camera list did not load.</strong> Reload the page to try again.
+    </div>
+  ) : list.data.length === 0 ? (
+    <div class="empty" style="margin-top:24px;">
+      <p>No cameras registered yet.</p>
+      <p>Register one above, using the serial from the underside of the camera.</p>
+    </div>
+  ) : (
+    <div class="grid grid-dense camera-grid">
+      {list.data.map((device) => (
+        <article class="card camera-card">
+          <h2 class="camera-model">
+            <a href={`/account/cameras/${device.serial}`}>{device.model}</a>
+          </h2>
+          {device.nickname && <p class="camera-nickname">{device.nickname}</p>}
+          <p class="camera-serial mono">{device.serial}</p>
+          <p class="camera-chips">
+            <StateChip
+              state={device.firmware_state}
+              label={
+                device.firmware_state === 'update_available' ? 'Update available'
+                : device.firmware_state === 'not_connected' ? 'Not yet connected'
+                : `Firmware ${device.firmware_version}`
+              }
+            />
+            {/* An expired warranty is a neutral state, never a warning. */}
+            <StateChip
+              state={device.warranty_state}
+              label={
+                device.warranty_state === 'active' ? `Under warranty until ${formatDateLong(device.warranty_until)}`
+                : device.warranty_state === 'expired' ? `Warranty ended ${formatDateLong(device.warranty_until)}`
+                : 'No warranty on record'
+              }
+            />
+          </p>
+        </article>
+      ))}
+    </div>
+  )}
+</Shell>
+
+<style>
+  .register-mount { margin: calc(var(--unit) * 6) 0; max-width: 44rem; }
+  .register-mount :global(.register-row) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: calc(var(--unit) * 4);
+    align-items: end;
+  }
+  .register-mount :global(.register-field) { min-width: 0; }
+  .register-mount :global(.register-field .field-hint) { min-height: 18px; }
+  .register-mount :global(.register-message) {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 14px;
+    min-height: 20px;
+  }
+  .register-mount :global(.register-wrong) { color: var(--state-wrong); }
+  .register-mount :global(.register-done) { color: var(--state-done); }
+  .camera-grid { margin-top: calc(var(--unit) * 6); }
+  .camera-model { font-size: 17px; margin: 0; }
+  .camera-model a { text-decoration: none; }
+  .camera-nickname { margin: var(--unit) 0 0; font-size: 14px; color: var(--ink-quiet); }
+  .camera-serial { margin: calc(var(--unit) * 2) 0; font-size: 14px; }
+  .camera-chips { display: flex; gap: var(--unit); flex-wrap: wrap; margin: 0; }
+</style>

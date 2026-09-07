@@ -1,0 +1,59 @@
+---
+// Checkout is three steps and each is a real route with its own address, so the
+// back control works.
+const { current } = Astro.props;
+const steps = [
+  { key: 'where', href: '/checkout/where-it-goes', label: 'Where it goes' },
+  { key: 'how', href: '/checkout/how-it-gets-there', label: 'How it gets there' },
+  { key: 'payment', href: '/checkout/payment', label: 'Payment' },
+];
+const index = steps.findIndex((s) => s.key === current);
+---
+<nav aria-label="Checkout steps">
+  <ol class="steps">
+    {steps.map((step, i) => (
+      <li class:list={['step', { current: step.key === current, done: i < index }]}>
+        {i < index ? (
+          <a href={step.href} aria-current={undefined}>
+            <span class="n tnum">{i + 1}</span>
+            <span>{step.label}</span>
+          </a>
+        ) : (
+          <span aria-current={step.key === current ? 'step' : undefined}>
+            <span class="n tnum">{i + 1}</span>
+            <span>{step.label}</span>
+          </span>
+        )}
+      </li>
+    ))}
+  </ol>
+</nav>
+
+<style>
+  .steps {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--space) * 4);
+    font-size: 14px;
+    border-bottom: var(--border-w) solid var(--rule);
+    padding-bottom: calc(var(--space) * 3);
+  }
+  .step a, .step > span {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  .step.current > span { color: var(--fg); font-weight: 700; }
+  .step.done a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+  .n {
+    display: inline-grid;
+    place-items: center;
+    width: 22px; height: 22px;
+    border: var(--border-w) solid currentColor;
+    border-radius: var(--radius);
+    font-size: 12px;
+  }
+</style>

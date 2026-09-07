@@ -1,0 +1,242 @@
+/* The front page is one document: the letter over a film of the workshop table.
+   The stage layers below are the whole stacking system for this page. */
+
+.letter-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* The stage sits behind the writing and is fixed, so the film holds still while
+   the letter scrolls over it. */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Layer 1: the film itself, at the lowest layer. */
+.stage-film {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+/* Layer 2: the still frame above it, which dissolves away once there is enough
+   footage to play. */
+.stage-still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  opacity: 1;
+  transition: opacity var(--speed) var(--ease);
+}
+.stage[data-playing='true'] .stage-still { opacity: 0; }
+
+/* If the still fails too, a generated gradient keyed to the letter's own colours
+   takes its place. */
+.stage-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(120% 80% at 30% 20%, hsl(28 42% 40%), transparent 60%),
+    radial-gradient(100% 70% at 78% 68%, hsl(20 34% 26%), transparent 62%),
+    linear-gradient(180deg, hsl(26 30% 30%), hsl(222 18% 9%));
+}
+
+/* Layer 3: a very faint animated speckle, so a large dark gradient cannot band. */
+.stage-speckle {
+  position: absolute;
+  inset: -20%;
+  z-index: 3;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: speckle 900ms steps(3) infinite;
+}
+@keyframes speckle {
+  0% { transform: translate3d(0, 0, 0); }
+  33% { transform: translate3d(-2%, 1%, 0); }
+  66% { transform: translate3d(1%, -2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Layer 4: the gradient panel that darkens the stage from the bottom upward in
+   exact proportion to scroll. Never a fade that plays once on a timer, and never
+   removed under reduced motion, because the writing is light and the film is lit. */
+.stage-darken {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: linear-gradient(to top, hsl(222 18% 9%) 0%, hsl(222 18% 9% / 0.86) 38%, hsl(222 18% 9% / 0.34) 72%, transparent 100%);
+  opacity: var(--darken, 0);
+}
+
+/* Layer 5: when the darkening is fully drawn a flat panel removes the film, so
+   the footer begins against true ground rather than a dimmed picture. */
+.stage-flat {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: hsl(222 18% 9%);
+  opacity: var(--flat, 0);
+}
+
+/* Layer 6: the writing. Layer 7: the fixed wordmark. */
+.letter {
+  position: relative;
+  z-index: 6;
+  padding: 0 var(--gutter);
+}
+
+.letter-mark {
+  position: fixed;
+  top: calc(var(--header-h) / 2);
+  left: var(--gutter);
+  transform: translateY(-50%);
+  z-index: 7;
+  font-size: 40px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  color: var(--fg);
+  text-shadow: 0 1px 3px hsl(222 30% 6% / 0.5);
+}
+
+.letter-head {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(var(--header-h) + var(--unit) * 8) 0 calc(var(--unit) * 8);
+}
+
+.letter-title {
+  font-size: var(--display-fs);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-align: center;
+  /* Insurance: a faint shadow at every width, load-bearing against the lit film. */
+  text-shadow: 0 1px 4px hsl(222 30% 6% / 0.55);
+}
+
+.letter-dateline {
+  margin-top: calc(var(--unit) * 4);
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px hsl(222 30% 6% / 0.5);
+}
+
+.letter-body { padding-bottom: 20vh; }
+
+.letter-body p {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  font-weight: 400;
+  /* The letter's rhythm is 1em above and below, so it scales with the fluid type. */
+  margin: 1em 0;
+  text-shadow: 0 1px 4px hsl(222 30% 6% / 0.55);
+}
+
+.letter-closing {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  margin: 1em 0;
+  /* The only place the accent appears on this surface. */
+  color: var(--accent-on-dark);
+  text-shadow: 0 1px 4px hsl(222 30% 6% / 0.55);
+}
+
+/* Below 64rem the letter is a different page: each paragraph is a half width
+   block, alternating sides, each fading in and out in step with the scroll. */
+.letter-flow p.half-start { width: 50%; margin-right: auto; }
+.letter-flow p.half-end { width: 50%; margin-left: auto; }
+
+/* The driven layer is inert and hidden from assistive technology; the flow copy
+   above is what the markup carries and what a reader with no scripting receives. */
+.letter-driven { display: none; }
+
+@media (min-width: 64rem) {
+  .letter-title { text-align: start; line-height: 0.95; }
+  .letter-dateline { text-align: start; }
+  .letter-body {
+    /* A narrow column standing beside the film. */
+    width: min(46ch, 44%);
+  }
+  .letter-body p { letter-spacing: 0.02em; }
+  .letter-closing { letter-spacing: 0.02em; }
+  /* On a wide screen the paragraphs do not fade at all; only the picture changes. */
+  .letter-flow p.half-start,
+  .letter-flow p.half-end { width: auto; margin-left: 0; margin-right: 0; }
+}
+
+@media (min-width: 1550px) {
+  .letter-title { letter-spacing: -0.02em; }
+}
+
+/* Below the breakpoint the driven layer takes over the fading. */
+@media (max-width: 63.999rem) {
+  .letter-page[data-driven='true'] .letter-flow { visibility: hidden; }
+  .letter-page[data-driven='true'] .letter-driven { display: block; }
+  .letter-driven p {
+    opacity: var(--p-opacity, 1);
+    transition: opacity var(--speed) var(--ease);
+  }
+}
+
+/* ---------- The footer ---------- */
+
+.letter-footer {
+  position: relative;
+  z-index: 6;
+  padding: calc(var(--unit) * 12) var(--gutter) calc(var(--unit) * 6);
+  border-radius: var(--radius-flat);
+}
+
+.footer-canvas-wrap {
+  width: 100%;
+  border-radius: var(--radius-flat);
+  overflow: hidden;
+}
+.footer-canvas { display: block; width: 100%; height: auto; }
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 4);
+  flex-wrap: wrap;
+  margin-top: calc(var(--unit) * 8);
+  padding-top: calc(var(--unit) * 4);
+  border-top: var(--border-w) solid var(--line);
+}
+
+.footer-rights { font-size: 16px; line-height: 24px; letter-spacing: 0.02em; color: var(--fg-muted); }
+
+.footer-links {
+  display: flex;
+  gap: calc(var(--unit) * 5);
+  margin-inline-start: auto;
+  list-style: none;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.footer-links li { font-size: 14px; line-height: 21px; }
+.footer-links a { color: var(--fg); }
+.footer-links span { color: var(--fg-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion drops the film and the speckle. The darkening stays. */
+  .stage-film { display: none; }
+  .stage-speckle { display: none; }
+}

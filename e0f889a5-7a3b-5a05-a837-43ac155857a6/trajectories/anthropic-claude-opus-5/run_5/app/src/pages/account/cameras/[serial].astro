@@ -1,0 +1,194 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiFetch, safeGet, readCartForPage } from '../../../lib/api.js';
+import { requireCustomerPage } from '../../../lib/guard.js';
+import { formatDateLong } from '../../../lib/format.js';
+
+const { customer, redirect } = await requireCustomerPage(Astro);
+if (redirect) return redirect;
+
+const { serial } = Astro.params;
+let error = null;
+let confirmation = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = String(form.get('intent') ?? '');
+
+  if (intent === 'rename') {
+    const res = await apiFetch(Astro.request, `/api/account/devices/${encodeURIComponent(serial)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: String(form.get('nickname') ?? '') }),
+    });
+    if (res.ok) confirmation = 'Renamed.';
+    else error = res.data?.message ?? 'That did not work.';
+  }
+
+  // Removing releases the camera without giving it to anyone. It is what a
+  // person does when they sell it to a stranger.
+  if (intent === 'release') {
+    const res = await apiFetch(Astro.request, `/api/account/devices/${encodeURIComponent(serial)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) return Astro.redirect('/account/cameras', 303);
+    error = res.data?.message ?? 'That did not work.';
+  }
+}
+
+const cart = await readCartForPage(Astro.request);
+const res = await safeGet(Astro.request, `/api/account/devices/${encodeURIComponent(serial)}`);
+const device = res.data;
+---
+
+<Shell
+  title={device ? `${device.model} ${device.serial} — Vela` : 'Camera — Vela'}
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+>
+  {!device ? (
+    <div class="empty-state">
+      <p>We do not recognise that serial number.</p>
+      <p style="margin-top:0.5rem"><a href="/account/cameras">Back to your cameras</a></p>
+    </div>
+  ) : (
+    <>
+      <nav aria-label="Breadcrumb" style="margin-bottom:1rem">
+        <a href="/account/cameras">Cameras</a>
+        <span aria-hidden="true" style="color:var(--quiet)"> / </span>
+        <span class="mono">{device.serial}</span>
+      </nav>
+
+      <header class="stack--tight" style="margin-bottom:1.5rem">
+        <h1 class="page-title">{device.nickname || device.model}</h1>
+        <p class="mono">{device.serial}</p>
+      </header>
+
+      {error && <p class="notice" role="alert" style="margin-bottom:1rem">{error}</p>}
+      {confirmation && (
+        <p class="notice notice--done" role="status" style="margin-bottom:1rem">{confirmation}</p>
+      )}
+
+      <div class="grid grid--wide" style="align-items:start">
+        <section class="card">
+          <h2 class="section-title">This camera</h2>
+          <table class="table" style="margin-top:0.75rem">
+            <tbody>
+              <tr>
+                <th scope="row" style="font-weight:400;color:var(--quiet)">Model</th>
+                <td>{device.model} {device.variant}</td>
+              </tr>
+              <tr>
+                <th scope="row" style="font-weight:400;color:var(--quiet)">Serial</th>
+                <td class="mono">{device.serial}</td>
+              </tr>
+              <tr>
+                <th scope="row" style="font-weight:400;color:var(--quiet)">Firmware</th>
+                <td>
+                  <span class="mono">{device.firmware_version ?? 'Not yet reported'}</span>
+                  <span
+                    class={`chip ${device.firmware_state === 'Update available' ? 'chip--progress' : device.firmware_state === 'Not yet connected' ? '' : 'chip--done'}`}
+                    style="margin-left:0.5rem"
+                  >{device.firmware_state}</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row" style="font-weight:400;color:var(--quiet)">Warranty</th>
+                <td>
+                  <span class="chip">{device.warranty_state}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {device.update_available && (
+            <p style="margin-top:0.75rem">
+              Firmware <span class="mono">{device.latest_firmware}</span> is available.
+              Install it from Arranger, or use the
+              <a href="/doctor"> firmware installer</a> if Arranger cannot see the camera.
+            </p>
+          )}
+        </section>
+
+        <div class="stack">
+          <section class="card">
+            <h2 class="section-title">Name this camera</h2>
+            <form method="POST" class="stack--tight" style="margin-top:0.75rem">
+              <input type="hidden" name="intent" value="rename" />
+              <div class="field">
+                <label for="nickname">Nickname</label>
+                <input
+                  class="input"
+                  id="nickname"
+                  name="nickname"
+                  value={device.nickname ?? ''}
+                  placeholder="The one in the bag"
+                />
+              </div>
+              <div><button class="button" type="submit">Save name</button></div>
+            </form>
+          </section>
+
+          <!--
+            Removing and handing over are different actions and the copy never
+            blurs them.
+          -->
+          <section class="card">
+            <h2 class="section-title">Remove from my account</h2>
+            <p style="margin-top:0.5rem;color:var(--quiet)">
+              This releases the camera without giving it to anyone. Do this when you
+              sell it to a stranger. They can then register it themselves.
+            </p>
+            <form method="POST" style="margin-top:0.75rem" data-confirm-form>
+              <input type="hidden" name="intent" value="release" />
+              <button class="button" type="submit">Remove from my account</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <h2 class="section-title">Hand this camera to someone else</h2>
+            <p style="margin-top:0.5rem;color:var(--quiet)">
+              Remove it here, then give the new owner the serial. They register it to
+              their own account. We never move a camera between accounts for you.
+            </p>
+          </section>
+        </div>
+      </div>
+    </>
+  )}
+</Shell>
+
+<script>
+  // Every destructive action confirms first, and Escape closes the overlay.
+  for (const form of document.querySelectorAll('[data-confirm-form]')) {
+    form.addEventListener('submit', (event) => {
+      if (form.dataset.confirmed === 'yes') return;
+      event.preventDefault();
+
+      const dialog = document.createElement('dialog');
+      dialog.style.cssText =
+        'border:1px solid rgba(20,17,15,.34);border-radius:.5rem;padding:1rem;max-width:28rem;background:#f4f1ec;color:#14110f';
+      dialog.innerHTML = `
+        <h2 style="font-size:20px;line-height:28px;font-weight:700;margin:0">Remove this camera?</h2>
+        <p style="margin:.5rem 0 1rem">It is released to nobody. You can register it again later.</p>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end">
+          <button value="cancel" style="min-height:40px;padding:.5rem 1rem;border-radius:.5rem;border:1px solid currentColor;background:transparent;cursor:pointer">Keep it</button>
+          <button value="confirm" style="min-height:40px;padding:.5rem 1rem;border-radius:.5rem;border:1px solid #14110f;background:#14110f;color:#f4f1ec;font-weight:700;cursor:pointer">Remove it</button>
+        </div>`;
+      document.body.appendChild(dialog);
+      dialog.showModal();
+
+      dialog.addEventListener('click', (e) => {
+        const button = e.target.closest('button');
+        if (!button) return;
+        dialog.close();
+        dialog.remove();
+        if (button.value === 'confirm') {
+          form.dataset.confirmed = 'yes';
+          form.submit();
+        }
+      });
+      dialog.addEventListener('cancel', () => dialog.remove());
+    });
+  }
+</script>

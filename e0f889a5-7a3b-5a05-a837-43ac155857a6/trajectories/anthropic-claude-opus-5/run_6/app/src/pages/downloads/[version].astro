@@ -1,0 +1,22 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { listReleases, releaseByVersion } from '../../../server/services/firmware.js';
+
+const { version } = Astro.params;
+try {
+  await releaseByVersion(version);
+} catch {
+  return Astro.rewrite('/404');
+}
+const { data: releases } = await listReleases({ pageSize: 100, cursor: null });
+---
+
+<Shell title={`Arranger ${version}`}>
+  <nav aria-label="Breadcrumb" style="margin-bottom:calc(var(--unit) * 4)">
+    <a href="/downloads">Downloads</a> <span aria-hidden="true">/</span> <span class="mono">{version}</span>
+  </nav>
+  <h1 class="page-title">Arranger <span class="mono">{version}</span></h1>
+  <p class="page-lede">This release is expanded. The rest of the archive is below it, collapsed.</p>
+  {releases.map((r) => <ReleaseBlock release={r} open={r.version === version} />)}
+</Shell>

@@ -1,0 +1,1 @@
+const e=document.querySelector("[data-place]");if(e){const t=e.querySelector("[data-place-button]"),o=document.querySelector("[data-place-live]");e.addEventListener("submit",()=>{t.disabled=!0,t.textContent="Placing your order",o&&(o.textContent="Placing your order.")})}

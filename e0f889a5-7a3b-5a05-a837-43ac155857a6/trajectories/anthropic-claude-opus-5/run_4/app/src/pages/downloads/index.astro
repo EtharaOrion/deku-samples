@@ -1,0 +1,131 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { listReleases, newestFirmware, getProductByHandle } from '../../lib/server.js';
+import { formatBytes } from '../../lib/format.js';
+
+// Newest build first, and never by release date. The whole archive is rendered,
+// because an in-page find and a crawler must both see all of it.
+let releases = [];
+let failed = false;
+try {
+  releases = await listReleases({ limit: null });
+} catch {
+  failed = true;
+}
+const newest = releases[0] || null;
+
+const cricket = await getProductByHandle('compact');
+const firmware = cricket ? await newestFirmware(cricket.id) : null;
+---
+<Shell title="Downloads — Vela" description="Arranger, firmware and the release archive.">
+  <div class="stack stack-8">
+    <header class="stack stack-4">
+      <h1>Downloads</h1>
+      <p>Arranger requires macOS 13.0 or later. Download the app below.</p>
+
+      {failed ? (
+        <p class="notice notice-danger">We could not load the archive. Reload the page to try again.</p>
+      ) : newest && (
+        <div class="primary-row">
+          <!-- Adapts to the reader's platform but is never disabled and never
+               hidden. -->
+          <a class="btn btn-primary" href={`/api/downloads/${newest.artifact_name}`} download data-primary-download>
+            Download Arranger {newest.version}
+          </a>
+          <span class="hint tnum">{formatBytes(newest.size_bytes)}</span>
+          <span class="hint ident digest">{newest.sha256}</span>
+        </div>
+      )}
+
+      <!-- A reader who is not on macOS still gets a working control and this
+           line, because fetching an installer on a work laptop for a machine at
+           home is an ordinary thing to do. -->
+      <p class="hint platform-note" data-platform-note hidden>Arranger is a macOS application.</p>
+    </header>
+
+    {firmware && (
+      <section class="firmware stack stack-3">
+        <h2>Firmware</h2>
+        <div class="firmware-row">
+          <a class="btn" href={`/api/downloads/firmware/${cricket.handle}/${firmware.version}`} download>
+            Download Vela Cricket Firmware {firmware.version}
+          </a>
+
+          <div class="web-path">
+            <!-- The web path is never the primary control. -->
+            <a class="quiet-link" href="/doctor">Firmware install (web-based)</a>
+            <p class="hint">Only use this if Arranger cannot see your camera.</p>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section class="archive stack stack-2">
+      <h2>Release archive</h2>
+      {releases.length === 0 ? (
+        <p class="hint">No releases yet.</p>
+      ) : (
+        <ol class="release-list">
+          {releases.map((release, i) => (
+            <li>
+              {i > 0 && <div class="separator" aria-hidden="true"></div>}
+              {/* Only the newest release is expanded on arrival. */}
+              <ReleaseBlock release={release} open={i === 0} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  </div>
+
+  <script>
+    // The control is never disabled and never hidden; only the note appears.
+    const note = document.querySelector('[data-platform-note]');
+    if (note) {
+      const platform = `${navigator.userAgentData?.platform || navigator.platform || ''}`.toLowerCase();
+      const isMac = platform.includes('mac');
+      if (!isMac) note.hidden = false;
+    }
+  </script>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  h2 { font-size: 18px; line-height: 24px; }
+
+  .primary-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--space) * 4);
+    flex-wrap: wrap;
+  }
+  .digest { font-size: 12px; overflow-wrap: anywhere; max-width: 46ch; }
+
+  .firmware-row {
+    display: flex;
+    align-items: flex-start;
+    gap: calc(var(--space) * 6);
+    flex-wrap: wrap;
+  }
+  .web-path { display: flex; flex-direction: column; gap: 2px; }
+  .quiet-link { font-size: 14px; color: var(--fg-muted); }
+
+  .release-list { list-style: none; }
+
+  /* A plain horizontal bar carrying a dashed rule inside it: the only
+     decorative element on the page. */
+  .separator {
+    height: 12px;
+    border-top: var(--border-w) solid var(--rule);
+    border-bottom: var(--border-w) solid var(--rule);
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--rule) 0 6px,
+      transparent 6px 12px
+    );
+    background-size: 100% 1px;
+    background-position: 0 50%;
+    background-repeat: no-repeat;
+  }
+</style>

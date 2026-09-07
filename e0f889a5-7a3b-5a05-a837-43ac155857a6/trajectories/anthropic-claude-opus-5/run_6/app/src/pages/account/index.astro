@@ -1,0 +1,131 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CameraCard from '../../components/CameraCard.astro';
+import { customerFromCookies, redirect } from '../../lib/actions.js';
+import { listCustomerDevices } from '../../../server/services/devices.js';
+import { listCustomerOrders } from '../../../server/services/orders.js';
+import { listReleases } from '../../../server/services/firmware.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+
+// Blocks fail independently: a failed camera list never blanks the orders beside it.
+const [devices, orders, releases] = await Promise.all([
+  listCustomerDevices({ customerId: customer.id, pageSize: 20, cursor: null }).catch((e) => ({ error: e })),
+  listCustomerOrders({ customerId: customer.id, pageSize: 2, cursor: null }).catch((e) => ({ error: e })),
+  listReleases({ pageSize: 1, cursor: null }).catch((e) => ({ error: e })),
+]);
+const newest = releases.error ? null : releases.data[0];
+---
+
+<Shell title="Overview">
+  <h1 class="page-title">Overview</h1>
+  <p class="page-lede">Your cameras first, then your two most recent orders, then the application.</p>
+
+  <section aria-labelledby="cameras-heading" style="margin-bottom:calc(var(--unit) * 10)">
+    <div class="row between" style="margin-bottom:calc(var(--unit) * 3)">
+      <h2 id="cameras-heading" class="block-heading" style="margin:0">Cameras</h2>
+      <a href="/account/cameras">All cameras</a>
+    </div>
+    {
+      devices.error ? (
+        <p class="notice wrong">We could not read your cameras. The rest of this page is fine.</p>
+      ) : devices.data.length === 0 ? (
+        <div class="empty">
+          <p>No cameras registered yet.</p>
+          <p style="margin-top:calc(var(--unit) * 3)">
+            <a href="/account/cameras">Register one with its serial number</a>.
+          </p>
+        </div>
+      ) : (
+        <div class="grid two">
+          {devices.data.map((d) => (
+            <CameraCard device={d} showActions />
+          ))}
+        </div>
+      )
+    }
+  </section>
+
+  <section aria-labelledby="orders-heading" style="margin-bottom:calc(var(--unit) * 10)">
+    <div class="row between" style="margin-bottom:calc(var(--unit) * 3)">
+      <h2 id="orders-heading" class="block-heading" style="margin:0">Recent orders</h2>
+      <a href="/account/orders">All orders</a>
+    </div>
+    {
+      orders.error ? (
+        <p class="notice wrong">We could not read your orders. Your cameras above are unaffected.</p>
+      ) : orders.data.length === 0 ? (
+        <div class="empty">
+          <p>No orders yet.</p>
+          <p style="margin-top:calc(var(--unit) * 3)">
+            <a href="/shop">Go to the shop</a>.
+          </p>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Order</th>
+              <th scope="col">Date</th>
+              <th scope="col">Contents</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col">State</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.data.map((o) => (
+              <tr>
+                <th scope="row" class="mono">
+                  <a href={`/account/orders/${o.number}`}>{o.number}</a>
+                </th>
+                <td>{formatDate(o.placed_at)}</td>
+                <td>
+                  {o.summary_title}
+                  {o.extra_line_count ? ` and ${o.extra_line_count} more` : ''}
+                </td>
+                <td class="num tnum">{formatMinor(o.total_minor)}</td>
+                <td>
+                  <span class="chip">{o.state_chip}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+  </section>
+
+  <section aria-labelledby="software-heading">
+    <h2 id="software-heading" class="block-heading">Software</h2>
+    {
+      newest ? (
+        <div class="card">
+          <p>
+            The current version of Arranger is <span class="mono">{newest.version}</span>, released on{' '}
+            {formatDate(newest.released_on)}.
+          </p>
+          <p class="hint" style="margin-top:calc(var(--unit) * 2)">
+            This account has not recorded a version, so it is newer than anything you have seen here.
+          </p>
+          <p style="margin-top:calc(var(--unit) * 3)">
+            <a class="btn secondary" href="/downloads">Go to downloads</a>
+          </p>
+        </div>
+      ) : (
+        <p class="notice wrong">We could not read the release archive. Your cameras and orders above are unaffected.</p>
+      )
+    }
+  </section>
+</Shell>
+
+<style>
+  .block-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+  }
+</style>

@@ -1,0 +1,87 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { viewerFor } from '../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+// A signed-out request for an /account route arrives carrying the intended path
+// and returns there after signing in; with none it lands on /account.
+const next = Astro.url.searchParams.get('next') || '/account';
+const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/account';
+---
+
+<Shell title="Sign in — Vela" current="" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <div class="auth">
+    <h1>Sign in</h1>
+
+    <form class="form" data-sign-in data-next={safeNext} novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+
+      <p class="form-error" data-error role="alert"></p>
+
+      <button class="btn" type="submit" data-submit>Sign in</button>
+    </form>
+
+    <p class="alt">No account yet? <a href={`/sign-up?next=${encodeURIComponent(safeNext)}`}>Create one</a>.</p>
+  </div>
+</Shell>
+
+<script>
+  (() => {
+    const form = document.querySelector<HTMLFormElement>('[data-sign-in]');
+    if (!form) return;
+    const error = form.querySelector<HTMLElement>('[data-error]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const email = String(data.get('email') || '').trim();
+      const password = String(data.get('password') || '');
+      if (!email) { error.textContent = 'Email is required.'; return; }
+      if (!password) { error.textContent = 'Password is required.'; return; }
+
+      error.textContent = '';
+      submit.disabled = true;
+      const previous = submit.textContent;
+      submit.textContent = 'Signing in';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          error.textContent = body?.error?.message || 'That did not work.';
+          submit.disabled = false;
+          submit.textContent = previous;
+          return;
+        }
+        // The token is the bearer for the API and the cookie the server-rendered
+        // account routes read.
+        document.cookie = `vela_session=${encodeURIComponent(body.access_token)}; path=/; max-age=86400; samesite=lax`;
+        window.location.assign(form.dataset.next || '/account');
+      } catch {
+        error.textContent = 'That did not work. Check your connection and try again.';
+        submit.disabled = false;
+        submit.textContent = previous;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .auth { max-width: 24rem; }
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 6); }
+  .form { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); }
+  .form-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+  .alt { margin-top: calc(var(--unit) * 6); font-size: 14px; color: var(--fg-muted); }
+</style>

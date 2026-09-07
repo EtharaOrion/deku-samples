@@ -1,0 +1,62 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { login } from '../../server/lib/auth.mjs';
+import { SESSION_COOKIE } from '../lib/server.js';
+
+let errorMessage = null;
+// Carries the intended path and returns there after signing in; with none it
+// lands on /account.
+const rawNext = Astro.url.searchParams.get('next') || '';
+let next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/account';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') || '');
+  const target = String(form.get('next') || '/account');
+  next = target.startsWith('/') && !target.startsWith('//') ? target : '/account';
+  try {
+    const result = await login({ email, password: form.get('password') });
+    Astro.cookies.set(SESSION_COOKIE, result.access_token, {
+      path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 72,
+    });
+    return Astro.redirect(next);
+  } catch (err) {
+    errorMessage = err.message || 'That did not work.';
+  }
+}
+---
+<Shell title="Sign in — Vela" description="Sign in to your account.">
+  <div class="narrow stack stack-6">
+    <h1>Sign in</h1>
+
+    {errorMessage && <p class="notice notice-danger" role="alert">{errorMessage}</p>}
+
+    <form method="post" class="form">
+      <input type="hidden" name="next" value={next} />
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value={email} required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" required autocomplete="current-password" />
+      </div>
+
+      <button class="btn btn-primary" type="submit">Sign in</button>
+    </form>
+
+    <p class="hint">
+      No account yet? <a href={`/sign-up${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`}>Create one</a>.
+    </p>
+  </div>
+</Shell>
+
+<style>
+  .narrow { max-width: 44ch; }
+  h1 { font-size: 28px; line-height: 34px; }
+  .form { display: flex; flex-direction: column; gap: calc(var(--space) * 4); }
+  .btn { align-self: flex-start; }
+</style>

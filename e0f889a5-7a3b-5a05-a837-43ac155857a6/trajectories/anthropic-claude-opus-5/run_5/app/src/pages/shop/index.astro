@@ -1,0 +1,114 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { safeGet, currentCustomer, readCartForPage } from '../../lib/api.js';
+import { formatMinor } from '../../lib/format.js';
+
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+const res = await safeGet(Astro.request, '/api/products?page_size=100', { data: [] });
+const products = res.data?.data ?? [];
+
+// Cameras render at full width, accessories in a denser row beneath them.
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+// A state chip only when the product is not simply available.
+const chipFor = (p) => {
+  if (p.status === 'discontinued') return { label: 'No longer sold', tone: '' };
+  if (p.availability.state === 'sold_out') return { label: 'Sold out', tone: 'chip--wrong' };
+  if (p.availability.state === 'low') return { label: 'Low stock', tone: 'chip--progress' };
+  return null;
+};
+---
+
+<Shell title="Shop — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <header class="stack--tight">
+    <h1 class="page-title">Shop</h1>
+    <p class="page-lede">Two cameras, the things that go with them, and the parts that get lost.</p>
+  </header>
+
+  {res.failed && (
+    <p class="notice" style="margin-top:1rem" role="alert">
+      The catalogue did not load. Reload the page to try again.
+    </p>
+  )}
+
+  {!res.failed && products.length === 0 && (
+    <div class="empty-state" style="margin-top:1.5rem">
+      <p>Nothing is on the table right now.</p>
+      <p style="margin-top:0.5rem"><a href="/downloads">Read the downloads instead</a></p>
+    </div>
+  )}
+
+  {cameras.length > 0 && (
+    <section style="margin-top:1.5rem" aria-labelledby="cameras-heading">
+      <h2 class="section-title" id="cameras-heading">Cameras</h2>
+      <div class="grid" style="margin-top:0.75rem">
+        {cameras.map((p) => {
+          const chip = chipFor(p);
+          return (
+            <article class="card">
+              <a href={`/shop/${p.handle}`} style="text-decoration:none;display:block">
+                <div class="product-media product-media--wide" aria-hidden="true"></div>
+                <div class="row" style="margin-top:0.75rem;align-items:baseline">
+                  <h3 class="section-title">{p.title}</h3>
+                  {chip && <span class={`chip ${chip.tone}`}>{chip.label}</span>}
+                </div>
+                <p style="margin-top:0.25rem;color:var(--quiet)">{p.subtitle}</p>
+                <p class="money" style="margin-top:0.5rem">
+                  {p.price_is_from ? 'From ' : ''}{formatMinor(p.from_price_minor)}
+                </p>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
+  {rest.length > 0 && (
+    <section style="margin-top:2rem" aria-labelledby="rest-heading">
+      <h2 class="section-title" id="rest-heading">Accessories and parts</h2>
+      <div class="grid grid--cards" style="margin-top:0.75rem">
+        {rest.map((p) => {
+          const chip = chipFor(p);
+          return (
+            <article class="card">
+              <a href={`/shop/${p.handle}`} style="text-decoration:none;display:block">
+                <div class="product-media" aria-hidden="true"></div>
+                <div class="row" style="margin-top:0.75rem;align-items:baseline">
+                  <h3 style="font-size:16px;line-height:24px;font-weight:700">{p.title}</h3>
+                  {chip && <span class={`chip ${chip.tone}`}>{chip.label}</span>}
+                </div>
+                <p style="margin-top:0.25rem;color:var(--quiet);font-size:14px;line-height:21px">
+                  {p.subtitle}
+                </p>
+                <p class="money" style="margin-top:0.5rem">
+                  {p.price_is_from ? 'From ' : ''}{formatMinor(p.from_price_minor)}
+                </p>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  )}
+</Shell>
+
+<style>
+  /* Media is a drawn stand-in rather than a photograph, and carries no radius. */
+  .product-media {
+    aspect-ratio: 4 / 3;
+    border-radius: 0;
+    background:
+      radial-gradient(60% 70% at 30% 25%, color-mix(in srgb, currentColor 12%, transparent), transparent 70%),
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, currentColor 6%, transparent) 0 8px,
+        transparent 8px 16px
+      ),
+      var(--inset);
+    border: var(--border) solid var(--rule);
+  }
+  .product-media--wide { aspect-ratio: 16 / 9; }
+</style>

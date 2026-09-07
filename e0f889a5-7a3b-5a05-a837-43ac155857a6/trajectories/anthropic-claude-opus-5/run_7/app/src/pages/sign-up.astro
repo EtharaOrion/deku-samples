@@ -1,0 +1,63 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { apiSend, SESSION_COOKIE } from '../lib/api.js';
+import { viewer } from '../lib/page.js';
+
+const v = await viewer(Astro);
+let error = null;
+let email = '';
+let name = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') || '').trim();
+  name = String(form.get('name') || '').trim();
+  const password = String(form.get('password') || '');
+
+  if (!name) error = 'Name is required.';
+  else if (!email) error = 'Email is required.';
+  else if (password.length < 8) error = 'Password must be at least 8 characters.';
+  else {
+    const res = await apiSend(Astro.request, '/auth/signup', { body: { email, password, name } });
+    if (res.ok) {
+      Astro.cookies.set(SESSION_COOKIE, res.data.access_token, {
+        path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 * 72,
+      });
+      return Astro.redirect('/account', 303);
+    }
+    error = res.data?.message || 'That did not work.';
+  }
+}
+---
+<Shell title="Create an account — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <div style="max-width:26rem">
+    <h1 class="page-title">Create an account</h1>
+    <p class="page-lede">You do not need one to buy something. It is where your cameras live.</p>
+
+    <form method="post">
+      {error && <div class="notice notice-danger" role="alert"><p>{error}</p></div>}
+
+      <label class="field">
+        <span class="label">Name</span>
+        <input class="input" name="name" value={name} autocomplete="name" required autofocus />
+      </label>
+
+      <label class="field">
+        <span class="label">Email</span>
+        <input class="input" type="email" name="email" value={email} autocomplete="email" required />
+      </label>
+
+      <label class="field">
+        <span class="label">Password</span>
+        <input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" />
+        <span class="field-hint">At least 8 characters.</span>
+      </label>
+
+      <button type="submit" class="btn" style="width:100%">Create the account</button>
+    </form>
+
+    <p class="small muted" style="margin-top:calc(var(--unit)*5)">
+      Already have one? <a href="/sign-in">Sign in</a>.
+    </p>
+  </div>
+</Shell>

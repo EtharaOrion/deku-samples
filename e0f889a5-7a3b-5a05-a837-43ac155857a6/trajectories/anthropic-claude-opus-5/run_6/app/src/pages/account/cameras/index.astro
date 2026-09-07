@@ -1,0 +1,82 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraCard from '../../../components/CameraCard.astro';
+import RegisterRow from '../../../islands/RegisterRow.jsx';
+import { customerFromCookies, redirect, takeFlash } from '../../../lib/actions.js';
+import { listCustomerDevices } from '../../../../server/services/devices.js';
+
+const customer = await customerFromCookies(Astro.cookies);
+if (!customer) return redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+
+const flash = takeFlash(Astro.cookies);
+const rawCursor = Astro.url.searchParams.get('cursor');
+let cursor = null;
+if (rawCursor) {
+  try {
+    cursor = JSON.parse(Buffer.from(rawCursor, 'base64url').toString('utf8'));
+  } catch {
+    cursor = null;
+  }
+}
+
+let devices = { data: [], hasMore: false, lastKey: null };
+let failed = false;
+try {
+  devices = await listCustomerDevices({ customerId: customer.id, pageSize: 24, cursor });
+} catch {
+  failed = true;
+}
+const nextCursor =
+  devices.hasMore && devices.lastKey
+    ? Buffer.from(JSON.stringify(devices.lastKey), 'utf8').toString('base64url')
+    : null;
+---
+
+<Shell title="Cameras">
+  <h1 class="page-title">Cameras</h1>
+  <p class="page-lede">Every camera registered to this account. A camera has one owner at a time.</p>
+
+  {flash ? <p class={`notice ${flash.tone}`} role="status">{flash.message}</p> : null}
+
+  <div style="margin-bottom:calc(var(--unit) * 6)">
+    <RegisterRow client:load />
+    <noscript>
+      <form method="post" action="/account/cameras/register" class="card" style="margin-top:calc(var(--unit) * 3)">
+        <div class="field">
+          <label for="serial-nojs">Register a camera by its serial number</label>
+          <input id="serial-nojs" class="mono" name="serial" type="text" maxlength="14" required />
+        </div>
+        <button class="btn" type="submit">Register</button>
+      </form>
+    </noscript>
+  </div>
+
+  {
+    failed ? (
+      <p class="notice wrong">We could not read your cameras. Try the page again in a moment.</p>
+    ) : devices.data.length === 0 ? (
+      <div class="empty">
+        <p>No cameras registered yet.</p>
+        <p style="margin-top:calc(var(--unit) * 3)">
+          The serial is engraved on the underside, and it is also on the order that bought the camera.
+        </p>
+      </div>
+    ) : (
+      <div class="grid two" data-test="camera-grid">
+        {devices.data.map((d) => (
+          <CameraCard device={d} showActions />
+        ))}
+      </div>
+    )
+  }
+
+  {
+    nextCursor ? (
+      <p style="margin-top:calc(var(--unit) * 6)">
+        <a class="btn quiet" href={`/account/cameras?cursor=${nextCursor}`}>
+          Older cameras
+        </a>
+      </p>
+    ) : null
+  }
+</Shell>

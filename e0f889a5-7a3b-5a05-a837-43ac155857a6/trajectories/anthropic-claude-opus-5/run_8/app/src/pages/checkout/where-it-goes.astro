@@ -1,0 +1,119 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { apiFetch } from '../../lib/api.js';
+import '../../styles/cart.css';
+
+let error = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const address = {
+    name: String(form.get('name') || '').trim(),
+    line1: String(form.get('line1') || '').trim(),
+    line2: String(form.get('line2') || '').trim(),
+    city: String(form.get('city') || '').trim(),
+    region: String(form.get('region') || '').trim(),
+    postal_code: String(form.get('postal_code') || '').trim(),
+    country: String(form.get('country') || 'US').trim().toUpperCase(),
+    phone: String(form.get('phone') || '').trim(),
+  };
+  const email = String(form.get('email') || '').trim();
+
+  const required = [['Email', email], ['Name', address.name], ['Address', address.line1],
+    ['City', address.city], ['Region', address.region], ['Postal code', address.postal_code]];
+  const missing = required.find(([, v]) => !v);
+
+  if (missing) {
+    error = `${missing[0]} is required.`;
+  } else {
+    const res = await apiFetch(Astro, '/api/cart/delivery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        shipping_address: address,
+        contact: { marketing_consent: form.get('marketing') === 'on' },
+      }),
+    });
+    if (res.status === 200) return Astro.redirect('/checkout/how-it-gets-there', 303);
+    error = res.data?.message || 'That did not work.';
+  }
+}
+
+const res = await apiFetch(Astro, '/api/cart');
+const cart = res.status === 200 ? res.data : null;
+if (!cart || cart.lines.length === 0) return Astro.redirect('/cart', 303);
+
+const a = cart.shipping_address || {};
+const consent = cart.contact?.marketing_consent === true;
+---
+<Shell title="Where it goes" current="shop">
+  <div class="page-head"><h1>Where it goes</h1></div>
+  <CheckoutSteps step={1} />
+
+  <div class="checkout-layout">
+    <form method="POST" novalidate>
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" value={cart.email || ''} required autocomplete="email" />
+      </label>
+
+      <label class="check">
+        <input type="checkbox" name="marketing" checked={consent} />
+        <span>Write to me when there is something new. We send a few letters a year.</span>
+      </label>
+
+      <label class="field">
+        <span>Name</span>
+        <input type="text" name="name" value={a.name || ''} required autocomplete="name" />
+      </label>
+
+      <label class="field">
+        <span>Address</span>
+        <input type="text" name="line1" value={a.line1 || ''} required autocomplete="address-line1" />
+      </label>
+
+      <label class="field">
+        <span>Apartment, suite, or similar</span>
+        <input type="text" name="line2" value={a.line2 || ''} autocomplete="address-line2" />
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>City</span>
+          <input type="text" name="city" value={a.city || ''} required autocomplete="address-level2" />
+        </label>
+        <label class="field">
+          <span>State or region</span>
+          <input type="text" name="region" value={a.region || ''} required autocomplete="address-level1" />
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Postal code</span>
+          <input type="text" name="postal_code" value={a.postal_code || ''} required autocomplete="postal-code" inputmode="numeric" />
+        </label>
+        <label class="field">
+          <span>Country</span>
+          <select name="country" autocomplete="country">
+            <option value="US" selected>United States</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Phone, if you would like a text when it ships</span>
+        <input type="tel" name="phone" value={a.phone || ''} autocomplete="tel" />
+      </label>
+
+      <button type="submit" class="btn">Continue to delivery</button>
+    </form>
+
+    <CheckoutSummary cart={cart} />
+  </div>
+</Shell>

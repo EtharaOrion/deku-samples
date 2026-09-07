@@ -1,0 +1,189 @@
+---
+import Base from '../layouts/Base.astro';
+import Stage from '../components/Stage.astro';
+import Footer from '../components/Footer.astro';
+import Wordmark from '../components/Wordmark.astro';
+import ScrollDriver from '../islands/ScrollDriver.jsx';
+import { TITLE, DATELINE, CLOSING, PARAGRAPHS } from '../lib/letter.js';
+---
+<Base title="Vela" ground="dark" description="A letter from the table where we build the cameras.">
+  <a class="skip-link" href="#letter">Skip to the letter</a>
+
+  <!-- The film, and every layer that dims it. -->
+  <Stage />
+
+  <!-- The fixed wordmark, above the writing. There is no navigation on this
+       page beyond the wordmark and the footer. -->
+  <div class="mark-bar">
+    <a href="/" class="mark-link" aria-label="Vela">
+      <Wordmark size={40} />
+    </a>
+  </div>
+
+  <main id="letter" class="letter" tabindex="-1">
+    <header class="letter-head">
+      <h1 class="display">{TITLE}</h1>
+      <p class="dateline">{DATELINE}</p>
+    </header>
+
+    <!-- Normal flow: this is what the markup carries and what a reader with no
+         scripting receives, in correct reading order. -->
+    <div class="prose">
+      {PARAGRAPHS.map((p) => <p>{p.text}</p>)}
+      <!-- The only place the accent appears on this surface. -->
+      <p class="closing">{CLOSING}</p>
+    </div>
+  </main>
+
+  <!-- The inert layer the scroll drives, hidden from assistive technology and
+       never the only copy. Below 64rem each block is a half width block and the
+       blocks alternate between the left and right halves. -->
+  <div class="driven" aria-hidden="true">
+    {PARAGRAPHS.map((p) => (
+      <div class:list={['driven-row', p.side]}>
+        <p class="driven-para" data-driven-para>{p.text}</p>
+      </div>
+    ))}
+    <div class="driven-row end">
+      <p class="driven-para closing" data-driven-para>{CLOSING}</p>
+    </div>
+  </div>
+
+  <ScrollDriver client:load />
+
+  <Footer />
+</Base>
+
+<style>
+  .mark-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding-inline: var(--gutter);
+    /* Above the writing and above every stage layer. */
+    z-index: 10;
+    pointer-events: none;
+  }
+  .mark-link {
+    pointer-events: auto;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--header-h) / 2);
+    color: var(--fg);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  }
+
+  .letter {
+    position: relative;
+    /* Above every stage layer, below the wordmark. */
+    z-index: 6;
+    padding: calc(var(--header-h) + var(--space) * 12) var(--gutter) calc(var(--space) * 24);
+  }
+  .letter:focus { outline: none; }
+
+  .letter-head { margin-bottom: calc(var(--space) * 12); }
+
+  .display {
+    font-size: var(--display-fs);
+    line-height: 0.95;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    /* Load-bearing against the lit film, invisible against the dark ground. */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+
+  .dateline {
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--fg-muted);
+    margin-top: calc(var(--space) * 3);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+
+  .prose {
+    max-width: 34ch;
+    font-size: var(--body-fs);
+    line-height: 1.1;
+  }
+  .prose p {
+    /* The letter's paragraph rhythm is 1em above and below, so it scales with
+       the fluid type. */
+    margin-block: 1em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  .closing { color: var(--accent-on-dark); }
+
+  /* On a wide screen the letter is a narrow column standing beside the film and
+     its paragraphs do not fade at all: only the picture behind them changes, so
+     the driven layer is not rendered at that width. */
+  .driven { display: none; }
+
+  @media (min-width: 64rem) {
+    .prose { letter-spacing: 0.02em; }
+    .display { letter-spacing: -0.01em; }
+  }
+
+  @media (min-width: 1550px) {
+    .display { letter-spacing: -0.02em; }
+  }
+
+  /* Below 64rem the letter becomes a different page. */
+  @media (max-width: 63.999rem) {
+    .prose {
+      /* The normal-flow copy stays in the document for a reader with no
+         scripting and for assistive technology, but the driven layer is what is
+         seen when scripting runs. */
+      max-width: none;
+    }
+    .driven {
+      display: block;
+      position: relative;
+      z-index: 6;
+      padding-inline: var(--gutter);
+      padding-bottom: calc(var(--space) * 24);
+    }
+    .driven-row {
+      display: flex;
+      min-height: 62vh;
+      align-items: center;
+    }
+    .driven-row.start { justify-content: flex-start; }
+    .driven-row.end { justify-content: flex-end; }
+    .driven-para {
+      /* Each paragraph is a half width block. */
+      width: 50%;
+      font-size: var(--body-fs);
+      line-height: 1.1;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      /* Fully drawn with no scripting; the scroll driver sets this in exact
+         step with scroll position once it runs, never on a timer. */
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  // When scripting runs, the normal-flow copy is hidden below 64rem so the
+  // letter is not printed twice, and the driven layer takes over. The markup
+  // still carries both, and assistive technology still reads the flow copy.
+  document.documentElement.classList.add('has-script');
+</script>
+
+<style is:global>
+  @media (max-width: 63.999rem) {
+    .has-script .prose p:not(.closing),
+    .has-script .prose .closing {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  }
+</style>

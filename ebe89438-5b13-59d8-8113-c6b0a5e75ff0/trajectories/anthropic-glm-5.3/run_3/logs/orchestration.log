@@ -1,0 +1,1200 @@
+Skipping image OS validation for hb__22bf53222e22d141f93465fc4c7c7315: docker inspect returned 1
+Running healthcheck: pg_isready -h postgres -p 5432 -q
+Healthcheck passed
+Running command: if command -v apk >/dev/null 2>&1; then  apk add --no-cache curl git build-base tmux; elif command -v apt-get >/dev/null 2>&1; then  apt-get update && apt-get install -y curl git build-essential tmux; elif command -v dnf >/dev/null 2>&1; then  dnf install -y curl git gcc gcc-c++ make tmux; elif command -v yum >/dev/null 2>&1; then  yum install -y curl git gcc gcc-c++ make tmux; else  echo "Error: No supported package manager found" >&2;  exit 1; fi
+Command outputs captured
+Running command: mkdir -p /opt/openhands-venv && chown root:root /opt/openhands-venv
+Command outputs captured
+Running command: set -euo pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh && if [ -f "$HOME/.local/bin/env" ]; then source "$HOME/.local/bin/env"; fi && uv python install 3.13 && uv venv /opt/openhands-venv --python 3.13 && source /opt/openhands-venv/bin/activate && export SKIP_VSCODE_BUILD=true && uv pip install openhands-ai==0.62.0 && /opt/openhands-venv/bin/python -m openhands.core.main --version
+Command outputs captured
+Running command: SANDBOX_VOLUMES=${PWD}:/workspace:rw USER=`id -un` /opt/openhands-venv/bin/python -m openhands.core.main --task='# Community Calendar Hosting
+
+Build and deploy a working web application from this brief. There is no starting
+codebase. When you are done, a stranger must be able to open the app in a
+browser, sign up, open a published event, and register for it, receiving a
+ticket code and a real confirmation email, without hitting an error page. The
+hard part is the last seat: two guests registering for it at the same instant
+must produce one seat and one waiting-list place, never two seats. A seat count
+the app keeps only in its own memory does not count; the registrations stored in
+the database are the fact.
+
+---
+
+## Overview
+
+A hosting tool for people who run small public gatherings: run clubs, reading
+nights, launch parties. A `host` keeps a calendar, publishes an event at its own
+short address, and collects guests. A `guest` browses by category or city, opens
+an event, and registers, which reserves a seat and issues a ticket.
+
+The event page is the whole product: a poster, a date, a place, and one panel
+that either registers you, says the host is deciding, gives you a waiting-list
+place, or says registration is closed. Each is painted from its own key colour,
+so two events never look alike.
+
+Deliberately absent: no prices, no payments, no messaging, no series, no map.
+The hard part is the last seat under contention.
+
+---
+
+## User roles
+
+| Role | Can do |
+|---|---|
+| `host` | Owns calendars. Creates, publishes, closes and cancels events on them. Reads the guest list, works the approval queue, checks tickets in. **Cannot** touch another host'"'"'s calendar, event, guest list or tickets. |
+| `guest` | Browses and filters published events. Registers, holds a ticket, cancels their own registration. **Cannot** read a guest list, approve or decline anybody, check anybody in, edit an event, or read a `draft` event. |
+
+Authorization is enforced **server-side on every mutating endpoint**. Hiding a
+button in the UI is not authorization: a direct API call from a `guest` session
+to any `host`-only endpoint must be rejected by the server (an unauthorized
+request is denied, not served), leaving the protected state unchanged. The same
+holds between two hosts: scope is by ownership of the calendar, not by role.
+
+Signup is open and always creates a `guest`; `host` accounts are seeded only.
+Every seeded account uses the password `deku-demo-pw-2026`.
+
+---
+
+## Core features
+
+### Auth
+Email and password; login returns a bearer token the client sends as
+`Authorization: Bearer <token>`. Passwords are stored hashed.
+
+### Events
+1. Publishing needs a title, category, city, `starts_at`, `ends_at` after it,
+   and `capacity` from 1 to 500; a submission missing any is stored as `draft`.
+2. Event slugs, calendar slugs and account handles share one root namespace. A
+   slug matching a reserved path, a category name or an existing slug is
+   rejected; no slug is ever reused.
+3. Cancelling needs a non-empty `cancel_reason`. Republishing a `cancelled`
+   event, or returning a `published` one to `draft`, is rejected.
+4. A `draft` event returns, to everyone but its host, the not-found response a
+   slug that never existed returns.
+
+### Registration and the last seat
+5. `confirmed_count` is that event'"'"'s registrations in `confirmed` or
+   `checked_in`, counted on read; it never exceeds `capacity`.
+6. **Two guests registering for the last seat at the same instant produce
+   exactly one `confirmed` registration. The other becomes `waitlisted` where
+   the waiting list is on, and is otherwise rejected as full. Never two seats.
+   This must hold at the database level, not only in application logic, and a
+   rejected attempt leaves no partial row.**
+7. At most one registration per event per account, in any status; a repeat
+   submission updates it and never adds a second row.
+8. Cancelling a `confirmed` registration frees the seat in that same request
+   and promotes waiting-list position `1` to `confirmed` with a ticket.
+9. With `approval_required` on, a registration starts `pending_approval`
+   holding no seat; the host approves it to `confirmed`, or `waitlisted` when
+   full, or declines it to `declined`.
+10. A `ticket_code` exists exactly when the status is `confirmed` or
+    `checked_in`: `TKT-` plus 8 uppercase letters and digits, unique app-wide;
+    cancelling clears it.
+11. The owning host checks a ticket in at its code. A second check-in of the
+    same code records one arrival, not two.
+
+### Mail
+12. Every outcome above reaches the guest over real SMTP at `SMTP_HOST` and
+    `SMTP_PORT`: to that guest alone, no cc, no bcc, body naming the event,
+    subject exactly as `## Data model` pins it.
+13. Cancelling an event mails every guest still holding a place, carrying
+    `cancel_reason` word for word. A guest cancelling their own registration
+    sends no mail.
+
+---
+
+## User flow
+
+| Route | Purpose | Auth |
+|---|---|---|
+| `/` | Landing wall and categories | No |
+| `/discover` | Published events, filtered | No |
+| `/<category>` | One of twelve categories | No |
+| `/<slug>` | Event, calendar or profile | No |
+| `/login` | Sign in | No |
+| `/signup` | New `guest` account | No |
+| `/app` | Get-the-app page | No |
+| `/home` | The guest'"'"'s registrations | Any |
+| `/calendars` | Calendars owned | `host` |
+| `/create` | The event composer | `host` |
+| `/event/<slug>/manage/overview` | Dashboard | `host` |
+| `/event/<slug>/manage/guests` | Guests, queue, door | `host` |
+| `/event/<slug>/manage/registration` | Capacity, approval | `host` |
+| `/t/<ticket-code>` | One ticket | No |
+| `/settings/profile` | Name, handle | Any |
+
+**Entry and redirects.** An unauthenticated visitor at a protected route goes
+to `/login?next=<path>`; login lands on `next`, else `/home` for a guest and
+`/calendars` for a host; logout returns to `/`. An expired token is cleared and
+sends the visitor to `/login?next=<current>`. A `guest` at `/calendars` or a
+manage route gets the not-found page.
+
+**Journeys.**
+
+1. `guest@example.com` opens `/thursday-night-5k` and registers; the panel
+   shows the ticket code and the confirmation reaches that inbox.
+2. Two guests register for `/riverside-track-session` at the same instant; one
+   sees a ticket, the other a waiting-list position.
+3. `host@example.com` approves the pending request at
+   `/event/sunrise-long-run/manage/guests` and the row flips to confirmed.
+4. A confirmed guest cancels from `/home`; the head of that waiting list is
+   confirmed in the same breath and mailed.
+5. `host2@example.com` cancels `Winter Reading Night` with a typed reason; that
+   page keeps its address and shows the notice, not the panel.
+
+**States.** Every list has an empty state naming the absence and offering a way
+out; every page has a loading state; a refusal says what happened and what to do
+next, never the word `error`.
+
+---
+
+## UI/UX notes
+
+North star: somebody opening an event page should feel handed a poster for one
+particular evening, not shown a row in a listings database. The register is
+editorial in public, where the poster is seen first, and operational on the
+signed-in screens, where a host works a queue.
+
+The direction is print-like and considered rather than loud: serif throughout
+for titles and long copy, one interface sans for controls and data, no monospace
+outside codes. Spacious over dense: a page holds fewer things, each with room.
+
+Motion is eased: everything moves at one speed on one curve that settles rather
+than starting sharply, and only things that appear may overshoot and settle
+back. No blur is ever animated, and a reduced-motion visitor gets final states
+at once with pointer feedback intact.
+
+Colour by role, never by name. One near-black carries almost all text and one
+paper ground the page. One hue means something went wrong, one that something
+succeeded, one that something is pending, and none appears decoratively. Each
+event page derives its palette from one key colour and must arrive already
+wearing it: a page that paints grey and then repaints has failed.
+
+Layout is sidebar-nav: the signed-in shell keeps a persistent left rail so the
+guest list and the door stay one click away; public routes carry a slim fixed
+bar. Registration state is always a word in a pill, never a colour
+alone. Exact shades, sizes and durations are yours, so long as they hold these
+rules and the values pinned in `## Front-end specification`.
+
+Contract, not taste: WCAG AA contrast on body text, comfortably sized touch
+targets, keyboard navigation reaching everything with a visible focus ring, a
+text name on every icon-only control. The layout holds at every viewport width
+between its named steps, and the registration panel becomes a foot bar on a
+phone.
+
+---
+
+## Technical requirements
+
+The rendering model is a single-page application over a JSON API: the browser
+receives an application shell, and every screen'"'"'s data arrives from `/api` on
+the same origin.
+
+- **Frontend:** Angular, TypeScript, built with its production builder and
+  served as static output behind a preview server on the container-internal
+  port `4173`.
+- **Backend:** Hono on Node 20, TypeScript. REST over JSON under `/api`.
+  Registration, approval and check-in are synchronous and transactional. No
+  background jobs, no queues.
+- **Database:** **PostgreSQL**, already running in this environment and reached
+  at the `DATABASE_URL` environment variable.
+- **Email:** **Mailpit**, a real SMTP server already running in this
+  environment. Send with `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS`
+  over ordinary SMTP, synchronously from the request that causes the transition.
+  No mail vendor SDK, no queueing, no batching.
+- **Auth:** in-app email and password, bearer tokens, hashed passwords. No
+  external identity provider.
+- **Health:** `GET /api/health` returns `200` once the app is ready.
+- **Logging:** structured lines to stdout.
+
+Read every address from the environment; never hardcode a host or a port.
+
+**Search, filter, sort and pagination.** Every filtered view is an address: the
+discovery filters live in the query string, so the same URL shows a second
+visitor the same list and the browser'"'"'s back button restores the previous list.
+`GET /api/events` accepts `category`, `city` and `q`, and takes `limit` and
+`offset` for pagination with a default page size of `20` and a maximum of `100`.
+Ranking is fixed and carries no personalisation: soonest `starts_at` first, ties
+broken by `slug` ascending.
+
+The list carries the events open to discovery, which are the ones in
+`published` and in `registration_closed`; a `draft` event and a `cancelled` event
+never appear in it, whatever the filters say.
+
+`q` is a free-text term matched against the event title, the event description
+and the name of the calendar holding the event, case-insensitively, on any part
+of a word; the city is `city`'"'"'s job and never `q`'"'"'s. It narrows what `category`
+and `city` already selected rather than widening it, so the three combine as one
+condition and an address carrying all three returns only events satisfying every
+one. A `q` of only whitespace is treated as absent.
+
+Every response from `GET /api/events` carries the header `X-Total-Count` holding
+how many events matched the filters before `limit` and `offset` were applied, so
+a page control knows how many pages exist without fetching them. The header is
+present on an empty page too, where it reads `0`.
+
+**Time and time zones.** Every timestamp crossing the API is an instant in UTC
+written as RFC 3339 with a trailing `Z`; no endpoint accepts or returns a local
+time without one. An event additionally carries `time_zone`, an IANA zone name
+such as `Europe/Berlin`, which is the zone the event is actually held in. The
+interface renders each event'"'"'s start and end in that zone, and adds the same
+instant in the visitor'"'"'s own zone underneath whenever the two differ. The stored
+instant never changes when a zone is displayed.
+
+**Exports.** The owning host downloads the guest list of one event as a comma
+separated file from `GET /api/events/{slug}/registrations.csv`. The first line is
+the header `email,display_name,status,waitlist_position,ticket_code`, and each
+line after it is one registration, ordered by `status` ascending, then
+`waitlist_position` ascending with the empty value last, then `email` ascending.
+A value carrying a comma or a quotation mark is wrapped in quotation marks and an
+inner quotation mark is doubled. The response is served as `text/csv` and names
+its file after the event slug. A guest, a host who does not own the calendar and
+an unauthenticated caller each meet the same refusal the JSON guest list gives
+them.
+
+**Validation and rate limits.** Every request body is validated before anything
+is written, and a rejection names the offending field. A rejected request writes
+nothing. Registration and login accept at most `10` requests per minute per
+account; over that limit the request is rejected as a client error and the rate
+limit is stated in the response body.
+
+Use only the libraries named here plus their direct dependencies. Do not
+introduce a second database, cache, queue, object store, identity provider or
+mail vendor. The only backing services available in this environment are the
+PostgreSQL instance at `DATABASE_URL` and the Mailpit SMTP server at
+`SMTP_HOST`, and reaching for anything else is a contract violation.
+
+The event page'"'"'s key colour must already be present in the first document the
+browser paints. An event page that renders on a default palette and then
+repaints once its data arrives does not satisfy this.
+
+---
+
+## Data model
+
+Five tables. All timestamps are UTC.
+
+**Every seeded account uses the password `deku-demo-pw-2026`.** It is benchmark
+fixture data, not a secret. Hash it as normal; the exact literal must work at
+login, and it must be written into `/app/USER_README.md` alongside each account
+so a grader can sign in.
+
+**`accounts`** - `id`; `email`, unique and lowercased; `password_hash`;
+`display_name`; `handle`, unique and kebab-case, occupying the root namespace;
+`role`, either `host` or `guest`; `created_at`.
+
+**`calendars`** - `id`; `owner_account_id` referencing `accounts.id`; `name`;
+`slug`, unique; `category`; `city`; `is_public`; `created_at`. Exactly one owner
+per calendar, always.
+
+**`events`** - `id`; `calendar_id`; `title`; `slug`, unique; `category`; `city`;
+`time_zone`, an IANA zone name defaulting to `UTC`; `cover_seed`; `theme_hex` as
+`#rrggbb`, derived once at creation from `cover_seed`; `description`;
+`starts_at`; `ends_at`; `capacity`; `approval_required`; `waitlist_enabled`;
+`state`, one of `draft`, `published`, `registration_closed` or `cancelled`;
+`published_at`; `cancelled_at`; `cancel_reason`; `created_at`; `updated_at`.
+Whether an event has ended is derived from `ends_at` on read, never stored, and
+`time_zone` decides how a stored instant is written out, never what that instant
+is.
+
+**`registrations`** - `id`; `event_id`; `account_id`; `status`, one of
+`pending_approval`, `confirmed`, `waitlisted`, `declined`, `cancelled_by_guest`,
+`cancelled_by_host` or `checked_in`; `waitlist_position`, `1`-based and null
+unless `waitlisted`; `ticket_code`, unique; `checked_in_at`; `created_at`;
+`updated_at`. `confirmed_count` is derived from this table on read, never stored
+as a counter.
+
+**`email_log`** - `id`; `registration_id`, null for event-level mail;
+`event_id`; `recipient`; `subject`; `sent_at`, written only after the SMTP send
+has returned. A row here is not proof of delivery; its absence is proof the app
+never sent.
+
+**Entities, relations and conventions.** The five entities above are the whole
+data contract. The relations are: an account owns many calendars, a calendar
+holds many events, an event holds many registrations, and a registration belongs
+to exactly one account. Naming conventions are uniform: table names plural and
+snake_case, foreign keys `<entity>_id`, timestamps `<verb>_at`, booleans read as
+a statement (`is_public`, `approval_required`, `waitlist_enabled`), enum values
+lower snake_case.
+
+**Editing after publication.** A host may edit a published event'"'"'s title,
+description, location, capacity and times. Lowering `capacity` below the current
+confirmed count is rejected. Changing `starts_at`, `ends_at` or the location of
+an event that already has confirmed guests is allowed and every one of those
+guests is mailed. A cancellation is the one edit that cannot be undone.
+
+**Raising capacity moves the waiting list.** Raising `capacity` on an event whose
+waiting list is not empty fills the seats that just appeared, in the same request
+that raised it. The waiting-list registrations are taken in `waitlist_position`
+order, lowest first, until either the free seats or the waiting list run out;
+each one taken becomes `confirmed`, is issued its own `ticket_code`, loses its
+`waitlist_position`, and is mailed the subject the waiting list to seat
+transition owns. The registrations left waiting renumber to `1` to `n` with no
+gaps. A raise on an event with nobody waiting mails nobody.
+
+**Closing and reopening registration.** A `published` event moves to
+`registration_closed`, and a `registration_closed` event moves back to
+`published`; both are ordinary edits and neither mails anybody. While an event is
+`registration_closed` it stays readable at its own address to everyone who could
+read it before, and a new registration on it is refused as a client error naming
+the closed state. Registrations already held keep their status and their
+`ticket_code`, the owning host still works the approval queue and still checks
+tickets in at the door, and a guest may still cancel, which frees the seat
+without promoting anybody while registration is closed. A `cancelled` event moves
+to no other state, and `registration_closed` is reachable from `published` alone,
+never from `draft` and never from `cancelled`.
+
+**Handles, calendar slugs and the namespace.** A signed-in account edits its own
+`display_name` and its own `handle`, and no other account'"'"'s. A new `handle` is
+kebab-case, is refused when it matches a reserved path, a category name, an
+existing handle, an existing calendar slug or an existing event slug, and the
+account keeps the handle it had when a change is refused. A host creates a
+calendar of its own with a `name`, a `slug`, a `category`, a `city` and
+`is_public`; the `slug` enters the same root namespace under the same rejection
+rule, and the calendar is owned by the account that created it. A guest is
+refused calendar creation. A calendar slug, once taken, is never reused.
+
+**Mail subject lines.** Each transition owns one subject, with the event title
+substituted for `<title>` and nothing else changed:
+
+| Transition | Subject |
+|---|---|
+| Registration confirmed outright | `You'"'"'re going to <title>` |
+| Registration awaiting the host | `Your request to join <title>` |
+| Host approves a pending request | `You'"'"'re in: <title>` |
+| Host declines a pending request | `About your request to join <title>` |
+| Registration takes a waiting-list place | `You'"'"'re on the waiting list for <title>` |
+| Waiting-list place becomes a seat | `A spot opened up for <title>` |
+| Host calls the event off | `<title> has been cancelled` |
+
+**Invariants, as properties of the running app.**
+
+- The number of registrations on an event in `confirmed` or `checked_in` never
+  exceeds that event'"'"'s `capacity`. This must hold under concurrent registration
+  at the database level; application-level checks alone are not sufficient,
+  because two requests can both pass a check before either one writes.
+- One account holds at most one registration per event, in any status. Two
+  simultaneous first-time registrations by the same account produce one row.
+- A `ticket_code` exists exactly when the status is `confirmed` or `checked_in`,
+  and no code is ever held by two registrations.
+- Waiting-list positions on an event are the integers `1` to `n` with no gaps
+  and no repeats.
+- A registration in `pending_approval`, `waitlisted`, `declined`,
+  `cancelled_by_guest` or `cancelled_by_host` holds no seat.
+- A failed registration leaves nothing behind: no row, no held seat, no ticket.
+- Every handle, calendar slug and event slug in the root namespace is distinct
+  from every other one, and none of them equals a reserved path or a category
+  name.
+- An event in `registration_closed` accepts no new registration, and the number
+  of registrations it holds in `confirmed` or `checked_in` never rises while it
+  stays in that state.
+
+**Root-namespace resolution.** One lookup with fixed precedence: reserved system
+paths, then the twelve category names, then `events.slug`, then
+`calendars.slug`, then `accounts.handle`, otherwise the not-found page. Reserved
+paths are `api`, `app`, `login`, `signup`, `home`, `calendars`, `create`,
+`discover`, `settings`, `event` and `t`. The twelve category names are `family`,
+`books`, `games`, `tech`, `food-and-drink`, `ai`, `running`,
+`arts-and-culture`, `climate`, `fitness`, `wellness` and `crypto`.
+
+**Seed data.**
+
+Five accounts: `host@example.com` (`Priya Raman`, handle `priya-raman`, `host`),
+`host2@example.com` (`Marcus Bell`, handle `marcus-bell`, `host`),
+`guest@example.com` (`Amina Osei`, handle `amina-osei`, `guest`),
+`guest2@example.com` (`Tomas Vidal`, handle `tomas-vidal`, `guest`) and
+`guest3@example.com` (`Ines Duarte`, handle `ines-duarte`, `guest`).
+
+Two calendars: `Riverside Run Club`, slug `riverside-run-club`, owned by
+`host@example.com`, category `running`, city `Berlin`, public; and
+`Northside Reading Nights`, slug `northside-reading-nights`, owned by
+`host2@example.com`, category `books`, city `Lisbon`, not public.
+
+Seven events, each starting on the hour between 09:00 and 20:00 UTC at least
+seven days after the seed date:
+
+| Title | Slug | Calendar | Capacity | State | Approval | Waitlist | `theme_hex` | `time_zone` |
+|---|---|---|---|---|---|---|---|---|
+| `Thursday Night 5K` | `thursday-night-5k` | Riverside Run Club | `3` | `published` | off | on | `#146aeb` | `Europe/Berlin` |
+| `Riverside Track Session` | `riverside-track-session` | Riverside Run Club | `2` | `published` | off | on | `#3cbd2c` | `Europe/Berlin` |
+| `Sunrise Long Run` | `sunrise-long-run` | Riverside Run Club | `20` | `published` | on | on | `#d69712` | `Europe/Berlin` |
+| `Harbour Loop Recovery Jog` | `harbour-loop-recovery-jog` | Riverside Run Club | `12` | `draft` | off | off | `#007aff` | `Europe/Berlin` |
+| `Winter Reading Night` | `winter-reading-night` | Northside Reading Nights | `12` | `published` | off | off | `#ab46dd` | `Europe/Lisbon` |
+| `Autumn Book Swap` | `autumn-book-swap` | Northside Reading Nights | `20` | `cancelled` | off | off | `#f31a7c` | `Europe/Lisbon` |
+| `Riverside Winter Time Trial` | `riverside-winter-time-trial` | Riverside Run Club | `8` | `registration_closed` | off | off | `#28cd41` | `Europe/Berlin` |
+
+Seeded registrations: on `Thursday Night 5K`, `guest@example.com` and
+`guest2@example.com` are `confirmed` and `guest3@example.com` is `waitlisted` at
+position `1`, which leaves exactly one free seat. On `Riverside Track Session`,
+`guest2@example.com` is `confirmed`, which also leaves exactly one free seat. On
+`Sunrise Long Run`, `guest3@example.com` is `pending_approval`.
+`Winter Reading Night` carries no registrations at all. `Autumn Book Swap`
+carries the `cancel_reason` `The venue lost its lease.`
+`Riverside Winter Time Trial` is seeded in `registration_closed` with no
+registrations, so the closed state of the registration panel is reachable from
+the first run without any host changing anything.
+
+Seeding must be idempotent: restarting the app must not duplicate rows.
+
+---
+
+## Front-end specification
+
+This section carries the visual contract in full. Nothing here relaxes
+`## UI/UX notes`; it supplies the values that section deliberately leaves open.
+
+### Palette tokens
+
+Ink `#151515` carries body text, primary buttons and low-alpha borders, with the
+alpha ramp `rgba(21, 21, 21, 0.8)` for scrims over imagery,
+`rgba(21, 21, 21, 0.64)` for secondary text and resting button labels,
+`rgba(21, 21, 21, 0.36)` for tertiary text and resting links,
+`rgba(21, 21, 21, 0.08)` for hairlines on cards and `rgba(21, 21, 21, 0.04)` for
+the resting fill of secondary buttons.
+
+Paper `#ffffff` is the page ground, `#fafafa` inset panels, `#e7e7e7` dividers
+between list rows, `#f2f2f2` disabled fills and skeleton grounds. Muted text is
+`#757575`, disabled text `#b5b5b5`, icon strokes on a light ground `#48484a`.
+
+On a themed event page the ink is `#000f3a` and the secondary ink is
+`rgba(0, 15, 58, 0.36)`.
+
+Accents: pink `#f31a7c` for the brand mark, the private-event badge and one link
+hue; blue `#146aeb` for a second link hue and the focus ring; green `#3cbd2c`
+for a third link hue; violet `#ab46dd` and amber `#d69712` for category icon
+hues. Status colours: success `#28cd41` for a confirmed registration and a
+checked-in guest, warning `#ffcc00` for pending approval and waitlisted, danger
+`#ff3b30` for declined, cancelled and destructive actions, info `#007aff` for
+informational banners.
+
+### Colour ramps
+
+Two ten-step ramps are the source of any tint beyond the tokens. Do not invent a
+step; take the nearest one.
+
+| Step | Blue | Violet |
+|---|---|---|
+| 5 | `#eff5ff` | `#faeeff` |
+| 10 | `#d4e5ff` | `#f0d3ff` |
+| 20 | `#b6d3ff` | `#e1a8fe` |
+| 30 | `#76adff` | `#d27cfe` |
+| 40 | `#287eff` | `#c350fd` |
+| 50 | `#146aeb` | `#ab46dd` |
+| 60 | `#125dce` | `#923cbe` |
+| 70 | `#0546a6` | `#7a329e` |
+| 80 | `#033889` | `#62287f` |
+| 90 | `#002b6b` | `#491e5f` |
+
+Buttons consume a triple per hue: the base at step 50, the active state at step
+60, and the background at step 50 with its active twin at step 60. Never a raw
+step.
+
+### Dark scheme
+
+A token swap, not a second design: paper becomes `#151515`, ink becomes
+`#ffffff`, and the black alpha ramp flips to the white series
+`rgba(255, 255, 255, 0.04)` through `rgba(255, 255, 255, 0.8)`. Panel grounds
+step through `#1c1c1e`, `#2c2c2e` and `#0d0d0d`. Event pages ignore the scheme
+entirely, because their ground comes from the event theme.
+
+### The event theme system
+
+The theme mechanism is the dominant visual surface of this product. Each event
+stores one key colour as `theme_hex` and the whole page derives from
+it: the ground at 8 percent saturation and 94 percent lightness, the sunk ground
+at 10 percent and 90 percent, the ink at full saturation and 11 percent
+lightness, secondary ink at `0.36` alpha, hairlines at `0.08` and the panel fill
+at `0.04`. The measured reference page confirms the last four, its ink `#000f3a`
+being a near-black at the blue hue.
+
+Behind the themed page sits a gradient ground of four radial gradients whose
+stops are custom properties, faded in once over `2000ms` and holding forwards:
+circles at `3% -50%`, `140% -50%`, `-50% 120%` and `62% 100%`. A second variant
+places the top-right circle at `66% -175%`.
+
+Every cover tile carries a glow layer masked with
+`radial-gradient(96px at calc(50% + 10px) calc(50% + 10px), rgb(255, 255, 255), rgba(255, 255, 255, 0))`
+and a sheen layer masked with
+`radial-gradient(128px, rgb(255, 255, 255), rgba(255, 255, 255, 0))`, both filled
+with a flat two-stop gradient in the tile'"'"'s own colour, under a wrapper carrying
+`filter: saturate(2)` so the glow reads as coloured light rather than a grey
+halo. Beneath the cover sits a blurred copy of it at
+`brightness(0.8) blur(24px) saturate(1.2)`, blend mode `multiply`, opacity `0.2`,
+with `matrix(1.005, 0, 0, 1.005, 0, 0)` on the image above it and the `nudge`
+animation running `1000ms` linear and infinite.
+
+The composer route carries the heavier treatment: a rotating element at
+`brightness(1.3) saturate(0) blur(50px)` blended `overlay`, a glow layer at
+`blur(60px)`, and a backdrop at `blur(100px) saturate(1.5)`, running
+`shift-background` for `60000ms` linear and infinite. That is one turn per
+minute, slow enough to read as light in the room. Declare
+`will-change: transform` on the moving layer only.
+
+If a derived ground fails contrast against its own derived ink, fall back to
+paper and ink and tell the host the cover is too pale to theme from.
+
+### Type
+
+The interface family is Inter, loaded as a variable font across weights `100` to
+`900` with `font-display: swap`, over the fallback stack
+`Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`.
+The event title and the landing headline use a display serif at weight 400 over
+`"Source Serif 4", Georgia, "Times New Roman", serif`.
+
+The scale, by role: body copy, form fields and buttons `16px/24px`; captions and
+card metadata `13px/16px`; card descriptions `14px/21px`; card titles `14px/21px`
+at weight 500; list rows `15px/22px`; long-form paragraphs `16px/25.6px`; button
+labels `16px/24px` at 500; long-form section headings `16px/25.6px` at 600;
+badges and timestamps `11px/16px`; the month label in a date chip `11px/14px` at
+600; modal titles `17px/22px`; screen titles `22px/26px` at 700; overline labels
+`13px/18px` at 600.
+
+Type does not scale with the window. The one exception is the landing headline:
+`64px/72px` at desktop, `44px/50px` below `1000px`, `36px/42px` below `484px`,
+weight 700 at `-0.03em` tracking, in a column of maximum width `640px`.
+
+### Shape, border and elevation
+
+Radius by surface: `11px` on media tiles, `8px` on menus and logos, `6px` on
+navigation items, `12px` on cards, `24px` on large content cards, `16px` on
+medium buttons, `15px` on small buttons, `19px` on pill buttons, `4px` on inputs
+and code, `100px` on fully rounded controls, `100%` on avatars and dots. Cover
+tiles use the elliptical radius `12.8% / 5.7%`, so the corner curve tracks the
+tile'"'"'s aspect ratio rather than staying constant.
+
+Hairlines are drawn as inset shadows so they never affect layout: the avatar
+hairline is `rgba(0, 15, 58, 0.08) 0px 0px 0px 0.5px inset`, its dark-theme twin
+is `rgba(255, 255, 255, 0.08) 0px 0px 0px 0.5px inset`, and the warm-theme
+variant is `rgba(27, 18, 0, 0.08) 0px 0px 0px 0.5px inset`.
+
+Elevation is a five-stop stack, never one shadow. The primary action carries
+`rgba(0, 0, 0, 0.03) 0px 3px 3px 0px`, `rgba(0, 0, 0, 0.04) 0px 8px 7px 0px`,
+`rgba(0, 0, 0, 0.05) 0px 17px 14px 0px`, `rgba(0, 0, 0, 0.06) 0px 35px 29px 0px`
+and `rgba(0, 0, 0, 0.07) 0px 96px 80px 0px`, with a finer variant of the same
+shape at `1.6px`, `4.2px`, `8px` and `17.5px`. Cards take the single
+`rgba(0, 0, 0, 0.1) 0px 1px 4px 0px`. The onboarding card adds the ring
+`rgba(21, 21, 21, 0.08) 0px 0px 0px 1px` above the same ramp. Phone mock cards
+carry a light rim, which is what makes them read as glass:
+`rgba(255, 255, 255, 0.9) 0px 1px 0px 0px inset`,
+`rgba(255, 255, 255, 0.4) 1px 0px 0px 0px inset` and
+`rgba(31, 31, 35, 0.12) 0px 12px 36px 0px`.
+
+### Spacing and depth
+
+A `4px` base: `4`, `8`, `12`, `16`, `24`, `32`, `48`, `64`. Stacking is shallow.
+Reserve depth `200` for the fixed top bar, `1000` for menus, `9901` for modal
+scrims and `9999` for transient messages; use `1` to `4` for everything else and
+`-1` for decorative layers that must sit behind content.
+
+### Global chrome
+
+One fixed bar on every public route, transparent over the page ground, carrying
+no border and no shadow, `64px` tall with `24px` of horizontal padding at depth
+`200`. Left to right: the brand lockup linking to `/`; the visitor'"'"'s local time,
+live, in the format `1:34 PM GMT+5:30`, updating once a minute on the minute and
+acting as the anchor for every time the product shows; the text link
+`Discover Events`; and a `Sign In` pill that becomes the account avatar once
+signed in.
+
+The primary button inverts on hover: resting background `rgba(21, 21, 21, 0.04)`
+with label `rgba(21, 21, 21, 0.64)`, hover background `rgba(21, 21, 21, 0.64)`
+with label `#ffffff`, transition `0.3s cubic-bezier(.4,0,.2,1)` across
+background, label colour and border colour together, padding `0 16px`, label
+`16px/24px` at weight 500.
+
+The brand mark is a four-pointed star with concave sides on the coordinate box
+`0 0 133 134`, filled with the current text colour, drawn from geometry rather
+than an image file. The wordmark beside it sits at weight 700 with `-0.02em`
+tracking, the mark at the cap-height of the final letter offset up by `2px`.
+
+### Motion
+
+The standard interface ease is `cubic-bezier(.4,0,.2,1)` at `0.3s`, declared
+once on the interactive base rather than per component, and it is what makes
+every hover feel like part of one system. Anything that appears uses the
+overshoot `cubic-bezier(0.54, 1.2, 0.38, 1.2)`, with the wider
+`cubic-bezier(0.175, 0.885, 0.32, 1.275)` for larger travel and
+`cubic-bezier(.16,1,.3,1)` for full-panel entrances. Link colour runs
+`color 0.21s ease-out`; filters run `filter 0.21s ease-in`.
+
+Named reveals: `landing-title-rise` at `1200ms` linear filling both, `nudge` at
+`1000ms` linear and infinite, `shift-background` at `60000ms` linear and
+infinite, `event-theme-fade-in` at `2000ms` linear holding forwards, and
+`arrow-fade` at `600ms` linear holding forwards. Invalid input answers with a
+`shake` of one to three pixels through ten stops. A press answers with `pop`,
+scaling to `1.005` at the midpoint. The loading spinner is `rotator`, `0` to
+`270deg`, paired with `dash`.
+
+Under a reduced-motion preference the five named reveals do not run, elements
+render in their final state, the `60000ms` rotation holds its first frame, and
+the `0.3s` hover transitions continue to run, because removing those would
+remove the affordance rather than the movement.
+
+Never animate a blur. On the landing route attach no scroll listener at all: the
+drift runs on a clock, not on scroll position.
+
+### Route: landing
+
+A wall of event posters scattered behind a centred block of text. The posters
+drift constantly on the `nudge` clock and each throws its own colour onto the
+ground around it. The headline sits in a column of maximum width `640px` at
+depth `1`: line one is a rotating adjective, line two is `events`, line three is
+`start here`.
+
+The adjective rotates through `Delightful`, `Vivid`, `Stellar`, `Lovely` in that
+order, each holding for `2400ms` and replaced by the `landing-title-rise` masked
+rise, so the outgoing word travels up out of a clipping block while the incoming
+word travels up into it and the two never overlap. `start here` is filled with a
+left-to-right gradient from `#f31a7c` to `#d69712` clipped to the glyphs, and is
+the only place in the product where a gradient touches type.
+
+The paragraph beneath runs `16px/25.6px` in `rgba(21, 21, 21, 0.36)` at a
+maximum width of `480px` and carries three inline links, each with an
+`underline 1px wavy` in `rgba(21, 21, 21, 0.09)` and its own hover hue:
+`run clubs` to `#3cbd2c`, `launch parties` to `#f31a7c` and `firework shows` to
+`#146aeb`. Each opens `/discover` pre-filtered by that category. The primary
+action reads `Create Your First Event`; the secondary reads `Discover Events`
+with a trailing arrow.
+
+Below the headline sit two shelves, one of calendars and one of the twelve
+categories. Cards lift on their shadow when pointed at, without moving.
+
+### Route: public event page
+
+Two columns at `1000px` and above: a left rail of `332px` and a content column
+of `568px` with a `48px` gap, the pair centred. Below `1000px` the rail moves
+above the content and the cover becomes full width. The theme fades in once over
+`2000ms`.
+
+The left rail carries the square cover tile at radius `11px` with its glow,
+sheen and blurred under-layer, then a presented-by row: a `24px` avatar at
+radius `100%` with the inset hairline, the overline `Presented by` at
+`11px/16px` in the themed secondary ink, the calendar name at `16px/24px` at
+weight 500 with a trailing chevron, and a `Follow` pill at the right.
+
+The content column carries the event title in the display serif in the themed
+ink, then the date and time beside a small calendar tile, then the location. Times
+are shown in the event'"'"'s own zone with the visitor'"'"'s zone underneath whenever
+the two differ.
+
+The registration panel is a bordered box and is the point of the screen. It
+shows exactly one of six states: register, request to join, request received,
+you are going, you are number `n` on the waiting list, or registration closed.
+Its answer to a submission is an assertive live region. Below `484px` it leaves
+the flow and sticks to the foot of the screen as a `72px` bar carrying the one
+primary action.
+
+A stranger looking at an unlisted event sees neither the exact address nor the
+guest list; a registered guest sees both; the host sees both plus the controls.
+
+### Route: event composer
+
+One screen at `/create`, never a wizard. At `1000px` and above: an art column of
+`520px` and a form column of `568px`. Below that they stack with the art first.
+The form column runs in one column: which calendar, whether it is public, the
+name, when it starts and ends, where it is, what it is about, and then the three
+setting rows. Copy is pinned: the capacity row reads `Capacity`, `Unlimited` and
+`Waitlist Enabled`; the theme row reads `Theme` and `Seasonal`; the title
+placeholder reads `Event Name`; the submit button reads `Create Event`. Behind
+it all the rotating field turns once a minute.
+
+### Route: discover
+
+One column of at most `1080px`, centred, under the slim public bar. A filter bar
+sits at the top as a single row at `1000px` and above and wraps to two rows below
+`650px`: a category select carrying the twelve names and an all option, a city
+field, a search field whose placeholder reads `Search events`, and a
+`Clear Filters` text button that appears only once a filter is set. Every control
+writes its value into the query string on change and reads its value back from
+the query string on load, so the address is the state and nothing is held in
+memory alone: a reload, a shared link and the browser'"'"'s back button each restore
+exactly the list that was on screen.
+
+Results are a list of event cards, three-up at `1580px`, two-up from `484px` and
+one-up below it, each carrying its generated cover at radius `12px`, the title at
+`14px/21px` at weight 500, the date chip, the city, and a remaining-seats
+caption at `13px/16px`. A card whose event is `registration_closed` carries the
+word in a pill and no seat caption. Beneath the list a page control reads
+`Showing <n> of <total>` from the total the list endpoint reports, with a
+previous and a next control that are disabled rather than hidden at the ends.
+The empty state is the pinned `No Events Found`.
+
+### Route: category
+
+One of the twelve names resolves here. The masthead carries the category glyph in
+its assigned hue at `48px`, the category name as an `h1` in the display serif,
+the count of published events and the count of calendars beneath it at
+`13px/18px` at weight 600, one sentence of description, and a subscribe field
+whose button reads `Subscribe`, beside a decorative card that is dropped below
+`650px`. Calendars run three-up, two-up then one-up. When nothing is published in
+that category the page reads the pinned
+`There are currently no relevant events near you.` with `Explore Events`.
+
+### Route: sign in and sign up
+
+One centred card of `400px` on the paper ground, radius `24px`, carrying the
+brand lockup, an `h1`, the fields, one primary action and one text link to the
+other route. Sign in asks for an email and a password and nothing else; sign up
+asks for a name, an email and a password, and says in a caption at `13px/16px`
+that a new account is a guest account. A `next` parameter survives the round trip
+and is where a successful sign-in lands; without one a guest lands on `/home` and
+a host on `/calendars`. A refused sign-in answers under the fields with a
+sentence naming what to do next, the fields keep what was typed except the
+password, and the card answers with the `shake`.
+
+### Route: system pages
+
+The not-found page reads `404`, a middle dot, and `Page Not Found`, over the
+body `Looks like you discovered a page that doesn'"'"'t exist or you don'"'"'t have
+access to.` with the action `Return Home`. The same page answers a route that
+never existed and a route the visitor may not see, because wording that differed
+would confirm a private event exists. The suspended-account page reads
+`Account Suspended` over
+`This user account is suspended for violating our terms of service.` and is the
+one route where the lockup is tinted `#f31a7c`, darkening to `#d5176d` on hover.
+The get-the-app page reads `Get the App` and carries a scan code generated at
+render time from the address it points at, drawn as vector geometry on a
+`0 0 230 230` grid as a `25` by `25` module matrix at `9.2` per module, with
+three finder patterns as rounded squares of outer radius `15.456`, foreground
+ink on paper and a quiet zone of `4` modules, plus four decorative stickers at
+slight angles. A long-form legal route renders the same chrome around plain
+prose.
+
+### Iconography
+
+Every symbol is drawn from geometry, never an icon font and never an image file,
+so it stays sharp at any size and can be recoloured on the fly. The twelve
+category glyphs sit on a `24` grid at stroke `1.5px` with round caps and joins
+and no fill, each in its assigned hue: Family a house pentagon with a heart,
+Books two rectangles joined by a spine, Games an isometric cube, Tech a rounded
+rectangle holding an angle-bracket glyph, Food and Drink a bowl arc with two
+steam curves, AI two mirrored brain lobes, Running a figure mid-stride, Arts and
+Culture a palette ellipse with four holes, Climate a globe with a leaf, Fitness
+a dumbbell, Wellness a five-petal lotus, Crypto a circle with a currency mark.
+Interface icons follow the same construction. Avatars for accounts with no
+picture are generated from the display name as a coloured circle carrying the
+initial, never a grey silhouette.
+
+### Covers, grain and generated art
+
+This is the zero-asset substitution guide. The product ships no image files and every picture is drawn by the code. Each
+cover is generated from the event'"'"'s `cover_seed`: a square filled with a
+four-stop linear gradient at a hash-derived angle between two of `#f31a7c`,
+`#146aeb`, `#3cbd2c`, `#ab46dd`, `#d69712`, `#007aff`, `#28cd41` and `#ff3b30`
+chosen as neighbours in that list; two radial gradients at hash-derived
+positions in the same colours at `0.4` alpha blended `plus-lighter`; a grain
+overlay at `0.06` alpha drawn as fractal noise at base frequency `0.9` with `4`
+octaves, desaturated and tiled at `300px`; and the title in `#ffffff` at weight
+700 at `12%` of the square'"'"'s height with the shadow
+`rgba(0, 0, 0, 0.2) 0px 0px 5px`. A generated cover feeds the theme derivation
+exactly as a photograph would, so the theme system is exercised from the first
+run. Sound is never used anywhere in the product.
+
+### Composition and layering
+
+Composition is fixed per route rather than improvised. The landing route
+composes a poster wall, a headline block, two shelves and a closing band that
+repeats the primary action above the footer. A category route composes a
+masthead of the category name, its counts, one sentence and a subscribe field,
+beside a decorative card. The event route composes a left rail and a content
+column. The composer route composes an art column and a form column.
+
+Layering is a strict boundary: the theming layer computes an event'"'"'s whole
+palette once, on the server, and hands it to the components as tokens. No
+component decides its own colour, which is what lets the same registration panel
+sit correctly on a themed event page and on a plain settings screen. Document
+structure follows the same discipline: one `h1` per route, landmarks around the
+bar, the content and the footer.
+
+### Authenticated screens
+
+The signed-in routes are specified here in the same detail as the public ones,
+because a product whose landing page is careful and whose management screens are
+not has not been finished. The authenticated inventory is: `/home`,
+`/calendars`, `/create`, the three `/event/<slug>/manage/*` screens, `/t/<code>`
+and `/settings/profile`. Each screen names the persona that sees it and the
+permission it needs, and each handles the same five situations: loading, empty,
+working, refused, and not permitted. The last always renders the ordinary
+not-found page rather than a message that would confirm the record exists.
+
+**The shell.** Every signed-in route sits inside one shell: a persistent left
+rail of `260px` at `1000px` and above, collapsing below that to a `56px` bar of
+icons that opens as a scrim-backed drawer trapping focus and closing on the
+escape key. The rail carries the brand lockup, then the destinations the persona
+may reach, then the account block at its foot. A guest sees `Home`, `Discover`
+and `Settings`; a host sees `Calendars`, `Create`, `Discover` and `Settings`. The
+current destination is marked by a filled navigation item at radius `6px` and by
+an accessible current-page marking, never by colour alone. The rail never scrolls
+with the content, and the content column carries the one `h1` for the route.
+
+**`/home`, the guest'"'"'s registrations.** Any signed-in account. Two groups,
+`Upcoming` first and `Past` second, each an ordered list of rows at `15px/22px`
+divided by `#e7e7e7` hairlines. A row carries the cover thumbnail at `44px`, the
+title, the date in the event'"'"'s own zone, the status as a word in a pill, and one
+trailing control: `View Ticket` for a seat held, `Leave Waiting List` for a
+waiting-list place, nothing for a past row. A confirmed row'"'"'s cancel control
+opens the confirmation dialog and, once confirmed, the row moves to its new
+status in place rather than vanishing. The empty state is the pinned
+`No Upcoming Events`.
+
+**`/calendars`, the calendars owned.** Host only; a guest gets the not-found
+page. A grid of calendar cards two-up from `484px`, each carrying the name, the
+slug at `13px/16px` in the muted grey, the category glyph, the city, the count of
+published events, and a private badge in the pink accent when `is_public` is off.
+The primary action reads `New Calendar` and opens a dialog asking for the name,
+the slug, the category, the city and whether it is public, with a caption under
+the slug field reading `This becomes the calendar address.` A refused slug names
+the reason under that field and the dialog stays open with what was typed. The
+empty state is the pinned `No Calendars Yet`.
+
+**`/event/<slug>/manage/overview`, the dashboard.** The owning host only. A
+masthead of the event title, its state as a word in a pill, and its address as a
+copyable line whose control reads `Copy Link`. Below it a row of four counters at
+`22px/26px` at weight 700 over an overline at `13px/18px` at weight 600:
+confirmed against capacity, waiting, awaiting approval, and arrived. Below those,
+the next three things to do as a short list, and a link to each of the two sister
+screens. A cancelled event replaces the counters with the notice carrying the
+host'"'"'s own reason.
+
+**`/event/<slug>/manage/guests`, the guest list, the queue and the door.** The
+owning host only. Three stacked panels sharing one table. The queue comes first
+and shows only `pending_approval` rows, each with `Approve` and `Decline`
+controls; approving a request into a full event moves that row to the waiting
+list and says so in a notice rather than silently. The guest list is a table with
+a header row, columns for the guest, the email, the status word in its pill, the
+waiting-list position and the ticket code, sorted by status then position then
+email, and only the rows the window shows are drawn however long the list is. Its
+toolbar carries a status filter and an `Export CSV` control that downloads the
+guest list as a file named after the event. The door is a single field whose
+placeholder reads `TKT-` and whose action reads `Check In`; a code already
+checked in answers with the arrival time rather than a second arrival. The empty
+state is the pinned `No Guests Yet`.
+
+**`/event/<slug>/manage/registration`, capacity and approval.** The owning host
+only. Four setting rows, each a label at `16px/24px` with its control at the
+right and a caption beneath: a capacity stepper whose caption reads
+`You already have <n> guests confirmed.` when a lower number is refused, an
+approval switch, a waiting-list switch, and a registration switch reading
+`Registration Open` whose off position closes registration. Raising capacity
+while people are waiting answers with a notice naming how many were moved to a
+seat. Turning registration off changes the public panel to its closed state and
+mails nobody, and turning it back on restores the panel that was there before.
+
+**`/t/<ticket-code>`, one ticket.** Anyone presenting the code, signed in or
+not, because a ticket that needs an account is not presentable at a door; a code
+that never existed gets the not-found page. A single card of `400px` centred on
+the event'"'"'s
+own themed ground, carrying the event title in the display serif, the date and
+time in the event'"'"'s zone with the visitor'"'"'s zone beneath when they differ, the
+place, the status word in its pill, the ticket code at `22px/26px` in the one
+place a code may sit in a monospace face, and the scan code drawn as vector
+geometry from the ticket address. Two controls sit beneath: `Add to Calendar`,
+which hands the visitor a calendar file for that event, and `View Event`. A
+checked-in ticket carries the arrival time and the success hue on its pill.
+
+**`/settings/profile`, name and handle.** Any signed-in account, and its own
+account alone. Two fields in one column of `568px`: the display name, and the
+handle with the address it produces shown beneath it at `13px/16px` as the
+visitor types. A handle already taken, reserved, or matching a category name is
+refused under the field with a sentence naming the reason, and the saved handle
+is unchanged until a save succeeds. The save control reads `Save Changes` and is
+disabled until something differs from what is stored.
+
+**Dialogs, notices and fields.** A dialog is a card of at most `480px` at radius
+`24px` over a scrim at depth `9901`, with the scrim at `rgba(21, 21, 21, 0.8)`,
+entering on the `cubic-bezier(.16,1,.3,1)` panel curve, trapping focus, returning
+focus to the control that opened it and closing on the escape key. Destructive
+dialogs put the destructive action second and name what will happen in one
+sentence; the cancel-an-event dialog requires the reason to be typed before its
+action becomes available. A notice is a bar at depth `9999` that names the
+outcome in words and carries the status hue as a `4px` leading edge rather than
+as a fill, dismisses on its own after `6000ms`, and is announced politely, except
+the registration panel'"'"'s own answer, which is assertive. A field carries a label
+above it, an optional caption beneath, a `4px` radius, and on refusal an inline
+sentence beneath it plus the `shake`; the sentence is joined to the field so a
+screen reader reads them together, and colour is never the only mark of the
+refusal.
+
+**Loading and skeleton states.** Every route paints a skeleton, never a spinner,
+for content it is waiting on: blocks on the `#f2f2f2` skeleton ground at the
+radius of the thing they stand for, holding the final layout so nothing shifts
+when the data lands. The one spinner in the product is `rotator` inside a control
+that is working. A skeleton never animates a blur and holds its first frame under
+a reduced-motion preference. No route paints twice for the same data, so a
+skeleton is replaced once and never re-entered on a return to a route already
+loaded.
+
+### Surfaces the source specifies that this build does not carry
+
+Each of these is named rather than dropped in silence. There is no insights
+screen and no attendance or conversion charting; no administration or moderation
+queue; no inbox, no invitation flow and no undo window on a refused request; no
+reliability computation, no bands and no fairness appeal; and none of the three
+extension features. Third-party sign-in is absent with them: the source'"'"'s
+measured sign-in mark is four filled paths in `#ea4335`, `#fbbc04`, `#4285f4`
+and `#34a853` on a `0 0 52 56` box, and no surface in this build renders it or
+those four values.
+
+### Responsive matrix
+
+The desktop switch is `1000px`; two-up grids appear from `484px`; the content
+column widens at `1260px` and shelves gain a column at `1580px`; padding tightens
+below `650px` and stacks collapse to one column below `450px`; the content column
+stops growing at `1940px`. Gutters are `16px` below `484px` and `24px` above.
+The signed-in rail is a `260px` column at `1000px` and above and a `56px` icon
+bar with a drawer below it. The discover filter bar is one row at `1000px` and
+above and two rows below `650px`. The guest list table keeps its columns to
+`650px`, then drops the email column, then becomes one card per guest below
+`484px` carrying the same words. A dialog is a centred card above `484px` and a
+sheet rising from the foot of the screen below it.
+Landing shows 22 poster tiles at desktop, 12 at tablet and 8 on a phone. Category
+pages run calendars three-up, two-up then one-up and drop the decorative card on
+a phone. Hover effects are declared inside `(hover: hover)` and their information
+is never hover-only. Anything tappable is at least `44px` on any axis, the
+composer date and time fields included.
+
+### Accessibility detail
+
+One `h1` per route. Landmarks on the bar, the rail, the content and the footer.
+Card grids are lists; the guest list is a table with headers, and the card form it
+takes on a phone keeps the header words as labels on each value. Every switch and
+stepper on the registration settings screen carries a name and reports its state
+to a reader, the door field is labelled rather than placeholder-only, and the
+count a raise moves to a seat is announced politely. The focus ring is a `2px`
+outline in `#146aeb` at `2px` offset, drawn so it never affects layout, and it
+is additional to any hover treatment rather than instead of it. Focus order
+follows the document, modals trap focus, return it to the control that opened
+them and close on the escape key. Registration state is carried as words in a
+pill, never by colour alone. `rgba(21, 21, 21, 0.36)` sits below the normal-text
+contrast threshold and is therefore permitted only on text that repeats
+information available elsewhere. Under an increased-contrast preference
+hairlines go to `rgba(21, 21, 21, 0.24)` and tertiary text steps up to
+`rgba(21, 21, 21, 0.64)`. Under forced colours, theme derivation is suspended
+and system colours are honoured.
+
+### Copy deck
+
+Empty states name the absence, say what to do instead, and offer one button:
+`/home` reads `No Upcoming Events` over
+`Events you register for will appear here.` with `Discover Events`;
+`/calendars` reads `No Calendars Yet` over
+`A calendar is where your events live. Create one to get started.` with
+`New Calendar`; the guest list reads `No Guests Yet` over
+`Share your event link and registrations will appear here.` with `Copy Link`;
+`/discover` reads `No Events Found` over
+`Try a wider date range or a different category.` with `Clear Filters`; and a
+category page with nothing nearby reads
+`There are currently no relevant events near you.` with `Explore Events`.
+
+Refusals name what to do next and never use the word `error`:
+`Enter a valid email address.`, `Add your name so hosts know who is coming.`,
+`This event just filled up. You are on the waiting list.` and
+`You already have <n> guests confirmed.` when a host lowers capacity below the
+confirmed count.
+
+Four more strings are pinned because a grader reads them. The public panel of an
+event whose registration is closed reads `Registration Is Closed` over
+`The host has stopped taking registrations for this event.`; a handle a visitor
+cannot have is refused with `That handle is already taken.`; a calendar slug
+already in the namespace is refused with `That address is already taken.`; and
+the discover page control reads `Showing <n> of <total>` with the two numbers
+substituted and nothing else changed.
+
+### Performance
+
+Three budgets hold. Nothing on any route drops below a steady frame rate while
+it is drifting or fading. No route paints twice for the same data. No list draws
+more rows than the window shows.
+
+The landing route carries twenty-two drifting posters and must still feel
+weightless on a three-year-old laptop, which follows from moving only position
+and opacity while the blurs and halos are painted once and left alone. An event
+page must arrive already wearing its colours. A host with a long guest list must
+be able to scroll it smoothly, which means drawing only the rows on screen.
+
+---
+
+## Constraints
+
+- Single tenant: one namespace of accounts, no workspace or organisation.
+- Free events only: no prices, no payments, no refunds, no disputes.
+- Email and password only: no emailed sign-in code, no phone sign-in, no Google
+  sign-in, no passkey, no password reset.
+- No recurring series, no guest reliability signal, no calendar teams, no audit
+  log, no messaging, no inbox, no push notifications, no reminders.
+- No cover-image upload and no object store; covers are generated from a seed,
+  and there is no map pane: discovery is a list and its filters.
+- No external network calls at runtime: no mail vendor, no analytics, no map
+  provider, no fonts fetched at run time.
+- Responsive web only, no native mobile application. Mail is sent from the
+  request that causes the transition.
+- The app stays responsive at 500 events and 5,000 registrations.
+
+---
+
+## Deployment contract
+
+- The app must be reachable at `APP_PUBLIC_URL`. The port mapping is
+  `${APP_PUBLIC_PORT}:4173`, where `4173` is the container-internal port and
+  `APP_PUBLIC_PORT` is what the outside world uses. Read both from the
+  environment; never hardcode either.
+- The HTTP API is served on that same origin under the `/api` prefix.
+- `GET /api/health` returns `200` once the app is ready.
+- The app starts from the environment image with no manual steps.
+- Login credentials, or an explicit statement that there are none, are written
+  to `/app/USER_README.md`. Each account is written there as three plain lines
+  outside any table, `Role: <role>`, then `Email: <address>`, then
+  `Password: <password>`, so the file reads correctly line by line and not only
+  as a rendered page. A table on its own does not satisfy this, though one may
+  sit beside the lines.
+- Reserved `.browser_screenshots/` and `.downloads/` directories exist at the
+  app root, empty.
+- Serve a production build behind a static or preview server, never a dev
+  server.
+- The server must keep running after this session ends and must not be a child
+  of the shell. An ordinary background job dies with its shell, and the app will
+  not be running when it is next opened.
+- Bind `0.0.0.0`, never `127.0.0.1` or `localhost`. A loopback-only listener is
+  unreachable from outside the container.
+- The backing services named in this brief are already running and reachable at
+  their environment variables. Do not download, install, compile or start a copy
+  of any of them.
+- Use only the providers named in this brief. No edge functions.
+- No persistent volumes, no fixed container names, no custom networks.
+
+### API shapes
+
+Field names are exact. List endpoints return a JSON array at the top level.
+
+| Endpoint | Request body / query | Returns |
+|---|---|---|
+| `POST /api/auth/signup` | `{"email","password","name"}` | the created account with `id` and `role` set to `guest` |
+| `POST /api/auth/login` | `{"email","password"}` | `{"access_token": str, ...}` |
+| `GET /api/health` | - | readiness |
+| `GET /api/resolve/{slug}` | - | `{"kind","slug"}`, where `kind` is `system`, `category`, `event`, `calendar` or `account` |
+| `GET /api/events` | `?category=&city=&q=&limit=&offset=` | array of the events open to discovery, each with `slug`, `title`, `category`, `city`, `time_zone`, `starts_at`, `ends_at`, `capacity`, `confirmed_count`, `remaining`, `state` and `theme_hex`, under the header `X-Total-Count` |
+| `GET /api/events/{slug}` | - | one event with those fields plus `description` and `approval_required` |
+| `POST /api/events` | `{"calendar_slug","title","category","city","time_zone","starts_at","ends_at","capacity","approval_required","waitlist_enabled","description"}` | the created event with `id`, `slug`, `state` and `theme_hex` |
+| `PATCH /api/events/{slug}` | any subset of the create body plus `state` | the updated event |
+| `POST /api/events/{slug}/cancel` | `{"reason"}` | the cancelled event including `cancel_reason` |
+| `GET /api/events/{slug}/registrations` | - | host-only; array of `{"id","account_id","email","display_name","status","waitlist_position","ticket_code"}` |
+| `GET /api/events/{slug}/registrations.csv` | - | host-only; the same guest list as `text/csv` under the pinned header line |
+| `POST /api/registrations` | `{"event_slug"}` | the registration with `id`, `status`, `waitlist_position` and `ticket_code` |
+| `GET /api/registrations/me` | - | array of the caller'"'"'s own registrations |
+| `POST /api/registrations/{id}/cancel` | - | the registration with `status` set to `cancelled_by_guest` |
+| `POST /api/registrations/{id}/approve` | - | host-only; the registration with its new `status` |
+| `POST /api/registrations/{id}/decline` | - | host-only; the registration with `status` set to `declined` |
+| `POST /api/tickets/{ticket_code}/check-in` | - | host-only; the registration with `status` set to `checked_in` |
+| `GET /api/tickets/{ticket_code}` | - | anyone presenting the code; the registration with `event_slug`, `title`, `starts_at`, `time_zone`, `status` and `ticket_code` |
+| `GET /api/calendars` | - | array of the caller'"'"'s own calendars |
+| `POST /api/calendars` | `{"name","slug","category","city","is_public"}` | host-only; the created calendar with `id`, `slug` and `owner_account_id` |
+| `GET /api/accounts/me` | - | the caller with `id`, `email`, `display_name`, `handle` and `role` |
+| `PATCH /api/accounts/me` | `{"display_name","handle"}` | the caller'"'"'s own updated account |
+
+Every endpoint except `POST /api/auth/signup`, `POST /api/auth/login`,
+`GET /api/health`, `GET /api/resolve/{slug}`, `GET /api/events`,
+`GET /api/events/{slug}` and `GET /api/tickets/{ticket_code}` requires a valid
+bearer token; a request without one is
+denied, not served. A business-rule violation is rejected as a client error with
+a message naming the reason, never as a server error and never as a silent
+success.
+
+`GET /api/tickets/{ticket_code}` answers every caller presenting a real code,
+signed in or not, because that is what makes a ticket presentable at a door
+without an account; the code itself is the credential, and a code that never
+existed meets the not-found response. It carries the ticket, never the guest
+list and never another guest. `PATCH /api/accounts/me` edits the caller alone and
+carries no account identifier, so no account can name another one in it.
+
+### No mocks
+
+Mailpit is the only mail server and PostgreSQL is the only datastore. An
+in-process mail stub, an in-memory list of sent messages, a logged line standing
+in for a send, a second embedded database, or registration state held in the
+app'"'"'s own process instead of the database are each a contract violation however
+correct the screen looks. The named provider is the fact - the app'"'"'s UI and its
+own tables can only reflect what lives in the provider, never substitute for it.
+
+---
+
+## Definition of done
+
+A visitor can open a published event, register, and receive a real confirmation
+email carrying a ticket code. When two guests take the last seat at the same
+instant, one holds it and the other holds a waiting-list place, and the app
+never shows more confirmed guests than the event has capacity for. Cancelling a
+registration passes the seat to the head of that waiting list at once, and a
+host who calls an event off sends every guest the host'"'"'s own words unedited.
+
+
+---
+
+## How this app is deployed and graded
+
+This section is added by the harness, identically for every task. It describes
+how your work is collected and run; the brief above describes what to build.
+
+**Write `/app/Dockerfile`.** Grading does not reuse this container. It runs
+`docker build /app` against your source alone, then starts the resulting image as
+a container of its own on the same network as the backing services. Nothing from
+this session comes with it: no running processes, no packages you installed
+outside `/app`, no caches you warmed, no rows you created by hand. The database
+is re-created from scratch, so your schema, migrations and seed must be applied
+by the image itself.
+
+The container must serve the app in the foreground on the port this brief names,
+bound to `0.0.0.0`, and read every service address from the environment at
+container start — no service is reachable during `docker build`.
+
+**Check whether you have a Docker daemon to test with.** Run `docker info`. If it
+answers, a daemon has been reserved for you and you should not finish until you
+have built your image and confirmed the health endpoint answers from it. If the
+command is missing or cannot connect, this task has no daemon: write the
+`Dockerfile` carefully and read it back as if you were the machine executing it,
+step by step, asking at each one what is present in the image at that moment.
+
+If the daemon IS available, two facts about it you cannot discover on your own,
+and which will otherwise cost you time:
+
+- A container you start with `--network host` is reachable at **`http://dockerd:<port>`**,
+  not `http://localhost:<port>`. `--network host` means the daemon'"'"'s network, not
+  this container'"'"'s. Your app has not failed just because `localhost` refuses.
+- Inside it, the backing services resolve by the same hostnames they use here, so
+  a real database connection is part of the test. Pass the environment variables
+  your app needs with `-e`, as grading will.
+
+The daemon is yours alone and shares nothing with the grader, so images you build
+here are invisible to it. **Grading rebuilds from your source**, which means a
+working container proves nothing by itself — what is graded is the `Dockerfile`.
+If you fix something by hand inside a running container, put the fix in the
+`Dockerfile`.
+
+**Anything you bring in must be yours to use.** If you fetch an image, font,
+icon set, sample text or dataset from the web, it must be public domain or under
+a licence that permits redistribution, and you must be able to say which. Do not
+use a company'"'"'s logo or brand assets, a photographer'"'"'s or artist'"'"'s work, or
+anything whose licence you have not checked. Generating your own placeholder, or
+using a plain CSS or SVG stand-in, is always acceptable and is usually faster
+than finding something you are allowed to ship.
+
+**Walk the app in a browser before you finish, and leave the evidence.** Chromium
+and Playwright are already installed here — you do not need to add them. Drive
+your running app through the journeys this brief describes, as a stranger would:
+sign up or sign in, do the thing, arrive at the result. A page that renders
+without error is not the same as a page that works.
+
+Judge each step against the page rather than by eye: read the values back, check
+that what should be there is and what should not be is not, and watch the
+console. Fix what you find, then walk it again.
+
+Save one screenshot per journey into `/app/.browser_screenshots/` as evidence,
+numbered in the order you took them (`01_login.png`, `02_dashboard.png`, ...).
+That directory already exists and is reserved for exactly this. Keep it out of
+the shipped image via `.dockerignore`.
+
+**Do not read an image file back.** Your file reader cannot open binary files and
+the attempt ends your session — twice now, both times after the app was nearly
+finished and before the `Dockerfile` was written. Write the screenshot and move
+on; the page itself is what you verify against.' 2>&1 </dev/null | stdbuf -oL tee /logs/agent/openhands.txt
+Command outputs captured
+Collecting main service artifacts

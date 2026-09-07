@@ -1,0 +1,159 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import { listProducts } from '../../../server/services/catalogue.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+
+let products = [];
+let failed = null;
+try {
+  const result = await listProducts({ pageSize: 100, cursor: null });
+  products = result.data;
+} catch (err) {
+  failed = String(err.message);
+}
+
+const cameras = products.filter((p) => p.kind === 'camera');
+const others = products.filter((p) => p.kind !== 'camera');
+
+const chipFor = (p) => {
+  if (p.status === 'discontinued') return { text: 'Discontinued', tone: '' };
+  if (p.availability === 'sold_out') return { text: 'Sold out', tone: 'wrong' };
+  if (p.availability === 'low') return { text: 'Low stock', tone: '' };
+  return null;
+};
+---
+
+<Shell title="Shop" description="Two cameras, the accessories that go with them, and the spares.">
+  <h1 class="page-title">Shop</h1>
+  <p class="page-lede">
+    Two cameras, the accessories that go with them, and the spares. Ordered the way we would put them on the table.
+  </p>
+
+  {failed ? <p class="notice wrong">Something went wrong at our end. Reload the page.</p> : null}
+
+  {
+    !failed && products.length === 0 ? (
+      <div class="empty">
+        <p>Nothing is on the table right now.</p>
+        <p style="margin-top:calc(var(--unit) * 3)">
+          <a href="/downloads">Downloads</a> are still here.
+        </p>
+      </div>
+    ) : null
+  }
+
+  {
+    cameras.length ? (
+      <section aria-labelledby="cameras-heading" style="margin-bottom:calc(var(--unit) * 10)">
+        <h2 id="cameras-heading" class="section-heading">
+          Cameras
+        </h2>
+        <div class="grid cameras-grid">
+          {cameras.map((p, i) => {
+            const chip = chipFor(p);
+            return (
+              <article class="card product-card">
+                <a class="card-media" href={`/shop/${p.handle}`} tabindex="-1" aria-hidden="true">
+                  <ProductMedia handle={p.handle} title={p.title} index={i} ratio="16 / 9" />
+                </a>
+                <div class="card-body">
+                  <div class="row between" style="align-items:flex-start">
+                    <h3 style="font-size:20px;line-height:26px">
+                      <a href={`/shop/${p.handle}`}>{p.title}</a>
+                    </h3>
+                    {chip ? <span class={`chip ${chip.tone}`}>{chip.text}</span> : null}
+                  </div>
+                  <p class="hint">{p.subtitle}</p>
+                  <p class="price" style="font-weight:700">
+                    {p.price_varies ? 'From ' : ''}
+                    {formatMinor(p.price_minor)}
+                  </p>
+                  {p.support_until ? <p class="hint">Supported until {formatDate(p.support_until)}.</p> : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ) : null
+  }
+
+  {
+    others.length ? (
+      <section aria-labelledby="others-heading">
+        <h2 id="others-heading" class="section-heading">
+          Accessories and spares
+        </h2>
+        <div class="grid dense-grid">
+          {others.map((p, i) => {
+            const chip = chipFor(p);
+            return (
+              <article class="card product-card dense">
+                <a class="card-media" href={`/shop/${p.handle}`} tabindex="-1" aria-hidden="true">
+                  <ProductMedia handle={p.handle} title={p.title} index={i + 10} />
+                </a>
+                <div class="card-body">
+                  <div class="row between" style="align-items:flex-start">
+                    <h3 style="font-size:16px;line-height:22px">
+                      <a href={`/shop/${p.handle}`}>{p.title}</a>
+                    </h3>
+                    {chip ? <span class={`chip ${chip.tone}`}>{chip.text}</span> : null}
+                  </div>
+                  <p class="hint">{p.subtitle}</p>
+                  <p class="price" style="font-weight:700">
+                    {p.price_varies ? 'From ' : ''}
+                    {formatMinor(p.price_minor)}
+                  </p>
+                  {p.support_until ? <p class="hint">Supported until {formatDate(p.support_until)}.</p> : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ) : null
+  }
+</Shell>
+
+<style>
+  .section-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: calc(var(--unit) * 3);
+  }
+  .cameras-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dense-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .product-card {
+    padding: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  }
+  .product-card.dense {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card-media {
+    display: block;
+    background: var(--ground-sunken);
+  }
+  .card-body {
+    padding: calc(var(--unit) * 4);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 2);
+  }
+  @media (max-width: 63.999rem) {
+    .dense-grid,
+    .product-card {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

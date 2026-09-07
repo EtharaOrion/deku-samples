@@ -1,0 +1,140 @@
+---
+// A persistent left rail sits on every surface but the letter. The current
+// entry is marked with weight and a marker as well as colour, and carries the
+// current-page state programmatically.
+const { path, customer } = Astro.props;
+
+const primary = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' },
+];
+const account = [
+  { href: '/account', label: 'Overview', exact: true },
+  { href: '/account/orders', label: 'Orders' },
+  { href: '/account/cameras', label: 'Cameras' },
+];
+
+function isCurrent(entry) {
+  if (entry.exact) return path === entry.href;
+  return path === entry.href || path.startsWith(`${entry.href}/`);
+}
+---
+<nav class="rail" aria-label="Sections">
+  <ul class="rail-group">
+    {primary.map((entry) => (
+      <li>
+        <a
+          href={entry.href}
+          class:list={['rail-link', { current: isCurrent(entry) }]}
+          aria-current={isCurrent(entry) ? 'page' : undefined}
+        >
+          <span class="marker" aria-hidden="true"></span>
+          <span>{entry.label}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {customer && (
+    <>
+      <p class="rail-heading" id="rail-account">Account</p>
+      <ul class="rail-group" aria-labelledby="rail-account">
+        {account.map((entry) => (
+          <li>
+            <a
+              href={entry.href}
+              class:list={['rail-link', { current: isCurrent(entry) }]}
+              aria-current={isCurrent(entry) ? 'page' : undefined}
+            >
+              <span class="marker" aria-hidden="true"></span>
+              <span>{entry.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </>
+  )}
+
+  <div class="rail-foot">
+    {customer ? (
+      <form method="post" action="/sign-out">
+        <button class="rail-link rail-button" type="submit">
+          <span class="marker" aria-hidden="true"></span>
+          <span>Sign out</span>
+        </button>
+        <span class="rail-who ident">{customer.email}</span>
+      </form>
+    ) : (
+      <a href="/sign-in" class="rail-link">
+        <span class="marker" aria-hidden="true"></span>
+        <span>Sign in</span>
+      </a>
+    )}
+  </div>
+</nav>
+
+<style>
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 4);
+  }
+  .rail-group {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space);
+  }
+  .rail-heading {
+    font-size: 14px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-top: calc(var(--space) * 2);
+  }
+  .rail-link {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    padding: calc(var(--space) * 2) calc(var(--space) * 2);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--fg-muted);
+    transition: background-color var(--speed) var(--ease), color var(--speed) var(--ease);
+  }
+  .rail-link:hover { background: var(--bg-sunken); color: var(--fg); }
+  /* The current entry carries weight and a marker, not colour alone. */
+  .rail-link.current {
+    color: var(--fg);
+    font-weight: 700;
+    background: var(--bg-sunken);
+  }
+  .marker {
+    width: 3px;
+    height: 16px;
+    border-radius: 1px;
+    background: transparent;
+  }
+  .rail-link.current .marker { background: var(--fg); }
+
+  .rail-button {
+    border: 0;
+    background: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+  }
+  .rail-foot {
+    margin-top: auto;
+    padding-top: calc(var(--space) * 4);
+    border-top: var(--border-w) solid var(--rule);
+  }
+  .rail-who {
+    display: block;
+    font-size: 12px;
+    color: var(--fg-muted);
+    padding-inline: calc(var(--space) * 2);
+    overflow-wrap: anywhere;
+  }
+</style>

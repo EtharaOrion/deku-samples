@@ -1,0 +1,93 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { viewerFor } from '../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const next = Astro.url.searchParams.get('next') || '/account';
+const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/account';
+---
+
+<Shell title="Create an account — Vela" current="" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <div class="auth">
+    <h1>Create an account</h1>
+    <p class="lede">You do not need an account to buy a camera. An account is where your cameras live.</p>
+
+    <form class="form" data-sign-up data-next={safeNext} novalidate>
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" autocomplete="name" required />
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" />
+        <p class="hint">At least eight characters.</p>
+      </div>
+
+      <p class="form-error" data-error role="alert"></p>
+
+      <button class="btn" type="submit" data-submit>Create the account</button>
+    </form>
+
+    <p class="alt">Already have one? <a href={`/sign-in?next=${encodeURIComponent(safeNext)}`}>Sign in</a>.</p>
+  </div>
+</Shell>
+
+<script>
+  (() => {
+    const form = document.querySelector<HTMLFormElement>('[data-sign-up]');
+    if (!form) return;
+    const error = form.querySelector<HTMLElement>('[data-error]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const name = String(data.get('name') || '').trim();
+      const email = String(data.get('email') || '').trim();
+      const password = String(data.get('password') || '');
+      if (!name) { error.textContent = 'Name is required.'; return; }
+      if (!email) { error.textContent = 'Email is required.'; return; }
+      if (password.length < 8) { error.textContent = 'Password is required, and must be at least 8 characters.'; return; }
+
+      error.textContent = '';
+      submit.disabled = true;
+      const previous = submit.textContent;
+      submit.textContent = 'Creating';
+
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          error.textContent = body?.error?.message || 'That did not work.';
+          submit.disabled = false;
+          submit.textContent = previous;
+          return;
+        }
+        document.cookie = `vela_session=${encodeURIComponent(body.access_token)}; path=/; max-age=86400; samesite=lax`;
+        window.location.assign(form.dataset.next || '/account');
+      } catch {
+        error.textContent = 'That did not work. Check your connection and try again.';
+        submit.disabled = false;
+        submit.textContent = previous;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .auth { max-width: 24rem; }
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 3); }
+  .lede { color: var(--fg-muted); font-size: 14px; line-height: 21px; margin-bottom: calc(var(--unit) * 6); }
+  .form { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); }
+  .hint { font-size: 14px; color: var(--fg-muted); }
+  .form-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+  .alt { margin-top: calc(var(--unit) * 6); font-size: 14px; color: var(--fg-muted); }
+</style>

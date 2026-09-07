@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block route %}
+{% if talents %}
+<section class="roster" id="roster" data-roster
+         data-talents='{{ talents | tojson }}' data-disciplines='{{ disciplines | tojson }}'>
+
+  {# The discipline filter in the left margin: real buttons in the tab order,
+     the selected state exposed rather than carried by opacity alone. There is
+     no all state; the first discipline is active on arrival. #}
+  <div class="filter" role="group" aria-label="Filter the roster by discipline">
+    <span class="filter-marker" data-filter-marker aria-hidden="true"></span>
+    {% for discipline in disciplines %}
+    <button type="button" class="filter-item" data-filter-item data-discipline="{{ discipline }}"
+            aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            data-index="{{ loop.index0 }}">{{ discipline | upper }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="roster-stage" data-roster-stage>
+    {% for talent in talents %}
+    <article class="roster-entry" data-roster-entry data-discipline="{{ talent.discipline }}"
+             data-slug="{{ talent.slug }}" data-index="{{ loop.index0 }}"
+             {% if not loop.first %}hidden{% endif %}>
+      <a class="roster-link" href="/talents/{{ talent.slug }}"
+         data-cursor-label="{{ talent.title }}" data-cursor-above>
+        {% if loop.first %}<h1 class="roster-name" data-roster-name>{{ talent.title }}</h1>
+        {% else %}<h1 class="roster-name" data-roster-name>{{ talent.title }}</h1>{% endif %}
+        <p class="roster-discipline" data-roster-discipline>{{ talent.discipline | upper }}</p>
+        {% if talent.poster %}
+        <span class="roster-portrait" data-reveal>
+          <span class="tile-placeholder" data-placeholder aria-hidden="true"></span>
+          <img src="{{ talent.poster.url }}" alt="{{ talent.poster.alt }}"
+               width="{{ talent.poster.width }}" height="{{ talent.poster.height }}"
+               decoding="async" data-still>
+        </span>
+        {% endif %}
+      </a>
+    </article>
+    {% endfor %}
+  </div>
+
+  <p class="roster-live sr-only" aria-live="polite" data-roster-live></p>
+  <p class="roster-empty empty-state" data-roster-empty hidden>No talent is published in this discipline.</p>
+</section>
+{% else %}
+<section class="roster roster-empty-route">
+  <h1 class="roster-name">Roster</h1>
+  <p class="empty-state">No talent is published yet.</p>
+</section>
+{% endif %}
+{% endblock %}

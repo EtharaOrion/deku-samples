@@ -1,0 +1,1730 @@
+Skipping image OS validation for hb__14c287065eaa2531681a447b1cad7cf4: docker inspect returned 1
+Running healthcheck: pg_isready -h postgres -p 5432 -q
+Healthcheck passed
+Running command: if command -v apk >/dev/null 2>&1; then  apk add --no-cache curl git build-base tmux; elif command -v apt-get >/dev/null 2>&1; then  apt-get update && apt-get install -y curl git build-essential tmux; elif command -v dnf >/dev/null 2>&1; then  dnf install -y curl git gcc gcc-c++ make tmux; elif command -v yum >/dev/null 2>&1; then  yum install -y curl git gcc gcc-c++ make tmux; else  echo "Error: No supported package manager found" >&2;  exit 1; fi
+Command outputs captured
+Running command: mkdir -p /opt/openhands-venv && chown root:root /opt/openhands-venv
+Command outputs captured
+Running command: set -euo pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh && if [ -f "$HOME/.local/bin/env" ]; then source "$HOME/.local/bin/env"; fi && uv python install 3.13 && uv venv /opt/openhands-venv --python 3.13 && source /opt/openhands-venv/bin/activate && export SKIP_VSCODE_BUILD=true && uv pip install openhands-ai==0.62.0 && /opt/openhands-venv/bin/python -m openhands.core.main --version
+Command outputs captured
+Running command: SANDBOX_VOLUMES=${PWD}:/workspace:rw USER=`id -un` /opt/openhands-venv/bin/python -m openhands.core.main --task='# Ravel
+
+Ravel operates a chemical recycling plant that returns mixed polyamide waste to
+virgin-quality pellet. Build the production and attestation system behind it, and the
+public site in front of it.
+
+## Overview
+
+Waste arrives in batches from named collectors. Batches are consumed by timed process runs
+through four stages: dissolution, depolymerisation, purification, repolymerisation. Runs
+produce lots of polymer. Every lot carries two claims that are worth money and are not
+properties of the material: how much recycled input it represents, and what it emitted. Both
+are allocated by arithmetic across a plant that also runs conventional feed, and both end up
+on a certificate a customer files with their own regulator.
+
+The material is deliberately indistinguishable from the incumbent, so the buyer is not paying
+for the pellet. The buyer is paying for origin, and origin cannot be measured in a pellet. It
+exists only as a record. The unit of work is the lot; the unit of value is the certificate.
+
+No claim can be created without the chain that supports it. No lot without its runs, no run
+without its feedstock batches, no batch without its collector and its category, no carbon
+figure without its method version and its boundary, and no certificate without a named signer
+who was entitled to sign it.
+
+Two rules do most of the work and a build that misses either has produced a report generator.
+Losses reduce the claim: material that disappears in processing does not carry its claim
+forward. And no claim percentage is ever accepted from a person, on any route, in any form.
+
+The product does not run the plant. It reads no sensor, holds no set point, drives no
+equipment and raises no alarm. It records what a run did, after the run.
+
+## User roles
+
+Signup is closed. The seven seeded accounts are the only accounts, each authenticates at
+`[REDACTED]`, and every one signs in with `deku-demo-pw-2026`. A grant is scoped to a site and
+carries an end date; nothing renews silently.
+
+- **Plant operator**, `plant@example.com`. Books in a batch, records mass, contamination and
+  custody, starts a run, records a consumption, records an output, closes a run. May not
+  approve a collector. May not change a batch category after acceptance. May not set a lot
+  disposition.
+- **Laboratory analyst**, `analyst@example.com`. Enters a test result against a named method.
+  May not set a lot disposition.
+- **Quality manager**, `quality@example.com`. Approves, suspends or lapses a collector. Sets a
+  lot disposition. Raises and closes a deviation. Publishes a carbon method version. May not
+  disposition a lot against a test result they entered. May not close a balance period.
+- **Claims manager**, `claims@example.com`. Allocates claim to a lot, closes a balance period,
+  publishes a conversion factor, opens a restatement, reviews an override they did not
+  authorise. May not alter a carbon method. May not sign a certificate.
+- **Certificate signer**, `signer@example.com`, scoped to `SITE-DEMO` and `SITE-PILOT`. Signs,
+  re-issues and withdraws a certificate. May not sign for a site outside their scope. May not
+  sign against a lot whose data they entered.
+- **Second certificate signer**, `signer2@example.com`, scoped to `SITE-PILOT` only. The same
+  role, a narrower scope.
+- **Auditor**, `auditor@example.com`. Reads everything inside an agreed scope, exports, and
+  annotates. Writes no operational record, at any route.
+
+Authorization is decided on the server for every mutating route, and a denied request leaves
+the protected state unchanged. A role change never retroactively validates an act performed
+before it.
+
+A collector account sees its own batches and nothing else: what it delivered, what was
+accepted, what was rejected and why, and its own approval state with its expiry. A collector
+never sees a lot, a run, a yield, a carbon figure or another collector. A converter sees its
+own certificates, specifications, change notices and contract allocation, and never a
+genealogy.
+
+## Core features
+
+### The four separations
+
+Each is refused by the server, not by a policy document. Whoever entered a test result does
+not disposition that lot; whoever published a carbon method version does not close the period
+applying it; whoever signs a certificate did not enter its data; whoever books in a batch does
+not approve the collector.
+
+An override names the separation broken, a reason of at least forty characters and its
+authoriser. It is permanent, shows on the lot for its life, is counted on the balance screen,
+and blocks signing until a second person reviews it.
+
+### Feedstock
+
+A batch resolves its claimability against the collector approval in force on its receipt date,
+never a current flag: material from a lapsed collector is processed as non-claimable input.
+The category is required at intake, has no default, and can never be changed after acceptance.
+Every figure is computed on dry mass. A lapsed calibration flags every lot downstream, a
+partial rejection records where the rejected mass went, and a batch missing a custody link is
+non-claimable, claimable forward from the date late evidence arrives.
+
+### Runs, genealogy and the ledger
+
+A run consumes many inputs and produces many outputs, so a batch reaches a lot across four
+hops by several paths. Losses are computed and a closed run refuses a second close. Genealogy
+is a traversal over the consumption records rather than a stored summary: a graph and not a
+tree, a batch reached by several paths appearing once with its total mass, runnable backwards.
+
+Credits enter when a claimable batch is consumed, in dry mass times the site'"'"'s conversion
+factor, and leave when a claim is attached to a lot. Credits attached never exceed credits
+available, an allocation that would breach that is refused rather than warned about, and two
+allocations racing for the same remainder produce one success and one refusal. The two
+categories are never netted. Every percentage is computed and no route accepts one.
+
+### Carbon and certificates
+
+No route returns a carbon value without its boundary, method version and uncertainty, or one
+energy figure without the other. A certificate is a document readable without this system, an object at a permanent address,
+and a permission stating what the recipient may and may not say, generated from the claim
+type. Eight conditions are checked on the server, none waivable. Withdrawal is one action with
+five consequences, and `GET /api/verify/{number}` is public.
+
+## User flow
+
+The public site is eight routes with no account: `/`, `/product`, `/technology`, `/about`,
+`/careers`, `/news`, `/contact`, `/privacy`, plus the public `/verify/{number}`.
+
+The console opens at `/console`, a board with one column per process stage and one card per
+run. Its other top-level sections are `/console/intake` for feedstock arrival, `/console/record`
+for the operational record, `/console/reconciliation` for the reconciliation view, and
+`/console/certificates` for issued certificates. Navigation across the console is a persistent
+top bar. The console is reached only with
+a session; `/console` and everything under it redirect an anonymous reader to `/login`.
+
+**A claims manager allocates and is refused.** Sign in as `claims@example.com`, open
+`/console/balance/BP-DEMO-N6-2026H1`, and read credits in, credits out and credits available
+per category. Allocate more post-consumer claim to `LOT-N6-0001` than the ledger holds. The
+allocation does not happen. An inline banner on the balance surface names the available mass
+and the requested mass, and the figures on the screen are unchanged.
+
+**A signer meets a blocking condition.** Sign in as `signer@example.com` and open
+`/console/certificates/new/lot`. Choose `LOT-N6-0001`, then `/console/certificates/new/claim`,
+then `/console/certificates/new/recipient`, then `/console/certificates/new/review`. Each of
+the four steps is reachable at its own address and each shows the eight conditions as they
+stand. One condition is unsatisfied and says which, with a link to the record that would
+resolve it. No control on the screen dismisses it.
+
+**A withdrawal shows its blast radius.** Open `/console/certificates/CERT-PILOT-000002` and
+begin a withdrawal. Before confirming, the screen lists the recipients who will be notified
+by name, not a count, and the downstream statements the recipient is now obliged to stop
+making. After confirming, the certificate address still resolves and states the withdrawal.
+
+**A visitor checks a certificate.** Open `/verify/CERT-PILOT-000001` with no session. The page
+states the withdrawal, its date and its reason, and does not redirect to a replacement. Open
+`/verify/CERT-DEMO-999999` and read the same layout saying there is no such certificate.
+
+**An auditor reads and exports.** Sign in as `auditor@example.com`, open
+`/console/lots/LOT-N6-0001/genealogy`, and read the same facts twice, as the graph and as
+a nested list. Export it. Every mutating control is absent, and every export is itself an entry.
+
+An empty collection says so in words rather than rendering an empty frame. A surface waiting
+on data says it is loading. A refused act renders an inline banner naming what was refused and
+what would change it.
+
+## UI/UX notes
+
+Ravel reads as a printed document that happens to be interactive. The register is considered,
+print-like and unhurried, and the reader is an auditor rather than a shopper. The type is
+serif throughout, at a generous measure, with the grotesk reserved for labels and the
+monospace reserved for identifiers and figures that align down a column.
+
+Motion is eased: a considered entrance and exit, never a bounce. Headings resolve from a blur
+as the reader arrives rather than fading in, one component with one distance and one
+duration, and the text is readable before the animation finishes. Nothing animates a number
+as it changes, because a percentage that counts up is briefly wrong. Every transition is
+declared per property.
+
+No state anywhere is signalled green, and no state is carried by colour alone: a non-claimable
+batch, a lapsed calibration, an open deviation, an unreviewed override, a withdrawn certificate
+and a planned capacity row each carry their word. The console reaches for the brand accent on
+nothing at all, and the accent lives on the public routes as emphasis rather than as a verdict. A carbon figure lower than its comparator is
+described as lower than that comparator, by name.
+
+Text contrast meets WCAG AA at every size, focus rings are visible and are not the hover
+treatment, icon-only controls carry labels, and nothing renders below twelve pixels. Keyboard
+navigation reaches every control and every state a pointer reaches.
+
+The layout is responsive from a narrow phone to a wide desktop with a single breakpoint
+system. The genealogy graph, the balance screen and the certificate wizard are the three
+surfaces that earn a wide viewport, and each reflows rather than shrinking: the graph becomes
+the nested list, the balance becomes one figure per row, the wizard becomes one condition per
+row. No document scrolls sideways; a wide table scrolls inside its own container.
+
+## Technical requirements
+
+The client is a Preact single-page application built with Vite. The HTTP API is a Hono
+application on Node 20. Both are served as one production build from one origin.
+
+`postgres` holds every record and is reached at `DATABASE_URL`. `[REDACTED]` holds the accounts
+and the roles and is reached at `AUTH_ISSUER_URL` with `AUTH_CLIENT_ID` and
+`AUTH_CLIENT_SECRET`. `mailpit` accepts mail over SMTP at `SMTP_HOST` and `SMTP_PORT`. All
+three are already running. Read every one from the environment and never hardcode a host.
+
+`GET /api/health` returns `200` once the app is ready and needs no session.
+
+### Architecture, and the four layers
+
+The stack is fixed: a Preact client, a Hono API, `postgres`, `[REDACTED]` and `mailpit`, and
+nothing else is added to it. The architecture is four layers and the boundary between the
+second and the third is what decides whether the product is trustworthy. The public site. The
+operational record, written by people at a plant. The arithmetic that produces every claim and
+every figure, which has no surface of its own and no writable input other than the operational
+record and the versioned methods. The issued artefacts. The dependency direction runs one way:
+the site reads the artefacts, the artefacts come from the arithmetic, the arithmetic reads the
+operational record, and nothing reads backwards. No screen writes to the arithmetic layer and
+no call into it writes to the operational record.
+
+### Immutability, versioning and migration
+
+Operational records are writable until closed and immutable after. Versioned definitions are
+immutable once anything has been computed against them: a conversion factor, a carbon method,
+a specification and a recipe are superseded by a new version and never overwritten. Issued
+artefacts are immutable without qualification. Movements are only ever added.
+
+A migration that changes the meaning of a historical row is not permitted. Where a field'"'"'s
+meaning must change, a new field is added and the old one keeps its original meaning, because
+a figure issued years ago has to be reproducible from rows written before the migration ran.
+
+### Identity
+
+Sign-in exchanges the email and password at `[REDACTED]` and returns the app'"'"'s own
+`access_token` and `token_type`. The app never accepts an identity a caller asserts.
+`GET /api/auth/me` returns `email`, `roles` and `sites` for the session. A session expires
+twelve hours after issue and an authenticated call carries it as a bearer token. Signing a certificate
+re-authenticates: the signing act carries the password again and a session alone is not a
+signing credential.
+
+### Units, and the one rule that makes every figure exact
+
+| Quantity | Field suffix | Unit |
+|---|---|---|
+| Mass | `_g` | integer grams |
+| Proportion, content, moisture, factor, uncertainty | `_bp` | integer basis points, 10000 is one hundred per cent |
+| Carbon | `_mg_per_kg` | integer milligrams of carbon dioxide equivalent per kilogram of product |
+| Energy | `_kwh` | integer kilowatt hours |
+| Capacity | `_kg` | integer kilograms per year |
+
+No figure crosses the wire as a decimal and no route accepts one. Dry mass is
+`net_g * (10000 - moisture_bp) / 10000`, floored. Credit granted at a consumption is
+`dry_mass_consumed_g * factor_bp / 10000`, floored. Recycled content is
+`credit_attached_g * 10000 / lot_mass_g`, floored. Every derived figure carries the versions
+it was computed against.
+
+**Every derived integer in this product is floored, never rounded and never carried at half.**
+The difference is not cosmetic: a claim rounded up is a claim the ledger cannot support, and it
+compounds across four hops. Two worked cases fix the rule.
+
+| Given | Derived | The answer |
+|---|---|---|
+| a batch of `12345` grams net at `5000` basis points of moisture | dry mass | `6172` grams, not `6173` |
+| `200000` grams of claim attached to a lot of `300000` grams | `content_bp` | `6666`, not `6667` |
+
+The same rule governs a byproduct'"'"'s share, a conversion factor, a running weighted content and
+a required remaining average. Where a figure would fall between two integers, the lower one is
+the answer.
+
+### Idempotency, precisely
+
+An `Idempotency-Key` is scoped to the route it was sent to and to the body it was sent with.
+
+- The same key with the same body returns the original result and creates nothing further.
+- The same key with a **different** body answers `409` naming `idempotency_key_reuse`, and
+  creates nothing. A key is a promise about one act, not a licence to replace it.
+- A key never seen before is a new act.
+
+A write that arrives with no key at all is refused, so a retry can never be indistinguishable
+from a second act.
+
+**Every route that creates a record answers with the `reference` the record took**, and that
+reference is what every later route addresses it by. A batch, a run, a deviation, an override,
+a change notice, a restatement, an export, an enquiry and an inbound record all answer this
+way, so a caller never has to guess an identifier it was not given.
+
+### Sites and capacity
+
+`GET /api/sites` lists the three sites, each with `reference`, `name`, `confidence` and
+`certification_state`. `GET /api/sites/{reference}/capacity` returns `nameplate_kg`, `basis`,
+`contracted_kg`, `uncommitted_kg`, `confidence` and `last_revised`. `uncommitted_kg` is
+`nameplate_kg` minus `contracted_kg`, computed, and is allowed to be negative. `confidence` is
+one of `commissioned`, `under_construction`, `consented`, `planned`, and a capacity figure is
+never returned without it.
+
+Every batch, run, lot and certificate names its site. A certification belongs to a site and
+not to a company, so material from one site never carries another site'"'"'s certificate. A lot
+is never blended across sites unless a blending record names both, and the resulting claim is
+the weaker of the two.
+
+### Parties, and the names they had at the time
+
+A collector is acquired, a converter is renamed, a scheme revises its standard and the producer
+changes its own legal entity, all while a certificate issued today is still being read in ten
+years. `POST /api/parties/{reference}/versions` records a new name from an effective date and
+supersedes the previous version rather than rewriting it.
+
+Every record names the party as it stood on the date of the act, with the identifier it held
+then. A certificate signed in 2026 reads back with the 2026 names however many renames follow,
+and `GET /api/parties/{reference}/versions` returns the full history.
+
+### Collectors
+
+`GET /api/collectors` and `GET /api/collectors/{reference}` return `name`, `country`,
+`registration`, `registration_expiry`, the collection site types, the declared streams, the
+scheme status, a `findings` list, and `approval_periods`. Each entry in `approval_periods`
+carries `state`, `valid_from`, `valid_to`, and, when the state is `conditional`, a `condition`
+with the `condition_closes_on` date it must be closed by.
+`POST /api/collectors/{reference}/approvals` adds a period and is refused for anybody but a
+quality manager.
+
+An approval period carries `state` in `approved`, `conditional`, `suspended`, `lapsed`, a
+`valid_from` and a `valid_to`. A conditional approval names its condition and the date it must
+be closed by. A grant inside fourteen days of its expiry is reported as expiring.
+
+### Feedstock intake
+
+`POST /api/batches` books a batch. The body carries `collector`, `site`, `category`,
+`gross_g`, `tare_g`, `net_g`, `moisture_bp`, `moisture_method`, `device`, `received_on`,
+`composition`, `contamination` and `custody`. `category` is required, has no default, and
+`PATCH /api/batches/{reference}` refuses a category change for every role with status `409`
+and a body naming the rule.
+
+The response and `GET /api/batches/{reference}` carry `dry_mass_g`, `claimable`,
+`claimable_reason`, `flags` and `custody_complete`. `claimable` is false when the collector'"'"'s
+approval in force on `received_on` is not `approved` or `conditional`, or when a custody link
+is missing; `claimable_reason` names which. `flags` carries `lapsed_calibration` when the
+weighing device'"'"'s calibration date is more than twelve months before `received_on`, and that
+flag is repeated on every lot the batch reaches.
+
+`composition` carries `polymer`, `fraction_bp` and `basis` in `declared`, `sampled`,
+`assayed`. `contamination` carries `non_nylon_bp`, `elastane_bp`, `coatings`, `colour_load`
+and `foreign_matter`. A measured composition departing from the collector'"'"'s declaration by
+more than 500 basis points raises a finding against the collector'"'"'s approval record rather
+than against the plant.
+
+`custody` is an ordered list of links, each with `kind` in `collection_site`, `collector`,
+`transport`, `arrival`, `weighing`, `acceptance`, a date and a party. A missing link makes the
+batch non-claimable and names the missing kind on the batch, on every run that consumed it,
+and on every lot downstream. `POST /api/batches/{reference}/custody` attaches a late document with the date it arrived, and
+the batch becomes claimable from that date rather than from its receipt date: the batch then
+carries `claimable_from`. A batch also carries `collector_name`, the name the collector held on
+the batch'"'"'s own receipt date, and its `composition` carries `measured_fraction_bp` beside the
+declared `fraction_bp` once a sample has been taken.
+
+`POST /api/batches/{reference}/reject` rejects in whole or in part with `rejected_g`, `reason`
+and `destination`. The batch then carries `accepted_g`, `rejected_g` and
+`rejected_destination`. Accepted mass plus rejected mass equals delivered mass, and a rejection
+whose parts do not sum is refused.
+
+The batch record captures the mass as the weighbridge reported it, and the app stores what
+arrived rather than what a later reader could reconstruct.
+
+Every write to this API carries a client-supplied `Idempotency-Key` header. A repeat of the
+same key returns the original result and creates nothing further.
+
+### Runs
+
+`POST /api/runs` opens a run with `run_type` in `dissolution`, `depolymerisation`,
+`purification`, `repolymerisation`, a `site`, an `equipment`, a `recipe_version`, an
+`operator` and `started_at`. `POST /api/runs/{reference}/consumptions` records one input and
+the mass consumed from it. `POST /api/runs/{reference}/outputs` records one output with its
+mass and a `kind` in `intermediate`, `lot`, `byproduct`, and a byproduct also carries
+`disposition` in `sold`, `disposed`. `POST /api/runs/{reference}/close` computes `losses_g` as
+mass in minus mass out and freezes the run.
+
+`GET /api/runs/{reference}` returns the recipe version followed, the actual set points
+achieved, and `within_tolerance`. A run outside its recipe tolerance raises a deviation
+whether or not its output passed its tests. A closed run refuses every write, and a second
+close answers `409` and is itself recorded as an attempt.
+
+A recipe version carries its set points and tolerances, its reagents and ratios, its residence
+time and the person who released it. Temperature and pressure appear in a published claim, so
+a recipe revision that moves either outside the published threshold is a change under
+`/api/change-notices` before it is released.
+
+### Inbound sources
+
+Four sources send records into this system and none of them is called out to. The weighbridge
+sends a mass and a calibration state, the control system sends run parameters after the fact,
+the laboratory sends a result with its method, and a customer'"'"'s own reporting acknowledges a
+document handover. Every one of them reaches the app the same way.
+
+`POST /api/inbound/{source}` takes `source` in `weighbridge`, `control_system`, `laboratory`,
+`customer_reporting`, together with a `received_at` and a `payload`. The response carries the
+`reference` the record took. `GET /api/inbound` lists what has arrived, each entry carrying
+`source`, `received_at` and `payload_verbatim`, the last being the bytes exactly as they
+arrived rather than the shape the app parsed them into: a disagreement with a supplier is
+settled by what came in.
+
+The app opens no outbound connection to any of the four. It stores what arrives, reconciles it
+against what the operator recorded, and shows the disagreement rather than resolving it.
+
+`GET /api/reconciliation` reports `integration_ages`, one entry per source, carrying the age in
+hours of the most recent record from it. A source that stops sending is detected by that age
+rather than by an error, and a source that has never sent reports `null` rather than zero.
+
+The collector'"'"'s declaration is the one inbound record that is never trusted as a measurement.
+It arrives as a declaration, is verified against a sampled composition on a schedule, and a
+departure beyond the tolerance stands as a finding against the collector.
+
+### Genealogy
+
+`GET /api/lots/{reference}/genealogy` returns `nodes` and `edges`. Each node carries `kind`,
+`reference`, `mass_g`, `category_split` and `flags`. Each edge carries `from`, `to` and
+`mass_g`. A batch reachable by several paths appears as exactly one node whose `mass_g` is the
+total mass it contributed, and the response carries `flagged` at the top level, true when any
+node anywhere in the graph carries a flag. The response also carries `text_equivalent`, a
+nested list carrying the same nodes, the same masses, the same category splits and the same
+flags.
+
+`GET /api/batches/{reference}/impact` is the same traversal backwards: every lot containing
+any of the batch, every certificate resting on those lots, and every recipient. It returns the
+complete set and is never paginated. It answers within five seconds over the seeded records,
+because it is the traversal a withdrawal runs on the worst day the company will have.
+
+Four answers are complete sets by contract: this traversal, a restatement'"'"'s enumeration of
+affected certificates, a recomputation'"'"'s enumeration, and every one of the record queries. Each
+of the four refuses a `page`, a `limit`, an `offset` or a `cursor` parameter with `400` rather
+than honouring it or ignoring it. A caller handed a page resolves a page and believes the work
+is finished.
+
+### Tests, dispositions and deviations
+
+`POST /api/test-results` records a result against a lot or a batch with `property`, `method`,
+`instrument`, `analyst`, `value`, `unit` and `uncertainty_bp`. A result with no method is refused. A result produced by a method other than the one the
+specification names is recorded and answers `method_mismatch` true with `usable_for_release`
+false, so it is kept as evidence without ever reaching a disposition.
+
+`POST /api/lots/{reference}/disposition` sets `disposition` in `pending`, `released`,
+`quarantined`, `rejected`. It is refused when the caller entered a test result on that lot,
+when a deviation touching the lot is open, or when the caller is not a quality manager.
+
+`POST /api/deviations` raises one against runs and lots. `POST /api/deviations/{reference}/close`
+closes it with `outcome` in `root_cause_found`, `cause_not_established`. Both are honest
+outcomes and neither is hidden. A deviation travels with every lot it touches and appears on
+the internal view of any certificate issued against that lot.
+
+### Overrides
+
+`POST /api/overrides` records a broken separation with `separation`, `reason` of at least
+forty characters, `lot` and `authorised_by`. `POST /api/overrides/{reference}/review` is
+refused for the authoriser and for anybody who is neither a quality manager nor a claims
+manager. A review sets `reviewed` true and removes nothing.
+
+### The ledger
+
+`GET /api/balance-periods` and `GET /api/balance-periods/{id}` return, per site, per grade and
+per period: `credits_in_g` and `credits_out_g` and `credits_available_g` for each of
+`post_consumer` and `pre_consumer`, the `conversion_factors` in force with their versions and
+derivation windows, `carry_over_limit_bp`, `override_count`, `open_restatement_count`,
+`open_finding_count`, `non_claimable_input_g`, and `state` in `open`, `closed`. No figure on
+this response is writable and each carries a `derivation` naming the records it came from.
+
+`POST /api/balance-periods/{id}/allocations` takes `lot`, `category` and `mass_g` and attaches
+claim. When the requested mass exceeds the available mass the response is `409` with
+`available_g` and `requested_g`, the available figure being the margin at the instant of
+refusal, and no credit moves. Two allocations submitted at the same moment against the same
+remaining credits produce exactly one `201` and exactly one `409`, and the sum of attached
+credits never exceeds the available credits at any point. A balance is the sum of its
+movements and is never held as a total.
+
+`POST /api/balance-periods/{id}/transfers` moves material between sites during commissioning.
+The receiving period answers `inbound_credits`, one entry per movement carrying `reference`,
+`mass_g`, `origin_site`, `movement` and `fresh_credit` false. It is never a fresh credit, and
+the total credit across the two periods is unchanged by the journey.
+
+`POST /api/balance-periods/{id}/close` is refused while any lot in the period lacks a
+disposition, any deviation touching it is open, or the balance does not reconcile, and the
+response names which. A closed period refuses every further write and refuses to reopen, and reports `closed_on` and
+the `cut_off` after which a late event-time record no longer enters it.
+
+Closing settles the carry-over. Credit still available at the close carries forward only up to
+`carry_over_limit_bp` of the credit that entered the period; the remainder expires, and the closed period reports
+`carried_forward_g` and `expired_g` per category, never absorbing either silently. With
+`360000` grams of post-consumer credit in and a limit of `2000` basis points, at most `72000`
+grams carry forward, so a period closing with `100000` grams still available carries `72000`
+and expires `28000`.
+
+`POST /api/balance-periods/{id}/restatements` opens a restatement with a `reason` and
+enumerates every certificate issued from the period. Where the restatement revises a conversion
+factor it also answers `content_movements`, one entry per affected certificate carrying
+`certificate`, the `content_bp` that certificate carries and the `corrected_content_bp` the
+revised factor produces, so the person resolving each one is looking at the figure that moved
+rather than at a list of numbers.
+
+`POST /api/restatements/{reference}/resolutions` records one resolution, taking `certificate`,
+`outcome` and `reason`. Each affected certificate takes exactly
+one resolution in `reissued`, `withdrawn`, `unaffected`, each with its own stated reason, and
+a second resolution against the same certificate in the same restatement is refused. No route
+resolves more than one certificate at a time.
+
+A consumption whose effective date falls in a closed period is refused as a write into that
+period and opens a restatement instead. `event_at`, `recorded_at` and `effective_on` are three
+different fields and every record carries all three; the period a movement belongs to is
+decided by `effective_on`, and every timestamp carries its zone.
+
+### Conversion factors
+
+`POST /api/conversion-factors` publishes a version carrying `site`, `factor_bp`,
+`derived_from`, `derived_to`, `derived_in_g` and `derived_out_g`. The factor is refused unless
+`factor_bp` equals `derived_out_g * 10000 / derived_in_g` floored, so a factor is always the
+arithmetic of a stated window rather than a number somebody chose. A provisional factor carries
+`derived_in_g` of zero, declares itself provisional, and every certificate resting on it says
+so.
+
+### Blending and byproducts
+
+`POST /api/lots/{reference}/blend` blends two lots. The resulting claim is computed by mass,
+takes the weaker of the two claim types, and where the two sites differ names both and takes
+the weaker certification scope. Any non-claimable material in a blend dilutes the computed
+percentage.
+
+The mass-weighted content is
+`(mass_a * content_a + mass_b * content_b) / (mass_a + mass_b)`, floored. Blending
+`LOT-N6-0001` at `400000` grams and `9000` basis points with `LOT-N6-0003` at `200000` grams
+and `7500` basis points yields `600000` grams at `8500` basis points, names both `SITE-DEMO`
+and `SITE-PILOT`, and carries the provisional-factor flag of the weaker of the two.
+
+A sold byproduct answers `share_bp`, `claim_share_g` and `emissions_share_mg`. The share is
+`byproduct_mass_g * 10000 / total_output_mass_g`, floored, on the period'"'"'s allocation basis. `OUT-U-0002` is `40000` grams of the `760000` grams `RUN-U-0001`
+produced, so it carries `526` basis points of the run'"'"'s claim and `526` basis points of its
+emissions.
+
+A sold byproduct takes a share of the input'"'"'s claim and a share of the input'"'"'s emissions on a
+stated allocation basis in `mass`, `energy`, `economic`. A disposed byproduct is a loss, and
+reduces the conversion factor. The allocation basis is held once per period and applies to
+both the ledger and the carbon method; `GET /api/lots/{reference}/carbon` answers `409` naming
+the mismatch when the two disagree.
+
+### Carbon
+
+`GET /api/carbon-methods` and `GET /api/carbon-methods/{id}/versions/{version}` return
+`standard`, `functional_unit`, `boundary`, `allocation_basis`, `reviewer`, `published_on`, the
+data-quality rules, and `emission_factors`, each factor carrying its own `source` and `year`.
+A method version is immutable once a figure has been computed against it, and a new version
+supersedes rather than overwrites.
+Publishing a version is refused for anybody but a quality manager, and closing a balance
+period is refused for the person who published the version it applies.
+
+`GET /api/lots/{reference}/carbon` returns `value_mg_per_kg`, `boundary`, `method_version`,
+`uncertainty_bp`, `comparator`, `primary_share_bp` and `breakdown`. The comparator carries
+`material`, `dataset`, `dataset_year` and `region`. The breakdown carries one line per
+contribution, each carrying `line`, `mg_per_kg` and a `tag` in `primary`, `supplier_specific`,
+`secondary`, and the lines sum to the value. A figure whose `primary_share_bp` falls below the
+stated threshold answers `default_led` true; above it, `default_led` is false and the figure is
+never presented as though it were metered when it is not. The internal view returns the breakdown always: a response
+carrying the aggregate value with no breakdown behind it does not exist inside the console,
+and is permitted only on a certificate, where the breakdown is attached rather than inline. A response carrying `value_mg_per_kg` without `boundary`,
+`method_version` and `uncertainty_bp` does not exist anywhere in the API.
+
+The energy lines are returned together: `energy_location_mg_per_kg` and
+`energy_market_mg_per_kg`, never one alone, with `metered_kwh`, `retired_kwh` and
+`unmatched_kwh`. `POST /api/energy-instruments/{reference}/retire` applies an instrument
+against a period and is refused when the instrument is not retired, when its vintage or its
+region does not match the consumption, or when the retired quantity would exceed the metered
+consumption.
+
+`POST /api/carbon-figures/{id}/recompute` produces a new figure version alongside the old,
+records a person, a date and a reason, and enumerates every certificate carrying the
+superseded figure. A recomputation against a closed period is refused unless a restatement is
+open. A figure is never silently recomputed and a cached figure carries the versions of every
+input it was derived from.
+
+### Certificates
+
+`POST /api/certificates/preview` takes `lot` and `recipient` and returns `conditions`, an
+array of exactly eight entries, each with `condition`, `satisfied` and `blocking_reference`.
+The eight are: the lot is released; no deviation touching it is open; no override on it is
+unreviewed; the bookkeeping period is closed; the balance invariant holds with the allocation
+applied; the carbon figure exists with all four components; the signer holds signing scope for
+that site on the date of signing; the signer did not enter the data. None of the eight is
+waivable and the same eight are re-checked on the server at the moment of signing.
+
+`POST /api/certificates` signs one. The number is issued from a gapless per-site sequence and
+is never reused. Two signatures landing at the same moment at one site take two consecutive
+numbers: the sequence has no gap afterwards, no number is issued twice, and neither signature
+is lost.
+
+The eight conditions are decided again at the moment of signing, against the records as they
+stand then rather than as they stood at the preview. A lot whose eight conditions all held at
+the preview and which has since gained an open deviation is refused at signing, and the refusal
+names the condition that changed. The response and `GET /api/certificates/{number}` carry `number`, `version`,
+`site`, `lots` with masses, `grade`, `specification_version`, `claim_type`, `content_bp`,
+`category_split`, `period`, `carbon`, `primary_share_bp`, `scheme`, `registration`,
+`test_results`, `permitted_statement`, `prohibited_statement`, `signer`, `signed_at`,
+`verification_url`, `state` and `provisional_factor`. Every field is derived; the only free
+text on a certificate is a withdrawal reason.
+
+`permitted_statement` and `prohibited_statement` are generated from the claim type, the
+percentage and the category split, in the recipient'"'"'s language, and are returned at the same
+weight as the percentage. A mass-balance certificate states that the material may not be
+described as physically containing recycled content.
+
+`claim_type` is one of `physically_segregated`, `controlled_blending`, `mass_balance`, and
+every lot carries exactly one. It is returned at the same weight as `content_bp`, so no
+response carries the percentage without the type beside it.
+
+A yield figure appears on no certificate, in no certificate document and in no verification
+answer. `GET /api/lots/{reference}/yield` answers for plant operations, quality and the claims
+manager, and refuses a collector and a converter. A certificate issued on a provisional conversion factor carries
+`provisional_factor` true.
+
+`POST /api/certificates/{number}/withdraw` takes a `reason` and answers `state`, `reason`,
+`withdrawn_by`, `withdrawn_on`, `notified_recipients`, `void_statements`,
+`derived_certificates` and `batch_traversal`, performing five consequences in one action: the state becomes `withdrawn` with the reason, the person and the date; the
+recipient is notified through `mailpit` and the notification is part of the record; every
+downstream statement the recipient was permitted to make is enumerated in the notification;
+every certificate derived from this one is identified and resolved; and the reverse traversal
+of the underlying batches runs so that every other certificate touching them is enumerated in
+the same action. A withdrawal is never a deletion and the document stays readable at its
+address.
+
+`GET /api/certificates/{number}/document` renders the document as plain text. An issued
+document is byte-stable: two reads of the same certificate version return identical bytes,
+because a customer'"'"'s auditor compares the copy they filed with the copy they fetch. A re-issue
+produces a new version at a new address rather than new bytes at the old one.
+
+`GET /api/verify/{number}` is public, unauthenticated and rate limited. It returns `found`,
+`number`, `state`, `issued_on`, `withdrawn_on`, `withdrawal_reason`, `site`, `grade`,
+`claim_type` and `recipient_name`, and nothing else. It returns no yield, no collector, no
+genealogy and no carbon breakdown. An unknown number returns `200` with `found` false rather
+than an error, and the route cannot be used to enumerate the customer list.
+
+### Certification, and a suspension that reaches backwards
+
+A site'"'"'s certification is a dated period exactly as a collector'"'"'s approval is, and an issuing
+condition resolves against the period in force on the date of signing rather than against a
+current flag. `POST /api/sites/{reference}/certification` records a suspension with an
+`effective_from` that may precede the date it was recorded. When it lands, the answer carries
+`certificates_in_window`, every certificate signed inside it, each individually resolved under
+the three restatement outcomes, and issuing stops for the affected site and grade with the
+suspension named as the blocking condition. Lifting a suspension restores issuing for that
+site from the moment the lift takes effect, and it does not reinstate a withdrawn certificate:
+a withdrawal is a fact about a document, and the remedy is a new certificate.
+
+### Customers, specifications and change control
+
+`GET /api/specifications/{grade}/versions/{version}` returns one row per property with
+`property`, `method`, `limit`, `unit` and `basis` in `guaranteed`, `typical`, `informational`.
+A guaranteed limit is tested on every lot. The specification answers `virgin_reference`, the reference a
+virgin-quality comparison is made against, with its source and its date, and `issued_on`.
+
+`POST /api/specifications/{grade}/versions/{version}/issue` issues a version to a named
+customer and records both. `GET /api/customers/{reference}` returns `holds_specification_version`, `application`,
+`industry` and `conformance`, one conformance record per application per specification
+version, with the trials run, the dates and the outcome.
+
+`POST /api/change-notices` proposes a change and derives, rather than asserts,
+`specifications_affected`, `customers_affected`, `qualifications_affected` and
+`notice_period_days`. `POST /api/change-notices/{reference}/notify` notifies one named customer
+through `mailpit` and records the act. `POST /api/change-notices/{reference}/release` is
+refused until every customer owed notice has been notified or has waived it in a recorded act. A change touching a qualification-relevant parameter for a customer in
+the automotive industry blocks rather than warns.
+
+### Contracts and the offtake floor
+
+Where supply is short, an allocation carries `decided_by` and `favoured_over`, naming the
+person who decided and the contracts that went without. It is a commercial decision and
+occasionally a fair-dealing question, so it is never an automatic sort by contract value with
+nobody'"'"'s name on it.
+
+`GET /api/contracts/{id}/projection` returns, per contract, `delivered_kg`, `committed_kg`,
+`running_content_bp`, `floor_bp`, `required_remaining_bp` and `state` in `on_track`,
+`unreachable`, with the date it became unreachable and the allocation that made it so. An
+unreachable floor is reported and never refused. A contract whose supplying site carries
+`confidence` of `planned` answers `planned_site_flag` true with `flag_dismissible` false on
+every response it appears in. A contract also carries `shortfall_consequence`, stated at
+signature rather than discovered at the year end. `POST /api/contracts/{id}/allocations`
+attaches a lot to a contract, and a claim already allocated to one contract is refused a
+second attachment.
+
+### The record
+
+Every act is an entry with the person, the moment, the site and the object: a batch booked in
+or rejected, a weighing with its calibration state, a collector approved or suspended or
+lapsed, a run started or annotated or closed, a consumption, a test result, a disposition, a
+deviation, an override, a conversion factor revised, a method version published, a figure
+recomputed, a period closed, a restatement opened and resolved, a certificate signed or
+withdrawn, a specification issued, a change notice raised and released, an export, an access
+grant and its end, an inbound integration payload kept verbatim, and a refused allocation with
+the margin at the instant.
+
+The eight conditions are stored as they stood at the moment of signing and are never
+recomputed on read. A refusal is recorded as well as a success.
+
+`GET /api/record` returns entries with `seq`, `digest` and `prev_digest`, where each digest is
+computed over the entry'"'"'s own content and the previous entry'"'"'s digest. No entry is edited and
+no entry is removed from the sequence; a correction is a new entry naming what it corrects, and
+every attempt to modify or remove an entry is refused. An entry loses its content only through
+the retention route below, which keeps the entry'"'"'s position and its digest so that the chain
+still holds. A gap in the sequence and a digest that
+does not verify are both reportable conditions. `GET /api/record/check` walks the chain and answers `holds`, together with
+`first_failure` naming the position at which it breaks when it does.
+
+`POST /api/exports` takes a scope with a period, sites, grades and certificates, records the
+scope before the read, returns a self-contained export carrying its derivations and its
+digests, and is itself an entry. An export that returns nothing is recorded too. The export
+carries the digests and the anchor references of the entries in its scope, so a reader can
+establish its integrity after it has left this system and without asking the producer to
+confirm anything.
+
+### Replay
+
+`GET /api/certificates/{number}/replay` recomputes the certificate'"'"'s figures from the versioned
+inputs recorded against it and answers `issued`, `recomputed`, `agrees` and `differing_input`.
+Agreement and disagreement are both ordinary answers: a disagreement is the finding an auditor
+came for, and it names both values together with the one input that moved.
+
+The answer also carries `input_versions`, naming every versioned input the recomputation ran
+against. A figure whose inputs can no longer be resolved answers `reproducible` false with a
+`reason` naming what is gone, a retired method version or a lost emission factor set. It is never
+recomputed under today'"'"'s rules and presented as the original.
+
+Every version an issued figure was computed against is retained for as long as any figure
+references it, which outlives the retention any single record would otherwise take.
+
+### The record queries
+
+`GET /api/record/queries/{name}` answers each of the nine questions the record exists to
+answer, and each returns a complete set rather than a report somebody assembles:
+`lots_from_batch`, `certificates_on_period`, `certificates_under_method_version`,
+`lots_released_under_unreviewed_override`, `allocations_in_final_fortnight`,
+`refused_allocations`, `collector_declaration_departures`, `acts_by_person`,
+`exports_by_auditor`. The last of those includes the reads that returned nothing.
+
+### Retention, legal hold and deletion
+
+`GET /api/record/{seq}/retention` returns `scheme_months`, `statutory_months`,
+`referenced_until` and `retain_until`, where `retain_until` is the longest of the three and is
+computed rather than stored from a date somebody typed.
+
+`POST /api/record/{seq}/legal-hold` places a hold and `DELETE` on the same route lifts one.
+Both are entries of their own, and the retention answer then carries `legal_hold` true. A
+record under hold refuses deletion.
+
+`POST /api/record/{seq}/expire` deletes the entry'"'"'s content once `retain_until` has passed and
+no hold stands. The entry'"'"'s position and its digest survive, so the chain still verifies, and
+the entry states that its content was deleted under retention on a date. The one fact never
+deleted is that a certificate existed: a withdrawn certificate resolves at its address after
+every other retention has run out.
+
+A person inside the record is referenced by an identifier, and the identifier resolves to a
+name through a separate store with its own retention.
+
+### Reconciliation
+
+`GET /api/reconciliation` returns six figures rather than six verdicts:
+`mass_balance_residual_g`, `credit_margin_g`, `consumptions_on_open_runs`,
+`batches_with_broken_custody`, `certificates_with_superseded_figures`, and `integration_ages`,
+the age of the most recent record from each inbound source. None is a badge and none is styled as passing.
+
+### Published figures and the substantiation file
+
+`GET /api/statistics` returns each published figure with `value`, `source`, `year` and
+`geography`, and a figure that cannot carry all three is not published. `GET /api/positions`
+returns the open roles, each carrying `title`, `location`, `department`, `contract_type` and
+`closes_on`, and the count rendered anywhere is derived from the collection it labels.
+`GET /api/news` returns items with a real tag in `funding`, `partnership`, `technical`,
+`recognition`, an outlet, a date, a link and a `language`, one event appearing once with its
+coverage.
+
+`GET /api/claim-register` returns one substantiation record per published environmental claim:
+the claim as published, the route it appears on, the date first published, the evidence, the
+method version it rests on, the approver and a review date. A claim whose evidence expires is
+reported before its review date. A claim that cannot be substantiated is withdrawn from the
+site as a recorded publishing act.
+
+### Enquiries
+
+`POST /api/enquiries` takes `type` in `waste_supply`, `polymer_purchase`, `partnership`,
+`press`, and returns `201` with `reference`, `destination` and `response_days`. Each type has
+its own destination address and its own stated response time. A waste-supply enquiry opens a
+collector record; a polymer enquiry opens a conformance record; a press enquiry carries a
+deadline. The enquirer receives one mail through `mailpit`. The point of collection states who
+receives the data, what it is used for, how long it is kept and how to have it removed.
+
+### Mail
+
+Every mail leaves through `mailpit` over SMTP at `SMTP_HOST` and `SMTP_PORT`, addressed to
+exactly one recipient with no copies.
+
+| Act | Subject | Body carries |
+|---|---|---|
+| A certificate is signed | `Certificate <number> issued` | the number, the claim type, the percentage and the permitted statement |
+| A certificate is withdrawn | `Certificate <number> withdrawn` | the number, the reason, and every statement now void |
+| A change notice needs acknowledgement | `Change notice <id> requires acknowledgement` | the change, the specifications affected and the notice period |
+| An enquiry is received | `Enquiry <reference> received` | the reference, the destination and the stated response time |
+
+Nothing else sends mail. Allocating claim, closing a period, opening a restatement, reviewing
+an override and setting a disposition all send nothing.
+
+### The engine boundary
+
+The arithmetic lives in one place and every screen reads it. Every answer carries its
+derivation and the versions it was computed against, and an answer that cannot state where it
+came from is not returned. No screen computes a figure of its own, and no route writes a
+computed figure into a record.
+
+### Failure
+
+Intake continues to accept a batch while the rest of the system is degraded, and the
+idempotency key makes the catch-up safe. Closing a run while the arithmetic is unavailable is
+queued and reported as queued rather than as complete. A batch and its weighing land together
+or neither lands. An inbound source that stops sending is detected by the age of its most
+recent record rather than by an error.
+
+### What happens when two acts land at once
+
+Four races have a stated outcome, and a build that leaves any of them to chance produces a
+figure that depends on the order two people pressed a control.
+
+A method version is published while a figure is being computed against its predecessor. The
+computation in flight completes under the version it started with and records that version;
+the new version applies from the next computation.
+
+A restatement enumerates its certificates while one of them is being withdrawn for a different
+reason. Both acts land, both are entries, and the certificate'"'"'s state reflects the later act
+with the earlier one still readable at its own sequence.
+
+A scoped read runs while a period is being closed. The read sees one consistent state and
+names the moment it saw, rather than half of the period before the close and half after.
+
+A cached carbon figure'"'"'s emission factor is superseded. The figure answers `cache_valid` false
+from that moment and is not silently recomputed: a recomputation is the recorded act that
+changes it.
+
+A scoped read answers `read_at`, the moment the read saw, so a reader knows which state was
+consistent.
+
+### What this system does not do
+
+It controls no equipment, holds no set point, drives no valve, participates in no interlock
+and raises no alarm. It reads the control system'"'"'s record after the fact and shows the
+disagreement rather than resolving it. It schedules no laboratory sample, holds no calibration
+curve and runs no analyst worklist. It builds no life-cycle model. It issues no invoice, holds
+no price and hedges nothing. It raises no purchase order and dispatches nothing.
+
+## Data model
+
+The entities the product holds, and the exact rows it seeds on first start.
+
+### Entities
+
+`site`, `collector`, `approval_period`, `batch`, `weighing`, `run`, `consumption`, `output`,
+`lot`, `test_result`, `deviation`, `override`, `balance_period`, `credit_movement`,
+`conversion_factor`, `carbon_method`, `carbon_figure`, `energy_instrument`, `specification`,
+`conformance`, `change_notice`, `contract`, `allocation`, `certificate`, `restatement`,
+`resolution`, `record_entry`, `enquiry`, `position`, `news_item`, `statistic`,
+`claim_substantiation`, `party_version`, `inbound_record`, `transfer`, `legal_hold`.
+
+Four relationships are not negotiable. A consumption is a row of its own carrying a mass, so
+that one batch reaches many lots and one lot descends from many batches across four hops. A
+collector'"'"'s approval is a dated period, so the question "what was true last March" has an
+answer. A credit movement is added and never altered, so a balance is the sum of its
+movements. A restatement holds exactly one resolution per affected certificate, so a
+resolution covering several certificates at once cannot be recorded.
+
+### Sites
+
+| `reference` | `name` | `confidence` | `nameplate_kg` | `contracted_kg` | `certification_state` |
+|---|---|---|---|---|---|
+| `SITE-PILOT` | Pilot | `commissioned` | `40000` | `24000` | `certified` |
+| `SITE-DEMO` | Demonstration | `commissioned` | `400000` | `320000` | `certified` |
+| `SITE-COMM` | Commercial | `planned` | `25000000` | `26000000` | `not_certified` |
+
+| Field | Value |
+|---|---|
+| capacity basis, identical on all three | `8000 hours per year, 0.90 availability, 0.80 yield` |
+| `last_revised` | `2026-06-30` |
+ `uncommitted_kg` is computed, so `SITE-COMM` reports
+`-1000000` and reports it in public rather than quietly.
+
+### Accounts
+
+| Email | Name | Role | Sites |
+|---|---|---|---|
+| `plant@example.com` | Ines Bekele | `plant_operator` | `SITE-DEMO`, `SITE-PILOT` |
+| `analyst@example.com` | Tomas Vlach | `lab_analyst` | `SITE-DEMO`, `SITE-PILOT` |
+| `quality@example.com` | Marit Solheim | `quality_manager` | `SITE-DEMO`, `SITE-PILOT` |
+| `claims@example.com` | Osei Danquah | `claims_manager` | `SITE-DEMO`, `SITE-PILOT` |
+| `signer@example.com` | Hana Ferreira | `certificate_signer` | `SITE-DEMO`, `SITE-PILOT` |
+| `signer2@example.com` | Pavel Ostrowski | `certificate_signer` | `SITE-PILOT` |
+| `auditor@example.com` | Ruth Lindqvist | `auditor` | `SITE-DEMO`, `SITE-PILOT` |
+
+Every account signs in with `deku-demo-pw-2026`. Every grant ends on `2027-06-30`.
+
+### Collectors and their approval periods
+
+| `reference` | Name | Country | Registration | Registration expiry |
+|---|---|---|---|---|
+| `COL-ALDER` | Alder Reclaim | `PT` | `WCR-PT-4471` | `2027-03-31` |
+| `COL-BRINE` | Brine Textile Recovery | `NL` | `WCR-NL-2208` | `2027-01-31` |
+| `COL-CINDER` | Cinder Industrial Offcuts | `FR` | `WCR-FR-6613` | `2026-12-31` |
+
+| Collector | `valid_from` | `valid_to` | `state` |
+|---|---|---|---|
+| `COL-ALDER` | `2026-01-01` | `2026-12-31` | `approved` |
+| `COL-BRINE` | `2026-01-01` | `2026-06-30` | `approved` |
+| `COL-CINDER` | `2026-01-01` | `2026-12-31` | `conditional` |
+
+`COL-BRINE` has no period covering a receipt after `2026-06-30`, so material received then is
+non-claimable. `COL-CINDER` carries the condition `Sampling plan for coated streams to be
+agreed` closing by `2026-10-31`.
+
+### Weighing devices
+
+| `reference` | Site | `calibrated_on` |
+|---|---|---|
+| `WB-DEMO-01` | `SITE-DEMO` | `2026-05-01` |
+| `WB-DEMO-02` | `SITE-DEMO` | `2025-02-01` |
+
+A calibration is valid for twelve months, so `WB-DEMO-02` is lapsed for every seeded receipt.
+
+### Batches
+
+All five are received at `SITE-DEMO` for grade `N6`.
+
+| `reference` | Collector | `category` | `received_on` | `net_g` | `moisture_bp` | `device` | `dry_mass_g` | `claimable` |
+|---|---|---|---|---|---|---|---|---|
+| `BATCH-1001` | `COL-ALDER` | `post_consumer` | `2026-02-10` | `500000` | `1000` | `WB-DEMO-01` | `450000` | true |
+| `BATCH-1002` | `COL-ALDER` | `pre_consumer` | `2026-02-12` | `300000` | `0` | `WB-DEMO-01` | `300000` | true |
+| `BATCH-1003` | `COL-BRINE` | `post_consumer` | `2026-07-05` | `200000` | `500` | `WB-DEMO-01` | `190000` | false |
+| `BATCH-1004` | `COL-CINDER` | `pre_consumer` | `2026-02-20` | `120000` | `0` | `WB-DEMO-02` | `120000` | true |
+| `BATCH-1005` | `COL-ALDER` | `post_consumer` | `2026-03-02` | `100000` | `0` | `WB-DEMO-01` | `100000` | false |
+
+`BATCH-1003` reports `claimable_reason` of `collector_approval_lapsed`. `BATCH-1004` carries
+the flag `lapsed_calibration`. `BATCH-1005` reports `claimable_reason` of
+`custody_link_missing` naming `transport`, and it is the one batch whose custody list omits a
+link.
+
+`BATCH-1001` declares `polymer` `PA6` at `fraction_bp` `9200` on basis `sampled`, with
+`elastane_bp` `400`. `BATCH-1004` declares `PA6` at `fraction_bp` `9900` on basis `declared`
+and measures `9100`, a departure of `800` basis points, which stands as a finding on
+`COL-CINDER`.
+
+### Runs, consumptions and outputs
+
+| `reference` | `run_type` | `recipe_version` | Consumes | `losses_g` |
+|---|---|---|---|---|
+| `RUN-D-0001` | `dissolution` | `RCP-DISS-2` | `BATCH-1001` `300000`, `BATCH-1002` `300000` | `120000` |
+| `RUN-D-0002` | `dissolution` | `RCP-DISS-2` | `BATCH-1003` `190000`, `BATCH-1004` `120000` | `60000` |
+| `RUN-D-0003` | `dissolution` | `RCP-DISS-2` | `BATCH-1001` `150000` | `30000` |
+| `RUN-Y-0001` | `depolymerisation` | `RCP-DEPO-4` | `OUT-D-0001` `480000`, `OUT-D-0002` `250000`, `OUT-D-0003` `120000` | `50000` |
+| `RUN-U-0001` | `purification` | `RCP-PURI-1` | `OUT-Y-0001` `800000` | `40000` |
+| `RUN-R-0001` | `repolymerisation` | `RCP-REPO-3` | `OUT-U-0001` `720000` | `20000` |
+
+| `reference` | Produced by | `kind` | `mass_g` |
+|---|---|---|---|
+| `OUT-D-0001` | `RUN-D-0001` | `intermediate` | `480000` |
+| `OUT-D-0002` | `RUN-D-0002` | `intermediate` | `250000` |
+| `OUT-D-0003` | `RUN-D-0003` | `intermediate` | `120000` |
+| `OUT-Y-0001` | `RUN-Y-0001` | `intermediate` | `800000` |
+| `OUT-U-0001` | `RUN-U-0001` | `intermediate` | `720000` |
+| `OUT-U-0002` | `RUN-U-0001` | `byproduct` | `40000` |
+| `LOT-N6-0001` | `RUN-R-0001` | `lot` | `400000` |
+| `LOT-N6-0002` | `RUN-R-0001` | `lot` | `300000` |
+
+`OUT-U-0002` has `disposition` of `sold`, so it carries a share of the claim and a share of
+the emissions on the period'"'"'s allocation basis of `mass`. Every run above is closed. All six
+are at `SITE-DEMO`. `RUN-D-0001` recorded temperature `165` and pressure `3` against a recipe
+allowing `160` to `170` and `2` to `4`, so it is inside tolerance.
+
+`BATCH-1001` reaches `LOT-N6-0001` through both `RUN-D-0001` and `RUN-D-0003`, so its
+genealogy node appears once with `mass_g` of `450000`.
+
+### Lots
+
+| `reference` | `grade` | Site | `mass_g` | `disposition` | `claim_type` |
+|---|---|---|---|---|---|
+| `LOT-N6-0001` | `N6` | `SITE-DEMO` | `400000` | `released` | `mass_balance` |
+| `LOT-N6-0002` | `N6` | `SITE-DEMO` | `300000` | `quarantined` | `mass_balance` |
+| `LOT-N6-0003` | `N6` | `SITE-PILOT` | `200000` | `released` | `mass_balance` |
+
+`LOT-N6-0001` carries the override `OVR-0001`, unreviewed at seed time. `LOT-N6-0002` is held
+by the open deviation `DEV-0001`. `LOT-N6-0003` was produced at `SITE-PILOT` under the
+provisional conversion factor `CF-PILOT-1`.
+
+### Deviations and overrides
+
+| `reference` | `state` | Affects | `outcome` |
+|---|---|---|---|
+| `DEV-0001` | `open` | `RUN-U-0001`, `LOT-N6-0002` | none |
+| `DEV-0002` | `closed` | `RUN-D-0002` | `cause_not_established` |
+
+`OVR-0001` breaks the separation `analyst_not_dispositioner` on `LOT-N6-0001`, authorised by
+`quality@example.com` on `2026-03-18`, with the reason `Night shift analyst dispositioned the
+lot because no second qualified person was on site`. It is unreviewed at seed time and is the
+one condition blocking a certificate on `LOT-N6-0001`.
+
+### Conversion factors
+
+| `reference` | Site | `factor_bp` | `derived_from` | `derived_to` | `derived_in_g` | `derived_out_g` | `provisional` |
+|---|---|---|---|---|---|---|---|
+| `CF-DEMO-1` | `SITE-DEMO` | `8000` | `2026-01-01` | `2026-03-31` | `1000000` | `800000` | false |
+| `CF-PILOT-1` | `SITE-PILOT` | `7500` | none | none | `0` | `0` | true |
+
+`CF-DEMO-1` reports a factor that reconciles with its own window: `800000` out of `1000000` in
+is `8000` basis points exactly. A factor whose `factor_bp` disagrees with
+`derived_out_g * 10000 / derived_in_g`, floored, is a factor nobody can stand behind, and
+publishing one is refused. `CF-PILOT-1` has no window at all, which is what makes it
+provisional rather than derived.
+
+`CF-PILOT-1` is provisional because `SITE-PILOT` has no loss history of its own, and every
+certificate resting on it says so.
+
+### Balance periods and the ledger
+
+| `id` | Site | `grade` | `period` | `state` | `carry_over_limit_bp` |
+|---|---|---|---|---|---|
+| `BP-DEMO-N6-2025H2` | `SITE-DEMO` | `N6` | `2025-07-01` to `2025-12-31` | `closed` | `2000` |
+| `BP-DEMO-N6-2026H1` | `SITE-DEMO` | `N6` | `2026-01-01` to `2026-06-30` | `open` | `2000` |
+| `BP-PILOT-N6-2026H1` | `SITE-PILOT` | `N6` | `2026-01-01` to `2026-06-30` | `open` | `2000` |
+
+`BP-DEMO-N6-2025H2` closed on `2026-01-15` with a cut-off of `2026-01-10` and cannot be
+reopened.
+
+Credits in `BP-DEMO-N6-2026H1`, each granted at consumption as dry mass times `8000` basis
+points:
+
+| Batch | Category | Dry mass consumed | Credit |
+|---|---|---|---|
+| `BATCH-1001` | `post_consumer` | `450000` | `360000` |
+| `BATCH-1002` | `pre_consumer` | `300000` | `240000` |
+| `BATCH-1003` | non-claimable | `190000` | `0` |
+| `BATCH-1004` | `pre_consumer` | `120000` | `96000` |
+
+At seed time `credits_in_g` is `360000` post-consumer and `336000` pre-consumer,
+`credits_out_g` is `0` for both, and `credits_available_g` equals `credits_in_g`.
+`non_claimable_input_g` is `190000`. `override_count` is `1`, `open_restatement_count` is `0`,
+`open_finding_count` is `1`.
+
+Allocating `360000` grams of post-consumer claim to `LOT-N6-0001` leaves `content_bp` of
+`9000` on a lot of `400000` grams and `credits_available_g` of `0`. A further post-consumer
+allocation against the period is refused.
+
+### Carbon
+
+`CM-PA6` version `2` is published against `ISO 14067`, with functional unit `1 kg of pellet`,
+boundary `cradle-to-gate`, allocation basis `mass`, reviewer `Ilse Grootveld` and published on
+`2026-01-20`. Version `1` is superseded and stays readable.
+
+The figure for `LOT-N6-0001` is `value_mg_per_kg` `4260000`, `uncertainty_bp` `1200`,
+`primary_share_bp` `6500`. The comparator is `virgin PA6` from dataset `EcoBase 2025` of year
+`2025` in region `EU-27`. The primary-data threshold is `5000` basis points, so this figure is
+not labelled as default-led.
+
+The breakdown for `LOT-N6-0001`:
+
+| Line | `mg_per_kg` | Tag |
+|---|---|---|
+| `collection_and_transport` | `310000` | `primary` |
+| `process_energy` | `1850000` | `primary` |
+| `reagents` | `1180000` | `supplier_specific` |
+| `water_and_effluent` | `240000` | `primary` |
+| `waste_and_residues` | `330000` | `secondary` |
+| `outbound_transport` | `410000` | `secondary` |
+| `byproduct_credit` | `-60000` | `primary` |
+
+Those seven sum to `4260000`. `energy_location_mg_per_kg` is `1850000` and
+`energy_market_mg_per_kg` is `620000`, and neither is ever returned without the other.
+`metered_kwh` for the period is `300000`.
+
+| Instrument | `quantity_kwh` | `vintage` | `region` | `state` |
+|---|---|---|---|---|
+| `EAC-2026-0007` | `250000` | `2026` | `EU-27` | `retired` |
+| `EAC-2025-0031` | `100000` | `2025` | `EU-27` | `held` |
+
+`EAC-2026-0007` is applied against `BP-DEMO-N6-2026H1`, leaving `unmatched_kwh` of `50000`.
+`EAC-2025-0031` is refused on both counts: it is held rather than retired, and its vintage
+does not match.
+
+### Specifications and customers
+
+`SPEC-N6` version `3` is the current specification, issued on `2026-02-01`. Version `2` is
+superseded and stays readable.
+
+| `property` | `method` | `limit` | `unit` | `basis` |
+|---|---|---|---|---|
+| `relative_viscosity` | `ISO 307` | `2.40` | `ratio` | `guaranteed` |
+| `moisture` | `ISO 15512` | `0.10` | `percent` | `guaranteed` |
+| `yellowness_index` | `ASTM E313` | `8.0` | `index` | `typical` |
+| `ash_content` | `ISO 3451-1` | `0.30` | `percent` | `informational` |
+
+The virgin-quality comparison names the reference `virgin PA6 at relative viscosity 2.42`,
+sourced from `EcoBase 2025` and dated `2025-11-30`.
+
+| Customer | Contact | Holds | Application | Industry |
+|---|---|---|---|---|
+| `CUS-HELIOS` | `helios@example.com` | `SPEC-N6` version `3` | `technical apparel yarn` | `textiles` |
+| `CUS-VANTA` | `vanta@example.com` | `SPEC-N6` version `2` | `airbag fabric` | `automotive` |
+
+`CUS-VANTA` is the strict case: a change touching a qualification-relevant parameter blocks
+until they acknowledge it.
+
+### Contracts
+
+| `id` | Recipient | Site | Period | `committed_kg` | `floor_bp` | `delivered_kg` |
+|---|---|---|---|---|---|---|
+| `CON-HELIOS-1` | `CUS-HELIOS` | `SITE-DEMO` | `2026-H1` | `200` | `5000` | `0` |
+| `CON-VANTA-1` | `CUS-VANTA` | `SITE-COMM` | `2029-H1` | `1000` | `3000` | `0` |
+
+`CON-VANTA-1` names `SITE-COMM`, whose confidence is `planned`, so it is flagged wherever it
+appears and the flag cannot be dismissed.
+
+| Field | Value |
+|---|---|
+| `CON-VANTA-1` shortfall consequence | `a make-good volume in the following period` |
+
+
+### Certificates
+
+| `number` | `version` | Site | Lot | Recipient | `state` | Signer |
+|---|---|---|---|---|---|---|
+| `CERT-PILOT-000001` | `1` | `SITE-PILOT` | `LOT-N6-0003` | `CUS-HELIOS` | `withdrawn` | `signer2@example.com` |
+| `CERT-PILOT-000002` | `1` | `SITE-PILOT` | `LOT-N6-0003` | `CUS-VANTA` | `issued` | `signer2@example.com` |
+
+`CERT-PILOT-000001` was signed on `2026-03-02` and withdrawn on `2026-04-18` with the reason
+`A collector category was corrected after acceptance`. Its address resolves forever.
+
+The `SITE-DEMO` sequence has issued nothing, so the first certificate signed there is
+`CERT-DEMO-000001`. A number is never reused and a gap in the sequence is reportable.
+
+The scheme is `RCS-2026` and the producer'"'"'s registration is `REG-RAVEL-0042`. The verification
+address printed on every certificate is `https://ravel.example.com/verify/{number}`.
+
+### Inbound records
+
+| `source` | `received_at` | What the payload carries |
+|---|---|---|
+| `weighbridge` | `2026-02-20T06:14:00Z` | the `WB-DEMO-02` ticket behind `BATCH-1004` |
+| `control_system` | `2026-03-04T22:41:00Z` | the actual set points achieved by `RUN-D-0001` |
+| `laboratory` | `2026-03-06T09:02:00Z` | the relative-viscosity result on `LOT-N6-0001` |
+| `customer_reporting` | none | never sent |
+
+Each seeded record keeps its payload verbatim. `customer_reporting` has never sent, so its
+entry in `integration_ages` reads `null` rather than zero.
+
+### Party versions
+
+| `reference` | `name` | `effective_from` |
+|---|---|---|
+| `COL-BRINE` | Brine Textile Recovery | `2026-01-01` |
+| `COL-BRINE` | Brine Circular Materials | `2026-08-01` |
+
+`BATCH-1003` was received on `2026-07-05` and therefore reads back under the name
+`Brine Textile Recovery`, whatever the collector is called today.
+
+### Inter-site transfers
+
+`TRF-0001` moves `50000` grams from `BP-PILOT-N6-2026H1` to `BP-DEMO-N6-2026H1` on
+`2026-05-12`. The receiving ledger records `50000` grams of inbound credit naming
+`SITE-PILOT` as its origin, and the two periods together hold the same credit after the
+journey as before it.
+
+### Retention
+
+| Basis | Months |
+|---|---|
+| The certification scheme'"'"'s requirement | `120` |
+| The statutory requirement at the site | `84` |
+| Any figure that still references the record | computed |
+
+`retain_until` is the longest of the three. The seeded legal hold `HLD-0001` stands on the
+record entry for the signing of `CERT-PILOT-000001`.
+
+### The record
+
+The seeded record opens with one entry per seeded act, in the order the acts happened, each
+carrying `seq` from `1`, a `digest` and a `prev_digest`. The first entry'"'"'s `prev_digest` is
+the sixty-four-character string of zeroes.
+
+### The public site
+
+| `key` | `value` | `source` | `year` | `geography` |
+|---|---|---|---|---|
+| `textiles_recycled` | `Less than 1 per cent of textiles are recycled into new materials` | `Textile Flow Monitor` | `2024` | `Global` |
+| `plastics_emissions` | `1.8 gigatonnes of carbon dioxide equivalent a year from plastics production` | `Global Materials Emissions Panel` | `2023` | `Global` |
+| `textile_incineration` | `More than 8 per cent of textile waste is incinerated each year` | `Textile Flow Monitor` | `2024` | `EU-27` |
+
+One open position: `Process Engineer`, location `Lyon, France`, department `Operations`,
+contract type `Permanent`, closing `2026-11-30`. The count rendered on the careers route is
+`1` because the collection holds one row.
+
+Three news items: `Series A closes at 40 million euros` tagged `funding`, dated `2026-01-22`,
+outlet `Materials Weekly`, language `en`; `Offtake agreement signed for demonstration output`
+tagged `partnership`, dated `2026-03-11`, outlet `Fibre Report`, language `en`;
+`Depolymerisation yield published` tagged `technical`, dated `2026-05-06`, outlet `Chimie
+Circulaire`, language `fr`.
+
+Four enquiry destinations:
+
+| `type` | `destination` | `response_days` |
+|---|---|---|
+| `waste_supply` | `feedstock@example.com` | `3` |
+| `polymer_purchase` | `sales@example.com` | `2` |
+| `partnership` | `partners@example.com` | `5` |
+| `press` | `press@example.com` | `1` |
+
+The published privacy policy names Ravel, names `Ravel Materials SAS` as the controller with a
+postal address, gives `privacy@example.com` as the address for a rights request, and states a
+retention in months for every purpose: an enquiry `24`, a waste-supply enquiry `36`, a polymer
+enquiry `36`, a press enquiry `12`, an account and its acts `120`, the record `180`. It states
+plainly that the operational record names individuals, is retained under a legal and scheme
+obligation, and is not erased on request, while a former employee'"'"'s contact detail is. The
+disclosure address is `security@example.com`.
+
+## Front-end specification
+
+### One palette, one scheme, one name per role
+
+The reference published these values, and they are recorded here as the inventory the rebuild
+inherits rather than as an instruction to reproduce them:
+
+| What the reference published | Value it held |
+|---|---|
+| its dark value | `#301f00` |
+| its ground value | `#f9f5f1` |
+| its accent value | `#2a4b22` |
+| its editorial value | `#b68ecb` |
+| its grey value | `#898d8f` |
+
+**No colour in this product is specified here as a code, and the build chooses every one.**
+Six roles exist and no seventh does. Each is described by the job it does and by the bars it
+has to clear, because a palette handed over as codes is a palette nobody designed.
+
+| Role | The job | The bar |
+|---|---|---|
+| ink | every word the reader reads, and every rule between them | the darkest value in the palette; clears WCAG AA against the ground at every size the scale carries, and AAA at body size |
+| ground | the page behind everything | warm rather than neutral, and never pure white |
+| paper | a card, a sheet, the certificate document | lighter than the ground, distinguishable from it without a border |
+| muted | a secondary label, a disabled control | clears WCAG AA against the ground at body size, reads as quieter than the ink at a glance |
+| accent | brand emphasis on the public routes | one value, used on nothing in the console |
+| highlight | one editorial mark on the public routes | one value, used on nothing in the console |
+
+The accent and the highlight never signal a state, anywhere, on any surface.
+
+At most eight distinct colour literals appear in the built stylesheet. An alpha variant of a
+role is that role rather than a new one, so a shadow or a scrim costs nothing against the
+count, and a seventh and eighth value are the headroom a focus ring and a selection need.
+
+Nine values must appear nowhere in the built stylesheet, nowhere in an inline style and
+nowhere in a rendered computed style: `#2d62ff`, `#dd23bb`, `#fcf8d8`, `#cef5ca`, `#114e0b`,
+`#f8e4e4`, `#3b0b0b`, `#5e5515` and `#0000`. They belong to a starter template rather than to
+Ravel, and a second palette shipping under the first is a second source of truth that wins
+wherever somebody forgets. A shadow token holding a fully transparent value is declared and
+never seen, so it is not declared.
+
+Every colour that renders comes from a named role. A colour that appears in a computed style
+and belongs to no role is a defect, and so is a token whose name contains a deletion marker.
+One value has one name and one name has one value; there are not two parallel naming schemes
+describing the same six roles twice.
+
+### Typography, and the scale declared once
+
+The typography is two families and one scale. A serif carries prose and headings; a grotesk carries labels, table headers and
+the top bar. Both are openly licensed, subset to the characters the site uses, and served as
+one variable file per family from the origin the app controls. No trial face, no evaluation
+licence and no undeclared family renders anywhere, and no element falls back to a generic
+system face because a serif was declared with a sans-serif behind it.
+
+A monospace face is reserved for identifiers and for figures compared down a column. It has
+tabular figures, and its zero is distinguishable from its capital O, because a certificate
+number and a lot reference are read aloud over a telephone during an incident.
+
+The scale is declared once, in one scheme, and it is this one. Eight steps, each naming one
+size and exactly one line height:
+
+| Step | Size | Line height |
+|---|---|---|
+| `h1` | `5rem` | `6rem` |
+| `h2` | `4rem` | `4.5rem` |
+| `h3` | `3rem` | `3.5rem` |
+| `h4` | `1.625rem` | `1.8125rem` |
+| `body-big` | `1.375rem` | `1.8125rem` |
+| `body-regular` | `1.125rem` | `1.5rem` |
+| `body-small` | `1rem` | `1.5rem` |
+| `eyebrow` | `0.875rem` | `1.125rem` |
+
+A size never renders with a second line height, and no element ships without a line height
+set. The scale carries no ninth step: the two display sizes the reference declared at
+`12.75rem` and `8.875rem` never rendered anywhere, and a step that never renders is removed
+rather than shipped. `eyebrow` is the floor, so nothing renders below twelve pixels at any
+width on any route. One stroke weighting carries the hierarchy, with a second reserved for
+`h1` and `h2` alone.
+
+### Surface
+
+Three named radius steps and a pill, not thirteen values. Five named stacking steps, named
+below, base, raised, overlay and top, and no element reaches past the last of them; a scale
+running from minus one hundred to one thousand is a scale nobody wrote down and the next
+component has to beat it.
+
+Two named shadow steps, both visible. A mask is used for the twenty-four-pixel fade at the top
+edge of scrolling content and for softening the edge of a blurred backdrop, and for nothing
+else. No element declares a three-dimensional rendering context for movement that happens in
+two dimensions.
+
+No partner mark, no institutional mark and no outlet mark is recoloured by a filter. Inverting
+a mark replaces every colour with its complement, so a mark that is not already black arrives
+in a colour its owner never chose. A light version is supplied, or the mark sits on the ground
+it was designed for.
+
+### Motion
+
+Two named durations and one named curve. Transitions are declared per property: the declaration
+`transition: all` appears on no element in the built stylesheet, and neither does any other
+blanket transition across every property.
+
+The reveal is one component with one distance and one duration: a heading resolves from a blur
+and an opacity together as the reader reaches it, and it is readable before the resolve
+finishes. No element that a reveal governs stays hidden if the reader never scrolls to it.
+
+Nothing loops. No marquee, no perpetual rotation, no animation without a stated end. The
+button arrow that translates once on press is the one piece of decorative motion that stays.
+
+Reduced motion, precisely. Under a reduced motion preference the reveal resolves immediately with nothing left blurred or
+transparent, parallax is removed and images sit at their natural scale, and no media plays
+without a press. Under a forced-colours preference every state that a colour carried is still
+carried by its word. A print stylesheet exists and the certificate and the privacy route both
+print correctly. A hover treatment is applied only where a pointer is present, so a hover
+state never fires on a touch and sticks.
+
+Every interactive element has a hover state, a focus state and an active state, and the focus
+state is not the hover state. A primary call to action that does not respond to a pointer
+reads as decoration.
+
+### Layout and breakpoints
+
+One breakpoint system, declared once, with each query written one way. Three widths matter: a
+narrow phone, a tablet and a wide desktop. Every route holds at all three with no sideways
+scroll on the document.
+
+The console board carries four columns at desktop, two at tablet and one at phone, and the
+column a card sits in is named in text on the card rather than implied by position alone. The
+genealogy graph becomes the nested list at the narrowest width rather than shrinking. The
+balance screen becomes one figure per row. The certificate wizard becomes one condition per
+row.
+
+### The three figures that never render alone
+
+This is a component rule and not a page rule. A summary tile, a table cell, a tooltip, a chart
+label and an export header are all components, and each either carries the dependencies or
+does not render the figure.
+
+- A recycled-content percentage renders with its claim type.
+- A carbon figure renders with its boundary, its method version and its uncertainty.
+- A capacity figure renders with its confidence.
+
+A compact variant may exist and it carries the claim type as a word, never as a colour and
+never as an icon.
+
+### The genealogy view
+
+A graph, not a tree. A batch that reaches the lot by several paths is drawn once, and its
+edges carry mass rather than a percentage, because percentages of percentages across four hops
+compound into a figure nobody can reconcile. Every node shows what it is, its mass, its
+category split and whether anything about it is flagged. A flag anywhere in the graph is
+visible from the lot without expanding anything.
+
+The same component runs backwards from a batch and shows every lot containing any of it, every
+certificate resting on those lots, and every recipient. Both directions carry the same facts
+as a nested list, and the list is what an auditor exports. The list is not a summary; it is
+the same information in another form.
+
+### The balance screen
+
+There is no input control on this screen at all. Every figure is derived and every figure
+links to the records it came from, because a claims manager who cannot get from a total to its
+workings will rebuild it in a spreadsheet and the spreadsheet becomes the real ledger.
+
+The invariant'"'"'s margin is shown as a mass, not as a state: `Within limits` is not a rendering
+and the remaining claimable mass is. Three counts sit together and none is a badge to be
+cleared: overrides this period, open restatements, and audit findings past their date. None is
+rendered in the accent.
+
+### The certificate wizard
+
+Four steps, four addresses. Each step shows the eight conditions as eight statements, each
+either satisfied or naming exactly what blocks it, with a link to the record that would
+resolve it. No condition is dismissible from this screen by any control.
+
+The fourth step renders the exact document that will be signed, including the permitted
+downstream statement and its counterpart in the recipient'"'"'s language, so that the signer signs
+what the recipient will read rather than a form that generates it. Signing is a separate,
+deliberate act with the signer'"'"'s identity confirmed at that moment, and the screen states
+plainly that the recipient will file the document with a regulator.
+
+Withdrawal lives here too. Before confirming, the screen shows the five consequences and the
+actual enumerated lists: the recipients who will be notified, by name, and the statements that
+become void. Not a count of them.
+
+### The five surfaces the record needs
+
+**The reconciliation view.** Six figures, refreshed on a schedule, with the mass balance
+residual as the headline. It is a screen of numbers expected to be non-zero, and it shows this
+period against the last three rather than a status.
+
+**The scheme status banner.** Where a site'"'"'s certification is suspended, every surface that
+can issue anything says so, names the effective window and links to the enumeration of
+affected certificates. It is not dismissible.
+
+**The contract projection.** Delivered, running content, the floor, and the average the
+remaining volume must reach. The unreachable state is a word and a date, not a colour.
+
+**The energy panel.** Location-based and market-based side by side, never one alone, with the
+retired instruments listed beneath and the unmatched consumption named.
+
+**The replay result.** What a certificate said, what recomputation says now, and the input
+that differs. Agreement and disagreement render at identical weight, because a reader is
+looking for the second and must not be trained by the design to expect the first.
+
+### Accessibility
+
+The readers include a customer'"'"'s compliance officer, an external auditor and occasionally a
+market-surveillance authority. None of them chose this interface and none can be asked to use
+another.
+
+Every fact is reachable by somebody reading by ear, somebody who cannot use a pointer,
+somebody who has doubled their text size, and somebody reading a printed copy. The certificate
+document is readable as plain text with no styling at all and loses nothing when it is: the
+claim type, the percentage, the carbon figure with its four components and the permitted
+statement all survive as words. It prints on A4 and on US Letter without a page break inside
+the permitted statement. Its structure is real headings in order, so a reader moving by
+heading reaches the claim type before the percentage.
+
+Six states carry consequence and each carries its word as well as any other signal: a batch is
+non-claimable; a calibration has lapsed; a deviation is open; an override is unreviewed; a
+certificate is withdrawn; a capacity row is planned. A withdrawn certificate says `withdrawn`
+before it shows any figure.
+
+### Performance
+
+The byte budget per route, uncached, at desktop, before first paint and before the surface
+is usable:
+
+| Class | Public routes | Console | Balance and certificates |
+|---|---|---|---|
+| Bytes before first paint | `220000` | `320000` | `360000` |
+| Images before scroll | `450000` | `80000` | `80000` |
+| Script before usable | `220000` | `700000` | `800000` |
+| Fonts | `140000` | `140000` | `140000` |
+| Media before interaction | `0` | `0` | `0` |
+
+The chrome is one persistent top bar and one footer, identical on every route, and it counts
+against every budget above. No route loads a library it does not use. No photograph exceeds a
+quarter of a megabyte: eighteen JPEG files at half a megabyte each is the reference'"'"'s own
+failure and several of them were poster frames, which is the least defensible place to put a
+large image. Media loads on interaction and never before: a
+poster frame stands in until somebody presses, one rendition is served per viewport, and
+nothing autoplays under a reduced-motion preference. Photographic assets are served in a
+modern format at widths matched to the layout, and every image declares its dimensions so the
+layout does not shift under the reader. No source map ships. No general-purpose DOM library
+ships alongside the framework.
+
+### The published copy
+
+The public routes carry this copy. It is the product'"'"'s own voice and it is not paraphrased.
+
+**Home.** `Tomorrow'"'"'s materials. Made from today'"'"'s waste.` above `Ravel produces low-carbon,
+virgin-quality recycled polymers, starting with nylon.` Then `Nylon that goes on and on and
+on`, `The power of green chemistry` and `We'"'"'re closing the loop`. The last of those is
+followed by a written section rather than by three words.
+
+**Product.** `Same material. Better origin.` above `We produce low-carbon, virgin-quality,
+recycled Nylon 6 and 6,6 for manufacturers who refuse to compromise.` Two grades, each naming
+its real limitation before its claim: recycled `Nylon 6` came almost entirely from one source,
+discarded fishing nets; `Nylon 6,6` had no recycling solution at all. Six industries: textiles
+and apparel, automotive, electrical and electronics, consumer goods, industrial, construction.
+Three features, the first headed `Nylon in any form` so that the heading agrees with the
+sentence beneath it. The specifications section carries the specification rather than a
+request button, and the recycled-content claim appears beside the grade it applies to, with
+its type and its scheme.
+
+**Technology.** The four process steps, unchanged: `Dissolution`, `Depolymerisation`,
+`Purification`, `Repolymerisation`. The capacity table states its unit once, with a basis and a
+definition of the year, so `Commercial Plant (2030+)` reads `>25,000 tonnes per year` and
+`Pilot (2026)` carries a quantity rather than the word `Multi-tonne`. Five attributes, and the
+three that are claims carry their evidence: `Green chemicals & reagents`,
+`Low temperature & pressure`, `Low carbon impact`.
+
+**About.** Three statistics under `The hard facts`, each with its source, its year and its
+geography beside it rather than in a footer, and the emissions figure stated as a mass.
+
+**Careers.** `Why this problem matters` survives intact. The open-position count is rendered
+from the collection it labels.
+
+**News.** The tag is a real taxonomy with the terms `funding`, `partnership`, `technical`
+and `recognition`, because a taxonomy with one term is not a taxonomy. One event is listed
+once with its coverage, every item carrying its outlet,
+its date and its link, and an item in another language saying so before a reader clicks.
+
+**Contact.** Four enquiry types, four destinations, four stated response times. Neither result
+state is a builder default string: the success state says what happens next and when, and the
+failure state says what failed, what the visitor can do, and offers an address that does not
+depend on the form working.
+
+**Every route carries its own metadata**: a title and a description written for that route, and `/verify/{number}` is
+excluded from indexing because a certificate'"'"'s recipient is a customer relationship.
+
+### The copy the product needs
+
+These sentences appear where the product needs them and they state facts rather than
+reassuring.
+
+- `This material is claimed by mass balance. It is not physically segregated.`
+- `You may not state that this material physically contains recycled content.`
+- `This certificate was withdrawn on {date}. Reason: {reason}.`
+- `This batch cannot be claimed: {missing link}.`
+- `This collector'"'"'s approval lapsed on {date}. Material received after that date is processed
+  but not claimed.`
+- `Losses reduce the claim.`
+- `This allocation is refused. Available: {n} g. Requested: {n} g.`
+- `Separation overridden by {person} on {date}. This cannot be removed.`
+- `This period is closed. Corrections require a restatement.`
+- `This change may invalidate {n} customer qualifications.`
+- `Verify this certificate at ravel.example.com/verify/{number}.`
+
+### Imagery, vectors and the substitution manifest
+
+This is a zero-asset build and the substitution manifest is fixed: material imagery is
+substituted, process imagery is substituted, the text families are substituted, inline vectors
+are substituted, motion assets are omitted, and staff portraits and partner or outlet marks
+are not substituted because they are other people'"'"'s identities.
+
+No photograph of the reference is reproduced and no named individual, investor, brand partner,
+outlet or agency appears anywhere. Pellets are photographed rather than rendered, and recycled
+pellets photographed beside conventional pellets at the same scale under the same light argue
+the drop-in claim better than the sentence does. Waste imagery is honest: mixed and
+contaminated waste is not attractive, and clean colour-sorted offcuts illustrate a different
+business.
+
+The plant is drawn rather than photographed, and the diagram is generated from the four run
+types so it stays correct when a stage changes. It carries mass in and mass out per stage,
+which is the one thing a visitor wants and no competitor shows, and it gets its text
+equivalent for free. Interface marks are drawn as inline vectors, each with a text label beside it, so a vector
+that fails to load costs nothing. A flag, a lock on a closed period, an arrow for a traversal
+direction and a warning for a lapsed calibration are the four the product needs.
+
+## Constraints
+
+No route accepts a recycled-content percentage, a carbon value or a loss figure from a caller.
+Every one of them is computed, and the input controls that would permit one do not exist.
+
+A closed run, a closed balance period, an issued certificate and a published method version
+are all immutable. A correction is a new record naming what it corrects. No record is edited,
+and none is removed: an entry that reaches the end of its retention loses its content while
+keeping its position in the sequence.
+
+A batch category cannot be changed after acceptance, by anybody, through any route.
+
+The product controls no equipment and reads no live sensor. It sends no mail beyond the four
+acts named above. It takes no payment, holds no price and stores no file in an object store.
+
+There is no signup, no password reset and no self-service account creation.
+
+## Deployment contract
+
+- The app must be reachable at `APP_PUBLIC_URL`. The port mapping is `${APP_PUBLIC_PORT}:4173`,
+  where `4173` is the container-internal port and `APP_PUBLIC_PORT` is what the outside world
+  uses. Read both from the environment; never hardcode either.
+- The HTTP API is served on that same origin under the `/api` prefix.
+- `GET /api/health` returns `200` once the app is ready.
+- The app starts from the environment image with no manual steps.
+- Login credentials, or an explicit statement that there are none, are written to
+  `/app/USER_README.md`.
+- Reserved `.browser_screenshots/` and `.downloads/` directories exist at the app root, empty.
+- Serve a production build behind a static or preview server, never a dev server.
+- The server must keep running after this session ends and must not be a child of the shell. An
+  ordinary background job dies with its shell, and the app will not be running when it is next
+  opened.
+- Bind `0.0.0.0`, never `127.0.0.1` or `localhost`. A loopback-only listener is unreachable
+  from outside the container.
+- The backing services named in this brief are already running and reachable at their
+  environment variables. Do not download, install, compile or start a copy of any of them.
+- Use only the providers named in this brief. No edge functions.
+- No persistent volumes, no fixed container names, no custom networks.
+
+### API shapes
+
+| Route | Purpose |
+|---|---|
+| `POST /api/auth/login` | sign in, returns `access_token` and `token_type` |
+| `GET /api/auth/me` | the session'"'"'s email, roles and sites |
+| `GET /api/sites` | the three sites with their confidence |
+| `GET /api/collectors` | collectors with their approval periods |
+| `POST /api/batches` | book in a batch |
+| `GET /api/batches` | the batch register |
+| `POST /api/runs` | open a run |
+| `GET /api/runs` | the run board'"'"'s rows |
+| `GET /api/lots` | the lot register |
+| `GET /api/balance-periods` | the ledger, per site, grade and period |
+| `GET /api/certificates` | the certificate register |
+| `GET /api/verify/{number}` | the public verification answer |
+| `POST /api/enquiries` | the public enquiry form |
+| `POST /api/inbound/{source}` | one inbound record, payload kept verbatim |
+| `GET /api/inbound` | what has arrived from each source |
+| `GET /api/record` | the append-only record |
+| `GET /api/record/queries/{name}` | the nine questions the record answers |
+| `GET /api/parties/{reference}/versions` | the names a party held, by date |
+| `GET /api/reconciliation` | the six figures |
+| `GET /api/statistics` | the published figures with their sources |
+| `GET /api/positions` | the open roles |
+| `GET /api/news` | the news items |
+
+Every collection route returns a top-level JSON array. Every single-object route returns one
+JSON object. A mass field is an integer number of grams and a proportion field is an integer
+number of basis points, on every route without exception.
+
+### No mocks
+
+Every record lives in `postgres`. Every account lives in `[REDACTED]`. Every mail leaves through
+`mailpit`. No in-memory store survives a restart, no fixture file stands in for a table, and
+no mail is written to a log instead of being sent.
+
+## Definition of done
+
+- The seven seeded accounts sign in, and the seeded sites, collectors, batches, runs, lots,
+  factors, methods, specifications, contracts and certificates match the tables above exactly.
+- A batch resolves its claimability against the approval in force on its receipt date, and
+  `BATCH-1003` is non-claimable while `BATCH-1004` is claimable and flagged.
+- A batch category cannot be changed after acceptance by any role through any route.
+- The genealogy of `LOT-N6-0001` carries `BATCH-1001` once at `450000` grams, with the reverse
+  traversal from `BATCH-1001` naming every lot, certificate and recipient completely.
+- An allocation larger than the available credits is refused with the available and requested
+  masses, and two simultaneous allocations for the same remaining credits produce one success
+  and one refusal.
+- No route accepts a percentage, and every percentage returned is derived from the ledger.
+- A carbon value never appears without its boundary, its method version and its uncertainty,
+  and the two energy figures never appear apart.
+- A certificate preview carries eight conditions, the unreviewed override on `LOT-N6-0001`
+  blocking, cleared by a review from somebody other than the authoriser.
+- `signer2@example.com` is refused a certificate on a `SITE-DEMO` lot.
+- A withdrawal changes state, notifies the recipient through `mailpit`, enumerates the void
+  statements, resolves derived certificates and runs the reverse traversal, in one action.
+- `/verify/CERT-PILOT-000001` resolves without a session, states the withdrawal, offers no
+  forwarding to a replacement.
+- The record refuses an edit and a deletion, and its digest chain verifies.
+- The four inbound sources reach the app through its own route, keep their payloads verbatim,
+  and report an age each, with `customer_reporting` reading `null`.
+- A certificate replays from its recorded input versions, reports agreement or the input that
+  differs, and reports an unresolvable figure as unreproducible with a named reason.
+- `retain_until` is the longest of the three periods, a legal hold refuses deletion, and an
+  expired entry keeps its position and its digest while stating that its content was deleted.
+- A transfer between sites lands as an inbound credit naming its origin rather than a fresh
+  credit, and the total credit across the two periods is unchanged.
+- `BATCH-1003` reads back under the collector name in force on its receipt date.
+- A short-supply allocation records who decided and which contracts went without.
+- A yield figure appears on no certificate and in no verification answer.
+- The nine record queries each answer with a complete set rather than a page of one.
+- The public routes carry the copy above, every published figure carries a source, a year and a
+  geography, and the careers count is derived from its collection.
+- Nothing renders green as a state, no state is carried by colour alone, and no text renders
+  below twelve pixels.
+
+
+---
+
+## How this app is deployed and graded
+
+This section is added by the harness, identically for every task. It describes
+how your work is collected and run; the brief above describes what to build.
+
+**Write `/app/Dockerfile`.** Grading does not reuse this container. It runs
+`docker build /app` against your source alone, then starts the resulting image as
+a container of its own on the same network as the backing services. Nothing from
+this session comes with it: no running processes, no packages you installed
+outside `/app`, no caches you warmed, no rows you created by hand. The database
+is re-created from scratch, so your schema, migrations and seed must be applied
+by the image itself.
+
+The container must serve the app in the foreground on the port this brief names,
+bound to `0.0.0.0`, and read every service address from the environment at
+container start — no service is reachable during `docker build`.
+
+**Check whether you have a Docker daemon to test with.** Run `docker info`. If it
+answers, a daemon has been reserved for you and you should not finish until you
+have built your image and confirmed the health endpoint answers from it. If the
+command is missing or cannot connect, this task has no daemon: write the
+`Dockerfile` carefully and read it back as if you were the machine executing it,
+step by step, asking at each one what is present in the image at that moment.
+
+If the daemon IS available, two facts about it you cannot discover on your own,
+and which will otherwise cost you time:
+
+- A container you start with `--network host` is reachable at **`http://dockerd:<port>`**,
+  not `http://localhost:<port>`. `--network host` means the daemon'"'"'s network, not
+  this container'"'"'s. Your app has not failed just because `localhost` refuses.
+- Inside it, the backing services resolve by the same hostnames they use here, so
+  a real database connection is part of the test. Pass the environment variables
+  your app needs with `-e`, as grading will.
+
+The daemon is yours alone and shares nothing with the grader, so images you build
+here are invisible to it. **Grading rebuilds from your source**, which means a
+working container proves nothing by itself — what is graded is the `Dockerfile`.
+If you fix something by hand inside a running container, put the fix in the
+`Dockerfile`.
+
+**Anything you bring in must be yours to use.** If you fetch an image, font,
+icon set, sample text or dataset from the web, it must be public domain or under
+a licence that permits redistribution, and you must be able to say which. Do not
+use a company'"'"'s logo or brand assets, a photographer'"'"'s or artist'"'"'s work, or
+anything whose licence you have not checked. Generating your own placeholder, or
+using a plain CSS or SVG stand-in, is always acceptable and is usually faster
+than finding something you are allowed to ship.
+
+**Walk the app in a browser before you finish, and leave the evidence.** Chromium
+and Playwright are already installed here — you do not need to add them. Drive
+your running app through the journeys this brief describes, as a stranger would:
+sign up or sign in, do the thing, arrive at the result. A page that renders
+without error is not the same as a page that works.
+
+Judge each step against the page rather than by eye: read the values back, check
+that what should be there is and what should not be is not, and watch the
+console. Fix what you find, then walk it again.
+
+Save one screenshot per journey into `/app/.browser_screenshots/` as evidence,
+numbered in the order you took them (`01_login.png`, `02_dashboard.png`, ...).
+That directory already exists and is reserved for exactly this. Keep it out of
+the shipped image via `.dockerignore`.
+
+**Do not read an image file back.** Your file reader cannot open binary files and
+the attempt ends your session — twice now, both times after the app was nearly
+finished and before the `Dockerfile` was written. Write the screenshot and move
+on; the page itself is what you verify against.' 2>&1 </dev/null | stdbuf -oL tee /logs/agent/openhands.txt
+Collecting main service artifacts

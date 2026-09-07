@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block route %}
+<h1 class="sr-only">{{ house.name }} - {{ site_description }}</h1>
+
+{# A loose cluster of stills, overlapping freely, positions authored and the
+   overlap order stable across loads. No headline, no tagline, no scroll. #}
+<div class="cluster" id="cluster" data-cluster>
+  {% if stills %}
+  {% for still in stills %}
+  <a class="cluster-still" href="/works/{{ still.work.slug }}"
+     style="left:{{ still.left }}%;top:{{ still.top }}%;--size:{{ still.size }}px;z-index:{{ still.depth }}"
+     data-cursor-label="{{ still.work.title }}"
+     aria-label="{{ still.work.title }}, work {{ still.work.ordinal }}">
+    <span class="cluster-frame"
+          style="aspect-ratio:{{ still.work.poster.width if still.work.poster else 3 }} / {{ still.work.poster.height if still.work.poster else 2 }}">
+      <span class="tile-placeholder" data-placeholder aria-hidden="true"></span>
+      {% if still.work.poster %}
+      <img class="cluster-img" src="{{ still.work.poster.url }}"
+           alt="{{ still.work.poster.alt }}"
+           width="{{ still.work.poster.width }}" height="{{ still.work.poster.height }}"
+           decoding="async" data-still data-load-tracked>
+      {% endif %}
+    </span>
+    {# Hover information is duplicated as a real name and a focus caption in
+       the same position the cursor label would occupy. #}
+    <span class="cluster-caption">{{ still.work.title }} <span class="cluster-caption-ord">{{ still.work.ordinal }}</span></span>
+  </a>
+  {% endfor %}
+  {% else %}
+  <p class="empty-state">No work is published yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

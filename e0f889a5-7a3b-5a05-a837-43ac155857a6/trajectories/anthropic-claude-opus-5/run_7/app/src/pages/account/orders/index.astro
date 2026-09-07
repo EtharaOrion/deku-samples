@@ -1,0 +1,60 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiGet, formatMinor, formatDate } from '../../../lib/api.js';
+import { viewer, signInRedirect } from '../../../lib/page.js';
+
+const v = await viewer(Astro);
+if (!v.signedIn) return signInRedirect(Astro);
+
+const cursor = Astro.url.searchParams.get('cursor');
+const q = cursor ? `?page_size=20&cursor=${encodeURIComponent(cursor)}` : '?page_size=20';
+const res = await apiGet(Astro.request, `/account/orders${q}`, { token: v.token });
+const orders = res.ok ? res.data.data : null;
+---
+<Shell title="Your orders — Vela" signedIn cartCount={v.cartCount}>
+  <h1 class="page-title">Your orders</h1>
+  <p class="page-lede">Newest first.</p>
+
+  {orders === null ? (
+    <div class="notice notice-danger" role="alert"><p>We could not load your orders. Reload the page to try again.</p></div>
+  ) : orders.length === 0 ? (
+    <div class="empty">
+      <p>You have not ordered anything yet.</p>
+      <p class="small" style="margin-top:calc(var(--unit)*2)"><a href="/shop">Go to the shop</a>.</p>
+    </div>
+  ) : (
+    <div>
+      <table class="data" style="max-width:64rem">
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Date</th>
+            <th scope="col">Items</th>
+            <th scope="col" class="num">Total</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((o) => (
+            <tr>
+              <td><a class="order-number" href={`/account/orders/${o.number}`}>{o.number}</a></td>
+              <td class="tnum">{formatDate(o.placed_at)}</td>
+              <td>{o.first_title}{o.more_count > 0 && <span class="muted"> and {o.more_count} more</span>}</td>
+              <td class="num money">{formatMinor(o.total_minor)}</td>
+              {/* One chip combining the order, payment and fulfilment states. */}
+              <td><span class="chip">{o.state_phrase}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {res.data.has_more && (
+        <p style="margin-top:calc(var(--unit)*5)">
+          <a class="btn btn-secondary" href={`/account/orders?cursor=${encodeURIComponent(res.data.next_cursor)}`}>
+            Older orders
+          </a>
+        </p>
+      )}
+    </div>
+  )}
+</Shell>

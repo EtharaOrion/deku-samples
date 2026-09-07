@@ -1,0 +1,30 @@
+{# The media tile: one component with a width variant, not three components.
+   Space is reserved from the stored intrinsic size before the pixels arrive. #}
+{% macro tile(media, variant='left', href=None, title='', ordinal_label=None, reel=None) -%}
+{# The reveal is observed on the unclipped tile, not on the frame: a frame at
+   clip-path: inset(100%) has no intersection rect and would never be uncovered. #}
+<div class="tile tile-{{ variant }}" data-tile data-reveal data-variant="{{ variant }}">
+  {% if href %}<a class="tile-link" href="{{ href }}" data-link
+      data-cursor-label="{{ title }}{% if ordinal_label %} {{ ordinal_label }}{% endif %}">{% endif %}
+    <div class="tile-frame"
+         style="aspect-ratio: {{ media.width }} / {{ media.height }};">
+      <div class="tile-media" data-media
+           data-src="{{ media.url }}"
+           data-width="{{ media.width }}" data-height="{{ media.height }}"
+           {% if reel %}data-reel="{{ reel.url }}" data-reel-seed="{{ reel.media_id }}"{% endif %}>
+        <img class="tile-img" src="{{ media.url }}" width="{{ media.width }}"
+             height="{{ media.height }}" alt="{{ media.alt }}" loading="lazy" decoding="async"
+             data-tile-img>
+      </div>
+    </div>
+  {% if href %}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro caption(ordinal_label, title, href=None) -%}
+<div class="caption-row">
+  <span class="caption-square" aria-hidden="true"></span>
+  <span class="t-ui caption-ordinal">{{ ordinal_label }}</span>
+  <span class="t-display caption-title">{% if href %}<a href="{{ href }}" data-link>{{ title }}</a>{% else %}{{ title }}{% endif %}</span>
+</div>
+{%- endmacro %}

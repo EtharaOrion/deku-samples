@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="studio">
+  <div class="form" x-data="editForm({{ item.id }}, '{{ item.kind }}', '{{ item.slug }}')">
+    <h1 class="page-heading display display--title-case">{{ item.title }}</h1>
+    <p class="empty-state">
+      {{ item.kind | upper }} — {{ item.slug }} —
+      {{ 'LIVE' if item.published else 'UNLISTED' }}
+      {%- if item.ordinal_label %} — {{ item.ordinal_label }}{% endif %}
+      {%- if item.discipline %} — {{ item.discipline | upper }}{% endif %}
+    </p>
+
+    <template x-if="error">
+      <p class="form__error" role="alert" x-text="error"></p>
+    </template>
+    <template x-if="message">
+      <p class="form__error" role="status" x-text="message"></p>
+    </template>
+
+    <form @submit.prevent="save()">
+      <div class="form__field">
+        <label class="form__label" for="title">TITLE</label>
+        <input class="form__input" id="title" x-model="title" required style="text-transform:none">
+      </div>
+      {% if item.kind == 'talent' %}
+      <div class="form__field">
+        <label class="form__label" for="discipline">DISCIPLINE</label>
+        <select class="form__select" id="discipline" x-model="discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </div>
+      {% else %}
+      <div class="form__field">
+        <label class="form__label" for="variant">WIDTH VARIANT</label>
+        <select class="form__select" id="variant" x-model="variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </div>
+      {% endif %}
+      <div class="form__actions">
+        <button class="button" type="submit" :disabled="busy">SAVE</button>
+      </div>
+    </form>
+
+    <hr style="border:0;border-top:1px solid currentColor;opacity:0.3;margin:32px 0">
+
+    <h2 class="form__label" style="margin-bottom:12px">MEDIA</h2>
+    {% if item.media %}
+    <ul style="list-style:none;padding:0;margin:0 0 18px;display:grid;gap:6px">
+      {% for m in item.media %}
+      <li class="card__meta">{{ m.role | upper }} — {{ m.width }}×{{ m.height }} — {{ m.alt }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No media on this record yet.</p>
+    {% endif %}
+
+    <form @submit.prevent="addMedia()" style="margin-bottom:24px">
+      <div class="form__field">
+        <label class="form__label" for="m-role">ROLE</label>
+        <select class="form__select" id="m-role" x-model="mediaRole">
+          <option value="poster">POSTER</option>
+          <option value="reel">REEL</option>
+          <option value="gallery">GALLERY</option>
+        </select>
+      </div>
+      <div class="form__field">
+        <label class="form__label" for="m-alt">WRITTEN ALTERNATIVE</label>
+        <input class="form__input" id="m-alt" x-model="mediaAlt" style="text-transform:none">
+      </div>
+      <div class="form__actions">
+        <button class="button" type="submit" :disabled="busy">ATTACH MEDIA</button>
+      </div>
+    </form>
+
+    <hr style="border:0;border-top:1px solid currentColor;opacity:0.3;margin:32px 0">
+
+    <h2 class="form__label" style="margin-bottom:12px">SLUG</h2>
+    <form @submit.prevent="changeSlug()">
+      <div class="form__field">
+        <label class="form__label" for="new-slug">
+          NEW SLUG — THE OLD ONE REDIRECTS FOREVER</label>
+        <input class="form__input" id="new-slug" x-model="newSlug" style="text-transform:none">
+      </div>
+      <div class="form__actions">
+        <button class="button" type="submit" :disabled="busy">CHANGE SLUG</button>
+      </div>
+    </form>
+
+    <hr style="border:0;border-top:1px solid currentColor;opacity:0.3;margin:32px 0">
+
+    <div class="form__actions">
+      <button class="button" type="button" @click="mintPreview()" :disabled="busy">
+        MINT PREVIEW TOKEN</button>
+      <template x-if="previewHref">
+        <a class="button" :href="previewHref">OPEN PREVIEW</a>
+      </template>
+      <button class="button" type="button" @click="setPublished(true)" :disabled="busy">
+        PUBLISH</button>
+      <button class="button" type="button" @click="setPublished(false)" :disabled="busy">
+        UNLIST</button>
+      <a class="button" href="/studio" data-nav>BACK TO PALETTE</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

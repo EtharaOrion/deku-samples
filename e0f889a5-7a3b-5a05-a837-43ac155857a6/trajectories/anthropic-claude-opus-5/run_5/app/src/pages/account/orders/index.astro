@@ -1,0 +1,67 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { safeGet, readCartForPage } from '../../../lib/api.js';
+import { requireCustomerPage } from '../../../lib/guard.js';
+import { formatMinor, formatDateShort } from '../../../lib/format.js';
+
+const { customer, redirect } = await requireCustomerPage(Astro);
+if (redirect) return redirect;
+
+const cart = await readCartForPage(Astro.request);
+const cursor = Astro.url.searchParams.get('cursor');
+const query = cursor ? `?page_size=20&cursor=${encodeURIComponent(cursor)}` : '?page_size=20';
+const res = await safeGet(Astro.request, `/api/account/orders${query}`, { data: [] });
+const orders = res.data?.data ?? [];
+---
+
+<Shell title="Your orders — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <header class="stack--tight" style="margin-bottom:1.5rem">
+    <h1 class="page-title">Your orders</h1>
+  </header>
+
+  {res.failed ? (
+    <p class="notice" role="alert">The order list did not load. Reload the page to try again.</p>
+  ) : orders.length === 0 ? (
+    <div class="empty-state">
+      <p>No orders yet.</p>
+      <p style="margin-top:0.5rem"><a href="/shop">Go to the shop</a></p>
+    </div>
+  ) : (
+    <>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Date</th>
+            <th scope="col">Items</th>
+            <th scope="col" class="figure">Total</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => (
+            <tr>
+              <td class="mono"><a href={`/account/orders/${order.number}`}>{order.number}</a></td>
+              <td class="tnum">{formatDateShort(order.placed_at)}</td>
+              <td>{order.summary}</td>
+              <td class="figure money">{formatMinor(order.total_minor)}</td>
+              <td>
+                <span class={`chip ${order.status === 'confirmed' ? 'chip--done' : 'chip--progress'}`}>
+                  {order.state_phrase}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {res.data?.has_more && (
+        <p style="margin-top:1rem">
+          <a class="button button--quiet" href={`/account/orders?cursor=${encodeURIComponent(res.data.next_cursor)}`}>
+            Older orders
+          </a>
+        </p>
+      )}
+    </>
+  )}
+</Shell>

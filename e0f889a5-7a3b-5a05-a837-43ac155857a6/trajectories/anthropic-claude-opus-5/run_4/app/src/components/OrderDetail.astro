@@ -1,0 +1,136 @@
+---
+import { formatMinor, formatDate, groupSerial } from '../lib/format.js';
+
+const { order, showRegister = false } = Astro.props;
+const address = order.shipping_address || {};
+const cameraSerials = order.serials || [];
+---
+<div class="order-detail stack stack-8">
+  <section class="stack stack-3">
+    <h2>What you bought</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>SKU</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {order.lines.map((line) => (
+          <tr>
+            <td>
+              {line.title_snapshot}
+              {line.option_snapshot && <span class="hint"> {line.option_snapshot}</span>}
+            </td>
+            <td class="ident">{line.sku_snapshot}</td>
+            <td class="num">{line.quantity}</td>
+            <td class="num money">{formatMinor(line.unit_price_minor, order.currency)}</td>
+            <td class="num money">{formatMinor(line.total_minor, order.currency)}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="4" class="num">Subtotal</th>
+          <td class="num money">{formatMinor(order.subtotal_minor, order.currency)}</td>
+        </tr>
+        <tr>
+          <th colspan="4" class="num">Delivery</th>
+          <td class="num money">{formatMinor(order.shipping_minor, order.currency)}</td>
+        </tr>
+        <tr>
+          <th colspan="4" class="num">Tax</th>
+          <td class="num money">{formatMinor(order.tax_minor, order.currency)}</td>
+        </tr>
+        <tr>
+          <th colspan="4" class="num">Total</th>
+          <td class="num money total">{formatMinor(order.total_minor, order.currency)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <div class="two-up">
+    <section class="stack stack-2">
+      <h2>Where it went</h2>
+      <address class="addr">
+        <span>{address.name}</span>
+        <span>{address.line1}</span>
+        {address.line2 && <span>{address.line2}</span>}
+        <span>{address.city}, {address.region} <span class="tnum">{address.postal_code}</span></span>
+        <span>{address.country}</span>
+        {address.phone && <span class="tnum">{address.phone}</span>}
+      </address>
+    </section>
+
+    <section class="stack stack-2">
+      <h2>Order</h2>
+      <dl class="meta">
+        <div><dt>Number</dt><dd class="ident">{order.number}</dd></div>
+        <div><dt>Placed</dt><dd>{formatDate(order.placed_at)}</dd></div>
+        <div><dt>Email</dt><dd>{order.email}</dd></div>
+        <div><dt>Delivery</dt><dd>{order.shipping_method === 'express' ? 'Express' : 'Standard'}</dd></div>
+        <div><dt>State</dt><dd>{order.state_phrase}</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  {/* The only place a person finds their serial numbers without the camera in
+      hand. */}
+  {cameraSerials.length > 0 && (
+    <section class="stack stack-3">
+      <h2>Serial numbers</h2>
+      <ul class="serials">
+        {cameraSerials.map((s) => (
+          <li class="serial-row">
+            <span class="ident">{groupSerial(s.serial)}</span>
+            <span class="hint">{s.model}</span>
+            {s.registered ? (
+              <span class="chip">Registered</span>
+            ) : showRegister ? (
+              <form method="post" action="/account/cameras">
+                <input type="hidden" name="serial" value={s.serial} />
+                <button class="btn register" type="submit">Register to my account</button>
+              </form>
+            ) : (
+              <span class="hint">Sign in to register it.</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+</div>
+
+<style>
+  h2 { font-size: 18px; line-height: 24px; }
+  .two-up {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--space) * 8);
+  }
+  .addr { display: flex; flex-direction: column; font-style: normal; font-size: 14px; line-height: 21px; }
+  .meta { display: flex; flex-direction: column; gap: var(--space); font-size: 14px; }
+  .meta > div { display: flex; justify-content: space-between; gap: calc(var(--space) * 3); border-bottom: var(--border-w) solid var(--rule); padding-bottom: var(--space); }
+  .meta dd { margin: 0; }
+  .total { font-weight: 700; }
+
+  .serials { list-style: none; display: flex; flex-direction: column; gap: calc(var(--space) * 2); }
+  .serial-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--space) * 3);
+    border: var(--border-w) solid var(--rule);
+    border-radius: var(--radius);
+    padding: calc(var(--space) * 2) calc(var(--space) * 3);
+    background: var(--bg-raised);
+  }
+  .register { min-height: 32px; font-size: 14px; margin-left: auto; }
+
+  @media (max-width: 63.999rem) {
+    .two-up { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

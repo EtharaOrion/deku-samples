@@ -1,0 +1,111 @@
+---
+import Shell from '../layouts/Shell.astro';
+import ReleaseBlock from './ReleaseBlock.astro';
+import { formatBytes } from '../lib/format.js';
+
+const { releases, firmware, customer, cartCount, expandedVersion = null } = Astro.props;
+const newest = releases[0] ?? null;
+// Only the newest release is expanded on arrival, unless one is named.
+const isExpanded = (r) => (expandedVersion ? r.version === expandedVersion : r === newest);
+const cricket = firmware?.entries?.[0] ?? null;
+---
+
+<Shell
+  title={expandedVersion ? `Arranger ${expandedVersion} — Vela` : 'Downloads — Vela'}
+  customer={customer}
+  cartCount={cartCount}
+>
+  <header class="stack--tight">
+    <h1 class="page-title">Downloads</h1>
+    <p class="page-lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+  </header>
+
+  {newest && (
+    <section class="card" style="margin-top:1.5rem">
+      <div class="row" style="gap:0.75rem">
+        {/* The primary control adapts to the reader's platform but is never
+            disabled and never hidden. */}
+        <a class="button button--primary" href={`/downloads/${newest.version}`} data-primary-download>
+          Download Arranger {newest.version}
+        </a>
+        <span class="tnum" style="color:var(--quiet)">{formatBytes(newest.size_bytes)}</span>
+        <span class="mono" style="color:var(--quiet);word-break:break-all">{newest.sha256}</span>
+      </div>
+      <p style="margin-top:0.5rem;color:var(--quiet)" data-platform-note hidden>
+        Arranger is a macOS application.
+      </p>
+    </section>
+  )}
+
+  {cricket && (
+    <section class="card" style="margin-top:1rem">
+      <h2 class="section-title">Firmware</h2>
+      <div class="row" style="margin-top:0.75rem;gap:1rem;align-items:flex-start">
+        <div>
+          <a class="button" href={`/api/firmware/manifest?model=compact`}>
+            Download Vela Cricket Firmware {cricket.version}
+          </a>
+          <p style="margin-top:0.25rem;color:var(--quiet);font-size:14px;line-height:21px">
+            <span class="tnum">{formatBytes(cricket.size_bytes)}</span>
+          </p>
+        </div>
+        {/* The web path is never the primary control. */}
+        <div>
+          <a href="/doctor" style="font-size:14px;line-height:21px">Firmware install (web-based)</a>
+          <p style="margin-top:0.25rem;color:var(--quiet);font-size:14px;line-height:21px">
+            Only use this if Arranger cannot see your camera.
+          </p>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <section style="margin-top:2rem" aria-labelledby="archive">
+    <h2 class="section-title" id="archive">The archive</h2>
+
+    {releases.length === 0 ? (
+      <div class="empty-state" style="margin-top:0.75rem">
+        <p>There are no releases yet.</p>
+      </div>
+    ) : (
+      <div style="margin-top:0.5rem">
+        {releases.map((release, i) => (
+          <>
+            {i > 0 && <div class="archive-rule" role="presentation"></div>}
+            <ReleaseBlock release={release} expanded={isExpanded(release)} />
+          </>
+        ))}
+      </div>
+    )}
+  </section>
+</Shell>
+
+<style>
+  /* A plain horizontal bar carrying a dashed rule inside it. The only
+     decorative element on the page. */
+  .archive-rule {
+    height: calc(var(--unit) * 4);
+    display: flex;
+    align-items: center;
+    border-top: var(--border) solid var(--rule);
+    border-bottom: var(--border) solid var(--rule);
+    margin: calc(var(--unit) * 3) 0;
+  }
+  .archive-rule::before {
+    content: '';
+    display: block;
+    width: 100%;
+    border-top: var(--border) dashed var(--rule-strong);
+  }
+</style>
+
+<script>
+  // A reader who is not on macOS still gets a working control and a line saying
+  // the app is a macOS application, because fetching an installer on a work
+  // laptop for a machine at home is an ordinary thing to do.
+  const note = document.querySelector('[data-platform-note]');
+  if (note) {
+    const mac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
+    note.hidden = mac;
+  }
+</script>

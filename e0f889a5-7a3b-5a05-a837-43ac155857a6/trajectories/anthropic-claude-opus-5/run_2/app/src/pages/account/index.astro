@@ -1,0 +1,147 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CameraCard from '../../components/CameraCard.astro';
+import { apiGet, authHeaders, formatMoney, formatDate, formatBytes } from '../../lib/api';
+import { viewerFor, signInRedirect } from '../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+if (!viewer.customer) return signInRedirect('/account');
+
+/*
+ * Blocks fail independently, so a failed camera list never blanks the orders
+ * beside it. Each block is fetched on its own and renders its own failure.
+ */
+const [devicesRes, ordersRes, releasesRes] = await Promise.all([
+  apiGet<{ data: any[] }>(Astro.request, '/account/devices?page_size=12', { headers: authHeaders(Astro.request) }),
+  apiGet<{ data: any[] }>(Astro.request, '/account/orders?page_size=2', { headers: authHeaders(Astro.request) }),
+  apiGet<{ data: any[] }>(Astro.request, '/releases?page_size=1'),
+]);
+
+const devices = devicesRes.ok ? devicesRes.data.data : [];
+const orders = ordersRes.ok ? ordersRes.data.data : [];
+const latest = releasesRes.ok ? releasesRes.data.data[0] : null;
+---
+
+<Shell title="Your account — Vela" current="account" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>Your account</h1>
+  <p class="who">{viewer.customer.name} · {viewer.customer.email}</p>
+
+  <!-- Cameras first, then the two most recent orders, then the software: the
+       order a camera owner arrives with, deliberately not a shop's order. -->
+  <section class="block" aria-labelledby="cameras-heading">
+    <div class="block-head">
+      <h2 id="cameras-heading">Your cameras</h2>
+      <a class="btn btn-quiet btn-small" href="/account/cameras">All cameras</a>
+    </div>
+
+    {!devicesRes.ok && (
+      <p class="notice notice-error" role="alert">
+        We could not load your cameras.
+        {devicesRes.error.request_id && <span class="mono"> Reference {devicesRes.error.request_id}.</span>}
+      </p>
+    )}
+    {devicesRes.ok && devices.length === 0 && (
+      <div class="empty-state">
+        <p>No cameras registered yet.</p>
+        <a class="btn btn-secondary" href="/account/cameras">Register one</a>
+      </div>
+    )}
+    {devices.length > 0 && (
+      <ul class="grid">
+        {devices.map((device) => <li><CameraCard device={device} /></li>)}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="orders-heading">
+    <div class="block-head">
+      <h2 id="orders-heading">Recent orders</h2>
+      <a class="btn btn-quiet btn-small" href="/account/orders">All orders</a>
+    </div>
+
+    {!ordersRes.ok && (
+      <p class="notice notice-error" role="alert">
+        We could not load your orders.
+        {ordersRes.error.request_id && <span class="mono"> Reference {ordersRes.error.request_id}.</span>}
+      </p>
+    )}
+    {ordersRes.ok && orders.length === 0 && (
+      <div class="empty-state">
+        <p>No orders yet.</p>
+        <a class="btn btn-secondary" href="/shop">Go to the shop</a>
+      </div>
+    )}
+    {orders.length > 0 && (
+      <ul class="orders">
+        {orders.map((order) => (
+          <li>
+            <a href={`/account/orders/${order.number}`}>
+              <span class="order-number mono">{order.number}</span>
+              <span class="order-date">{formatDate(order.placed_at)}</span>
+              <span class="order-title">
+                {order.first_title}{order.extra_lines > 0 ? ` and ${order.extra_lines} more` : ''}
+              </span>
+              <span class={`chip chip-${order.chip.tone}`}>{order.chip.label}</span>
+              <span class="order-total tnum">{formatMoney(order.total_minor, order.currency)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="software-heading">
+    <div class="block-head">
+      <h2 id="software-heading">Software</h2>
+      <a class="btn btn-quiet btn-small" href="/downloads">All releases</a>
+    </div>
+
+    {!releasesRes.ok && (
+      <p class="notice notice-error" role="alert">We could not load the current version.</p>
+    )}
+    {latest && (
+      <div class="software card">
+        <div>
+          <p class="software-title">Arranger <span class="version mono">{latest.version}</span></p>
+          <p class="muted">
+            Released {formatDate(latest.released_on)} · <span class="bytes tnum">{formatBytes(latest.size_bytes)}</span>
+          </p>
+        </div>
+        <a class="btn btn-secondary" href={`/downloads/${latest.version}`}>Download</a>
+      </div>
+    )}
+  </section>
+</Shell>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; }
+  .who { color: var(--fg-muted); margin: var(--unit) 0 calc(var(--unit) * 10); }
+  .block { margin-bottom: calc(var(--unit) * 12); }
+  .block-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: calc(var(--unit) * 4); }
+  h2 { font-size: 20px; }
+
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--unit) * 4); }
+
+  .orders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .orders a {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    gap: calc(var(--unit) * 4);
+    align-items: center;
+    padding: calc(var(--unit) * 3) 0;
+    border-bottom: var(--border-w) solid var(--line);
+    text-decoration: none;
+  }
+  .order-date { color: var(--fg-muted); font-size: 14px; }
+  .order-title { color: var(--fg-muted); font-size: 14px; }
+  .order-total { font-weight: 700; }
+
+  .software { padding: calc(var(--unit) * 4); display: flex; align-items: center; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .software-title { font-weight: 700; }
+  .muted { color: var(--fg-muted); font-size: 14px; }
+
+  @media (max-width: 63.999rem) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .orders a { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--unit); }
+  }
+</style>

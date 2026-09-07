@@ -1,0 +1,106 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import RegisterSerialButton from '../../../islands/RegisterSerialButton.jsx';
+import { apiGet, formatMinor, formatDate } from '../../../lib/api.js';
+import { viewer, signInRedirect } from '../../../lib/page.js';
+
+const v = await viewer(Astro);
+if (!v.signedIn) return signInRedirect(Astro);
+
+const { number } = Astro.params;
+const res = await apiGet(Astro.request, `/account/orders/${encodeURIComponent(number)}`, { token: v.token });
+const order = res.ok ? res.data.order : null;
+---
+<Shell title={order ? `Order ${order.number} — Vela` : 'Order — Vela'} signedIn cartCount={v.cartCount}>
+  {/* Another customer's order reads as not found, never forbidden. */}
+  {!order ? (
+    <div>
+      <h1 class="page-title">That order does not exist.</h1>
+      <p class="page-lede">It may belong to another account.</p>
+      <p><a class="btn btn-secondary" href="/account/orders">Your orders</a></p>
+    </div>
+  ) : (
+    <div>
+      <nav aria-label="Breadcrumb" class="small muted" style="margin-bottom:calc(var(--unit)*4)">
+        <a href="/account/orders">Orders</a> <span aria-hidden="true">/</span> <span>{order.number}</span>
+      </nav>
+
+      <h1 class="page-title">Order <span class="order-number">{order.number}</span></h1>
+      <p class="page-lede">
+        Placed {formatDate(order.placed_at)}. <span class="chip">{order.state_phrase}</span>
+      </p>
+
+      <section class="section" aria-labelledby="lines-h">
+        <h2 class="section-title" id="lines-h">The lines as they were bought</h2>
+        <table class="data" style="max-width:60rem">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col">SKU</th>
+              <th scope="col" class="num">Quantity</th>
+              <th scope="col" class="num">Unit</th>
+              <th scope="col" class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.lines.map((l) => (
+              <tr>
+                <td>{l.title}</td>
+                <td class="mono small">{l.sku}</td>
+                <td class="num tnum">{l.quantity}</td>
+                <td class="num money">{formatMinor(l.unit_price_minor)}</td>
+                <td class="num money">{formatMinor(l.total_minor)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Subtotal</th><td class="num money">{formatMinor(order.subtotal_minor)}</td></tr>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Delivery ({order.shipping_method})</th><td class="num money">{formatMinor(order.shipping_minor)}</td></tr>
+            <tr><th scope="row" colspan="4" style="font-weight:400">Tax</th><td class="num money">{formatMinor(order.tax_minor)}</td></tr>
+            <tr><th scope="row" colspan="4">Total</th><td class="num money" style="font-weight:700">{formatMinor(order.total_minor)}</td></tr>
+          </tfoot>
+        </table>
+      </section>
+
+      {order.serials.length > 0 && (
+        <section class="section" aria-labelledby="serials-h">
+          <h2 class="section-title" id="serials-h">Serial numbers</h2>
+          <table class="data" style="max-width:52rem">
+            <thead>
+              <tr><th scope="col">Serial</th><th scope="col">Model</th><th scope="col">On your account</th></tr>
+            </thead>
+            <tbody>
+              {order.serials.map((s) => (
+                <tr>
+                  <td class="serial">{s.serial}</td>
+                  <td>{s.model}</td>
+                  <td>
+                    {s.registered ? (
+                      <span class="chip chip-done">Registered</span>
+                    ) : (
+                      /* One click registers it to this account. */
+                      <RegisterSerialButton client:visible serial={s.serial} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <section class="section" aria-labelledby="addr-h">
+        <h2 class="section-title" id="addr-h">Where it went</h2>
+        <p class="small">{order.shipping_address.name}</p>
+        <p class="small muted">{order.shipping_address.line1}</p>
+        {order.shipping_address.line2 && <p class="small muted">{order.shipping_address.line2}</p>}
+        <p class="small muted">
+          {order.shipping_address.city}, {order.shipping_address.region}{' '}
+          <span class="tnum">{order.shipping_address.postal_code}</span>
+        </p>
+        <p class="small muted">{order.shipping_address.country}</p>
+        <p class="small muted" style="margin-top:calc(var(--unit)*2)">{order.email}</p>
+      </section>
+    </div>
+  )}
+</Shell>

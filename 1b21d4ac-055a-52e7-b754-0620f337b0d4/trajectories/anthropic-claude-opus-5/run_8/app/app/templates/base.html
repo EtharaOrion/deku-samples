@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ share_image }}">
+<meta name="twitter:card" content="summary_large_image">
+{%- if not indexable %}
+<meta name="robots" content="noindex, nofollow">
+{%- endif %}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/site.css">
+<script defer src="/static/js/app.js"></script>
+<script defer src="/static/js/alpine.min.js"></script>
+<style>[x-cloak] { display: none !important; }</style>
+</head>
+<body data-route="{{ route }}" data-preview="{{ 'true' if preview else 'false' }}"
+      data-account-role="{{ account['role'] if account else '' }}">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# --- the persistent tree: it mounts once and survives every navigation --- #}
+<div id="persistent">
+  <div class="frame" id="frame">
+    <a class="wordmark no-cursor" href="/" aria-label="Cirrus, home"
+       data-nav-link>{{ house['name']|lower }}</a>
+
+    <nav class="nav" aria-label="Primary">
+      <div class="nav__centre">
+        {%- for link in nav if link['label'] == 'WORKS' %}
+        <a class="nav__link" href="{{ link['href'] }}" data-nav-link
+           data-split="{{ link['label'] }}"
+           {% if route == link['route'] %}aria-current="page"{% endif %}>
+          {{ link['label'] }}</a>
+        {%- endfor %}
+      </div>
+      <div class="nav__right">
+        {%- for link in nav if link['label'] != 'WORKS' %}
+          {%- if link['label'] == 'CONTACT' %}
+        <a class="nav__link" href="mailto:{{ house['contact_email'] }}"
+           data-contact data-split="{{ link['label'] }}">{{ link['label'] }}</a>
+          {%- else %}
+        <a class="nav__link" href="{{ link['href'] }}" data-nav-link
+           data-split="{{ link['label'] }}"
+           {% if route == link['route'] %}aria-current="page"{% endif %}>
+          {{ link['label'] }}</a>
+          {%- endif %}
+        {%- endfor %}
+      </div>
+    </nav>
+
+    <div class="centre-mark" id="centre-mark" aria-hidden="true">
+      {% include "marks.html" %}
+    </div>
+
+    <a class="credit no-cursor" id="credit" href="https://example.com/aube"
+       target="_blank" rel="noopener noreferrer"
+       aria-label="Site by Aube, opens in a new tab">
+      <svg width="60" height="16" viewBox="0 0 60 16" aria-hidden="true">
+        <path d="M0 13 L5 2 L10 13 L8 13 L5 6 L2 13 Z"/>
+        <path d="M14 2 h2 v8 a3 3 0 0 0 6 0 V2 h2 v8 a5 5 0 0 1 -10 0 Z"/>
+        <path d="M28 2 h5 a3 3 0 0 1 0 6 h-3 v5 h-2 Z M30 4 v2 h3 a1 1 0 0 0 0 -2 Z"/>
+        <path d="M40 2 h8 v2 h-6 v3 h5 v2 h-5 v2 h6 v2 h-8 Z"/>
+      </svg>
+      <span class="credit__arrows" aria-hidden="true">
+        <svg class="credit__arrow credit__arrow--rest" width="8" height="8"
+             viewBox="0 0 7 7"><path d="M0 6 L6 0 M2 0 H6 V4"
+             stroke="currentColor" fill="none" stroke-width="1"/></svg>
+        <svg class="credit__arrow credit__arrow--arrive" width="8" height="8"
+             viewBox="0 0 7 7"><path d="M0 6 L6 0 M2 0 H6 V4"
+             stroke="currentColor" fill="none" stroke-width="1"/></svg>
+      </span>
+    </a>
+  </div>
+
+  {# the cursor pair: parked rather than hidden, above the transition veil #}
+  <div class="cursor" id="cursor" aria-hidden="true">
+    <div class="cursor__square" id="cursor-square"></div>
+    <div class="cursor__label" id="cursor-label"></div>
+  </div>
+
+  {# one counter component, used by the entry route and the preview route #}
+  <div class="veil" id="veil" {% if route not in ('entry', 'preview') %}hidden{% endif %}>
+    <div class="counter-well" id="counter-well" role="status" aria-live="polite">
+      {% if route == 'preview' %}Loading preview...{% else %}0%{% endif %}
+    </div>
+  </div>
+
+  <div class="contact-overlay" id="contact-overlay" data-open="false"
+       role="dialog" aria-modal="true" aria-label="Contact"
+       aria-hidden="true">
+    <button class="contact-overlay__close button contact-overlay__item"
+            id="contact-close" type="button">CLOSE</button>
+    <a class="contact-overlay__address contact-overlay__item display--sentence"
+       href="mailto:{{ house['contact_email'] }}"
+       >{{ house['contact_email']|upper }}</a>
+  </div>
+</div>
+
+{# --- the route tree: it swaps beneath the persistent tree --------------- #}
+<main class="well" id="content" tabindex="-1" data-route-well>
+  {% block content %}{% endblock %}
+</main>
+
+{% if preview %}
+<div class="preview-marker">PREVIEW - NOT PUBLISHED</div>
+{% endif %}
+</body>
+</html>

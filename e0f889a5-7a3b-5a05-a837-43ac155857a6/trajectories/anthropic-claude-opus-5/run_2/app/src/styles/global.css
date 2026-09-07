@@ -1,0 +1,327 @@
+/*
+ * Vela. Two faces, two grounds, one accent.
+ * Nothing here states black or white directly: every surface declares which
+ * ground it is, so one declaration inverts a surface.
+ */
+
+/* One grotesque, two weights, no italic. Weight 400 and 700 are the only
+   weights the build loads, so no third weight is ever named. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* The fallback carries metric overrides so the swap does not move the letter. */
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('system-ui'), local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  --font-display: 'Archivo', 'Archivo Fallback', system-ui, sans-serif;
+  /* Identifiers only. System-only, loads no web font, used for nothing else. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* Fluid below 64rem, pinned above it. Both are deliberately not monotonic. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  /* One spacing unit; every gap is an integer multiple of it. */
+  --unit: 0.25rem;
+  --gutter: 20px;
+  --header-h: 80px;
+  --radius: 0.5rem;
+  --border-w: 1px;
+  --elevation: 0px 2px 4px rgba(12, 12, 11, 0.05);
+  --speed: 120ms;
+  --ease: linear;
+  --measure: 68ch;
+
+  /* Light ground. Stated as tokens so a surface can invert in one declaration. */
+  --bg: hsl(40 20% 97%);
+  --surface: hsl(40 22% 99%);
+  --surface-sunken: hsl(40 14% 94%);
+  --fg: hsl(60 3% 10%);
+  --fg-muted: hsl(50 4% 36%);
+  --line: hsl(45 10% 84%);
+  --line-strong: hsl(45 8% 68%);
+
+  /* One accent, a saturated warm hue, at most once per screen, never behind text. */
+  --accent: hsl(18 92% 46%);
+
+  /* Three further meanings, each used nowhere else. */
+  --state-error: hsl(2 68% 40%);
+  --state-progress: hsl(38 80% 28%);
+  --state-done: hsl(158 62% 24%);
+  --state-error-bg: hsl(2 62% 96%);
+  --state-progress-bg: hsl(38 74% 95%);
+  --state-done-bg: hsl(158 44% 95%);
+
+  color-scheme: light;
+}
+
+/* The one declaration that inverts a surface. */
+.ground-dark {
+  --bg: hsl(48 8% 8%);
+  --surface: hsl(48 7% 12%);
+  --surface-sunken: hsl(48 6% 6%);
+  --fg: hsl(45 26% 94%);
+  --fg-muted: hsl(45 12% 72%);
+  --line: hsl(45 6% 26%);
+  --line-strong: hsl(45 6% 40%);
+  --accent: hsl(20 94% 60%);
+  --state-error: hsl(4 78% 72%);
+  --state-progress: hsl(38 88% 68%);
+  --state-done: hsl(158 52% 62%);
+  --state-error-bg: hsl(2 30% 18%);
+  --state-progress-bg: hsl(38 34% 16%);
+  --state-done-bg: hsl(158 26% 14%);
+  color-scheme: dark;
+}
+
+@media (min-width: 64rem) {
+  :root {
+    /* Smooth through the pinned point: 48.932px at 1440px. */
+    --display-fs: clamp(48.932px, calc(304.9058px - 17.776vw), 122.88px);
+    --body-fs: clamp(20.9709px, calc(81.3024px - 4.1897vw), 38.4px);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 24px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals wherever figures stack. */
+.tnum, .money, .serial, .version, .build, .bytes, td.num, th.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Identifiers are monospace and nothing else is. */
+.mono, .serial, .version, .build, .digest, .order-number {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4 { font-weight: 700; margin: 0; line-height: 1.2; }
+p { margin: 0; }
+a { color: inherit; }
+
+/* Focus is a 2px ring in the surface's own foreground token, never the accent. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Motion is mechanical: short, linear, one speed. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Every page carries a skip link as its first focusable element. */
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(var(--unit) * -20);
+  z-index: 100;
+  background: var(--surface);
+  color: var(--fg);
+  border: var(--border-w) solid var(--fg);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  transition: top var(--speed) var(--ease);
+}
+.skip-link:focus {
+  top: calc(var(--unit) * 2);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Controls ---------------------------------------------------------- */
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--unit) * 2);
+  min-height: calc(var(--unit) * 10);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 4);
+  border-radius: var(--radius);
+  border: var(--border-w) solid var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity var(--speed) var(--ease);
+}
+.btn:hover:not(:disabled) { opacity: 0.86; }
+.btn[disabled], .btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 1;
+  background: var(--surface-sunken);
+  color: var(--fg-muted);
+  border-color: var(--line-strong);
+  /* Unavailability is never signalled by colour alone: the control also states why. */
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--line-strong);
+  font-weight: 400;
+}
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg);
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: calc(var(--unit) * 8);
+  padding: calc(var(--unit) * 1) calc(var(--unit) * 2);
+}
+.btn-small { min-height: calc(var(--unit) * 7); padding: calc(var(--unit) * 1) calc(var(--unit) * 3); font-size: 14px; }
+
+.field { display: flex; flex-direction: column; gap: var(--unit); }
+.field > label { font-size: 14px; color: var(--fg-muted); }
+input[type='text'], input[type='email'], input[type='password'], input[type='tel'], input[type='number'], select, textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  min-height: calc(var(--unit) * 10);
+  width: 100%;
+}
+input::placeholder { color: var(--fg-muted); opacity: 1; }
+
+/* ---- Chips and notices -------------------------------------------------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--unit);
+  font-size: 14px;
+  line-height: 21px;
+  padding: 0 calc(var(--unit) * 2);
+  border-radius: var(--radius);
+  border: var(--border-w) solid currentColor;
+  white-space: nowrap;
+}
+.chip-neutral { color: var(--fg-muted); }
+.chip-error { color: var(--state-error); background: var(--state-error-bg); }
+.chip-progress { color: var(--state-progress); background: var(--state-progress-bg); }
+.chip-done { color: var(--state-done); background: var(--state-done-bg); }
+
+.notice {
+  border: var(--border-w) solid var(--line-strong);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit);
+}
+.notice-error { border-left-color: var(--state-error); color: var(--fg); background: var(--state-error-bg); }
+.notice-progress { border-left-color: var(--state-progress); background: var(--state-progress-bg); }
+.notice-done { border-left-color: var(--state-done); background: var(--state-done-bg); }
+
+/* ---- Cards, tables, lists ---------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--elevation);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th, .table td {
+  text-align: left;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+  border-bottom: var(--border-w) solid var(--line);
+  vertical-align: top;
+}
+.table th { font-weight: 700; color: var(--fg-muted); font-size: 14px; }
+.table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.empty-state {
+  border: var(--border-w) dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 8);
+  text-align: center;
+  color: var(--fg-muted);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 2);
+  align-items: center;
+}
+
+/* Loading states reserve the space their content will occupy. */
+.skeleton {
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+  min-height: calc(var(--unit) * 6);
+}
+
+/* Media has no radius; the film and the footer canvas have none either. */
+.media { border-radius: 0; display: block; width: 100%; }
+
+.stack { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; }
+
+hr.rule {
+  border: 0;
+  border-top: var(--border-w) solid var(--line);
+  margin: calc(var(--unit) * 6) 0;
+}

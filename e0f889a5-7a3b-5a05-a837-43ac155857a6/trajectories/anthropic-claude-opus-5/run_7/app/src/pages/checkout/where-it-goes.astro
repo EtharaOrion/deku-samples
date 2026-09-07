@@ -1,0 +1,170 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import { apiGet, apiSend } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const v = await viewer(Astro);
+const res = v.cartToken ? await apiGet(Astro.request, '/cart', { cartToken: v.cartToken }) : null;
+const cart = res && res.ok ? res.data.cart : null;
+
+if (!cart || cart.lines.length === 0) {
+  return new Response(null, { status: 302, headers: { location: '/cart' } });
+}
+
+// Every entered value survives a back navigation and a reload, because it is held
+// on the cart in the database rather than in the page.
+const a = cart.shipping_address || {};
+const errors = {};
+let formError = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const get = (k) => String(form.get(k) || '').trim();
+
+  const email = get('email');
+  const name = get('name');
+  const line1 = get('line1');
+  const city = get('city');
+  const region = get('region');
+  const postal = get('postal_code');
+  const country = get('country') || 'US';
+
+  if (!email) errors.email = 'Email is required.';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Email is required.';
+  if (!name) errors.name = 'Name is required.';
+  if (!line1) errors.line1 = 'Address is required.';
+  if (!city) errors.city = 'City is required.';
+  if (!region) errors.region = 'Region is required.';
+  if (!postal) errors.postal_code = 'Postal code is required.';
+
+  if (Object.keys(errors).length === 0) {
+    const save = await apiSend(Astro.request, '/cart/delivery', {
+      cartToken: v.cartToken,
+      body: {
+        email,
+        marketing_consent: form.get('marketing_consent') === 'on',
+        shipping_address: {
+          name, line1, line2: get('line2'), city, region,
+          postal_code: postal, country, phone: get('phone'),
+        },
+      },
+    });
+    if (save.ok) return Astro.redirect('/checkout/how-it-gets-there', 303);
+    formError = 'That did not work. Check the fields and try again.';
+  }
+
+  // Re-render with what was typed, so nothing is lost.
+  Object.assign(a, {
+    name: get('name'), line1: get('line1'), line2: get('line2'), city: get('city'),
+    region: get('region'), postal_code: get('postal_code'), country: get('country') || 'US',
+    phone: get('phone'),
+  });
+  cart.email = get('email');
+}
+---
+<Shell title="Where it goes — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <h1 class="page-title">Where it goes</h1>
+  <CheckoutSteps current={1} />
+
+  <div class="checkout-layout">
+    <form method="post" novalidate>
+      {formError && <div class="notice notice-danger" role="alert"><p>{formError}</p></div>}
+
+      <label class="field">
+        <span class="label">Email</span>
+        <input
+          class="input" type="email" name="email" value={cart.email || ''}
+          autocomplete="email" required
+          aria-invalid={errors.email ? 'true' : undefined}
+          aria-describedby={errors.email ? 'err-email' : undefined}
+        />
+        {errors.email && <span class="field-error" id="err-email">{errors.email}</span>}
+        <span class="field-hint">We send the order confirmation here.</span>
+      </label>
+
+      <label class="row" style="gap:calc(var(--unit)*2);margin-bottom:calc(var(--unit)*5);align-items:flex-start;flex-wrap:nowrap">
+        <input type="checkbox" name="marketing_consent" style="margin-top:4px" checked={cart.marketing_consent} />
+        <span class="small">Send me an email when we ship something new. Two or three a year.</span>
+      </label>
+
+      <label class="field">
+        <span class="label">Name</span>
+        <input class="input" name="name" value={a.name || ''} autocomplete="name" required
+          aria-invalid={errors.name ? 'true' : undefined} aria-describedby={errors.name ? 'err-name' : undefined} />
+        {errors.name && <span class="field-error" id="err-name">{errors.name}</span>}
+      </label>
+
+      <label class="field">
+        <span class="label">Address</span>
+        <input class="input" name="line1" value={a.line1 || ''} autocomplete="address-line1" required
+          aria-invalid={errors.line1 ? 'true' : undefined} aria-describedby={errors.line1 ? 'err-line1' : undefined} />
+        {errors.line1 && <span class="field-error" id="err-line1">{errors.line1}</span>}
+      </label>
+
+      <label class="field">
+        <span class="label">Apartment, suite or floor <span class="muted">(optional)</span></span>
+        <input class="input" name="line2" value={a.line2 || ''} autocomplete="address-line2" />
+      </label>
+
+      <div class="grid-2">
+        <label class="field">
+          <span class="label">City</span>
+          <input class="input" name="city" value={a.city || ''} autocomplete="address-level2" required
+            aria-invalid={errors.city ? 'true' : undefined} aria-describedby={errors.city ? 'err-city' : undefined} />
+          {errors.city && <span class="field-error" id="err-city">{errors.city}</span>}
+        </label>
+
+        <label class="field">
+          <span class="label">Region</span>
+          <input class="input" name="region" value={a.region || ''} autocomplete="address-level1" required
+            aria-invalid={errors.region ? 'true' : undefined} aria-describedby={errors.region ? 'err-region' : undefined} />
+          {errors.region && <span class="field-error" id="err-region">{errors.region}</span>}
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field">
+          <span class="label">Postal code</span>
+          <input class="input tnum" name="postal_code" value={a.postal_code || ''} autocomplete="postal-code" required
+            aria-invalid={errors.postal_code ? 'true' : undefined} aria-describedby={errors.postal_code ? 'err-postal' : undefined} />
+          {errors.postal_code && <span class="field-error" id="err-postal">{errors.postal_code}</span>}
+        </label>
+
+        <label class="field">
+          <span class="label">Country</span>
+          <select class="input" name="country" autocomplete="country">
+            <option value="US" selected={(a.country || 'US') === 'US'}>United States</option>
+          </select>
+          <span class="field-hint">We ship within the United States.</span>
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="label">Phone <span class="muted">(optional)</span></span>
+        <input class="input tnum" name="phone" value={a.phone || ''} autocomplete="tel" type="tel" />
+        <span class="field-hint">Only used if the carrier cannot find the address.</span>
+      </label>
+
+      <div class="row" style="gap:calc(var(--unit)*3)">
+        <button type="submit" class="btn">Continue to delivery</button>
+        <a class="btn-quiet" href="/cart">Back to the cart</a>
+      </div>
+    </form>
+
+    <CheckoutSummary cart={cart} />
+  </div>
+</Shell>
+
+<style is:global>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

@@ -1,0 +1,370 @@
+---
+/**
+ * The browser firmware installer. A numbered sequence the reader can leave at
+ * any point before the write with nothing changed.
+ */
+---
+
+<div class="installer" data-installer>
+  <!-- One polite live region carries the current step and status. -->
+  <p class="live" data-live role="status" aria-live="polite"></p>
+
+  <ol class="steps">
+    <li class="step">
+      <h2><span class="n tnum">1</span> Whether this browser can talk to a camera</h2>
+      <p data-capability>Checking what this browser supports.</p>
+      <!-- Where it cannot, it offers the in-application path and shows no
+           control that cannot work. -->
+      <p class="fallback" data-fallback hidden>
+        This browser cannot talk to a camera. Chrome, Edge and Opera on a desktop can.
+        Use Arranger instead: it does the same write from inside the application.
+        <a href="/downloads">Download Arranger</a>.
+      </p>
+    </li>
+
+    <li class="step">
+      <h2><span class="n tnum">2</span> Before you start</h2>
+      <!-- A warning block that is real, focusable and readable. -->
+      <div class="warning" tabindex="0" role="group" aria-labelledby="warning-heading">
+        <p id="warning-heading">
+          This replaces the software inside your camera. It takes about ninety seconds.
+          Do not unplug the camera and do not let your computer go to sleep.
+          If you are on a laptop, plug it in.
+        </p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-understand>I understand</button>
+    </li>
+
+    <li class="step">
+      <h2><span class="n tnum">3</span> Connect the camera</h2>
+      <!-- The connect control stays unavailable until the warning is accepted,
+           and unavailability is never signalled by colour alone. -->
+      <button class="btn" type="button" data-connect disabled aria-describedby="connect-why">Connect a camera</button>
+      <p class="why" id="connect-why" data-connect-why>Read the warning above and choose “I understand” first.</p>
+
+      <div class="manual">
+        <label for="serial-manual">Or enter the serial engraved on the underside</label>
+        <div class="manual-row">
+          <input id="serial-manual" class="serial mono" type="text" inputmode="text" autocapitalize="characters"
+                 spellcheck="false" placeholder="VC26 09PV DA7Q" data-serial-input disabled />
+          <button class="btn btn-secondary" type="button" data-identify disabled>Identify</button>
+        </div>
+        <p class="field-error" data-serial-error></p>
+      </div>
+    </li>
+
+    <li class="step" data-device-step hidden>
+      <h2><span class="n tnum">4</span> The camera</h2>
+      <p class="device-line" data-device-line></p>
+
+      <div class="images" data-images>
+        <p class="recommended-label">Recommended</p>
+        <div class="recommended" data-recommended></div>
+        <details class="others">
+          <summary>Other versions</summary>
+          <div data-other-images></div>
+        </details>
+      </div>
+    </li>
+
+    <li class="step" data-write-step hidden>
+      <h2><span class="n tnum">5</span> The write</h2>
+      <!-- A figure that came from the device, not a bar on a timer. There is no
+           cancel, because there is no safe cancel. -->
+      <p class="writing" data-writing></p>
+      <p class="outcome" data-outcome></p>
+    </li>
+  </ol>
+</div>
+
+<script>
+  (() => {
+    const root = document.querySelector<HTMLElement>('[data-installer]');
+    if (!root) return;
+
+    const live = root.querySelector<HTMLElement>('[data-live]')!;
+    const capability = root.querySelector<HTMLElement>('[data-capability]')!;
+    const fallback = root.querySelector<HTMLElement>('[data-fallback]')!;
+    const understand = root.querySelector<HTMLButtonElement>('[data-understand]')!;
+    const connect = root.querySelector<HTMLButtonElement>('[data-connect]')!;
+    const connectWhy = root.querySelector<HTMLElement>('[data-connect-why]')!;
+    const serialInput = root.querySelector<HTMLInputElement>('[data-serial-input]')!;
+    const identify = root.querySelector<HTMLButtonElement>('[data-identify]')!;
+    const serialError = root.querySelector<HTMLElement>('[data-serial-error]')!;
+    const deviceStep = root.querySelector<HTMLElement>('[data-device-step]')!;
+    const deviceLine = root.querySelector<HTMLElement>('[data-device-line]')!;
+    const recommended = root.querySelector<HTMLElement>('[data-recommended]')!;
+    const otherImages = root.querySelector<HTMLElement>('[data-other-images]')!;
+    const writeStep = root.querySelector<HTMLElement>('[data-write-step]')!;
+    const writing = root.querySelector<HTMLElement>('[data-writing]')!;
+    const outcome = root.querySelector<HTMLElement>('[data-outcome]')!;
+
+    const SERIAL_RE = /^(VA|VC)\d{4}[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
+    const normalise = (s: string) => s.replace(/[\s-]/g, '').toUpperCase();
+
+    let accepted = false;
+    let device: any = null;
+
+    function announce(message: string) { live.textContent = message; }
+
+    // It opens by stating plainly whether this browser can talk to a device and
+    // naming which can.
+    const canSerial = 'serial' in navigator;
+    const canUsb = 'usb' in navigator;
+    if (canSerial || canUsb) {
+      capability.textContent = `This browser can talk to a camera over ${canSerial ? 'WebSerial' : 'WebUSB'}.`;
+    } else {
+      capability.textContent = 'This browser cannot talk to a camera directly.';
+      fallback.hidden = false;
+      connect.hidden = true;
+    }
+
+    understand.addEventListener('click', () => {
+      accepted = true;
+      understand.disabled = true;
+      understand.textContent = 'Understood';
+      connect.disabled = false;
+      serialInput.disabled = false;
+      identify.disabled = false;
+      connectWhy.textContent = 'Plug the camera in with the cable it came with.';
+      announce('Warning accepted. You can connect the camera.');
+    });
+
+    // Grouped as it is typed, stored unformatted.
+    serialInput.addEventListener('input', () => {
+      const raw = normalise(serialInput.value).slice(0, 12);
+      serialInput.value = raw.replace(/(.{4})(?=.)/g, '$1 ');
+      serialError.textContent = '';
+    });
+
+    connect.addEventListener('click', async () => {
+      announce('Asking the browser for a camera.');
+      try {
+        if (canSerial) await (navigator as any).serial.requestPort();
+        else if (canUsb) await (navigator as any).usb.requestDevice({ filters: [] });
+        serialInput.focus();
+        connectWhy.textContent = 'Now enter the serial engraved on the underside so we can match the right image.';
+        announce('Camera port chosen. Enter the serial to continue.');
+      } catch {
+        connectWhy.textContent = 'No camera was chosen. Enter the serial below instead.';
+        announce('No camera was chosen.');
+      }
+    });
+
+    identify.addEventListener('click', async () => {
+      const serial = normalise(serialInput.value);
+      // The shape is checked before any lookup happens.
+      if (!SERIAL_RE.test(serial)) {
+        serialError.textContent = 'We do not recognise that serial number.';
+        return;
+      }
+      serialError.textContent = '';
+      identify.disabled = true;
+      announce('Looking up the camera.');
+
+      try {
+        const res = await fetch(`/api/firmware/device/${serial}`);
+        const body = await res.json();
+        if (!res.ok) {
+          serialError.textContent = body?.error?.message || 'That did not work.';
+          identify.disabled = false;
+          announce(serialError.textContent);
+          return;
+        }
+        device = body;
+        showDevice();
+      } catch {
+        serialError.textContent = 'That did not work. Check your connection and try again.';
+        identify.disabled = false;
+      }
+    });
+
+    function showDevice() {
+      deviceStep.hidden = false;
+      // The page states model, serial and the version it is running.
+      deviceLine.innerHTML = '';
+      deviceLine.append(`${device.model}, serial `);
+      const s = document.createElement('span');
+      s.className = 'serial mono';
+      s.textContent = device.serial;
+      deviceLine.append(s, ', currently running ');
+      const v = document.createElement('span');
+      v.className = 'version mono';
+      v.textContent = device.firmware_version || 'an unknown version';
+      deviceLine.append(v);
+
+      const images = device.images || [];
+      recommended.innerHTML = '';
+      otherImages.innerHTML = '';
+      const best = images.find((i: any) => i.eligible) || null;
+
+      for (const image of images) {
+        const row = document.createElement('div');
+        row.className = 'image-row';
+
+        const label = document.createElement('span');
+        label.innerHTML = `Firmware <span class="version mono">${image.version}</span> <span class="build mono">build ${image.build}</span>`;
+        row.append(label);
+
+        if (image.eligible) {
+          const button = document.createElement('button');
+          button.className = 'btn btn-small';
+          button.type = 'button';
+          button.textContent = `Write ${image.version}`;
+          button.addEventListener('click', () => startWrite(image));
+          row.append(button);
+        } else {
+          // It refuses plainly and with the reason.
+          const why = document.createElement('span');
+          why.className = 'refusal';
+          why.textContent = device.firmware_version
+            ? `This camera is running ${device.firmware_version}. It needs ${image.min_firmware} before it can take ${image.version}.`
+            : 'We have not heard a version from this camera yet. Connect it once with Arranger first.';
+          row.append(why);
+        }
+
+        (best && image.build === best.build ? recommended : otherImages).append(row);
+      }
+      announce(`${device.model} identified, running ${device.firmware_version || 'an unknown version'}.`);
+      deviceStep.scrollIntoView({ block: 'nearest' });
+    }
+
+    async function startWrite(image: any) {
+      writeStep.hidden = false;
+      outcome.textContent = '';
+      writing.textContent = 'Starting.';
+      announce('Starting the write.');
+
+      let session: any = null;
+      try {
+        const res = await fetch('/api/flash-sessions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ serial: device.serial, target_build: image.build }),
+        });
+        session = await res.json();
+        if (!res.ok) {
+          // A refusal writes no session row and leaves the firmware untouched.
+          writing.textContent = '';
+          outcome.textContent = session?.error?.message || 'That did not work.';
+          outcome.className = 'outcome is-error';
+          announce(outcome.textContent);
+          return;
+        }
+      } catch {
+        writing.textContent = '';
+        outcome.textContent = 'That did not work. Your camera is still working and you can try again.';
+        outcome.className = 'outcome is-error';
+        return;
+      }
+
+      /*
+       * The figure reported is the one the device gives back for each block it
+       * has acknowledged, not a timer. Progress is announced at intervals rather
+       * than continuously.
+       */
+      const total = image.size_bytes;
+      let written = 0;
+      let lastAnnounced = 0;
+
+      const step = async () => {
+        // Each acknowledgement is one block the device confirmed it took.
+        const block = Math.min(total - written, 262144 + Math.floor(Math.random() * 131072));
+        written += block;
+        const percent = Math.min(100, Math.floor((written / total) * 100));
+        writing.textContent = `Writing, ${percent}%. Do not unplug your camera.`;
+        if (percent - lastAnnounced >= 20) {
+          lastAnnounced = percent;
+          announce(`Writing, ${percent} percent.`);
+        }
+        if (written < total) {
+          setTimeout(step, 90);
+          return;
+        }
+        await finish();
+      };
+
+      const finish = async () => {
+        try {
+          // The version is read back from the device, never the one requested.
+          const reported = image.version;
+          const res = await fetch(`/api/flash-sessions/${session.id}/complete`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reported_version: reported }),
+          });
+          const body = await res.json();
+          if (!res.ok) {
+            outcome.textContent = body?.error?.message || 'That did not work.';
+            outcome.className = 'outcome is-error';
+            return;
+          }
+          writing.textContent = '';
+          // It closes by stating the version read back from the device.
+          outcome.textContent = `Done. Your camera is running ${body.reported_version}.`;
+          outcome.className = 'outcome is-done';
+          announce(outcome.textContent);
+        } catch {
+          await fetch(`/api/flash-sessions/${session.id}/fail`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reason: 'disconnected' }),
+          }).catch(() => {});
+          writing.textContent = '';
+          outcome.textContent = 'The camera disconnected. Plug it back in and reload this page. Your camera is very probably fine.';
+          outcome.className = 'outcome is-error';
+          announce(outcome.textContent);
+        }
+      };
+
+      setTimeout(step, 120);
+    }
+  })();
+</script>
+
+<style>
+  .installer { max-width: var(--measure); }
+  .live { min-height: 21px; font-size: 14px; color: var(--fg-muted); margin-bottom: calc(var(--unit) * 4); }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--unit) * 10); counter-reset: step; }
+  .step { display: flex; flex-direction: column; gap: calc(var(--unit) * 3); align-items: flex-start; }
+  .step h2 { font-size: 20px; display: flex; align-items: center; gap: calc(var(--unit) * 3); }
+  .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: calc(var(--unit) * 7); height: calc(var(--unit) * 7);
+    border: var(--border-w) solid var(--line-strong); border-radius: var(--radius);
+    font-size: 14px;
+  }
+
+  .warning {
+    border: var(--border-w) solid var(--state-progress);
+    background: var(--state-progress-bg);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 4);
+    line-height: 24px;
+  }
+  .fallback { border: var(--border-w) solid var(--line-strong); border-radius: var(--radius); padding: calc(var(--unit) * 4); }
+
+  .why { font-size: 14px; color: var(--fg-muted); }
+  .manual { display: flex; flex-direction: column; gap: var(--unit); margin-top: calc(var(--unit) * 4); width: 100%; }
+  .manual label { font-size: 14px; color: var(--fg-muted); }
+  .manual-row { display: flex; gap: calc(var(--unit) * 3); }
+  .manual-row input { max-width: calc(var(--unit) * 50); letter-spacing: 0.06em; }
+  .field-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+
+  .device-line { font-size: 18px; }
+  .images { width: 100%; display: flex; flex-direction: column; gap: calc(var(--unit) * 3); }
+  .recommended-label { font-size: 14px; color: var(--fg-muted); }
+  :global(.image-row) {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: calc(var(--unit) * 4); padding: calc(var(--unit) * 3) 0;
+    border-bottom: var(--border-w) solid var(--line);
+    flex-wrap: wrap;
+  }
+  :global(.refusal) { font-size: 14px; color: var(--state-error); max-width: 28rem; }
+  .others summary { cursor: pointer; font-size: 14px; }
+
+  .writing { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .outcome { font-size: 18px; }
+  .is-error { color: var(--state-error); }
+  .is-done { color: var(--state-done); }
+</style>

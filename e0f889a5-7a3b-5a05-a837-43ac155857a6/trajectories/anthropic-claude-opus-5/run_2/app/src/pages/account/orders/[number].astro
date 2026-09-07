@@ -1,0 +1,48 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { apiGet, authHeaders } from '../../../lib/api';
+import { viewerFor, signInRedirect } from '../../../lib/page';
+
+const { number } = Astro.params;
+const viewer = await viewerFor(Astro.request);
+if (!viewer.customer) return signInRedirect(`/account/orders/${number}`);
+
+const result = await apiGet<any>(
+  Astro.request, `/account/orders/${number}`, { headers: authHeaders(Astro.request) },
+);
+// Another customer's order reads as not found, never forbidden.
+const order = result.ok ? result.data : null;
+---
+
+<Shell
+  title={order ? `Order ${order.number} — Vela` : 'Order — Vela'}
+  current="orders"
+  customer={viewer.customer}
+  cartCount={viewer.cartCount}
+>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/account/orders">Orders</a> <span aria-hidden="true">/</span> <span class="mono">{number}</span>
+  </nav>
+
+  {!order && (
+    <div class="empty-state">
+      <p>That order does not exist.</p>
+      <a class="btn btn-secondary" href="/account/orders">Back to your orders</a>
+    </div>
+  )}
+
+  {order && (
+    <>
+      <h1>Order <span class="order-number mono">{order.number}</span></h1>
+      <OrderDetail order={order} showRegister={true} />
+    </>
+  )}
+</Shell>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .crumbs a { color: var(--fg-muted); }
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 8); font-weight: 700; }
+  h1 .order-number { font-size: 32px; font-weight: 400; }
+</style>

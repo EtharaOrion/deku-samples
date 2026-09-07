@@ -1,0 +1,65 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartView from '../islands/CartView.jsx';
+import { apiGet, formatMinor } from '../lib/api.js';
+import { viewer } from '../lib/page.js';
+
+const v = await viewer(Astro);
+// Rendered on the server so first paint carries the real lines and totals.
+const res = v.cartToken ? await apiGet(Astro.request, '/cart', { cartToken: v.cartToken }) : null;
+const cart = res && res.ok ? res.data.cart : null;
+---
+<Shell title="Cart — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <h1 class="page-title">Cart</h1>
+  <p class="page-lede">Quantities are edited in place. Nothing is charged until you place the order.</p>
+
+  <div id="live-region" role="status" aria-live="polite" class="visually-hidden"></div>
+
+  <CartView client:load initialCart={cart} />
+
+  <noscript>
+    {cart && cart.lines.length > 0 ? (
+      <div>
+        {cart.notices.map((n) => (
+          <div class="notice notice-danger"><p>{n.message}</p></div>
+        ))}
+        <table class="data" style="max-width:60rem">
+          <thead>
+            <tr><th>Item</th><th class="num">Quantity</th><th class="num">Total</th></tr>
+          </thead>
+          <tbody>
+            {cart.lines.map((l) => (
+              <tr>
+                <td>{l.title} — {l.option_value}</td>
+                <td class="num tnum">{l.quantity}</td>
+                <td class="num money">{formatMinor(l.total_minor)}</td>
+              </tr>
+            ))}
+            <tr><th scope="row">Estimated total</th><td></td><td class="num money">{formatMinor(cart.total_minor)}</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:calc(var(--unit)*4)"><a class="btn" href="/checkout/where-it-goes">Check out</a></p>
+      </div>
+    ) : (
+      <div class="empty"><p>Your cart is empty.</p><p class="small"><a href="/shop">Go to the shop</a>.</p></div>
+    )}
+  </noscript>
+</Shell>
+
+<style is:global>
+  .cart-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  .cart-line {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: calc(var(--unit) * 4);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .cart-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

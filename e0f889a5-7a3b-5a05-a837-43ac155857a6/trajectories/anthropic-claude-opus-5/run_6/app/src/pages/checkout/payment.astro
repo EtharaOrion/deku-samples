@@ -1,0 +1,167 @@
+---
+import crypto from 'node:crypto';
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { cartFromCookies, customerFromCookies, formValues, redirect, setCookie } from '../../lib/actions.js';
+import { readCart } from '../../../server/services/cart.js';
+import { placeOrder } from '../../../server/services/orders.js';
+import { formatMinor } from '../../lib/format.js';
+
+const cart = await cartFromCookies(Astro.cookies);
+const customer = await customerFromCookies(Astro.cookies);
+let problem = null;
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  const key = String(body.idempotency_key || '').slice(0, 120) || crypto.randomUUID();
+  try {
+    const { order, accessToken } = await placeOrder({
+      cart,
+      customer,
+      idempotencyKey: key,
+      requestId: Astro.request.headers.get('x-request-id') || 'page',
+    });
+    setCookie(Astro.cookies, `vela_order_${order.number}`, accessToken);
+    return redirect(`/orders/${order.number}`);
+  } catch (err) {
+    if (err.code === 'price_changed' || err.code === 'availability_changed') {
+      // Back to a re-priced cart carrying that notice.
+      return redirect('/cart');
+    }
+    problem = err.message || 'That did not work.';
+  }
+}
+
+const fresh = await cartFromCookies(Astro.cookies);
+const view = await readCart(fresh);
+if (!view.lines.length) return redirect('/cart');
+if (!view.email || !view.shipping_address) return redirect('/checkout/where-it-goes');
+if (!view.shipping_method) return redirect('/checkout/how-it-gets-there');
+
+const idempotencyKey = crypto.randomUUID();
+const address = view.shipping_address;
+---
+
+<Shell title="Payment">
+  <nav aria-label="Checkout steps" class="steps">
+    <ol>
+      <li><span class="mono">1</span> <a href="/checkout/where-it-goes">Where it goes</a></li>
+      <li><span class="mono">2</span> <a href="/checkout/how-it-gets-there">How it gets there</a></li>
+      <li aria-current="step"><span class="mono">3</span> Payment</li>
+    </ol>
+  </nav>
+
+  <h1 class="page-title">Payment</h1>
+  <p class="page-lede">
+    We invoice this order. There is no card to enter. Read it over, then place it.
+  </p>
+
+  <div class="checkout-layout">
+    <div class="stack">
+      {problem ? <p class="notice wrong" role="alert">{problem}</p> : null}
+
+      <section class="card">
+        <h2 class="block-heading">Going to</h2>
+        <p>{address.name}</p>
+        <p>{address.line1}</p>
+        {address.line2 ? <p>{address.line2}</p> : null}
+        <p>
+          {address.city}, {address.region} <span class="mono">{address.postal_code}</span>
+        </p>
+        <p>{address.country}</p>
+        <p class="hint" style="margin-top:calc(var(--unit) * 2)">{view.email}</p>
+        <p style="margin-top:calc(var(--unit) * 2)">
+          <a href="/checkout/where-it-goes">Change the address</a>
+        </p>
+      </section>
+
+      <section class="card">
+        <h2 class="block-heading">Delivery</h2>
+        <p>
+          {view.shipping_method_title} <span class="tnum">{formatMinor(view.shipping_minor)}</span>
+        </p>
+        <p style="margin-top:calc(var(--unit) * 2)">
+          <a href="/checkout/how-it-gets-there">Change the delivery method</a>
+        </p>
+      </section>
+
+      <section class="card">
+        <h2 class="block-heading">What you are authorising</h2>
+        <table>
+          <tbody>
+            {
+              view.lines.map((l) => (
+                <tr>
+                  <th scope="row">
+                    {l.title} <span class="hint tnum">× {l.quantity}</span>
+                  </th>
+                  <td class="num tnum">{formatMinor(l.total_minor)}</td>
+                </tr>
+              ))
+            }
+            <tr>
+              <th scope="row">Delivery</th>
+              <td class="num tnum">{formatMinor(view.shipping_minor)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Tax</th>
+              <td class="num tnum">{formatMinor(view.tax_minor)}</td>
+            </tr>
+            <tr>
+              <th scope="row" style="font-weight:700">Total</th>
+              <td class="num tnum" style="font-weight:700" data-test="final-total">{formatMinor(view.total_minor)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <form method="post" style="margin-top:calc(var(--unit) * 4)">
+          <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+          <PlaceOrder client:load label={`Place this order for ${formatMinor(view.total_minor)}`} />
+          <noscript>
+            <button class="btn" type="submit">Place this order for {formatMinor(view.total_minor)}</button>
+          </noscript>
+        </form>
+      </section>
+    </div>
+
+    <CheckoutSummary view={view} step={3} />
+  </div>
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  .steps ol {
+    display: flex;
+    gap: calc(var(--unit) * 6);
+    list-style: none;
+    margin: 0 0 calc(var(--unit) * 6);
+    padding: 0;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--ink-quiet);
+    flex-wrap: wrap;
+  }
+  .steps li[aria-current='step'] {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .block-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: calc(var(--unit) * 2);
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

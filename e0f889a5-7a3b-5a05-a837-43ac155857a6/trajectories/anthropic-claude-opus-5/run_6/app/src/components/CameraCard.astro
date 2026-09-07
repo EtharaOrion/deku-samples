@@ -1,0 +1,59 @@
+---
+import { formatDate, groupSerial } from '../lib/format.js';
+const { device, showActions = false } = Astro.props;
+const firmwareChip = !device.firmware_version
+  ? { text: 'Not yet connected', tone: '' }
+  : device.update_available
+    ? { text: 'Update available', tone: 'progress' }
+    : { text: `Firmware ${device.firmware_version}`, tone: 'done' };
+const warrantyChip =
+  device.warranty_state === 'active'
+    ? { text: `Warranty to ${formatDate(device.warranty_until)}`, tone: 'done' }
+    : device.warranty_state === 'expired'
+      ? { text: 'Warranty ended', tone: '' }
+      : { text: 'Warranty unknown', tone: '' };
+---
+
+<article class="card camera-card" data-serial={device.serial}>
+  <div class="row between" style="align-items:flex-start">
+    <div>
+      <h3 style="font-size:18px;line-height:26px">
+        <a href={`/account/cameras/${device.serial}`}>{device.nickname || device.model}</a>
+      </h3>
+      <p class="hint">
+        {device.model}, {device.variant}
+      </p>
+    </div>
+  </div>
+  <p class="mono serial">{groupSerial(device.serial)}</p>
+  <div class="row" style="gap:calc(var(--unit) * 2)">
+    <span class={`chip ${firmwareChip.tone}`}>{firmwareChip.text}</span>
+    <span class={`chip ${warrantyChip.tone}`}>{warrantyChip.text}</span>
+  </div>
+  {
+    showActions ? (
+      <div class="row" style="margin-top:calc(var(--unit) * 3)">
+        <a class="btn quiet" href={`/account/cameras/${device.serial}`}>
+          Open
+        </a>
+        <a class="btn quiet" href="/doctor">
+          Firmware installer
+        </a>
+      </div>
+    ) : null
+  }
+</article>
+
+<style>
+  .camera-card {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 3);
+  }
+  .serial {
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--ink-quiet);
+    margin: 0;
+  }
+</style>

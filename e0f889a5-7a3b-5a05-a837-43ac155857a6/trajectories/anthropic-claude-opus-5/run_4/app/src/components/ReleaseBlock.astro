@@ -1,0 +1,92 @@
+---
+import { formatDate, formatBytes } from '../lib/format.js';
+
+// A disclosure that works with no scripting and is keyboard operable. The whole
+// archive is present in the markup whatever the collapse state, so an in-page
+// find and a crawler both see all of it.
+const { release, open = false } = Astro.props;
+---
+<article class="release">
+  <details open={open}>
+    <summary>
+      <span class="sum-line">
+        <span class="r-title">Arranger <span class="ident">{release.version}</span></span>
+        <span class="hint">Released on {formatDate(release.released_on)}</span>
+      </span>
+      <span class="disclose" aria-hidden="true"></span>
+    </summary>
+
+    <div class="body">
+      <div class="row controls">
+        <a class="btn" href={`/api/downloads/${release.artifact_name}`} download>
+          Download Arranger {release.version}
+        </a>
+        <span class="hint tnum">{formatBytes(release.size_bytes)}</span>
+      </div>
+
+      <p class="digest ident" title="SHA-256">{release.sha256}</p>
+
+      {release.description && <p class="desc">{release.description}</p>}
+
+      {release.notes.map((group) => (
+        <section class="group">
+          <h3>{group.group}</h3>
+          <ul>
+            {group.items.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      ))}
+
+      <p class="signoff">The Vela team.</p>
+      <p><a class="perma" href={`/downloads/${release.version}`}>Link to this release</a></p>
+    </div>
+  </details>
+</article>
+
+<style>
+  .release { padding-block: calc(var(--space) * 4); }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--space) * 3);
+    cursor: pointer;
+    list-style: none;
+    padding: calc(var(--space) * 2) 0;
+  }
+  summary::-webkit-details-marker { display: none; }
+  .sum-line { display: flex; flex-direction: column; gap: 2px; }
+  .r-title { font-weight: 700; font-size: 18px; }
+
+  /* The marker is a shape, so state is never carried by colour alone. */
+  .disclose {
+    width: 12px; height: 12px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform var(--speed) var(--ease);
+    flex: none;
+  }
+  details[open] .disclose { transform: rotate(-135deg); }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space) * 4);
+    padding-top: calc(var(--space) * 3);
+    max-width: 74ch;
+  }
+  .controls { flex-wrap: wrap; }
+  .digest {
+    font-size: 12px;
+    color: var(--fg-muted);
+    overflow-wrap: anywhere;
+  }
+  .desc { font-size: 14px; }
+  .group { display: flex; flex-direction: column; gap: calc(var(--space) * 2); }
+  .group h3 { font-size: 14px; line-height: 21px; }
+  .group ul { list-style: disc; padding-left: 1.2em; font-size: 14px; line-height: 21px; }
+  .signoff { font-size: 14px; color: var(--fg-muted); }
+  .perma { font-size: 14px; }
+</style>

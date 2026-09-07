@@ -1,0 +1,31 @@
+{# The media tile: one component with a width variant, not three components.
+   The container reserves its space from the stored intrinsic size before the
+   pixels arrive and clears its placeholder on decode or failure. #}
+{% macro tile(media, reveal=true, reel=none, extra_class='', eager=false) -%}
+{%- if media -%}
+<span class="tile {{ 'tile--reveal' if reveal else '' }} {{ extra_class }}"
+      style="aspect-ratio: {{ media.width }} / {{ media.height }};"
+      data-reveal="{{ '1' if reveal else '0' }}"
+      {% if reel %}data-reel="{{ reel.media_id }}" data-reel-seed-w="{{ reel.width }}" data-reel-seed-h="{{ reel.height }}"{% endif %}>
+  <span class="tile__placeholder" aria-hidden="true"></span>
+  <img class="tile__img"
+       src="/api/media/{{ media.media_id }}"
+       width="{{ media.width }}" height="{{ media.height }}"
+       alt="{{ media.alt }}"
+       loading="{{ 'eager' if eager else 'lazy' }}" decoding="async"
+       data-media="{{ media.media_id }}">
+</span>
+{%- endif -%}
+{%- endmacro %}
+
+{# The caption row: a 4px square, 8px, the ordinal at the left edge, and the
+   title in the display face flush with the still's right edge. #}
+{% macro caption(ordinal_label, title) -%}
+<span class="caption-row">
+  <span class="caption-row__left">
+    <span class="caption-row__square" aria-hidden="true"></span>
+    <span class="caption-row__ordinal">{{ ordinal_label }}</span>
+  </span>
+  <span class="caption-row__title display display--title-case">{{ title }}</span>
+</span>
+{%- endmacro %}

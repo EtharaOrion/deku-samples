@@ -1,0 +1,117 @@
+---
+import { formatBytes, formatDate } from '../lib/format.js';
+const { release, open } = Astro.props;
+const GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+const notes = release.notes || {};
+---
+
+<article class="release">
+  <div class="rule" aria-hidden="true"></div>
+  <details open={open}>
+    <summary>
+      <span class="summary-body">
+        <span class="release-title">
+          Arranger <span class="mono">{release.version}</span>
+        </span>
+        <span class="hint">Released on {formatDate(release.released_on)}</span>
+      </span>
+      <span class="hint mono">build {release.build}</span>
+    </summary>
+
+    <div class="release-body">
+      <p class="row" style="gap:calc(var(--unit) * 3)">
+        <a class="btn secondary" href={`/api/downloads/arranger/${release.version}`} download>
+          Download Arranger {release.version}
+        </a>
+        <span class="hint tnum">{formatBytes(release.size_bytes)}</span>
+      </p>
+      <p class="hint mono digest">{release.sha256}</p>
+      {release.description ? <p style="margin-top:calc(var(--unit) * 3)">{release.description}</p> : null}
+
+      {
+        GROUPS.filter((g) => Array.isArray(notes[g]) && notes[g].length).map((g) => (
+          <section style="margin-top:calc(var(--unit) * 4)">
+            <h3 class="group-heading">{g}</h3>
+            <ul class="notes">
+              {notes[g].map((n) => (
+                <li>
+                  {n.text} <span class="issue mono">{n.issue}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+      <p style="margin-top:calc(var(--unit) * 4)">The Vela team.</p>
+      <p class="hint" style="margin-top:calc(var(--unit) * 2)">
+        <a href={`/downloads/${release.version}`}>Open this release on its own page</a>
+      </p>
+    </div>
+  </details>
+</article>
+
+<style>
+  .release {
+    margin-top: calc(var(--unit) * 6);
+  }
+  .rule {
+    height: 12px;
+    border-top: var(--border-w) solid var(--rule);
+    border-bottom: var(--border-w) solid var(--rule);
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--rule) 0 6px,
+      transparent 6px 12px
+    );
+    background-size: 100% 1px;
+    background-position: 0 50%;
+    background-repeat: no-repeat;
+    margin-bottom: calc(var(--unit) * 4);
+  }
+  summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: calc(var(--unit) * 4);
+    cursor: pointer;
+    padding: calc(var(--unit) * 2) 0;
+    list-style-position: inside;
+  }
+  .summary-body {
+    display: flex;
+    flex-direction: column;
+  }
+  .release-title {
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 700;
+  }
+  .release-body {
+    padding: calc(var(--unit) * 3) 0 calc(var(--unit) * 4);
+    max-width: 78ch;
+  }
+  .digest {
+    word-break: break-all;
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .group-heading {
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quiet);
+    margin-bottom: var(--unit);
+  }
+  .notes {
+    margin: 0;
+    padding-left: 1.2em;
+  }
+  .notes li {
+    margin-bottom: var(--unit);
+  }
+  .issue {
+    font-size: 0.9em;
+    color: var(--ink-quiet);
+  }
+</style>

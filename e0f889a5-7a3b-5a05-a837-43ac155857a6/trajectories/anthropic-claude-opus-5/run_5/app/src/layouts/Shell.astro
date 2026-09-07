@@ -1,0 +1,67 @@
+---
+import Base from './Base.astro';
+import Rail from '../components/Rail.astro';
+
+const {
+  title,
+  description,
+  customer = null,
+  cartCount = 0,
+} = Astro.props;
+
+const path = Astro.url.pathname;
+// A count badge appears only above zero and reads `99+` above ninety-nine.
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+const cartLabel =
+  cartCount === 1 ? 'Cart, 1 item' : `Cart, ${cartCount} items`;
+---
+
+<Base title={title} description={description} ground="light">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="shell">
+    <div class="shell__bar">
+      <a class="wordmark" href="/">Vela</a>
+      <div style="margin-left:auto" class="row">
+        <!-- The accessible name states the item count; the badge appears only
+             above zero and reads 99+ above ninety-nine. -->
+        <a class="button button--quiet" href="/cart" aria-label={cartLabel} data-cart-control>
+          <span aria-hidden="true">Cart</span>
+          <span
+            class="chip tnum"
+            aria-hidden="true"
+            style="min-height:20px;padding:0 6px"
+            data-cart-badge
+            hidden={cartCount === 0}
+          >{badge}</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="shell__body">
+      <Rail path={path} customer={customer} />
+      <main id="main" class="content">
+        <slot />
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // The islands announce the cart they were handed back, so the count in the
+    // bar follows a change made anywhere on the page.
+    window.addEventListener('vela:cart', (event) => {
+      const cart = event.detail;
+      if (!cart) return;
+      const count = Number(cart.item_count ?? 0);
+      const control = document.querySelector('[data-cart-control]');
+      const badge = document.querySelector('[data-cart-badge]');
+      if (control) {
+        control.setAttribute('aria-label', count === 1 ? 'Cart, 1 item' : `Cart, ${count} items`);
+      }
+      if (badge) {
+        badge.hidden = count === 0;
+        badge.textContent = count > 99 ? '99+' : String(count);
+      }
+    });
+  </script>
+</Base>

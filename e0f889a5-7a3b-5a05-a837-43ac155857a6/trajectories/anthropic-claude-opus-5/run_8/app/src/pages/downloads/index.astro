@@ -1,0 +1,89 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { apiFetch } from '../../lib/api.js';
+import { formatBytes } from '../../lib/format.js';
+import '../../styles/downloads.css';
+
+const { expand } = Astro.props;
+
+const [relRes, fwRes] = await Promise.all([
+  apiFetch(Astro, '/api/releases?page_size=100'),
+  apiFetch(Astro, '/api/firmware/manifest?model=compact'),
+]);
+
+const releases = relRes.status === 200 ? relRes.data.data : [];
+const newest = releases[0] ?? null;
+const firmware = fwRes.status === 200 ? fwRes.data.entries[0] : null;
+const cricket = fwRes.status === 200 ? fwRes.data.product.title : 'Vela Cricket';
+
+// Only the newest release is expanded on arrival, unless a version names itself.
+const expandVersion = expand ?? (newest ? newest.version : null);
+---
+<Shell title="Downloads" current="downloads" description="Arranger, firmware and the whole release archive.">
+  <div class="page-head">
+    <h1>Downloads</h1>
+    <p>Arranger requires macOS 13.0 or later. Download the app below.</p>
+  </div>
+
+  {!newest && <p class="empty">There is nothing to download yet.</p>}
+
+  {newest && (
+    <section aria-labelledby="app-head">
+      <h2 class="vh" id="app-head">The application</h2>
+
+      <div class="dl-primary-row">
+        <a class="btn" href={`/api/releases/${encodeURIComponent(newest.version)}/artifact`} download data-primary-download>
+          Download Arranger {newest.version}
+        </a>
+        <span class="dl-meta">
+          <span class="bytes">{formatBytes(newest.size_bytes)}</span> bytes
+        </span>
+      </div>
+      <p class="dl-meta"><span class="digest">{newest.sha256}</span></p>
+      <!-- The primary control adapts to the reader's platform but is never
+           disabled and never hidden. -->
+      <p class="dl-meta" data-platform-note hidden>Arranger is a macOS application.</p>
+
+      {firmware && (
+        <div class="fw-row">
+          <div>
+            <a class="btn btn-quiet" href={`/api/firmware/${firmware.build}/artifact`} download>
+              Download {cricket} Firmware {firmware.version}
+            </a>
+            <p class="dl-meta" style="margin-top: 0.5rem">
+              build <span class="build">{firmware.build}</span> · <span class="bytes">{formatBytes(firmware.size_bytes)}</span> bytes
+            </p>
+          </div>
+          <div class="fw-web">
+            <a href="/doctor" class="small">Firmware install (web-based)</a>
+            <p>Only use this if Arranger cannot see your camera.</p>
+          </div>
+        </div>
+      )}
+    </section>
+  )}
+
+  <div class="archive-rule" aria-hidden="true"></div>
+
+  <section aria-labelledby="archive-head">
+    <h2 class="section-head" id="archive-head">Every release</h2>
+    {releases.length === 0 && <p class="empty">There are no releases yet.</p>}
+    {releases.map((r, i) => (
+      <>
+        {i > 0 && <div class="archive-rule" aria-hidden="true"></div>}
+        <ReleaseBlock release={r} open={r.version === expandVersion} />
+      </>
+    ))}
+  </section>
+
+  <script>
+    // A reader who is not on macOS still gets a working control and a line
+    // saying what the application is for.
+    const note = document.querySelector('[data-platform-note]');
+    if (note) {
+      const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+      if (!/mac/i.test(p)) note.hidden = false;
+    }
+  </script>
+</Shell>

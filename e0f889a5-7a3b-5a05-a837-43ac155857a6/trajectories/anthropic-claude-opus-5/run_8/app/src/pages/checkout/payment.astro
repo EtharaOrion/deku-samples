@@ -1,0 +1,95 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { apiFetch } from '../../lib/api.js';
+import { formatMinor } from '../../lib/format.js';
+import '../../styles/cart.css';
+
+let error = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  // One idempotency key per attempt at this cart, so a double submit is one order.
+  const key = String(form.get('idempotency_key') || '');
+  const res = await apiFetch(Astro, '/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(key ? { 'Idempotency-Key': key } : {}) },
+    body: '{}',
+  });
+  if (res.status === 201 && res.data?.number) {
+    return Astro.redirect(`/orders/${res.data.number}?access_token=${encodeURIComponent(res.data.access_token)}`, 303);
+  }
+  // If a line changed since the cart was last shown the order is refused and the
+  // person returns to a re-priced cart carrying that notice.
+  if (res.data?.return_to === '/cart') return Astro.redirect('/cart', 303);
+  error = res.data?.message || 'That did not work.';
+}
+
+const cartRes = await apiFetch(Astro, '/api/cart');
+const cart = cartRes.status === 200 ? cartRes.data : null;
+if (!cart || cart.lines.length === 0) return Astro.redirect('/cart', 303);
+if (!cart.shipping_address) return Astro.redirect('/checkout/where-it-goes', 303);
+if (!cart.shipping_method) return Astro.redirect('/checkout/how-it-gets-there', 303);
+
+const methodsRes = await apiFetch(Astro, '/api/shipping-methods');
+const method = (methodsRes.status === 200 ? methodsRes.data.data : []).find((m) => m.code === cart.shipping_method);
+
+// Stable across a reload of this step, so a reload does not place a second order.
+const idempotencyKey = `co_${cart.id}_${cart.total_minor}_${cart.lines.map((l) => `${l.sku}x${l.quantity}`).join('_')}`;
+const a = cart.shipping_address;
+---
+<Shell title="Payment" current="shop">
+  <div class="page-head"><h1>Payment</h1></div>
+  <CheckoutSteps step={3} />
+
+  <div class="checkout-layout">
+    <div>
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+      <h2 class="section-head">Where it goes</h2>
+      <p class="small" style="margin: 0 0 1.5rem">
+        {a.name}<br />
+        {a.line1}{a.line2 ? <>, {a.line2}</> : null}<br />
+        {a.city}, {a.region} {a.postal_code}<br />
+        {a.country}<br />
+        <span class="muted">{cart.email}</span>
+      </p>
+      <p class="small"><a href="/checkout/where-it-goes">Change the address</a></p>
+
+      <h2 class="section-head" style="margin-top: 2rem">How it gets there</h2>
+      <p class="small" style="margin: 0 0 0.5rem">
+        {method ? method.label : cart.shipping_method} — {method ? method.window_text : ''} — <span class="money">{formatMinor(cart.shipping_minor)}</span>
+      </p>
+      <p class="small"><a href="/checkout/how-it-gets-there">Change the delivery method</a></p>
+
+      <h2 class="section-head" style="margin-top: 2rem">Payment</h2>
+      <p class="small muted" style="max-width: 62ch">
+        We invoice this order for <span class="money">{formatMinor(cart.total_minor)}</span> and send the invoice to {cart.email}. There is no card to enter.
+      </p>
+
+      <form method="POST" data-place style="margin-top: 1.5rem">
+        <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+        <button type="submit" class="btn" data-place-button>Place the order — {formatMinor(cart.total_minor)}</button>
+      </form>
+      <p class="vh" role="status" aria-live="polite" data-place-live></p>
+    </div>
+
+    <CheckoutSummary cart={cart} exact={true} />
+  </div>
+
+  <script>
+    // Placing shows `Placing your order`. The form posts normally with no
+    // scripting, so this only adds the state.
+    const form = document.querySelector('[data-place]');
+    if (form) {
+      const button = form.querySelector('[data-place-button]');
+      const live = document.querySelector('[data-place-live]');
+      form.addEventListener('submit', () => {
+        button.disabled = true;
+        button.textContent = 'Placing your order';
+        if (live) live.textContent = 'Placing your order.';
+      });
+    }
+  </script>
+</Shell>

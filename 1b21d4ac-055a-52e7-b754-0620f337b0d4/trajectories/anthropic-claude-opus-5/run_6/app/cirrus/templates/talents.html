@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "_components.html" as c %}
+{% block content %}
+<section class="roster" x-data="roster()" x-init="start()"
+         @keydown.window.arrow-down.prevent="advance(1)"
+         @keydown.window.arrow-right.prevent="advance(1)"
+         @keydown.window.arrow-up.prevent="advance(-1)"
+         @keydown.window.arrow-left.prevent="advance(-1)"
+         @wheel.window="onWheel($event)"
+         aria-label="Roster">
+
+  {% if disciplines %}
+  <div class="filter" role="group" aria-label="Filter the roster by discipline">
+    <span class="filter-marker" aria-hidden="true"
+          :style="`transform: translateY(${markerOffset}px)`"></span>
+    {% for discipline in disciplines %}
+    <button type="button" class="filter-control" data-discipline="{{ discipline }}"
+            :class="{ 'is-active': active === '{{ discipline }}' }"
+            :aria-pressed="active === '{{ discipline }}' ? 'true' : 'false'"
+            @click="select('{{ discipline }}')">{{ discipline|upper }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if talents %}
+  <div class="roster-stage">
+    {% for talent in talents %}
+    <article class="roster-entry" data-talent data-index="{{ loop.index0 }}"
+             data-discipline="{{ talent.discipline }}" data-name="{{ talent.title }}"
+             :class="{ 'is-current': currentSlug === '{{ talent.slug }}' }"
+             data-slug="{{ talent.slug }}"
+             :aria-hidden="currentSlug === '{{ talent.slug }}' ? 'false' : 'true'">
+      <h1 class="roster-name" data-fit>
+        <a href="/talents/{{ talent.slug }}" data-nav data-cursor-label="{{ talent.title }}"
+           data-cursor-above>{{ talent.title }}</a>
+      </h1>
+      <p class="roster-discipline">{{ talent.discipline|upper }}</p>
+      <div class="roster-portrait">
+        {{ c.media_tile(talent.poster, talent.title ~ ', ' ~ talent.discipline ~ ', portrait',
+                        'portrait') }}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="visually-hidden" aria-live="polite" x-text="announcement"></p>
+  {% else %}
+  <p class="empty-state">No talent is published yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

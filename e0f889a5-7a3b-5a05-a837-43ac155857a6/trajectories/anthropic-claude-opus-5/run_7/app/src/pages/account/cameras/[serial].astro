@@ -1,0 +1,86 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraDetail from '../../../islands/CameraDetail.jsx';
+import { apiGet, formatDate } from '../../../lib/api.js';
+import { viewer, signInRedirect } from '../../../lib/page.js';
+
+const v = await viewer(Astro);
+if (!v.signedIn) return signInRedirect(Astro);
+
+const { serial } = Astro.params;
+const res = await apiGet(Astro.request, `/account/devices/${encodeURIComponent(serial)}`, { token: v.token });
+const device = res.ok ? res.data.device : null;
+---
+<Shell title={device ? `${device.serial} — Vela` : 'Camera — Vela'} signedIn cartCount={v.cartCount}>
+  {/* Another customer's serial reads as not found, never forbidden. */}
+  {!device ? (
+    <div>
+      <h1 class="page-title">We do not recognise that serial number.</h1>
+      <p class="page-lede">It may not be registered to this account.</p>
+      <p><a class="btn btn-secondary" href="/account/cameras">Your cameras</a></p>
+    </div>
+  ) : (
+    <div>
+      <nav aria-label="Breadcrumb" class="small muted" style="margin-bottom:calc(var(--unit)*4)">
+        <a href="/account/cameras">Cameras</a> <span aria-hidden="true">/</span>
+        <span class="serial">{device.serial}</span>
+      </nav>
+
+      <h1 class="page-title">{device.nickname || device.model}</h1>
+      <p class="page-lede">
+        {device.model} — {device.option_value}, serial <span class="serial">{device.serial}</span>
+      </p>
+
+      <section class="section">
+        <table class="data" style="max-width:46rem">
+          <tbody>
+            <tr>
+              <th scope="row" style="font-weight:400">Firmware</th>
+              <td>
+                {device.firmware_version ? (
+                  <span>
+                    <span class="version">{device.firmware_version}</span>
+                    {device.update_available && (
+                      <span class="chip chip-progress" style="margin-inline-start:calc(var(--unit)*2)">Update available</span>
+                    )}
+                  </span>
+                ) : (
+                  <span class="chip">Not yet connected</span>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row" style="font-weight:400">Latest firmware</th>
+              <td class="version">{device.latest_firmware || '—'}</td>
+            </tr>
+            <tr>
+              <th scope="row" style="font-weight:400">Last heard from</th>
+              <td class="tnum">{device.firmware_reported_at ? formatDate(device.firmware_reported_at) : 'Never'}</td>
+            </tr>
+            <tr>
+              <th scope="row" style="font-weight:400">Warranty</th>
+              <td>
+                {device.warranty_until ? (
+                  <span class="chip">
+                    {device.warranty_expired ? 'Warranty ended' : `To ${formatDate(device.warranty_until)}`}
+                  </span>
+                ) : '—'}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {device.update_available && (
+          <p style="margin-top:calc(var(--unit)*5)">
+            <a class="btn btn-secondary" href="/downloads">Get the firmware</a>
+            <a class="btn-quiet" href="/doctor" style="margin-inline-start:calc(var(--unit)*3)">
+              Or install it from this browser
+            </a>
+          </p>
+        )}
+      </section>
+
+      <CameraDetail client:load device={device} />
+    </div>
+  )}
+</Shell>

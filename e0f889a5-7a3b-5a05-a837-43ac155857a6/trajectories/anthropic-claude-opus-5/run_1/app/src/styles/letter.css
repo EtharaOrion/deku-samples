@@ -1,0 +1,211 @@
+/* The front page is the only editorial surface. The letter is the subject and
+   the film behind it is scenery. */
+
+.letter-page {
+  position: relative;
+  min-height: 100vh;
+  background: hsl(220 16% 8%);
+  color: hsl(40 22% 94%);
+  --fg: hsl(40 22% 94%);
+  --bg: hsl(220 16% 8%);
+}
+
+/* The whole stacking system for this page. Nothing may introduce another. */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: hsl(220 16% 8%);
+}
+.stage-film,
+.stage-still,
+.stage-generated {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stage-generated {
+  background:
+    radial-gradient(120% 80% at 42% 40%, hsl(32 30% 26%) 0%, hsl(28 24% 16%) 42%, hsl(220 16% 8%) 100%);
+}
+.stage-film { z-index: 1; opacity: 0; transition: opacity 240ms linear; }
+.stage-film[data-playing='true'] { opacity: 1; }
+.stage-still { z-index: 2; transition: opacity 240ms linear; }
+.stage-still[data-hidden='true'] { opacity: 0; }
+
+/* A very faint animated speckle, so a large dark gradient cannot band. */
+.stage-speckle {
+  position: absolute;
+  inset: -20%;
+  z-index: 3;
+  opacity: 0.035;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: speckle 900ms steps(3, end) infinite;
+}
+@keyframes speckle {
+  0% { transform: translate3d(0, 0, 0); }
+  33% { transform: translate3d(-2%, 1%, 0); }
+  66% { transform: translate3d(1%, -2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-speckle { animation: none; }
+}
+
+/* Darkens the whole stage from the bottom upward, in exact proportion to
+   scroll. Never a fade that plays once on a timer, and never removed under
+   reduced motion, because the writing is light and the film is lit. */
+.stage-darken {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(to top, hsl(220 16% 6%) 0%, hsl(220 16% 6%) 38%, hsla(220, 16%, 6%, 0) 100%);
+  transform: translateY(calc((1 - var(--darken, 0)) * 100%));
+  will-change: transform;
+}
+/* When the panel is fully drawn a flat panel removes the film entirely. */
+.stage-flat {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: hsl(220 16% 6%);
+  opacity: var(--flat, 0);
+}
+
+.letter-shell { position: relative; z-index: 6; }
+
+.letter-wordmark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+  z-index: 7;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 40px;
+  color: hsl(40 22% 94%);
+  text-decoration: none;
+  text-shadow: 0 1px 3px hsla(220, 20%, 4%, 0.55);
+  pointer-events: none;
+}
+.letter-wordmark a { pointer-events: auto; text-decoration: none; }
+
+.letter {
+  position: relative;
+  padding: 0 var(--gutter);
+  /* The writing carries a faint shadow at every width: invisible against the
+     dark ground and load-bearing against the lit one. */
+  text-shadow: 0 1px 3px hsla(220, 20%, 4%, 0.55);
+}
+
+.letter-head { padding: 34vh 0 8vh; }
+.letter-title {
+  font-size: var(--display-fs);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-align: center;
+  margin: 0;
+  text-transform: lowercase;
+}
+.letter-dateline {
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: calc(var(--unit) * 6) 0 0;
+  color: hsl(40 16% 82%);
+}
+
+.letter-body p {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  margin: 1em 0; /* the letter's own rhythm, so it scales with the fluid type */
+  font-weight: 400;
+}
+
+.letter-closing {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  font-weight: 700;
+  margin: 2em 0 0;
+  /* On the letter the accent appears on the closing line alone. */
+  color: var(--accent);
+}
+
+.letter-flow { max-width: none; }
+
+/* Below the breakpoint each paragraph is a half width block, the blocks
+   alternate between the left and right halves, and each fades in exact step
+   with the scroll. */
+.letter-driven { display: none; }
+
+@media (max-width: 63.999rem) {
+  .letter-flow .letter-body { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .letter-driven { display: block; }
+  .letter-block {
+    min-height: 74vh;
+    display: flex;
+    align-items: center;
+    width: 62%;
+    opacity: var(--p, 1);
+  }
+  .letter-block[data-side='end'] { margin-left: 38%; }
+  .letter-title-start { text-align: left; line-height: 0.95; }
+}
+
+@media (min-width: 64rem) {
+  /* On a wide screen the letter is a narrow column standing beside the film
+     and its paragraphs do not fade at all. */
+  .letter-flow { max-width: 40rem; margin-left: 0; }
+  .letter-head { padding: 30vh 0 10vh; }
+  .letter-body p { letter-spacing: 0.02em; }
+}
+
+.letter-footer {
+  position: relative;
+  z-index: 6;
+  background: hsl(220 16% 6%);
+  color: hsl(40 22% 94%);
+  border-radius: 0;
+  padding: calc(var(--unit) * 12) var(--gutter) calc(var(--unit) * 6);
+}
+.footer-canvas-wrap { width: 100%; }
+.footer-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(120px, 22vw, 260px);
+  border-radius: 0;
+}
+.footer-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--unit) * 4);
+  flex-wrap: wrap;
+  margin-top: calc(var(--unit) * 8);
+  border-top: var(--border-w) solid hsl(220 10% 22%);
+  padding-top: calc(var(--unit) * 4);
+}
+.footer-wordmark { font-weight: 700; font-size: 16px; line-height: 24px; }
+.footer-rights { font-size: 16px; line-height: 24px; letter-spacing: 0.02em; color: hsl(40 12% 74%); }
+.footer-links {
+  margin-left: auto;
+  display: flex;
+  gap: calc(var(--unit) * 5);
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+}
+.footer-links li { font-size: 14px; line-height: 21px; }
+.footer-links a { color: hsl(40 22% 94%); }
+.footer-links span { color: hsl(40 10% 66%); }

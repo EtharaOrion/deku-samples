@@ -1,0 +1,114 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, signInRedirect, query } from '../../../lib/server.js';
+import { orderLines, statePhrase, ACCOUNT_ORDER_PREDICATE } from '../../../../server/lib/orders.mjs';
+import { formatMinor, formatDate } from '../../../lib/format.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const PAGE_SIZE = 50;
+// A keyset cursor over the same stable ordering key the API uses, carried in
+// the address so the page after this one has a real address of its own.
+const rawCursor = Astro.url.searchParams.get('before');
+const beforeId = /^[0-9]+$/.test(rawCursor || '') ? rawCursor : null;
+
+let orders = [];
+let hasMore = false;
+let nextCursor = null;
+let failed = false;
+try {
+  const params = [customer.id, customer.email];
+  let where = ACCOUNT_ORDER_PREDICATE;
+  if (beforeId) {
+    params.push(beforeId);
+    where += ` AND id < $${params.length}`;
+  }
+  params.push(PAGE_SIZE + 1);
+  const { rows } = await query(
+    `SELECT * FROM "order" WHERE ${where} ORDER BY id DESC LIMIT $${params.length}`, params);
+
+  hasMore = rows.length > PAGE_SIZE;
+  const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  if (hasMore && page.length) nextCursor = String(page[page.length - 1].id);
+
+  for (const row of page) {
+    const lines = await orderLines(row.id);
+    orders.push({
+      number: row.number,
+      placed_at: row.placed_at,
+      total_minor: Number(row.total_minor),
+      currency: row.currency,
+      state_phrase: statePhrase(row),
+      first_line_title: lines.length ? lines[0].title_snapshot : null,
+      extra: Math.max(lines.length - 1, 0),
+    });
+  }
+} catch {
+  failed = true;
+}
+---
+<Shell title="Orders — Vela" description="Your order history.">
+  <div class="stack stack-6">
+    <h1>Your orders</h1>
+
+    {failed ? (
+      <p class="notice notice-danger">We could not load your orders. Reload the page to try again.</p>
+    ) : orders.length === 0 ? (
+      <div class="card empty">
+        <p>No orders yet.</p>
+        <a href="/shop">Shop</a>
+      </div>
+    ) : (
+      <>
+        <table class="table">
+          <caption class="visually-hidden">Orders, newest first</caption>
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Placed</th>
+              <th>Items</th>
+              <th>State</th>
+              <th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr>
+                <td><a class="ident" href={`/account/orders/${order.number}`}>{order.number}</a></td>
+                <td>{formatDate(order.placed_at)}</td>
+                <td>
+                  {order.first_line_title}
+                  {order.extra > 0 && <span class="hint"> and {order.extra} more</span>}
+                </td>
+                {/* One chip combining the order, payment and fulfilment states
+                    into a single human phrase. */}
+                <td><span class="chip">{order.state_phrase}</span></td>
+                <td class="num money">{formatMinor(order.total_minor, order.currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* The next page is a plain link, so it works with no scripting. */}
+        {hasMore && (
+          <p>
+            <a class="btn" href={`/account/orders?before=${nextCursor}`}>Older orders</a>
+          </p>
+        )}
+        {beforeId && (
+          <p><a href="/account/orders">Back to the newest</a></p>
+        )}
+      </>
+    )}
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  .empty {
+    padding: calc(var(--space) * 6);
+    display: flex; flex-direction: column; gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+</style>

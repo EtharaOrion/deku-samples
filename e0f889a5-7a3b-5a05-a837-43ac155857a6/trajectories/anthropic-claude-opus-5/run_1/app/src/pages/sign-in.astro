@@ -1,0 +1,60 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { login } from '../../server/services/auth.js';
+
+const next = Astro.url.searchParams.get('next') || '/account';
+// Only same-origin paths are followed back.
+const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/account';
+
+let error = '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') || '');
+  try {
+    const out = await login({ email, password: String(form.get('password') || '') });
+    Astro.cookies.set('vela_session', out.access_token, {
+      path: '/', httpOnly: true, sameSite: 'lax', maxAge: 259200,
+    });
+    const target = String(form.get('next') || safeNext);
+    return Astro.redirect(target.startsWith('/') && !target.startsWith('//') ? target : '/account', 303);
+  } catch (err) {
+    error = err?.message || 'That did not work.';
+  }
+}
+---
+<Shell title="Sign in — Vela" current="sign-in" description="Sign in to your Vela account.">
+  <div class="auth">
+    <h1 class="page-title">Sign in</h1>
+    <p class="page-lede">Your cameras, your orders and the software you have.</p>
+
+    <form method="post" class="auth-form">
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+      <input type="hidden" name="next" value={safeNext} />
+
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input class="input" type="email" name="email" value={email} required autocomplete="email" autofocus />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input class="input" type="password" name="password" required autocomplete="current-password" />
+      </label>
+
+      <button class="button" type="submit">Sign in</button>
+    </form>
+
+    <p class="auth-alt">
+      No account yet? <a href={`/sign-up?next=${encodeURIComponent(safeNext)}`}>Create one</a>.
+      Buying does not need one.
+    </p>
+  </div>
+</Shell>
+
+<style>
+  .auth { max-width: 26rem; }
+  .auth-form { margin-top: calc(var(--unit) * 6); }
+  .auth-alt { margin-top: calc(var(--unit) * 6); font-size: 14px; color: var(--ink-quiet); }
+</style>

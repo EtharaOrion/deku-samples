@@ -1,0 +1,130 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import { apiGet, formatMoney } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<any>(Astro.request, '/cart');
+const cart = result.ok ? result.data : null;
+const goods = (cart?.lines || []).filter((l: any) => l.kind !== 'protection');
+
+if (cart && goods.length === 0) {
+  return new Response(null, { status: 302, headers: { location: '/cart' } });
+}
+// Step one must be complete before step two means anything.
+if (cart && (!cart.email || !cart.shipping_address)) {
+  return new Response(null, { status: 302, headers: { location: '/checkout/where-it-goes' } });
+}
+
+// No method is preselected.
+const chosen = cart?.shipping_method || '';
+const methods = [
+  { code: 'standard', label: 'Standard', price_minor: 0, window: 'Arrives in 5 to 7 days' },
+  { code: 'express', label: 'Express', price_minor: 2500, window: 'Arrives in 2 days' },
+];
+---
+
+<Shell title="How it gets there — Vela" current="shop" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <h1>How it gets there</h1>
+  <CheckoutSteps step={2} />
+
+  <div class="layout">
+    <form class="form" data-step-two novalidate>
+      <fieldset class="methods">
+        <legend>Delivery</legend>
+        {methods.map((m) => (
+          <label class="method">
+            <input type="radio" name="shipping_method" value={m.code} checked={chosen === m.code} />
+            <span class="method-main">
+              <span class="method-label">{m.label}</span>
+              <span class="method-window">{m.window}</span>
+            </span>
+            <span class="method-price tnum">{m.price_minor === 0 ? 'Free' : formatMoney(m.price_minor)}</span>
+          </label>
+        ))}
+      </fieldset>
+
+      <p class="form-error" data-error role="alert"></p>
+
+      <div class="actions">
+        <a class="btn btn-secondary" href="/checkout/where-it-goes">Back</a>
+        <button class="btn" type="submit" data-submit>Continue to payment</button>
+      </div>
+    </form>
+
+    {cart && <CheckoutSummary cart={cart} />}
+  </div>
+</Shell>
+
+<script>
+  (() => {
+    const form = document.querySelector<HTMLFormElement>('[data-step-two]');
+    if (!form) return;
+    const error = form.querySelector<HTMLElement>('[data-error]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const chosen = form.querySelector<HTMLInputElement>('[name="shipping_method"]:checked');
+      if (!chosen) {
+        error.textContent = 'Choose a delivery method.';
+        return;
+      }
+      error.textContent = '';
+      submit.disabled = true;
+      const previous = submit.textContent;
+      submit.textContent = 'Saving';
+      try {
+        const res = await fetch('/api/cart/delivery', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ shipping_method: chosen.value }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          error.textContent = body?.error?.message || 'That did not work.';
+          submit.disabled = false;
+          submit.textContent = previous;
+          return;
+        }
+        window.location.assign('/checkout/payment');
+      } catch {
+        error.textContent = 'That did not work. Check your connection and try again.';
+        submit.disabled = false;
+        submit.textContent = previous;
+      }
+    });
+  })();
+</script>
+
+<style>
+  h1 { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 4); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: calc(var(--unit) * 10); align-items: start; }
+  .form { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); max-width: 34rem; }
+  .methods { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: calc(var(--unit) * 3); }
+  .methods legend { font-size: 14px; color: var(--fg-muted); padding-bottom: calc(var(--unit) * 2); }
+  .method {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: calc(var(--unit) * 3);
+    align-items: center;
+    border: var(--border-w) solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 4);
+    cursor: pointer;
+    transition: border-color var(--speed) var(--ease);
+  }
+  .method:has(input:checked) { border-color: var(--fg); }
+  .method-main { display: flex; flex-direction: column; gap: 2px; }
+  .method-label { font-weight: 700; }
+  .method-window { font-size: 14px; color: var(--fg-muted); }
+  .method-price { font-variant-numeric: tabular-nums; }
+  .actions { display: flex; gap: calc(var(--unit) * 3); }
+  .form-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+
+  @media (max-width: 63.999rem) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

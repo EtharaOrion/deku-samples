@@ -1,0 +1,225 @@
+---
+import { formatMoney } from '../lib/api';
+import ProductMedia from '../components/ProductMedia.astro';
+
+interface Props { cart: any }
+const { cart } = Astro.props;
+const goods = (cart.lines || []).filter((l: any) => l.kind !== 'protection');
+const rung = cart.protection_rung;
+---
+
+<div class="cart" data-cart>
+  <!-- A price or availability change renders above the lines as a persistent
+       notice that cannot be dismissed. -->
+  <div class="notices" data-notices>
+    {(cart.notices || []).map((n: any) => (
+      <p class={`notice ${n.kind === 'price_changed' ? '' : 'notice-error'}`} role="status">{n.message}</p>
+    ))}
+  </div>
+
+  <ul class="lines" data-lines>
+    {goods.map((line: any) => (
+      <li class="line" data-line data-line-id={line.id} data-unit={line.unit_price_minor}>
+        <div class="thumb">
+          <ProductMedia handle={line.handle} option={line.option_value} title={line.title} ratio="1 / 1" />
+        </div>
+        <div class="line-main">
+          <p class="line-title">{line.title}</p>
+          <p class="line-variant">{line.option_value} · <span class="mono">{line.sku}</span></p>
+          <p class="line-unit tnum">{formatMoney(line.unit_price_minor)} each</p>
+        </div>
+        <div class="line-qty">
+          <label class="visually-hidden" for={`qty-${line.id}`}>Quantity of {line.title}</label>
+          <div class="stepper">
+            <button type="button" class="btn btn-secondary btn-small" data-dec aria-label={`One fewer ${line.title}`}>&minus;</button>
+            <input id={`qty-${line.id}`} class="tnum" type="number" min="1" max="10" step="1" value={line.quantity} data-qty inputmode="numeric" />
+            <button type="button" class="btn btn-secondary btn-small" data-inc aria-label={`One more ${line.title}`}>+</button>
+          </div>
+        </div>
+        <p class="line-total tnum" data-line-total>{formatMoney(line.total_minor)}</p>
+        <button type="button" class="btn btn-quiet btn-small" data-remove aria-label={`Remove ${line.title}`}>Remove</button>
+      </li>
+    ))}
+  </ul>
+
+  <aside class="summary" aria-labelledby="summary-heading">
+    <h2 id="summary-heading">Summary</h2>
+
+    <label class="protection">
+      <input type="checkbox" data-protection checked={cart.protection_enabled} />
+      <span>Protect this shipment against loss, theft and damage for <span class="tnum">{formatMoney(rung?.price_minor ?? 0)}</span></span>
+    </label>
+
+    <dl class="totals" data-totals>
+      <div><dt>Estimated subtotal</dt><dd class="tnum" data-subtotal>{formatMoney(cart.subtotal_minor)}</dd></div>
+      <div><dt>Estimated delivery</dt><dd class="tnum" data-shipping>{formatMoney(cart.shipping_minor)}</dd></div>
+      <div><dt>Estimated tax</dt><dd class="tnum" data-tax>{formatMoney(cart.tax_minor)}</dd></div>
+      <div class="grand"><dt>Estimated total</dt><dd class="tnum" data-total>{formatMoney(cart.total_minor)}</dd></div>
+    </dl>
+
+    <p class="estimate-note">Estimated. We will show the exact amount once we know where it is going.</p>
+
+    <a class="btn checkout" href="/checkout/where-it-goes">Check out</a>
+    <p class="cart-status" data-status role="status" aria-live="polite"></p>
+  </aside>
+</div>
+
+<script>
+  (() => {
+    const root = document.querySelector<HTMLElement>('[data-cart]');
+    if (!root) return;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+    const totals = root.querySelector<HTMLElement>('[data-totals]')!;
+
+    const money = (minor: number) => {
+      const n = Math.trunc(Number(minor) || 0);
+      const neg = n < 0;
+      const a = Math.abs(n);
+      return `${neg ? '-' : ''}$${Math.trunc(a / 100).toLocaleString('en-US')}.${String(a % 100).padStart(2, '0')}`;
+    };
+
+    function paint(cart: any) {
+      root.querySelector<HTMLElement>('[data-subtotal]')!.textContent = money(cart.subtotal_minor);
+      root.querySelector<HTMLElement>('[data-shipping]')!.textContent = money(cart.shipping_minor);
+      root.querySelector<HTMLElement>('[data-tax]')!.textContent = money(cart.tax_minor);
+      root.querySelector<HTMLElement>('[data-total]')!.textContent = money(cart.total_minor);
+      totals.removeAttribute('data-pending');
+
+      for (const line of cart.lines || []) {
+        const el = root.querySelector<HTMLElement>(`[data-line-id="${line.id}"]`);
+        if (el) {
+          el.querySelector<HTMLElement>('[data-line-total]')!.textContent = money(line.total_minor);
+          const qty = el.querySelector<HTMLInputElement>('[data-qty]')!;
+          qty.value = String(line.quantity);
+        }
+      }
+      document.dispatchEvent(new CustomEvent('vela:cart', { detail: cart }));
+      if ((cart.lines || []).filter((l: any) => l.kind !== 'protection').length === 0) {
+        window.location.reload();
+      }
+    }
+
+    async function send(url: string, init: RequestInit, revert: () => void) {
+      // The totals show a pending state while the server is authoritative.
+      totals.setAttribute('data-pending', 'true');
+      status.textContent = '';
+      status.className = 'cart-status';
+      try {
+        const res = await fetch(url, init);
+        const body = await res.json();
+        if (!res.ok) {
+          // A rejection reverts the number and states the reason.
+          revert();
+          totals.removeAttribute('data-pending');
+          status.textContent = body?.error?.message || 'That did not work.';
+          status.className = 'cart-status is-error';
+          return;
+        }
+        paint(body);
+      } catch {
+        revert();
+        totals.removeAttribute('data-pending');
+        status.textContent = 'That did not work. Check your connection and try again.';
+        status.className = 'cart-status is-error';
+      }
+    }
+
+    root.querySelectorAll<HTMLElement>('[data-line]').forEach((line) => {
+      const id = line.dataset.lineId!;
+      const qty = line.querySelector<HTMLInputElement>('[data-qty]')!;
+      const unit = Number(line.dataset.unit || 0);
+      const lineTotal = line.querySelector<HTMLElement>('[data-line-total]')!;
+
+      // Quantities are optimistic in the interface and authoritative on the
+      // server: the number moves at once.
+      const change = (next: number) => {
+        const before = Number(qty.value);
+        const clamped = Math.max(1, Math.min(10, next));
+        qty.value = String(clamped);
+        lineTotal.textContent = money(unit * clamped);
+        send(
+          `/api/cart/lines/${id}`,
+          { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ quantity: clamped }) },
+          () => { qty.value = String(before); lineTotal.textContent = money(unit * before); },
+        );
+      };
+
+      line.querySelector('[data-dec]')?.addEventListener('click', () => change(Number(qty.value) - 1));
+      line.querySelector('[data-inc]')?.addEventListener('click', () => change(Number(qty.value) + 1));
+      qty.addEventListener('change', () => change(Number(qty.value)));
+
+      line.querySelector('[data-remove]')?.addEventListener('click', () => {
+        line.style.opacity = '0.5';
+        send(`/api/cart/lines/${id}`, { method: 'DELETE' }, () => { line.style.opacity = '1'; });
+      });
+    });
+
+    root.querySelector<HTMLInputElement>('[data-protection]')?.addEventListener('change', (e) => {
+      const box = e.currentTarget as HTMLInputElement;
+      const before = !box.checked;
+      send(
+        '/api/cart/protection',
+        { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: box.checked }) },
+        () => { box.checked = before; },
+      );
+    });
+  })();
+</script>
+
+<style>
+  .cart { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: calc(var(--unit) * 10); align-items: start; }
+  .notices { grid-column: 1 / -1; display: flex; flex-direction: column; gap: calc(var(--unit) * 3); }
+
+  .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .line {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto auto auto;
+    gap: calc(var(--unit) * 4);
+    align-items: center;
+    padding: calc(var(--unit) * 4) 0;
+    border-bottom: var(--border-w) solid var(--line);
+  }
+  .thumb { width: 72px; border: var(--border-w) solid var(--line); }
+  .line-title { font-weight: 700; }
+  .line-variant { font-size: 14px; color: var(--fg-muted); }
+  .line-unit { font-size: 14px; color: var(--fg-muted); }
+  .stepper { display: inline-flex; align-items: center; gap: var(--unit); }
+  .stepper input { width: calc(var(--unit) * 14); text-align: center; }
+  .line-total { font-weight: 700; min-width: calc(var(--unit) * 20); text-align: right; }
+
+  .summary {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: calc(var(--unit) * 5);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 4);
+    position: sticky;
+    top: calc(var(--header-h) + var(--unit) * 4);
+  }
+  .summary h2 { font-size: 16px; }
+  .protection { display: flex; gap: calc(var(--unit) * 2); align-items: flex-start; font-size: 14px; line-height: 21px; }
+  .protection input { margin-top: 3px; }
+
+  .totals { margin: 0; display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .totals dt { color: var(--fg-muted); font-size: 14px; }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border-w) solid var(--line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .totals .grand dt { color: var(--fg); }
+  /* The totals show a pending state while the server is authoritative. */
+  .totals[data-pending] dd { color: var(--fg-muted); }
+
+  .estimate-note { font-size: 14px; line-height: 21px; color: var(--fg-muted); }
+  .checkout { width: 100%; }
+  .cart-status { font-size: 14px; min-height: 21px; }
+  .is-error { color: var(--state-error); }
+
+  @media (max-width: 63.999rem) {
+    .cart { grid-template-columns: minmax(0, 1fr); }
+    .line { grid-template-columns: 56px minmax(0, 1fr) auto; row-gap: calc(var(--unit) * 2); }
+    .thumb { width: 56px; }
+    .line-total { grid-column: 2 / 3; text-align: left; }
+  }
+</style>

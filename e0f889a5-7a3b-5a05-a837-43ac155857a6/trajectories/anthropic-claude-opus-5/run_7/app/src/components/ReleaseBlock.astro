@@ -1,0 +1,60 @@
+---
+import { formatBytes, formatDate } from '../lib/api.js';
+const { release, open = false } = Astro.props;
+const groups = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+---
+<!-- A disclosure that works with no scripting and is keyboard operable. The whole
+     archive is present in the markup whatever the collapse state, so an in-page
+     find and a crawler both see all of it. -->
+<details class="release" open={open}>
+  <summary>
+    <span class="row-between" style="width:100%">
+      <span>
+        <span style="font-weight:700;font-size:18px">Arranger <span class="version">{release.version}</span></span>
+        <span class="small muted" style="display:block;margin-top:var(--unit)">
+          Released on {formatDate(release.released_on)}
+        </span>
+      </span>
+      <span class="small muted tnum">Build {release.build}</span>
+    </span>
+  </summary>
+
+  <div class="release-body">
+    <div class="row" style="gap:calc(var(--unit)*3);margin-bottom:calc(var(--unit)*4)">
+      <a class="btn btn-secondary btn-sm" href={`/downloads/${release.version}`} download={release.artifact_name}>
+        Download Arranger {release.version}
+      </a>
+      <span class="small muted bytes">{formatBytes(release.size_bytes)}</span>
+    </div>
+
+    <p class="tiny muted digest" style="word-break:break-all;margin-bottom:calc(var(--unit)*4)">
+      <span class="visually-hidden">SHA-256 digest: </span>{release.sha256}
+    </p>
+
+    {release.description && <p class="small" style="margin-bottom:calc(var(--unit)*4)">{release.description}</p>}
+
+    {groups.map((g) => (
+      release.notes[g] && release.notes[g].length > 0 && (
+        <div style="margin-bottom:calc(var(--unit)*4)">
+          <h4 style="font-size:14px;line-height:21px;margin-bottom:calc(var(--unit)*2)">{g}</h4>
+          <ul style="padding-inline-start:calc(var(--unit)*5);max-width:70ch">
+            {release.notes[g].map((n) => <li class="small" style="margin-bottom:var(--unit)">{n}</li>)}
+          </ul>
+        </div>
+      )
+    ))}
+
+    <p class="small muted">The Vela team.</p>
+  </div>
+</details>
+
+<style>
+  .release { padding: calc(var(--unit) * 4) 0; }
+  .release summary {
+    cursor: pointer;
+    list-style: none;
+    padding: calc(var(--unit) * 2) 0;
+  }
+  .release summary::-webkit-details-marker { display: none; }
+  .release-body { padding-top: calc(var(--unit) * 4); }
+</style>

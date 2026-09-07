@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="studio studio-form"
+         x-data="itemForm({{ (item or {})|tojson|forceescape }}, '{{ mode }}', '{{ kind }}')">
+  <h1 class="studio-title" x-text="mode === 'new'
+      ? (kind === 'talent' ? 'New talent.' : 'New work.') : record.title"></h1>
+  <p class="studio-house">
+    <a href="/studio" data-nav>BACK TO THE PALETTE</a>
+    <span x-show="record.id" x-cloak> - <span x-text="record.published ? 'LIVE' : 'UNLISTED'">
+      </span></span>
+  </p>
+
+  <p class="form-error" x-show="errorText" x-cloak x-text="errorText" role="alert"></p>
+  <p class="form-note" x-show="noteText" x-cloak role="status">
+    <span x-text="noteText"></span>
+    <a x-show="noteHref" x-cloak :href="noteHref" x-text="noteHref" data-nav></a>
+  </p>
+
+  <form class="auth-form" @submit.prevent="save()" novalidate>
+    <label class="field">
+      <span class="field-label">TITLE</span>
+      <input class="field-input" type="text" x-model="form.title" required>
+    </label>
+    <label class="field" x-show="mode === 'new'" x-cloak>
+      <span class="field-label">SLUG</span>
+      <input class="field-input" type="text" x-model="form.slug"
+             placeholder="LOWERCASE KEBAB, DERIVED FROM THE TITLE IF LEFT EMPTY">
+    </label>
+    <label class="field" x-show="kind === 'talent'" x-cloak>
+      <span class="field-label">DISCIPLINE</span>
+      <select class="field-input" x-model="form.discipline">
+        <option value="director">DIRECTOR</option>
+        <option value="photographer">PHOTOGRAPHER</option>
+        <option value="stylist">STYLIST</option>
+      </select>
+    </label>
+    <label class="field" x-show="kind === 'work'" x-cloak>
+      <span class="field-label">VARIANT</span>
+      <select class="field-input" x-model="form.variant">
+        <option value="left">LEFT</option>
+        <option value="right">RIGHT</option>
+        <option value="centre">CENTRE</option>
+      </select>
+    </label>
+    <fieldset class="field field-group" x-show="mode === 'new'" x-cloak>
+      <legend class="field-label">POSTER</legend>
+      <label class="field">
+        <span class="field-label">WRITTEN ALTERNATIVE</span>
+        <input class="field-input" type="text" x-model="form.alt" required>
+      </label>
+      <label class="field">
+        <span class="field-label">SEED</span>
+        <input class="field-input" type="text" x-model="form.seed">
+      </label>
+    </fieldset>
+    <button class="control" type="submit" :disabled="busy"
+            x-text="busy ? 'SAVING' : (mode === 'new' ? 'CREATE, UNLISTED' : 'SAVE')">
+      CREATE, UNLISTED</button>
+  </form>
+
+  <div class="studio-actions" x-show="record.id" x-cloak>
+    <h2 class="section-label">THIS RECORD</h2>
+    <p class="studio-meta">
+      <span x-text="`SLUG ${record.slug}`"></span>
+      <span x-show="record.ordinal" x-cloak x-text="`ORDINAL ${record.ordinal}`"></span>
+      <span x-show="record.discipline" x-cloak
+            x-text="`DISCIPLINE ${(record.discipline || '').toUpperCase()}`"></span>
+    </p>
+    <div class="button-row">
+      <button type="button" class="control" @click="mintPreview()">MINT A PREVIEW TOKEN</button>
+      <a class="control" x-show="previewUrl" x-cloak :href="previewUrl">OPEN THE PREVIEW</a>
+      <button type="button" class="control" @click="publish(true)" x-show="!record.published"
+              x-cloak>PUBLISH</button>
+      <button type="button" class="control" @click="publish(false)" x-show="record.published"
+              x-cloak>UNLIST</button>
+    </div>
+
+    <h2 class="section-label">CHANGE THE SLUG</h2>
+    <form class="auth-form form-inline" @submit.prevent="changeSlug()" novalidate>
+      <label class="field">
+        <span class="field-label">NEW SLUG, THE OLD ONE KEEPS REDIRECTING</span>
+        <input class="field-input" type="text" x-model="newSlug">
+      </label>
+      <button class="control" type="submit">CHANGE</button>
+    </form>
+
+    <h2 class="section-label">ATTACH MEDIA</h2>
+    <form class="auth-form form-inline" @submit.prevent="addMedia()" novalidate>
+      <label class="field">
+        <span class="field-label">ROLE</span>
+        <select class="field-input" x-model="media.role">
+          <option value="poster">POSTER</option>
+          <option value="reel">REEL</option>
+          <option value="gallery">GALLERY</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">WRITTEN ALTERNATIVE</span>
+        <input class="field-input" type="text" x-model="media.alt">
+      </label>
+      <label class="field">
+        <span class="field-label">SEED</span>
+        <input class="field-input" type="text" x-model="media.seed">
+      </label>
+      <label class="field">
+        <span class="field-label">WIDTH</span>
+        <input class="field-input" type="number" x-model="media.width">
+      </label>
+      <label class="field">
+        <span class="field-label">HEIGHT</span>
+        <input class="field-input" type="number" x-model="media.height">
+      </label>
+      <button class="control" type="submit">ATTACH</button>
+    </form>
+    <ul class="media-list">
+      <template x-for="m in record.media || []" :key="m.media_id">
+        <li class="media-row">
+          <img class="media-thumb" :src="m.url" :alt="m.alt" width="80" height="48">
+          <span x-text="`${m.role.toUpperCase()} ${m.width}x${m.height}`"></span>
+        </li>
+      </template>
+    </ul>
+
+    <div x-show="kind === 'work'" x-cloak>
+      <h2 class="section-label">ADD A CREDIT</h2>
+      <form class="auth-form form-inline" @submit.prevent="addCredit()" novalidate>
+        <label class="field">
+          <span class="field-label">ROLE</span>
+          <input class="field-input" type="text" x-model="credit.role">
+        </label>
+        <label class="field">
+          <span class="field-label">NAME</span>
+          <input class="field-input" type="text" x-model="credit.name">
+        </label>
+        <label class="field">
+          <span class="field-label">TALENT, OPTIONAL</span>
+          <select class="field-input" x-model="credit.talent_id">
+            <option value="">NONE</option>
+            {% for talent in talents %}
+            <option value="{{ talent.id }}">{{ talent.title|upper }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button class="control" type="submit">ADD</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

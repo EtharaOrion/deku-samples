@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "components.html" as c %}
+
+{% block content %}
+<section class="roster" x-data='roster({{ talents|tojson }}, {{ disciplines|tojson }})'>
+
+  {% if disciplines %}
+  <div class="roster-filter" role="group" aria-label="Filter by discipline">
+    <template x-for="(d, i) in disciplines" :key="d">
+      <button type="button" class="roster-filter-item t-default"
+              :aria-pressed="discipline === d ? 'true' : 'false'"
+              @click="select(d)"
+              x-text="d.toUpperCase()"></button>
+    </template>
+  </div>
+  <span class="roster-marker" aria-hidden="true"></span>
+  {% endif %}
+
+  <div class="roster-counter t-default"><span id="roster-position">1/1</span></div>
+
+  <div class="roster-stage" data-native-scroll>
+    <template x-for="(talent, i) in filtered" :key="talent.slug">
+      <div class="roster-entry" :class="{ 'is-current': isCurrent(i) }"
+           :aria-hidden="isCurrent(i) ? 'false' : 'true'">
+        <a class="roster-name display d-name" :href="talent.href" x-text="talent.title"
+           :style="{ transform: nameShift(i) }"
+           :tabindex="isCurrent(i) ? 0 : -1"></a>
+        <div class="roster-discipline t-default" x-text="talent.discipline.toUpperCase()"></div>
+        <a class="roster-portrait tile" :href="talent.href" :tabindex="isCurrent(i) ? 0 : -1"
+           :data-cursor-label="talent.title" :aria-label="talent.title + ', ' + talent.discipline">
+          <div class="tile-frame" :style="'aspect-ratio:' + (talent.poster ? talent.poster.width + '/' + talent.poster.height : '246/328')">
+            <img class="tile-media" :src="talent.poster ? talent.poster.url : ''"
+                 :alt="talent.poster ? talent.poster.alt : talent.title"
+                 :width="talent.poster ? talent.poster.width : 246"
+                 :height="talent.poster ? talent.poster.height : 328">
+            <div class="tile-grain" aria-hidden="true"></div>
+          </div>
+        </a>
+      </div>
+    </template>
+
+    <template x-if="filtered.length === 0">
+      <p class="t-default" style="position:absolute;top:50%;left:0;right:0;text-align:center">No talent is published in this discipline.</p>
+    </template>
+  </div>
+
+  {# the roster's own name is the route's one top-level heading #}
+  <h1 class="visually-hidden" id="roster-live" aria-live="polite">
+    {{ talents[0].title if talents else 'Talents' }}
+  </h1>
+
+  {% if not talents %}
+  <p class="t-default" style="position:absolute;top:50%;left:0;right:0;text-align:center">No talent is published yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

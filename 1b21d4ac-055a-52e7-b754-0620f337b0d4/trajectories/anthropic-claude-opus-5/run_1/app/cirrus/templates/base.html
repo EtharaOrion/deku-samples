@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-route="{{ route }}" data-ground="{{ ground }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+{% if not indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="/share.svg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/static/fonts/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/cirrus.css">
+<link rel="icon" href="data:,">
+{# cirrus.js is deferred ahead of Alpine so its components are registered
+   before Alpine dispatches alpine:init #}
+<script defer src="/static/cirrus.js"></script>
+<script defer src="/static/alpine.min.js"></script>
+</head>
+<body class="ground-{{ ground }}{% if preview %} is-preview{% endif %}" data-route="{{ route }}">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# ---- the persistent tree: it mounts once and survives every navigation ---- #}
+<div class="frame" id="frame" data-frame>
+
+  <a class="wordmark no-cursor-square" href="/" aria-label="Cirrus, home">cirrus</a>
+
+  <nav class="nav" aria-label="Primary">
+    {% for n in nav_items %}
+      {% if n.route %}
+      <a class="nav-link nav-{{ n.route }}{% if n.route == route %} is-current{% endif %}"
+         href="{{ n.href }}" data-route-link
+         {% if n.route == route %}aria-current="page"{% endif %}
+         aria-label="{{ n.label }}"><span class="split" aria-hidden="true">{% for ch in n.label %}<span class="split-ch" style="--i:{{ loop.index0 }}">{{ ch }}</span>{% endfor %}</span></a>
+      {% else %}
+      <a class="nav-link nav-contact" href="{{ n.href }}" data-contact
+         aria-label="{{ n.label }}"><span class="split" aria-hidden="true">{% for ch in n.label %}<span class="split-ch" style="--i:{{ loop.index0 }}">{{ ch }}</span>{% endfor %}</span></a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  {# the centre mark slot: one per route, swapped on navigation #}
+  <div class="centre-mark" data-centre-mark aria-hidden="true">
+    {% include "marks.html" %}
+  </div>
+
+  <a class="corner-credit" href="https://example.com/aube" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg class="credit-mark" viewBox="0 0 60 16" width="60" height="16" aria-hidden="true" focusable="false">
+      <path d="M2 14 L8 2 L14 14 M4.6 9.6 H11.4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M19 2 V10 a4 4 0 0 0 8 0 V2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M32 14 V2 h5 a3 3 0 0 1 0 6 h-5 h5.6 a3 3 0 0 1 0 6 z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M47 14 V2 h9 M47 8 h7 M47 14 h9" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="credit-arrow credit-arrow-rest" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2.2 1 H6 V4.8" fill="none" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <svg class="credit-arrow credit-arrow-next" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2.2 1 H6 V4.8" fill="none" stroke="currentColor" stroke-width="1"/>
+      </svg>
+    </span>
+  </a>
+
+  {# the counter well: the entry route's progress, the roster's position, the preview's wait #}
+  <div class="counter-well" data-counter-well aria-live="polite"></div>
+</div>
+
+{# the cursor pair, at depth 50, above the transition veil #}
+<div class="cursor-pair" data-cursor aria-hidden="true">
+  <span class="cursor-square" data-cursor-square></span>
+  <span class="cursor-label" data-cursor-label></span>
+</div>
+
+{# the contact overlay: narrow-width surface behind CONTACT, one address #}
+<div class="contact-overlay" data-contact-overlay role="dialog" aria-modal="true"
+     aria-label="Contact" hidden>
+  <button type="button" class="contact-close" data-contact-close aria-label="Close contact">CLOSE</button>
+  <div class="contact-body">
+    <p class="contact-line" style="--s:0">WORK WITH US</p>
+    <p class="contact-line" style="--s:1">
+      <a href="mailto:{{ house.contact_email }}" aria-label="{{ house.contact_email|upper }}">{{ house.contact_email|upper }}</a>
+    </p>
+    <p class="contact-line" style="--s:2">{{ house.street }}, {{ house.city }} {{ house.district }}</p>
+  </div>
+</div>
+
+<div class="veil" data-transition-veil aria-hidden="true"></div>
+
+{# ---- the route tree: swaps beneath the frame ---- #}
+<main class="well" id="content" data-well tabindex="-1">
+  <div class="route" data-route-content>
+    {% if preview %}
+    <p class="preview-marker" role="status">PREVIEW - NOT PUBLISHED</p>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+
+  {% block footer %}
+  <footer class="site-footer" data-footer>
+    <div class="footer-scrim" aria-hidden="true"></div>
+    <div class="footer-grid" data-footer-list>
+      <div class="footer-col">
+        <p>{{ house.street }}</p>
+        <p>{{ house.city }}</p>
+      </div>
+      <div class="footer-col footer-district"><p>{{ house.district }}</p></div>
+      <div class="footer-col">
+        <p>{{ house.tagline_upper }}</p>
+        <p>{{ house.tagline_lower }}</p>
+      </div>
+      <div class="footer-col">
+        <p>WORK WITH US</p>
+        <p><a href="mailto:{{ house.contact_email }}" aria-label="{{ house.contact_email|upper }}"><span class="split" aria-hidden="true">{% for ch in house.contact_email|upper %}<span class="split-ch" style="--i:{{ loop.index0 }}">{{ ch }}</span>{% endfor %}</span></a></p>
+      </div>
+      <div class="footer-col footer-right">
+        <p><a href="https://instagram.com" target="_blank" rel="noopener noreferrer">INSTAGRAM</a></p>
+        <p><a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LINKEDIN</a></p>
+      </div>
+    </div>
+  </footer>
+  {% endblock %}
+</main>
+
+<div class="loading-veil" data-loading-veil></div>
+</body>
+</html>

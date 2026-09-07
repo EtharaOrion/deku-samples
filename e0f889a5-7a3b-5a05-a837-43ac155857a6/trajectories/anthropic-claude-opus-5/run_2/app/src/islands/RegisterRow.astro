@@ -1,0 +1,112 @@
+---
+/**
+ * Registration happens in place at the top of the camera grid: one field for the
+ * serial, grouped as it is typed and stored unformatted, validated for shape
+ * instantly and then looked up.
+ */
+---
+
+<form class="register" data-register novalidate>
+  <div class="field">
+    <label for="serial">Register a camera</label>
+    <div class="row">
+      <input
+        id="serial"
+        name="serial"
+        class="serial mono"
+        type="text"
+        inputmode="text"
+        autocapitalize="characters"
+        spellcheck="false"
+        autocomplete="off"
+        placeholder="VA26 09KT MHX4"
+        aria-describedby="serial-help"
+        data-serial
+      />
+      <button class="btn" type="submit" data-submit>Register</button>
+    </div>
+    <p class="help" id="serial-help">Twelve characters, engraved on the underside.</p>
+    <p class="field-error" data-error role="alert"></p>
+    <!-- A brief confirmation that fades on its own. -->
+    <p class="confirm" data-confirm role="status" aria-live="polite" hidden></p>
+  </div>
+</form>
+
+<script>
+  (() => {
+    const form = document.querySelector<HTMLFormElement>('[data-register]');
+    if (!form) return;
+    const input = form.querySelector<HTMLInputElement>('[data-serial]')!;
+    const error = form.querySelector<HTMLElement>('[data-error]')!;
+    const confirm = form.querySelector<HTMLElement>('[data-confirm]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+
+    const SERIAL_RE = /^(VA|VC)\d{4}[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
+    const normalise = (s: string) => s.replace(/[\s-]/g, '').toUpperCase();
+
+    input.addEventListener('input', () => {
+      const raw = normalise(input.value).slice(0, 12);
+      // Grouped as it is typed.
+      input.value = raw.replace(/(.{4})(?=.)/g, '$1 ');
+      // Validated for shape instantly.
+      error.textContent = raw.length === 12 && !SERIAL_RE.test(raw)
+        ? 'We do not recognise that serial number.'
+        : '';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const serial = normalise(input.value);
+      if (!serial) { error.textContent = 'A serial number is required.'; return; }
+      if (!SERIAL_RE.test(serial)) { error.textContent = 'We do not recognise that serial number.'; return; }
+
+      error.textContent = '';
+      submit.disabled = true;
+      const previous = submit.textContent;
+      submit.textContent = 'Registering';
+
+      try {
+        const res = await fetch('/api/account/devices', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ serial }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          // Never the other person's identity.
+          error.textContent = body?.error?.message || 'That did not work.';
+          submit.disabled = false;
+          submit.textContent = previous;
+          return;
+        }
+        input.value = '';
+        confirm.hidden = false;
+        confirm.textContent = `${body.model} added to your account.`;
+        submit.disabled = false;
+        submit.textContent = previous;
+        // Success adds the card; the confirmation fades on its own.
+        setTimeout(() => { window.location.reload(); }, 900);
+      } catch {
+        error.textContent = 'That did not work. Check your connection and try again.';
+        submit.disabled = false;
+        submit.textContent = previous;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .register {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: calc(var(--unit) * 4);
+    margin-bottom: calc(var(--unit) * 6);
+  }
+  .row { display: flex; gap: calc(var(--unit) * 3); }
+  .row input { max-width: calc(var(--unit) * 50); letter-spacing: 0.06em; }
+  .help { font-size: 14px; color: var(--fg-muted); }
+  .field-error { color: var(--state-error); font-size: 14px; min-height: 21px; }
+  .confirm { color: var(--state-done); font-size: 14px; animation: fade 900ms var(--ease) forwards; }
+  @keyframes fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
+</style>

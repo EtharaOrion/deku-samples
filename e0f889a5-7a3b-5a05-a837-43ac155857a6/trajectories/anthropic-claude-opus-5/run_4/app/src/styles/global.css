@@ -1,0 +1,322 @@
+/* ------------------------------------------------------------------ fonts */
+/* One grotesque, weights 400 and 700 only, normal only. No italic anywhere and
+   no third weight, because a weight the build does not load would be
+   synthesised by the browser. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/archivo-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/archivo-700.woff2') format('woff2');
+}
+/* The fallback carries metric overrides so the swap does not move the letter
+   when the real face arrives. */
+@font-face {
+  font-family: 'Vela Fallback';
+  src: local('Helvetica Neue'), local('Arial'), local('Liberation Sans'), local('system-ui');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  --display-family: 'Archivo', 'Vela Fallback', system-ui, sans-serif;
+  /* Identifiers only: system-only, loads no web font, used for nothing else. */
+  --mono-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* The two fluid values. Below 64rem they are viewport units; above it they
+     are pinned by a smooth function through 48.932px and 20.9709px at 1440px.
+     The display size is deliberately not monotonic in viewport width. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  --space: 0.25rem;
+  --gutter: 20px;
+  --header-h: 80px;
+  --radius: 0.5rem;
+  --border-w: 1px;
+  --elevation: 0px 2px 4px rgba(0, 0, 0, 0.05);
+  --speed: 120ms;
+  --ease: linear;
+
+  color-scheme: light;
+}
+
+/* Above 64rem the letter is a narrow column beside the film rather than the
+   whole page, so both sizes drop. clamp interpolates smoothly; it is not a step. */
+/* A straight line through (1024px, 12vw) and (1440px, 48.932px), floored above
+   1440px. Smooth through the measured point rather than a step. */
+@media (min-width: 64rem) {
+  :root {
+    --display-fs: clamp(48.932px, calc(304.905px - 17.7759vw), 122.88px);
+    --body-fs: clamp(20.9709px, calc(81.302px - 4.18969vw), 38.4px);
+  }
+}
+
+/* --------------------------------------------------------------- grounds */
+/* Two grounds. Every surface declares which it is rather than inheriting one,
+   so one declaration inverts a surface. Nothing states black or white. */
+.ground-light {
+  --bg: hsl(40 12% 97%);
+  --bg-raised: hsl(40 14% 99%);
+  --bg-sunken: hsl(40 10% 93%);
+  --fg: hsl(30 8% 12%);
+  --fg-muted: hsl(30 6% 38%);
+  --rule: hsl(35 10% 84%);
+  --rule-strong: hsl(35 8% 68%);
+  background-color: var(--bg);
+  color: var(--fg);
+}
+.ground-dark {
+  --bg: hsl(28 10% 9%);
+  --bg-raised: hsl(28 9% 14%);
+  --bg-sunken: hsl(28 12% 6%);
+  --fg: hsl(38 22% 94%);
+  --fg-muted: hsl(38 10% 72%);
+  --rule: hsl(30 8% 26%);
+  --rule-strong: hsl(30 8% 40%);
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+:root {
+  /* One accent, a saturated warm hue, at most once per screen, never behind
+     text. */
+  --accent: hsl(18 92% 46%);
+  --accent-on-dark: hsl(24 96% 58%);
+  /* Three further meanings, each used nowhere else. Success is stated in words
+     before it is coloured. */
+  --danger: hsl(2 68% 42%);
+  --progress: hsl(214 62% 40%);
+  --done: hsl(154 58% 26%);
+  --danger-bg: hsl(2 62% 96%);
+  --progress-bg: hsl(214 58% 96%);
+  --done-bg: hsl(154 44% 95%);
+}
+
+/* ----------------------------------------------------------------- reset */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--display-family);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-weight: 700; margin: 0; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; }
+
+img, svg, video, canvas { display: block; max-width: 100%; }
+
+a { color: inherit; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Tabular numerals wherever figures stack, so prices, sizes, build numbers,
+   versions and serials align down a column. */
+.tnum,
+.money,
+td.num,
+.stat-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Identifiers are monospace: serials, versions, builds, digests, order
+   numbers, and nothing else. */
+.ident {
+  font-family: var(--mono-family);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------- focus */
+/* A visible ring in the surface's own foreground token, never the accent,
+   never removed. */
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Every page carries a skip link as its first focusable element. */
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: -100px;
+  z-index: 100;
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: var(--border-w) solid var(--fg);
+  border-radius: var(--radius);
+  padding: calc(var(--space) * 2) calc(var(--space) * 4);
+  transition: top var(--speed) var(--ease);
+}
+.skip-link:focus {
+  top: calc(var(--space) * 2);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------- controls */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--space) * 2);
+  min-height: 40px;
+  padding: calc(var(--space) * 2) calc(var(--space) * 4);
+  border-radius: var(--radius);
+  border: var(--border-w) solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 400;
+  transition: background-color var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+.btn:hover:not(:disabled) { background: var(--bg-sunken); }
+.btn-primary {
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 700;
+}
+.btn-primary:hover:not(:disabled) { background: var(--fg-muted); }
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+.field > label { font-weight: 700; font-size: 14px; }
+.input {
+  min-height: 40px;
+  padding: calc(var(--space) * 2) calc(var(--space) * 3);
+  border: var(--border-w) solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--fg);
+}
+.input:hover { border-color: var(--fg-muted); }
+
+.hint { color: var(--fg-muted); font-size: 14px; }
+.error-text { color: var(--danger); font-size: 14px; }
+
+/* ---------------------------------------------------------------- chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space);
+  padding: 0 calc(var(--space) * 2);
+  min-height: 24px;
+  border-radius: var(--radius);
+  border: var(--border-w) solid var(--rule-strong);
+  font-size: 14px;
+  color: var(--fg-muted);
+  background: var(--bg-raised);
+}
+.chip-danger { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+.chip-progress { color: var(--progress); border-color: var(--progress); background: var(--progress-bg); }
+.chip-done { color: var(--done); border-color: var(--done); background: var(--done-bg); }
+
+/* --------------------------------------------------------------- notices */
+.notice {
+  border: var(--border-w) solid var(--rule-strong);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: calc(var(--space) * 3);
+  background: var(--bg-raised);
+}
+.notice-danger { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+.notice-progress { border-color: var(--progress); background: var(--progress-bg); color: var(--progress); }
+.notice-done { border-color: var(--done); background: var(--done-bg); color: var(--done); }
+
+/* ---------------------------------------------------------------- tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th, .table td {
+  text-align: left;
+  padding: calc(var(--space) * 2) calc(var(--space) * 3);
+  border-bottom: var(--border-w) solid var(--rule);
+  vertical-align: top;
+}
+.table th { font-weight: 700; }
+.table td.num, .table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  border: var(--border-w) solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--elevation);
+}
+
+/* --------------------------------------------------------- loading states */
+/* Loading reserves the space its content will occupy so nothing shifts. */
+.skeleton {
+  background: var(--bg-sunken);
+  border-radius: var(--radius);
+  min-height: 1em;
+}
+
+/* ---------------------------------------------------------------- motion */
+/* Motion is mechanical: short, linear, one speed. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------- layout */
+.page-gutter { padding-inline: var(--gutter); }
+
+.stack { display: flex; flex-direction: column; }
+.stack-2 { gap: calc(var(--space) * 2); }
+.stack-3 { gap: calc(var(--space) * 3); }
+.stack-4 { gap: calc(var(--space) * 4); }
+.stack-6 { gap: calc(var(--space) * 6); }
+.stack-8 { gap: calc(var(--space) * 8); }
+
+.row { display: flex; align-items: center; gap: calc(var(--space) * 2); }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--space) * 3); }

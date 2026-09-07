@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_components.html" as c %}
+
+{% block chrome_extra %}
+{# The veil covers the cluster and fades out as the count completes. #}
+<div class="veil" id="entry-veil" aria-hidden="true"></div>
+<div class="counter-well" id="counter-well" role="status" aria-live="polite">
+  <span class="display" id="counter-value">0%</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1 class="visually-hidden">Cirrus, a production house for picture and its makers</h1>
+{% if cluster %}
+<div class="cluster" id="cluster">
+  {% for spot in cluster %}
+  {% set w = spot.work %}
+  <div class="cluster-item" style="left: {{ spot.left }}%; top: {{ spot.top }}%;
+       width: {{ spot.size }}px; z-index: {{ spot.z }};">
+    <a href="{{ w.url }}" data-cursor-label="{{ w.title }} {{ w.ordinal }}"
+       aria-label="{{ w.title }}, work {{ w.ordinal }}">
+      {{ c.media_tile(w.poster, (w.poster.alt if w.poster else w.title)) }}
+    </a>
+    {# Hover-only information is duplicated as a caption visible on focus, in
+       the same position the cursor label would occupy. #}
+    <span class="cluster-caption">{{ w.title }} {{ w.ordinal }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="cluster"><p class="empty-state">No work is published yet.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block footer %}{% endblock %}

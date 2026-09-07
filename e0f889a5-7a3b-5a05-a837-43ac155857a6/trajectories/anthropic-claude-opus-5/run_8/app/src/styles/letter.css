@@ -1,0 +1,210 @@
+/* The letter: one document, the whole of the front page.
+   The stacking system for this page is exactly these layers and nothing may add another. */
+
+.letter-page { margin: 0; }
+
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Layer 1: the stage, at the lowest layer, behind the writing. */
+.stage-film {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.stage-film > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Layer 2: the still frame, above the stage, dissolving away once there is footage. */
+.stage-still {
+  z-index: 1;
+  opacity: 1;
+  transition: opacity var(--speed) var(--ease);
+}
+.stage-still.is-gone { opacity: 0; }
+
+/* The generated gradient keyed to the letter's own colours, if the still fails. */
+.stage-fallback {
+  z-index: 0;
+  background:
+    radial-gradient(120% 90% at 22% 18%, #6f5a41 0%, #4b3d2c 38%, #2b2419 68%, #17140f 100%),
+    linear-gradient(180deg, #3a3025 0%, #1b1712 100%);
+}
+
+/* Layer 3: a very faint animated speckle, so a large dark gradient cannot band. */
+.stage-speckle {
+  z-index: 2;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* Layer 4: the darkening panel, drawn from the bottom upward in exact proportion
+   to scroll. A pure function of scroll position, never a timer. Never removed
+   under reduced motion, because the writing is light and the film is lit. */
+.stage-darken {
+  z-index: 3;
+  background: linear-gradient(to top, #0d0e10 0%, #0d0e10 42%, rgba(13, 14, 16, 0) 100%);
+  transform: translateY(calc(100% - var(--darken, 0) * 100%));
+}
+
+/* Layer 5: the flat panel that removes the film entirely once the darkening is
+   fully drawn, so the footer begins against true ground. */
+.stage-flat {
+  z-index: 4;
+  background: #0d0e10;
+  opacity: var(--flat, 0);
+}
+
+/* Layer 6: the writing. Layer 7: the fixed wordmark. */
+.letter { position: relative; z-index: 5; }
+.letter-wordmark { z-index: 6; }
+
+.letter-wordmark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+  font-weight: 700;
+  font-size: calc(var(--header-h) / 2);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  text-shadow: 0 1px 3px rgba(6, 7, 9, 0.55);
+}
+
+.letter-inner {
+  padding: calc(var(--header-h) + var(--unit) * 20) var(--gutter) calc(var(--unit) * 40);
+  max-width: 1550px;
+  margin: 0 auto;
+}
+
+.letter-title {
+  font-size: var(--display-fs);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: center;
+  margin: 0 0 calc(var(--unit) * 6);
+  text-shadow: 0 1px 4px rgba(6, 7, 9, 0.5);
+}
+
+.letter-dateline {
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: 0 0 calc(var(--unit) * 24);
+  color: var(--fg-muted);
+  text-shadow: 0 1px 3px rgba(6, 7, 9, 0.5);
+}
+
+/* The writing carries a faint shadow at every width: invisible against the dark
+   ground, load-bearing against the lit one. */
+.letter-body p,
+.letter-driven p {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  font-weight: 400;
+  margin: 1em 0;
+  text-shadow: 0 1px 3px rgba(6, 7, 9, 0.5);
+}
+
+@media (min-width: 64rem) {
+  .letter-body p, .letter-driven p { letter-spacing: 0.02em; }
+}
+
+.letter-closing {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  margin: 2em 0 0;
+  /* The only place the accent appears on this surface. */
+  color: var(--accent);
+  text-shadow: 0 1px 3px rgba(6, 7, 9, 0.55);
+}
+
+/* Normal flow: what the markup carries and what a reader with no scripting
+   receives, in correct reading order. Never the only copy. */
+.letter-body { max-width: 34ch; }
+
+/* Below 64rem the letter is a different page: each paragraph is a half width
+   block alternating sides, and each fades in exact step with the scroll. */
+.letter-driven { display: none; }
+
+@media (max-width: 63.999rem) {
+  .letter-title { font-size: var(--display-fs); line-height: 0.95; text-align: left; }
+  .letter-dateline { text-align: left; }
+  .letter-body { max-width: none; }
+
+  /* When the driven layer is running, the flow copy stays as the accessible
+     source but is visually replaced by the driven blocks. */
+  .js-driven .letter-body { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .js-driven .letter-driven { display: block; }
+
+  .letter-driven .block {
+    width: 50%;
+    opacity: var(--o, 1);
+  }
+  .letter-driven .block.side-end { margin-left: 50%; }
+  .letter-driven .block p { margin: 1em 0; }
+}
+
+@media (min-width: 64rem) {
+  /* On a wide screen the letter is a narrow column standing beside the film and
+     its paragraphs do not fade at all; only the picture behind them changes. */
+  .letter-inner { display: grid; grid-template-columns: minmax(0, 34ch) 1fr; }
+  .letter-title, .letter-dateline { grid-column: 1; }
+  .letter-body { grid-column: 1; }
+}
+
+.letter-page .footer { position: relative; z-index: 5; }
+
+/* --------------------------------------------------------------- footer */
+
+.footer {
+  padding: calc(var(--unit) * 12) var(--gutter) calc(var(--unit) * 6);
+  border-radius: var(--radius-flat);
+}
+
+.footer-canvas-wrap {
+  width: 100%;
+  aspect-ratio: 5 / 1;
+  margin-bottom: calc(var(--unit) * 8);
+  border-radius: var(--radius-flat);
+  overflow: hidden;
+}
+.footer-canvas { display: block; width: 100%; height: 100%; }
+
+.footer-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--unit) * 4);
+  flex-wrap: wrap;
+  border-top: var(--border-w) solid var(--line);
+  padding-top: calc(var(--unit) * 4);
+}
+.footer-mark { font-weight: 700; font-size: 16px; line-height: 24px; letter-spacing: -0.01em; }
+.footer-rights { font-size: 16px; line-height: 24px; letter-spacing: 0.02em; color: var(--fg-muted); }
+.footer-links {
+  margin-left: auto;
+  display: flex;
+  gap: calc(var(--unit) * 5);
+  list-style: none;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.footer-links li, .footer-links a { font-size: 14px; line-height: 21px; }
+.footer-links a { text-decoration: none; border-bottom: var(--border-w) solid var(--line-strong); }
+.footer-links .plain { color: var(--fg-muted); }

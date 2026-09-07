@@ -1,0 +1,181 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import StateChip from '../../../components/StateChip.astro';
+import { currentCustomer, devices, signInRedirect, formatDateLong } from '../../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const { serial } = Astro.params;
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+  try {
+    if (action === 'rename') {
+      await devices.renameDevice(customer.id, serial, String(form.get('nickname') || ''));
+      return Astro.redirect(`/account/cameras/${serial}`, 303);
+    }
+    if (action === 'release') {
+      await devices.releaseDevice(customer.id, serial);
+      return Astro.redirect('/account/cameras', 303);
+    }
+  } catch (err) {
+    error = err?.message || 'That did not work.';
+  }
+}
+
+let device = null;
+try {
+  device = await devices.readCustomerDevice(customer.id, serial);
+} catch {
+  device = null;
+}
+
+// Another customer's serial reads as not found, never forbidden.
+if (!device) Astro.response.status = 404;
+---
+<Shell title={device ? `${device.model} — Vela` : 'Not found — Vela'} current="cameras">
+  {!device ? (
+    <div>
+      <h1 class="page-title">We do not recognise that serial number.</h1>
+      <p class="page-lede">It is not a camera on this account.</p>
+      <p style="margin-top:24px;"><a class="button" href="/account/cameras">Back to your cameras</a></p>
+    </div>
+  ) : (
+    <div class="camera-detail">
+      <nav aria-label="Breadcrumb" class="crumbs">
+        <a href="/account/cameras">Cameras</a> <span aria-hidden="true">/</span>
+        <span class="mono">{device.serial}</span>
+      </nav>
+
+      <h1 class="page-title">{device.nickname || device.model}</h1>
+      <p class="page-lede">{device.model} · <span class="mono">{device.serial}</span></p>
+
+      {error && <p class="notice notice-wrong" role="alert" style="margin-top:16px;">{error}</p>}
+
+      <div class="chips" style="margin-top:16px;">
+        <StateChip
+          state={device.firmware_state}
+          label={
+            device.firmware_state === 'update_available' ? 'Update available'
+            : device.firmware_state === 'not_connected' ? 'Not yet connected'
+            : `Firmware ${device.firmware_version}`
+          }
+        />
+        <StateChip
+          state={device.warranty_state}
+          label={
+            device.warranty_state === 'active' ? `Under warranty until ${formatDateLong(device.warranty_until)}`
+            : device.warranty_state === 'expired' ? `Warranty ended ${formatDateLong(device.warranty_until)}`
+            : 'No warranty on record'
+          }
+        />
+      </div>
+
+      <hr class="rule" />
+
+      <table class="table camera-facts">
+        <caption class="visually-hidden">What we know about this camera</caption>
+        <tbody>
+          <tr><th scope="row">Model</th><td>{device.model}</td></tr>
+          <tr><th scope="row">Finish</th><td>{device.option_value || 'Not recorded'}</td></tr>
+          <tr><th scope="row">Serial</th><td class="mono">{device.serial}</td></tr>
+          <tr>
+            <th scope="row">Firmware</th>
+            <td class="mono">{device.firmware_version || 'Not yet reported'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Newest firmware</th>
+            <td class="mono">{device.latest_firmware_version || 'None published'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Warranty</th>
+            <td>{device.warranty_until ? formatDateLong(device.warranty_until) : 'Not recorded'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {device.update_available && (
+        <p class="notice notice-progress" style="margin-top:24px;">
+          There is newer firmware for this camera. Arranger writes it, and{' '}
+          <a href="/doctor">the browser installer</a> can write it if Arranger cannot see the camera.
+        </p>
+      )}
+
+      <hr class="rule" />
+
+      <section class="camera-actions">
+        <h2 class="section-title">Name it</h2>
+        <form method="post" class="rename-form">
+          <input type="hidden" name="action" value="rename" />
+          <label class="field">
+            <span class="field-label">A name only you see</span>
+            <input class="input" type="text" name="nickname" value={device.nickname || ''} maxlength="60" />
+          </label>
+          <button class="button button-quiet" type="submit">Save the name</button>
+        </form>
+      </section>
+
+      <section class="camera-actions">
+        <h2 class="section-title">Hand it on</h2>
+        <p class="action-note">
+          <strong>Remove from my account</strong> releases the camera without giving it to anyone.
+          It is what you do when you sell it to a stranger. The camera keeps its history and the
+          next owner can register it.
+        </p>
+        <!-- Every destructive action confirms first, and Escape closes the overlay. -->
+        <form method="post" id="release-form">
+          <input type="hidden" name="action" value="release" />
+          <button
+            class="button button-quiet"
+            type="button"
+            onclick="document.getElementById('release-dialog').showModal();"
+          >
+            Remove from my account
+          </button>
+        </form>
+
+        <dialog id="release-dialog" class="dialog" aria-labelledby="release-title">
+          <h3 class="section-title" id="release-title">Remove this camera from your account?</h3>
+          <p>
+            The link ends and the camera is given to nobody. You can register it again later if it
+            is still yours.
+          </p>
+          <div class="row">
+            <button
+              class="button button-quiet"
+              type="button"
+              onclick="document.getElementById('release-dialog').close();"
+            >Keep it</button>
+            <button
+              class="button"
+              type="submit"
+              form="release-form"
+            >Remove it</button>
+          </div>
+        </dialog>
+      </section>
+    </div>
+  )}
+</Shell>
+
+<style>
+  .crumbs { font-size: 14px; color: var(--ink-quiet); margin-bottom: calc(var(--unit) * 4); }
+  .chips { display: flex; gap: var(--unit); flex-wrap: wrap; }
+  .camera-facts { max-width: 40rem; }
+  .camera-actions { margin-bottom: calc(var(--unit) * 8); max-width: 40rem; }
+  .rename-form { max-width: 24rem; }
+  .action-note { font-size: 15px; max-width: 56ch; }
+  .dialog {
+    border: var(--border-w) solid var(--rule-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--elevation);
+    padding: calc(var(--unit) * 6);
+    max-width: 32rem;
+    background: var(--ground-raised);
+    color: var(--ink);
+  }
+  .dialog::backdrop { background: rgba(12, 12, 14, 0.45); }
+</style>

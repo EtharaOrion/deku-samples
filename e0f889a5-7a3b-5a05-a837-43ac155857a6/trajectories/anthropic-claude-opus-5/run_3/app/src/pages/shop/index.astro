@@ -1,0 +1,178 @@
+---
+import Shell from '../../components/Shell.astro';
+import { apiGet, pageCustomer, pageCart } from '../../lib/server-fetch.js';
+import { formatMoney } from '../../lib/money.js';
+
+const customer = await pageCustomer(Astro);
+const cart = await pageCart(Astro);
+const { ok, body } = await apiGet('/api/products?page_size=100', Astro);
+const products = ok ? body.data : [];
+
+// Cameras render at full width, accessories in a denser row beneath them.
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+// A product whose variants differ in price reads `From ` and the lowest.
+function priceLabel(p) {
+  return p.price_varies ? `From ${formatMoney(p.price_minor)}` : formatMoney(p.price_minor);
+}
+
+// A state chip only when the product is not simply available.
+function chipFor(p) {
+  if (p.status === 'discontinued') return { text: 'Discontinued', tone: 'neutral' };
+  const total = p.variants.reduce((n, v) => n + v.available, 0);
+  if (total <= 0) return { text: 'Sold out', tone: 'neutral' };
+  if (total <= 10) return { text: `Only ${total} left`, tone: 'progress' };
+  return null;
+}
+---
+
+<Shell
+  title="Shop — Vela"
+  description="Two cameras, a case, a mount and the cable."
+  current="shop"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">Shop</h1>
+    <p class="page-sub">Everything we make fits on one page.</p>
+  </div>
+
+  {
+    products.length === 0 ? (
+      <div class="empty">
+        <p>Nothing is on the table right now.</p>
+        <p>
+          <a href="/downloads">Downloads</a>
+        </p>
+      </div>
+    ) : (
+      <div class="stack">
+        <ul class="card-grid card-grid--wide" role="list">
+          {cameras.map((p) => {
+            const chip = chipFor(p);
+            return (
+              <li class="product-card">
+                <a class="product-card__link" href={`/shop/${p.handle}`}>
+                  <img
+                    class="product-card__media"
+                    src={`/media/products/${p.handle}.svg`}
+                    alt=""
+                    width="480"
+                    height="400"
+                    loading="lazy"
+                  />
+                  <div class="product-card__body">
+                    <div class="row row--between">
+                      <h2 class="product-card__title">{p.title}</h2>
+                      {chip && <span class={`chip chip--${chip.tone}`}>{chip.text}</span>}
+                    </div>
+                    <p class="product-card__subtitle muted">{p.subtitle}</p>
+                    <p class="product-card__price money strong">{priceLabel(p)}</p>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+
+        <ul class="card-grid card-grid--dense" role="list">
+          {rest.map((p) => {
+            const chip = chipFor(p);
+            return (
+              <li class="product-card product-card--dense">
+                <a class="product-card__link" href={`/shop/${p.handle}`}>
+                  <img
+                    class="product-card__media product-card__media--dense"
+                    src={`/media/products/${p.handle}.svg`}
+                    alt=""
+                    width="480"
+                    height="400"
+                    loading="lazy"
+                  />
+                  <div class="product-card__body">
+                    <div class="row row--between">
+                      <h2 class="product-card__title">{p.title}</h2>
+                      {chip && <span class={`chip chip--${chip.tone}`}>{chip.text}</span>}
+                    </div>
+                    <p class="product-card__subtitle muted small">{p.subtitle}</p>
+                    <p class="product-card__price money strong">{priceLabel(p)}</p>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    )
+  }
+</Shell>
+
+<style>
+  .card-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: calc(var(--unit) * 4);
+  }
+  .card-grid--wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .card-grid--dense {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .product-card {
+    border: var(--border-w) solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    transition: box-shadow var(--speed) var(--ease);
+  }
+  .product-card:hover {
+    box-shadow: var(--shadow);
+  }
+  .product-card__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .product-card__media {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 6 / 5;
+    object-fit: cover;
+    /* A radius of 0 on media. */
+    border-radius: 0;
+    border-bottom: var(--border-w) solid var(--line);
+  }
+  .product-card__media--dense {
+    aspect-ratio: 16 / 9;
+  }
+  .product-card__body {
+    padding: calc(var(--unit) * 3) calc(var(--unit) * 4) calc(var(--unit) * 4);
+  }
+  .product-card__title {
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .product-card__subtitle {
+    margin: calc(var(--unit) * 1) 0 calc(var(--unit) * 2);
+  }
+  .product-card__price {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The whole grid falls to one column on a narrow viewport. */
+  @media (max-width: 63.999rem) {
+    .card-grid--wide,
+    .card-grid--dense {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

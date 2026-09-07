@@ -1,0 +1,469 @@
+/* Ravel. Six colour roles and no seventh, one type scale declared once, two
+   durations and one curve, one breakpoint system.
+
+   Every colour that renders comes from a named role. One value has one name and
+   one name has one value; there is no second naming scheme describing the same
+   roles twice. An alpha variant of a role is that role rather than a new one. */
+
+@font-face {
+  font-family: 'Ravel Serif';
+  src: url('/fonts/serif.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Ravel Grotesk';
+  src: url('/fonts/grotesk.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Ravel Mono';
+  src: url('/fonts/mono.woff2') format('woff2-variations');
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root {
+  /* The six roles. */
+  --ink: #23180a;
+  --ground: #f7f3ee;
+  --paper: #fdfbf8;
+  --muted: #5d5548;
+  --accent: #2f5128;
+  --highlight: #7b4f95;
+
+  /* The headroom a focus ring and a selection need. */
+  --focus: #1b3fa8;
+  --selection: #e6ded2;
+
+  /* Alpha variants of a role are that role. */
+  --ink-hairline: rgba(35, 24, 10, 0.16);
+  --ink-rule: rgba(35, 24, 10, 0.3);
+  --ink-scrim: rgba(35, 24, 10, 0.5);
+  --ink-shadow-near: rgba(35, 24, 10, 0.09);
+  --ink-shadow-far: rgba(35, 24, 10, 0.14);
+
+  /* Two named shadow steps, both visible. */
+  --shadow-raised: 0 1px 2px var(--ink-shadow-near), 0 2px 6px var(--ink-shadow-near);
+  --shadow-overlay: 0 4px 10px var(--ink-shadow-far), 0 12px 32px var(--ink-shadow-far);
+
+  /* Three named radius steps and a pill. */
+  --radius-small: 2px;
+  --radius-medium: 4px;
+  --radius-large: 8px;
+  --radius-pill: 999px;
+
+  /* Five named stacking steps and nothing past the last. */
+  --z-below: -1;
+  --z-base: 0;
+  --z-raised: 10;
+  --z-overlay: 100;
+  --z-top: 1000;
+
+  /* Two named durations and one named curve. */
+  --duration-short: 140ms;
+  --duration-long: 320ms;
+  --curve: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Families. A serif carries prose and headings, a grotesk carries labels and
+     the top bar, a monospace carries identifiers and figures in a column. */
+  --font-serif: 'Ravel Serif', Georgia, 'Times New Roman', serif;
+  --font-grotesk: 'Ravel Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Ravel Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* One stroke weighting carries the hierarchy, with a second reserved for
+     h1 and h2 alone. */
+  --weight-text: 400;
+  --weight-label: 550;
+  --weight-display: 620;
+
+  --measure: 34rem;
+  --gap: 1.5rem;
+}
+
+/* The scale. Eight steps, each naming one size and exactly one line height.
+   A size never renders with a second line height. eyebrow is the floor, so
+   nothing renders below twelve pixels. */
+.t-h1, h1 { font-size: 5rem; line-height: 6rem; }
+.t-h2, h2 { font-size: 4rem; line-height: 4.5rem; }
+.t-h3, h3 { font-size: 3rem; line-height: 3.5rem; }
+.t-h4, h4 { font-size: 1.625rem; line-height: 1.8125rem; }
+.t-body-big { font-size: 1.375rem; line-height: 1.8125rem; }
+.t-body-regular, body, p, li, td, th, input, textarea, select, button, label, a {
+  font-size: 1.125rem; line-height: 1.5rem;
+}
+.t-body-small, small { font-size: 1rem; line-height: 1.5rem; }
+.t-eyebrow { font-size: 0.875rem; line-height: 1.125rem; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-weight: var(--weight-text);
+  font-synthesis-weight: none;
+}
+
+::selection { background: var(--selection); color: var(--ink); }
+
+h1, h2, h3, h4 { margin: 0 0 1rem; font-family: var(--font-serif); }
+h1, h2 { font-weight: var(--weight-display); letter-spacing: -0.015em; }
+h3, h4 { font-weight: var(--weight-label); letter-spacing: -0.005em; }
+p { margin: 0 0 1rem; max-width: var(--measure); }
+
+a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* Focus is visible and is not the hover treatment. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-small);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* The grotesk is reserved for labels, table headers and the top bar. */
+.eyebrow, .label, th, .nav-link, .tab {
+  font-family: var(--font-grotesk);
+  font-weight: var(--weight-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.eyebrow { font-size: 0.875rem; line-height: 1.125rem; color: var(--muted); }
+.label { font-size: 0.875rem; line-height: 1.125rem; color: var(--muted); }
+
+/* The monospace is reserved for identifiers and figures compared in a column.
+   Tabular figures, and a slashed zero so it is distinguishable from a capital O. */
+.mono, .figure, code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: 'zero' 1, 'tnum' 1;
+}
+/* A figure holds together on one line only where it is a single figure in a
+   column. A paragraph of figures wraps, so no document scrolls sideways. */
+td.figure, th.figure, span.figure, dd.figure { white-space: nowrap; }
+p.figure, div.figure { overflow-wrap: anywhere; }
+
+/* The nested list carries the same figures at four hops of indent, so inside it
+   a figure and a word wrap rather than pushing the document sideways. */
+.nested-list { min-width: 0; }
+.nested-list .figure, .nested-list .word { white-space: normal; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------- layout */
+.wrap { width: 100%; max-width: 74rem; margin: 0 auto; padding: 0 1.25rem; }
+.wrap-narrow { width: 100%; max-width: 48rem; margin: 0 auto; padding: 0 1.25rem; }
+.stack > * + * { margin-top: 1rem; }
+.stack-loose > * + * { margin-top: 2rem; }
+.row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: baseline; }
+.spread { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+
+.sheet {
+  background: var(--paper);
+  border-radius: var(--radius-medium);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-raised);
+}
+.sheet-flat {
+  background: var(--paper);
+  border-radius: var(--radius-medium);
+  padding: 1.25rem;
+}
+
+.rule { border: 0; border-top: 1px solid var(--ink-rule); margin: 2rem 0; }
+.hairline { border: 0; border-top: 1px solid var(--ink-hairline); margin: 1rem 0; }
+
+/* ------------------------------------------------------------ controls */
+button, .button {
+  font-family: var(--font-grotesk);
+  font-weight: var(--weight-label);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--duration-short) var(--curve),
+              color var(--duration-short) var(--curve),
+              border-color var(--duration-short) var(--curve);
+}
+button:disabled, .button[aria-disabled='true'] {
+  color: var(--muted);
+  border-color: var(--ink-rule);
+  cursor: not-allowed;
+}
+/* A hover treatment is applied only where a pointer is present. */
+@media (hover: hover) {
+  button:not(:disabled):hover, .button:not([aria-disabled='true']):hover {
+    background: var(--ink); color: var(--ground);
+  }
+}
+button:not(:disabled):active { background: var(--ink); color: var(--ground); }
+
+.button-primary { background: var(--ink); color: var(--ground); }
+@media (hover: hover) {
+  .button-primary:not(:disabled):hover { background: var(--muted); border-color: var(--muted); color: var(--ground); }
+}
+
+/* The button arrow that translates once on press is the one piece of
+   decorative motion that stays. */
+.button-arrow { display: inline-block; transition: transform var(--duration-short) var(--curve); }
+button:active .button-arrow { transform: translateX(3px); }
+
+input, textarea, select {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--ink-rule);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+  transition: border-color var(--duration-short) var(--curve);
+}
+input:hover, textarea:hover, select:hover { border-color: var(--ink); }
+.field { display: block; margin-bottom: 1rem; }
+.field > .label { display: block; margin-bottom: 0.35rem; }
+
+/* ------------------------------------------------------------- tables */
+table { border-collapse: collapse; width: 100%; }
+th, td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--ink-hairline);
+  vertical-align: top;
+}
+th { font-size: 0.875rem; line-height: 1.125rem; color: var(--muted); white-space: nowrap; }
+td.num, th.num { text-align: right; }
+
+/* A wide table scrolls inside its own container; no document scrolls sideways. */
+.scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --------------------------------------------------------------- notes */
+/* No state is signalled green and no state is carried by colour alone: each
+   carries its word. */
+.word {
+  font-family: var(--font-grotesk);
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  font-weight: var(--weight-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border: 1px solid var(--ink-rule);
+  border-radius: var(--radius-small);
+  padding: 0.1rem 0.4rem;
+  display: inline-block;
+  white-space: nowrap;
+}
+.word-quiet { color: var(--muted); border-color: var(--ink-hairline); }
+
+.banner {
+  border: 1px solid var(--ink);
+  border-left-width: 4px;
+  border-radius: var(--radius-small);
+  padding: 1rem 1.15rem;
+  background: var(--paper);
+}
+.banner .label { color: var(--ink); }
+
+.note { color: var(--muted); }
+
+/* ---------------------------------------------------------- the reveal */
+/* A heading resolves from a blur and an opacity together, and it is readable
+   before the resolve finishes. One component, one distance, one duration. */
+.reveal {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(8px);
+  transition:
+    opacity var(--duration-long) var(--curve),
+    filter var(--duration-long) var(--curve),
+    transform var(--duration-long) var(--curve);
+}
+.reveal.resolved { opacity: 1; filter: blur(0); transform: translateY(0); }
+
+/* Under a reduced motion preference the reveal resolves immediately with
+   nothing left blurred or transparent, and no transition runs anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; filter: none; transform: none; transition: none; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The twenty-four-pixel fade at the top edge of scrolling content. */
+.fade-top {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 24px);
+  mask-image: linear-gradient(to bottom, transparent 0, black 24px);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: var(--z-top);
+  background: var(--paper);
+  padding: 0.75rem 1rem;
+}
+.skip-link:focus { left: 0; }
+
+/* ------------------------------------------------------- the top bar */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  background: var(--paper);
+  border-bottom: 1px solid var(--ink-rule);
+}
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  max-width: 74rem;
+  margin: 0 auto;
+}
+.brand {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-display);
+  font-size: 1.625rem;
+  line-height: 1.8125rem;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.nav { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+.nav-link {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  text-decoration: none;
+  color: var(--muted);
+  padding: 0.35rem 0.15rem;
+  border-bottom: 2px solid transparent;
+  transition: color var(--duration-short) var(--curve),
+              border-color var(--duration-short) var(--curve);
+}
+@media (hover: hover) { .nav-link:hover { color: var(--ink); } }
+.nav-link[aria-current='page'] { color: var(--ink); border-bottom-color: var(--ink); }
+
+.footer {
+  border-top: 1px solid var(--ink-rule);
+  margin-top: 4rem;
+  padding: 2rem 0 3rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------- the console board */
+.board { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+.card {
+  background: var(--paper);
+  border-radius: var(--radius-medium);
+  padding: 1rem;
+  box-shadow: var(--shadow-raised);
+}
+.card + .card { margin-top: 0.75rem; }
+
+/* -------------------------------------------------- the balance screen */
+.figure-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--ink-hairline);
+}
+
+/* --------------------------------------------------- the wizard steps */
+.condition {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--ink-hairline);
+}
+
+/* --------------------------------------------------------- the accent */
+/* The accent lives on the public routes as emphasis rather than as a verdict,
+   and the console reaches for it on nothing at all. */
+.accent { color: var(--accent); }
+.highlight-mark { color: var(--highlight); }
+
+/* ------------------------------------------------------- breakpoints */
+/* One breakpoint system, declared once, each query written one way:
+   a narrow phone below 48rem, a tablet from 48rem, a wide desktop from 64rem. */
+@media (min-width: 48rem) {
+  .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .figure-row { grid-template-columns: 2fr 1fr 1fr; align-items: baseline; }
+  .condition { grid-template-columns: 1fr 2fr; align-items: start; }
+  .two-up { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+}
+
+@media (min-width: 64rem) {
+  .board { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .three-up { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; }
+  .sidebar-layout { display: grid; grid-template-columns: 18rem 1fr; gap: 2.5rem; align-items: start; }
+}
+
+/* The scale is generous, and at a narrow width the display sizes step down
+   without leaving the eight steps or gaining a ninth. */
+@media (max-width: 48rem) {
+  .t-h1, h1 { font-size: 3rem; line-height: 3.5rem; }
+  .t-h2, h2 { font-size: 3rem; line-height: 3.5rem; }
+  .t-h3, h3 { font-size: 1.625rem; line-height: 1.8125rem; }
+
+  /* Each of the three wide surfaces reflows rather than shrinking. The graph
+     becomes the nested list, which is already on the page carrying the same
+     facts, so nothing is lost by removing the drawing. */
+  .graph-view { display: none; }
+}
+
+/* ------------------------------------------------------ forced colours */
+/* Every state a colour carried is still carried by its word. */
+@media (forced-colors: active) {
+  .word, .banner, .sheet, .card { border: 1px solid CanvasText; }
+  .reveal { opacity: 1; filter: none; transform: none; }
+}
+
+/* ------------------------------------------------------------- print */
+/* Print reuses the same roles: ink on paper, so the palette stays at six. */
+@media print {
+  body { background: var(--paper); color: var(--ink); }
+  .topbar, .footer, .no-print, button { display: none !important; }
+  .sheet, .card { box-shadow: none; border: 1px solid var(--ink); }
+  .document-text { white-space: pre-wrap; font-family: var(--font-mono); }
+  a[href]::after { content: ' (' attr(href) ')'; font-size: 1rem; }
+  .permitted-statement { break-inside: avoid; page-break-inside: avoid; }
+  @page { size: A4; margin: 18mm; }
+}
+
+.document-text {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,0 +1,39 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import OrderDetail from '../../../components/OrderDetail.astro';
+import { apiFetch } from '../../../lib/api.js';
+import { requireCustomer } from '../../../lib/guard.js';
+import '../../../styles/cart.css';
+import '../../../styles/account.css';
+
+const guard = await requireCustomer(Astro);
+if (guard.redirect) return guard.redirect;
+
+const { number } = Astro.params;
+const res = await apiFetch(Astro, `/api/orders/${encodeURIComponent(number)}`);
+// Another customer's order reads as not found, never forbidden.
+const order = res.status === 200 ? res.data : null;
+---
+<Shell title={order ? `Order ${order.number}` : 'Order'} current="orders">
+  {!order && (
+    <div class="page-head">
+      <h1>That order does not exist.</h1>
+      <p><a href="/account/orders">Back to your orders.</a></p>
+    </div>
+  )}
+
+  {order && (
+    <>
+      <div class="page-head">
+        <h1>Order <span class="order-number">{order.number}</span></h1>
+        <p>
+          <span class={`chip ${order.status === 'cancelled' ? 'chip-wrong' : order.fulfilment_status === 'fulfilled' ? 'chip-finished' : 'chip-progress'}`}>
+            {order.state_phrase}
+          </span>
+        </p>
+      </div>
+
+      <OrderDetail order={order} canRegister={true} />
+    </>
+  )}
+</Shell>

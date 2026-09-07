@@ -1,0 +1,53 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { formValues, redirect, setCookie, AUTH_COOKIE } from '../lib/actions.js';
+import { login } from '../../server/services/auth.js';
+
+const next = Astro.url.searchParams.get('next') || '/account';
+let problem = null;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const body = await formValues(Astro.request);
+  email = String(body.email || '');
+  try {
+    const result = await login({ email, password: body.password });
+    setCookie(Astro.cookies, AUTH_COOKIE, result.access_token);
+    const target = String(body.next || '/account');
+    return redirect(target.startsWith('/') ? target : '/account');
+  } catch (err) {
+    problem = err.message || 'That did not work.';
+  }
+}
+---
+
+<Shell title="Sign in">
+  <h1 class="page-title">Sign in</h1>
+  <p class="page-lede">Your orders, your cameras and the version of Arranger this account last saw.</p>
+
+  <form method="post" class="stack auth-form">
+    {problem ? <p class="notice wrong" role="alert" data-test="sign-in-problem">{problem}</p> : null}
+    <input type="hidden" name="next" value={next} />
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" value={email} required autocomplete="email" />
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password" />
+    </div>
+
+    <button class="btn" type="submit">Sign in</button>
+    <p class="hint">
+      No account? <a href="/sign-up">Create one</a>. Checking out as a guest works too.
+    </p>
+  </form>
+</Shell>
+
+<style>
+  .auth-form {
+    max-width: 34rem;
+  }
+</style>

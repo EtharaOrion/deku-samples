@@ -1,0 +1,123 @@
+{
+  "_schema": "if-overlay-v1",
+  "constraints": [
+    {
+      "id": "IF-1",
+      "category": "format",
+      "statement": "A ticket code is the pinned prefix followed by eight uppercase letters or digits, and is unique across the application.",
+      "src": "`TKT-` plus 8 uppercase letters and digits, unique app-wide",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_registration_confirms_and_issues_ticket",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-2",
+      "category": "format",
+      "statement": "The exported guest list opens with the pinned header line and nothing before it.",
+      "src": "The first line is the header `email,display_name,status,waitlist_position,ticket_code`",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_guest_list_export_carries_the_pinned_header",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-3",
+      "category": "scope",
+      "statement": "One account holds one registration on one event, whatever status that registration is in.",
+      "src": "At most one registration per event per account, in any status",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_repeat_registration_stores_one_row",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-4",
+      "category": "scope",
+      "statement": "A transition message reaches the one guest it concerns and nobody else, with no copy recipients.",
+      "src": "to that guest alone, no cc, no bcc, body naming the event",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_confirmation_email_reaches_the_registrant",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-5",
+      "category": "tool_use",
+      "statement": "The registrations the application reports live in the PostgreSQL instance the environment provides, never in a second store the application brought with it.",
+      "src": "Do not introduce a second database, cache, queue, object store, identity provider or mail vendor.",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_seeded_accounts_and_calendars_are_stored",
+      "polarity": "negative"
+    },
+    {
+      "id": "IF-6",
+      "category": "tool_use",
+      "statement": "Mail leaves over ordinary SMTP through the four environment values the brief names, rather than through a vendor client.",
+      "src": "Send with `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS`",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_email_log_row_follows_a_real_send",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-7",
+      "category": "ordering",
+      "statement": "The mail log row is written after the send returns, never before it, so the absence of a row is proof nothing was sent.",
+      "src": "`sent_at`, written only after the SMTP send has returned",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_email_log_row_follows_a_real_send",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-8",
+      "category": "ordering",
+      "statement": "The seat is freed and the head of the waiting list is confirmed inside the one request that cancels, not by a later sweep.",
+      "src": "Cancelling a `confirmed` registration frees the seat in that same request and promotes waiting-list position `1` to `confirmed` with a ticket.",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_cancel_promotes_head_of_waiting_list",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-9",
+      "category": "output_shape",
+      "statement": "A list endpoint answers with a JSON array at the top level rather than an object wrapping one.",
+      "src": "List endpoints return a JSON array at the top level.",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_discovery_filters_by_category_and_city",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-10",
+      "category": "output_shape",
+      "statement": "The events list carries the total-count header on every response, including one that matched nothing.",
+      "src": "Every response from `GET /api/events` carries the header `X-Total-Count` holding how many events matched the filters before `limit` and `offset` were applied",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_event_list_reports_a_total_count_header",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-11",
+      "category": "output_shape",
+      "statement": "A draft event answers a stranger with the same response an address that never existed answers, so the two cannot be told apart.",
+      "src": "A `draft` event returns, to everyone but its host, the not-found response a slug that never existed returns.",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_draft_event_is_hidden_from_a_guest",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-12",
+      "category": "negative",
+      "statement": "No price, payment control or refund appears on any surface of the running product.",
+      "src": "Free events only: no prices, no payments, no refunds, no disputes.",
+      "evaluator": "probe",
+      "target": "workflows.yaml::visitor_browses_and_opens_an_event",
+      "polarity": "negative"
+    },
+    {
+      "id": "IF-13",
+      "category": "negative",
+      "statement": "A guest cancelling their own registration produces no message at all.",
+      "src": "A guest cancelling their own registration sends no mail.",
+      "evaluator": "pytest",
+      "target": "test_community.py::test_guest_cancellation_sends_no_confirmation_mail",
+      "polarity": "negative"
+    }
+  ],
+  "not_applicable": {}
+}

@@ -1,0 +1,79 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import { apiFetch } from '../../lib/api.js';
+import { formatMinor } from '../../lib/format.js';
+import '../../styles/shop.css';
+
+const res = await apiFetch(Astro, '/api/products?page_size=100');
+const products = res.status === 200 ? res.data.data : [];
+const failed = res.status !== 200;
+
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+function chip(p) {
+  if (p.status === 'discontinued') return { label: 'Discontinued', cls: 'chip-neutral' };
+  if (p.availability.state === 'sold_out') return { label: 'Sold out', cls: 'chip-wrong' };
+  if (p.availability.state === 'low') return { label: p.availability.label, cls: 'chip-progress' };
+  return null; // Available is plain.
+}
+---
+<Shell title="Shop" current="shop">
+  <div class="page-head">
+    <h1>Shop</h1>
+    <p>Two cameras, the things that go with them and the parts that wear out. Everything is built and sold by us.</p>
+  </div>
+
+  {failed && (
+    <p class="notice notice-wrong">We could not load the catalogue. Reload the page and it will try again.</p>
+  )}
+
+  {!failed && products.length === 0 && (
+    <p class="empty">Nothing is on the table right now. <a href="/downloads">The downloads are still here.</a></p>
+  )}
+
+  {cameras.length > 0 && (
+    <section aria-labelledby="cameras-head">
+      <h2 class="section-head" id="cameras-head">Cameras</h2>
+      <div class="grid-cameras">
+        {cameras.map((p) => {
+          const c = chip(p);
+          return (
+            <a class="pcard" href={`/shop/${p.handle}`}>
+              <div class="pcard-media"><ProductMedia handle={p.handle} label={p.title} /></div>
+              <div class="pcard-body">
+                <h3 class="pcard-title">{p.title}</h3>
+                <p class="pcard-sub">{p.subtitle}</p>
+                {c && <p><span class={`chip ${c.cls}`}>{c.label}</span></p>}
+                <p class="pcard-price money">{p.price_from ? 'From ' : ''}{formatMinor(p.price_minor)}</p>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
+  {rest.length > 0 && (
+    <section aria-labelledby="rest-head">
+      <h2 class="section-head" id="rest-head">Accessories and spares</h2>
+      <div class="grid-rest">
+        {rest.map((p) => {
+          const c = chip(p);
+          return (
+            <a class="pcard pcard-dense" href={`/shop/${p.handle}`}>
+              <div class="pcard-media"><ProductMedia handle={p.handle} label={p.title} /></div>
+              <div class="pcard-body">
+                <h3 class="pcard-title">{p.title}</h3>
+                <p class="pcard-sub">{p.subtitle}</p>
+                {c && <p><span class={`chip ${c.cls}`}>{c.label}</span></p>}
+                <p class="pcard-price money">{p.price_from ? 'From ' : ''}{formatMinor(p.price_minor)}</p>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  )}
+</Shell>

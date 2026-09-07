@@ -1,0 +1,139 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { currentCart, carts, currentCustomer } from '../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+const row = await currentCart(Astro, { create: true });
+
+let error = '';
+let cart = await carts.showCart(row);
+
+// Each step is a real route with its own address, so the back control works
+// and every entered value survives a back navigation and a reload.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const payload = {
+    email: String(form.get('email') || ''),
+    marketing_consent: form.get('marketing_consent') === 'on',
+    shipping_address: {
+      name: String(form.get('name') || ''),
+      line1: String(form.get('line1') || ''),
+      line2: String(form.get('line2') || ''),
+      city: String(form.get('city') || ''),
+      region: String(form.get('region') || ''),
+      postal_code: String(form.get('postal_code') || ''),
+      country: String(form.get('country') || 'US'),
+      phone: String(form.get('phone') || ''),
+    },
+  };
+  try {
+    cart = await carts.setDelivery(row, payload);
+    return Astro.redirect('/checkout/how-it-gets-there', 303);
+  } catch (err) {
+    error = err?.message || 'That did not work.';
+    // Keep what was typed so nothing is lost.
+    cart = { ...cart, shipping_address: payload.shipping_address, email: payload.email };
+  }
+}
+
+const address = cart.shipping_address || {};
+const email = cart.email || customer?.email || '';
+const empty = cart.lines.length === 0;
+---
+<Shell title="Where it goes — Vela" current="shop">
+  <h1 class="page-title">Where it goes</h1>
+  <CheckoutSteps step={1} />
+
+  {empty ? (
+    <div class="empty">
+      <p>Your cart is empty.</p>
+      <p><a href="/shop">Go to the shop</a></p>
+    </div>
+  ) : (
+    <div class="checkout-layout">
+      <form method="post" class="checkout-form" novalidate>
+        {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+        <fieldset class="fieldset">
+          <legend class="section-title">Contact</legend>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input class="input" type="email" name="email" value={email} required autocomplete="email" />
+            <span class="field-hint">We send the order confirmation here.</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="marketing_consent" checked={cart.marketing_consent} />
+            <span>Write to me when there is news about the cameras.</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="section-title">Address</legend>
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input class="input" type="text" name="name" value={address.name || customer?.name || ''} required autocomplete="name" />
+          </label>
+          <label class="field">
+            <span class="field-label">Address</span>
+            <input class="input" type="text" name="line1" value={address.line1 || ''} required autocomplete="address-line1" />
+          </label>
+          <label class="field">
+            <span class="field-label">Apartment, suite (optional)</span>
+            <input class="input" type="text" name="line2" value={address.line2 || ''} autocomplete="address-line2" />
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">City</span>
+              <input class="input" type="text" name="city" value={address.city || ''} required autocomplete="address-level2" />
+            </label>
+            <label class="field">
+              <span class="field-label">Region</span>
+              <input class="input" type="text" name="region" value={address.region || ''} required autocomplete="address-level1" />
+            </label>
+            <label class="field">
+              <span class="field-label">Postal code</span>
+              <input class="input tabular" type="text" name="postal_code" value={address.postal_code || ''} required autocomplete="postal-code" />
+            </label>
+          </div>
+          <label class="field">
+            <span class="field-label">Country</span>
+            <select class="input" name="country" required autocomplete="country">
+              <option value="US" selected>United States</option>
+            </select>
+            <span class="field-hint">We deliver within the United States.</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Phone (optional)</span>
+            <input class="input tabular" type="tel" name="phone" value={address.phone || ''} autocomplete="tel" />
+          </label>
+        </fieldset>
+
+        <div class="checkout-actions">
+          <a class="button button-quiet" href="/cart">Back to cart</a>
+          <button class="button" type="submit">Continue to delivery</button>
+        </div>
+      </form>
+
+      <CheckoutSummary cart={cart} />
+    </div>
+  )}
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  .checkout-form { max-width: 40rem; }
+  .fieldset { border: 0; padding: 0; margin: 0 0 calc(var(--unit) * 8); }
+  .field-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--unit) * 3); }
+  @media (max-width: 47.999rem) { .field-row { grid-template-columns: minmax(0, 1fr); } }
+  .checkout-actions { display: flex; gap: calc(var(--unit) * 3); flex-wrap: wrap; }
+</style>

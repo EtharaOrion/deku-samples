@@ -1,0 +1,163 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, signInRedirect, getOwnedDevice } from '../../../lib/server.js';
+import { renameDevice, releaseDevice } from '../../../../server/lib/devices.mjs';
+import { formatDate, groupSerial } from '../../../lib/format.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const { serial } = Astro.params;
+let notice = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+  try {
+    if (action === 'rename') {
+      await renameDevice(serial, customer.id, form.get('nickname'));
+      notice = 'Saved.';
+    } else if (action === 'release') {
+      // Removing releases the camera without giving it to anyone.
+      await releaseDevice(serial, customer.id);
+      return Astro.redirect('/account/cameras');
+    }
+  } catch (err) {
+    notice = err.message || 'That did not work.';
+  }
+}
+
+// Another customer's serial reads as not found, never forbidden.
+const device = await getOwnedDevice(serial, customer.id);
+if (!device) {
+  return new Response(null, { status: 404 });
+}
+---
+<Shell title={`${device.model} — Vela`} description={`Camera ${device.serial}.`}>
+  <div class="stack stack-8">
+    <header class="stack stack-3">
+      <p><a href="/account/cameras">Your cameras</a></p>
+      <h1>{device.nickname || device.model}</h1>
+      <p class="serial ident">{groupSerial(device.serial)}</p>
+
+      <div class="chips">
+        {device.firmware_state === 'unknown' ? (
+          <span class="chip">Not yet connected</span>
+        ) : device.update_available ? (
+          <span class="chip chip-progress">Update available</span>
+        ) : (
+          <span class="chip">Firmware <span class="ident">{device.firmware_version}</span></span>
+        )}
+        {device.warranty_until && (
+          <span class="chip">
+            {device.warranty_active
+              ? `Warranty to ${formatDate(device.warranty_until)}`
+              : `Warranty ended ${formatDate(device.warranty_until)}`}
+          </span>
+        )}
+      </div>
+    </header>
+
+    {notice && <p class="notice" role="status">{notice}</p>}
+
+    <section class="stack stack-3">
+      <h2>Details</h2>
+      <table class="table">
+        <tbody>
+          <tr><th scope="row">Model</th><td>{device.model}</td></tr>
+          <tr><th scope="row">Finish</th><td>{device.option_value}</td></tr>
+          <tr><th scope="row">Serial</th><td class="ident">{device.serial}</td></tr>
+          <tr>
+            <th scope="row">Firmware</th>
+            <td class="ident">{device.firmware_version || 'Not yet reported'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Latest firmware</th>
+            <td class="ident">{device.latest_firmware || 'None published'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Warranty</th>
+            <td>{device.warranty_until ? formatDate(device.warranty_until) : 'None on record'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {device.update_available && (
+        <p class="row">
+          <a class="btn" href="/downloads">Get the firmware</a>
+          <span class="hint">Arranger installs it. Use the installer only if Arranger cannot see the camera.</span>
+        </p>
+      )}
+    </section>
+
+    <section class="stack stack-3">
+      <h2>Name it</h2>
+      <form method="post" class="rename">
+        <input type="hidden" name="action" value="rename" />
+        <div class="field">
+          <label for="nickname">Nickname</label>
+          <input class="input" id="nickname" name="nickname" value={device.nickname || ''} maxlength="80" />
+        </div>
+        <button class="btn" type="submit">Save</button>
+      </form>
+    </section>
+
+    <!-- Two different actions, and the copy never blurs them. -->
+    <section class="stack stack-3">
+      <h2>Remove it</h2>
+      <p class="hint remove-copy">
+        Removing releases the camera without giving it to anyone. It is what you do
+        when you sell it to a stranger: they register it themselves afterwards.
+      </p>
+
+      <details class="confirm">
+        <summary class="btn danger-control">Remove from my account</summary>
+        <div class="confirm-body">
+          <p>This releases <span class="ident">{device.serial}</span> from your account. You can register it again later.</p>
+          <form method="post">
+            <input type="hidden" name="action" value="release" />
+            <button class="btn" type="submit">Yes, remove it</button>
+          </form>
+        </div>
+      </details>
+
+      <p class="hint">
+        Handing this camera to someone else is a different thing: release it here, then
+        the new owner registers the serial on their own account.
+      </p>
+    </section>
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  h2 { font-size: 18px; line-height: 24px; }
+  .serial { font-size: 16px; color: var(--fg-muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: calc(var(--space) * 2); }
+  .rename { display: flex; gap: calc(var(--space) * 3); align-items: flex-end; flex-wrap: wrap; }
+  .remove-copy { max-width: 62ch; }
+  .confirm summary { list-style: none; display: inline-flex; cursor: pointer; }
+  .confirm summary::-webkit-details-marker { display: none; }
+  .danger-control { color: var(--danger); border-color: var(--danger); }
+  .confirm-body {
+    margin-top: calc(var(--space) * 3);
+    border: var(--border-w) solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: calc(var(--space) * 4);
+    display: flex; flex-direction: column; gap: calc(var(--space) * 3);
+    align-items: flex-start;
+    max-width: 52ch;
+    font-size: 14px;
+  }
+</style>
+
+<script>
+  // Escape closes any overlay.
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    for (const details of document.querySelectorAll('details.confirm[open]')) {
+      details.open = false;
+      details.querySelector('summary')?.focus();
+    }
+  });
+</script>

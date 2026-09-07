@@ -1,0 +1,147 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import BuyBox from '../../islands/BuyBox.jsx';
+import Gallery from '../../islands/Gallery.jsx';
+import { apiGet, formatDate, mediaFor } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const { handle } = Astro.params;
+const v = await viewer(Astro);
+const res = await apiGet(Astro.request, `/products/${encodeURIComponent(handle)}`);
+
+if (res.status === 404) {
+  return new Response(null, { status: 302, headers: { location: '/shop' } });
+}
+
+const product = res.data;
+const asked = Astro.url.searchParams.get('variant');
+// A parameter naming a variant that does not exist renders the default and drops
+// the parameter without comment.
+const selected = product.variants.find((x) => x.sku === asked) || product.variants[0];
+
+const blocks = product.blocks || [];
+const lede = blocks.find((b) => b.kind === 'lede');
+const specGroups = blocks.filter((b) => b.kind === 'spec_group');
+const inTheBox = blocks.find((b) => b.kind === 'in_the_box');
+const compatibility = blocks.find((b) => b.kind === 'compatibility');
+const supportNote = blocks.find((b) => b.kind === 'support_note');
+
+const images = product.variants.map((x) => ({
+  src: mediaFor(product.handle, x.sku),
+  alt: `${product.title}, ${x.option_value}`,
+}));
+const uniqueImages = images.filter((img, i) => images.findIndex((o) => o.src === img.src) === i);
+---
+<Shell title={`${product.title} — Vela`} description={product.subtitle} signedIn={v.signedIn} cartCount={v.cartCount}>
+  <nav aria-label="Breadcrumb" class="small muted" style="margin-bottom:calc(var(--unit)*4)">
+    <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+  </nav>
+
+  <div class="product-layout">
+    <!-- A keyboard navigable gallery on one side. -->
+    <div>
+      <Gallery client:visible images={uniqueImages} title={product.title} />
+      <noscript>
+        <img class="media" src={uniqueImages[0]?.src} alt={uniqueImages[0]?.alt} width="800" height="600" />
+      </noscript>
+    </div>
+
+    <!-- The title, the subtitle, the price, the availability, the options and one buy control. -->
+    <div>
+      <h1 class="page-title" style="margin-bottom:var(--unit)">{product.title}</h1>
+      <p class="muted" style="margin-bottom:calc(var(--unit)*5)">{product.subtitle}</p>
+
+      {supportNote && (
+        <div class="notice" style="margin-bottom:calc(var(--unit)*5)">
+          <p>{supportNote.payload.text}</p>
+        </div>
+      )}
+
+      <BuyBox client:load product={product} initialSku={selected?.sku} />
+
+      <noscript>
+        <p class="small muted" style="margin-top:calc(var(--unit)*3)">
+          The buy control needs scripting. The price is shown above and the catalogue is readable without it.
+        </p>
+      </noscript>
+    </div>
+  </div>
+
+  <!-- Below that, the typed blocks render as themselves. -->
+  {lede && (
+    <section class="section" style="margin-top:calc(var(--unit)*12)">
+      <p style="max-width:70ch;font-size:18px;line-height:28px">{lede.payload.text}</p>
+    </section>
+  )}
+
+  {specGroups.length > 0 && (
+    <section class="section" aria-labelledby="specs-h">
+      <h2 class="section-title" id="specs-h">Specifications</h2>
+      <div class="grid-2">
+        {specGroups.map((g) => (
+          <div>
+            <h3 style="font-size:14px;line-height:21px;margin-bottom:calc(var(--unit)*2)">{g.payload.title}</h3>
+            <table class="data">
+              <tbody>
+                {g.payload.rows.map((row) => (
+                  <tr>
+                    <th scope="row" style="font-weight:400;color:var(--fg-muted)">{row[0]}</th>
+                    <td class="num tnum">{row[1]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {inTheBox && (
+    <section class="section" aria-labelledby="box-h">
+      <h2 class="section-title" id="box-h">In the box</h2>
+      <ul style="padding-inline-start:calc(var(--unit)*5);max-width:60ch">
+        {inTheBox.payload.items.map((i) => <li style="margin-bottom:var(--unit)">{i}</li>)}
+      </ul>
+    </section>
+  )}
+
+  {compatibility && (
+    <section class="section" aria-labelledby="compat-h">
+      <h2 class="section-title" id="compat-h">Compatibility</h2>
+      <table class="data" style="max-width:52rem">
+        <tbody>
+          <tr>
+            <th scope="row" style="font-weight:400;color:var(--fg-muted)">Minimum operating system</th>
+            <td>{compatibility.payload.min_os}</td>
+          </tr>
+          <tr>
+            <th scope="row" style="font-weight:400;color:var(--fg-muted)">Minimum application version</th>
+            <td class="version">{compatibility.payload.min_app}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted" style="margin-top:calc(var(--unit)*3);max-width:66ch">{compatibility.payload.text}</p>
+    </section>
+  )}
+
+  {product.support_until && (
+    <section class="section">
+      <p class="small muted">
+        We will support this product until {formatDate(product.support_until)}.
+      </p>
+    </section>
+  )}
+</Shell>
+
+<style>
+  .product-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    gap: calc(var(--unit) * 10);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .product-layout { grid-template-columns: minmax(0, 1fr); gap: calc(var(--unit) * 6); }
+  }
+</style>

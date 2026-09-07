@@ -1,0 +1,143 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { currentCart, carts, currentCustomer, orders, formatMinor } from '../../lib/server.js';
+import { randomToken } from '../../../server/lib/crypto.js';
+
+const customer = await currentCustomer(Astro);
+const row = await currentCart(Astro, { create: true });
+let cart = await carts.showCart(row);
+let error = '';
+
+// The no-scripting path places the order with a form post. The island posts the
+// same endpoint; both go through one service.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const key = String(form.get('idempotency_key') || '') || null;
+
+  // A replayed submit lands on the order the first one made.
+  const replayed = await orders.orderForIdempotencyKey(key);
+  if (replayed) return Astro.redirect(`/orders/${replayed.number}`, 303);
+
+  try {
+    const result = await orders.placeOrder({
+      cartRow: row,
+      customerId: customer?.id ?? null,
+      idempotencyKey: key,
+      expectedTotalMinor: Number(form.get('expected_total_minor')) || null,
+    });
+    Astro.cookies.delete('vela_cart', { path: '/' });
+    if (result.accessToken) {
+      Astro.cookies.set(`vela_order_${result.order.number.replace(/[^A-Za-z0-9]/g, '_')}`, result.accessToken, {
+        path: '/', httpOnly: true, sameSite: 'lax', maxAge: 2592000,
+      });
+    }
+    return Astro.redirect(`/orders/${result.order.number}`, 303);
+  } catch (err) {
+    if (err?.code === 'price_changed' || err?.code === 'total_changed') {
+      return Astro.redirect('/cart?repriced=1', 303);
+    }
+    error = err?.message || 'That did not work.';
+    cart = await carts.showCart(row);
+  }
+}
+
+const empty = cart.lines.length === 0;
+const incomplete = !cart.shipping_address || !cart.email || !cart.shipping_method;
+// One key per rendering of this step, so a double submit is one order.
+const idempotencyKey = randomToken(18);
+---
+<Shell title="Payment — Vela" current="shop">
+  <h1 class="page-title">Payment</h1>
+  <CheckoutSteps step={3} />
+
+  {empty ? (
+    <div class="empty"><p>Your cart is empty.</p><p><a href="/shop">Go to the shop</a></p></div>
+  ) : incomplete ? (
+    <div class="notice notice-progress">
+      <p><strong>We need the address and the delivery method first.</strong></p>
+      <p><a href="/checkout/where-it-goes">Go back to where it goes</a></p>
+    </div>
+  ) : (
+    <div class="checkout-layout">
+      <div class="checkout-form">
+        {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+        <section class="review">
+          <h2 class="section-title">Review</h2>
+          <dl class="review-grid">
+            <div>
+              <dt>Sent to</dt>
+              <dd>
+                {cart.shipping_address.name}<br />
+                {cart.shipping_address.line1}{cart.shipping_address.line2 ? <><br />{cart.shipping_address.line2}</> : null}<br />
+                {cart.shipping_address.city}, {cart.shipping_address.region} <span class="tabular">{cart.shipping_address.postal_code}</span><br />
+                {cart.shipping_address.country}
+              </dd>
+            </div>
+            <div>
+              <dt>Confirmation to</dt>
+              <dd>{cart.email}</dd>
+            </div>
+            <div>
+              <dt>Delivery</dt>
+              <dd>{cart.shipping_method_label} — <span class="tabular">{formatMinor(cart.shipping_minor)}</span></dd>
+            </div>
+          </dl>
+          <p class="review-edit">
+            <a href="/checkout/where-it-goes">Change the address</a> ·
+            <a href="/checkout/how-it-gets-there">Change the delivery</a>
+          </p>
+        </section>
+
+        <section class="final">
+          <h2 class="section-title">Total</h2>
+          <p class="final-total tabular">{formatMinor(cart.total_minor)}</p>
+          <p class="final-note">
+            This is the amount we will invoice. There is no card to enter: we raise an invoice
+            against your email and send the confirmation there.
+          </p>
+
+          <PlaceOrder
+            client:load
+            idempotencyKey={idempotencyKey}
+            expectedTotalMinor={cart.total_minor}
+            email={cart.email}
+          />
+
+          <noscript>
+            <form method="post">
+              <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+              <input type="hidden" name="expected_total_minor" value={cart.total_minor} />
+              <button class="button" type="submit">Place order</button>
+            </form>
+          </noscript>
+        </section>
+      </div>
+
+      <CheckoutSummary cart={cart} exact />
+    </div>
+  )}
+</Shell>
+
+<style>
+  .checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .checkout-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  .checkout-form { max-width: 40rem; }
+  .review-grid { display: grid; gap: calc(var(--unit) * 4); margin: 0 0 calc(var(--unit) * 4); }
+  .review-grid dt { font-size: 13px; font-weight: 700; color: var(--ink-quiet); }
+  .review-grid dd { margin: var(--unit) 0 0; font-size: 15px; line-height: 22px; }
+  .review-edit { font-size: 14px; }
+  .final { margin-top: calc(var(--unit) * 8); border-top: var(--border-w) solid var(--rule); padding-top: calc(var(--unit) * 6); }
+  .final-total { font-size: 32px; font-weight: 700; margin: 0; }
+  .final-note { color: var(--ink-quiet); font-size: 14px; max-width: 48ch; }
+</style>

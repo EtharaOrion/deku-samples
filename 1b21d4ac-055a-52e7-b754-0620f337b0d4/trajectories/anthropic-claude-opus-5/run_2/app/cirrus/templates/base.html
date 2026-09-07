@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ site_description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ site_description }}">
+<meta property="og:image" content="{{ public_url }}/share-image.svg">
+<meta name="twitter:card" content="summary_large_image">
+{% block head_extra %}{% endblock %}
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cirrus.css') }}">
+<style>:root{--grain:url("{{ url_for('views.grain') }}")}</style>
+{# cirrus.js first: deferred scripts run in order, and Alpine fires alpine:init
+   as soon as it executes, so its listener must already be registered. #}
+<script defer src="{{ url_for('static', filename='js/cirrus.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/alpine.min.js') }}"></script>
+</head>
+<body class="ground-{{ 'dark' if mark == 'entry' else 'light' }}" data-mark="{{ mark }}"
+      data-ground="{{ 'dark' if mark == 'entry' else 'light' }}"
+      data-scroll="{{ 'none' if mark in ('entry',) else 'yes' }}">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+<!-- The persistent tree. It mounts once and survives every navigation. -->
+<div class="frame" id="frame" data-persistent>
+  <a class="wordmark" href="/" aria-label="Cirrus, home" data-nocursor>{{ house.name | lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-item nav-works" href="/works" data-nav data-label="WORKS"
+       aria-current="{{ 'page' if mark == 'works' else 'false' }}"><span class="split" aria-hidden="true">{% for c in 'WORKS' %}<span class="ch" style="--i:{{ loop.index0 }}">{{ c }}</span>{% endfor %}</span><span class="sr-only">WORKS</span></a>
+    <span class="nav-group">
+      <a class="nav-item" href="/talents" data-nav data-label="TALENTS"
+         aria-current="{{ 'page' if mark == 'talents' else 'false' }}"><span class="split" aria-hidden="true">{% for c in 'TALENTS' %}<span class="ch" style="--i:{{ loop.index0 }}">{{ c }}</span>{% endfor %}</span><span class="sr-only">TALENTS</span></a>
+      <a class="nav-item nav-contact" href="mailto:{{ house.contact_email }}"
+         data-contact aria-label="CONTACT"><span class="split" aria-hidden="true">{% for c in 'CONTACT' %}<span class="ch" style="--i:{{ loop.index0 }}">{{ c }}</span>{% endfor %}</span><span class="sr-only">CONTACT</span></a>
+      <a class="nav-item" href="/about" data-nav data-label="ABOUT"
+         aria-current="{{ 'page' if mark == 'about' else 'false' }}"><span class="split" aria-hidden="true">{% for c in 'ABOUT' %}<span class="ch" style="--i:{{ loop.index0 }}">{{ c }}</span>{% endfor %}</span><span class="sr-only">ABOUT</span></a>
+    </span>
+  </nav>
+
+  <!-- The centre mark slot. Decorative, hidden from assistive technology. -->
+  <div class="centre-mark" id="centre-mark" aria-hidden="true" data-variant="{{ mark }}">
+    {% include 'partials/marks.html' %}
+  </div>
+
+  <a class="credit" href="https://aube.example" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg class="credit-mark" viewBox="0 0 60 16" width="60" height="16" aria-hidden="true" focusable="false">
+      <path d="M2 13 L6 3 L10 13 M3.4 10 H8.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M15 3 V9.5 A3.5 3.5 0 0 0 22 9.5 V3" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M28 13 V3 H32 A2.6 2.6 0 0 1 32 8 H28 M28 8 H32.6 A2.6 2.6 0 0 1 32.6 13 H28"
+            fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M43 3 H49 M43 3 V13 H49 M43 8 H47.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="arrow arrow-rest" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2 1 H6 V5" fill="none" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <svg class="arrow arrow-arrived" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2 1 H6 V5" fill="none" stroke="currentColor" stroke-width="1"/>
+      </svg>
+    </span>
+  </a>
+
+  <!-- The cursor pair: a blended square and a label, parked at (-999,-999). -->
+  <div class="cursor-square" id="cursor-square" aria-hidden="true"></div>
+  <div class="cursor-label" id="cursor-label" aria-hidden="true"></div>
+</div>
+
+<div class="veil" id="route-veil" aria-hidden="true"></div>
+
+<!-- The counter well: one component, three jobs. -->
+<div class="counter-well" id="counter-well" data-role="{{ 'load' if mark == 'entry' else 'idle' }}">
+  <span class="counter-value" id="counter-value"></span>
+</div>
+
+<div class="well" id="well">
+  <main id="content" class="route" data-route data-mark="{{ mark }}"
+        data-ground="{{ 'dark' if mark == 'entry' else 'light' }}"
+        data-title="{{ page_title }}">
+    {% block route %}{% endblock %}
+  </main>
+
+  {% if mark not in ('entry',) and not hide_footer %}
+  {% include 'partials/footer.html' %}
+  {% endif %}
+</div>
+
+{% include 'partials/contact.html' %}
+
+{% block body_extra %}{% endblock %}
+</body>
+</html>

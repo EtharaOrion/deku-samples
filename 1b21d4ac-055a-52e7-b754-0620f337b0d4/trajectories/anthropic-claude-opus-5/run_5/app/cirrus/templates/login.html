@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="sheet" x-data="{ email: '', password: '', error: '', busy: false,
+  submit: function () {
+    this.error = ''; this.busy = true;
+    var self = this;
+    api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: this.email, password: this.password }) })
+      .then(function (r) {
+        self.busy = false;
+        if (!r.ok) { self.error = r.body.error || 'That did not work.'; return; }
+        var params = new URLSearchParams(location.search);
+        location.href = params.get('next') || '/studio';
+      })
+      .catch(function () { self.busy = false; self.error = 'The studio could not be reached.'; });
+  } }">
+  <h1 class="display d-secondary" style="margin:0 0 40px">Studio</h1>
+
+  <form @submit.prevent="submit()" novalidate>
+    <p class="form-error t-default" x-show="error" x-text="error" x-cloak role="alert"></p>
+
+    <div class="field">
+      <label for="email">EMAIL</label>
+      <input id="email" type="email" name="email" x-model="email" autocomplete="username"
+             style="text-transform:none" required>
+    </div>
+
+    <div class="field">
+      <label for="password">PASSWORD</label>
+      <input id="password" type="password" name="password" x-model="password"
+             autocomplete="current-password" style="text-transform:none" required>
+    </div>
+
+    <button class="button t-default" type="submit" :disabled="busy"
+            x-text="busy ? 'SIGNING IN...' : 'SIGN IN'">SIGN IN</button>
+  </form>
+
+  <p class="t-default" style="margin-top:40px">
+    NO ACCOUNT? <a href="/signup">SIGN UP AS A VIEWER</a>
+  </p>
+</section>
+{% endblock %}

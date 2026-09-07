@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+{# The record list arrives complete in the document; Alpine filters it in place. #}
+<section class="studio" x-data="palette()" x-init="init()">
+  <header class="studio-head">
+    <h1 class="studio-title">Studio</h1>
+    <p class="studio-account">{{ account.email|upper }}
+      <button type="button" class="link-button" @click="signOut()">SIGN OUT</button>
+    </p>
+  </header>
+
+  {# the command palette: the producer's entry point, every journey starts here #}
+  <div class="palette" role="search">
+    <label class="palette-field">
+      <span class="visually-hidden">Filter records and actions</span>
+      <input class="palette-input" type="text" x-model="q" data-palette-input
+             @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="run()"
+             placeholder="TYPE A NAME OR AN ACTION" autocomplete="off" autofocus>
+    </label>
+
+    <ul class="palette-actions" role="listbox" aria-label="Actions">
+      <li class="palette-action" role="option" :class="{ 'is-cursor': cursor === 0 }"
+          :aria-selected="cursor === 0">
+        <button type="button" class="palette-button" @click="go(0)">New talent</button>
+      </li>
+      <li class="palette-action" role="option" :class="{ 'is-cursor': cursor === 1 }"
+          :aria-selected="cursor === 1">
+        <button type="button" class="palette-button" @click="go(1)">New work</button>
+      </li>
+      <li class="palette-action" role="option" :class="{ 'is-cursor': cursor === 2 }"
+          :aria-selected="cursor === 2">
+        <button type="button" class="palette-button" @click="go(2)">Reorder index</button>
+      </li>
+      <li class="palette-action" role="option" :class="{ 'is-cursor': cursor === 3 }"
+          :aria-selected="cursor === 3">
+        <button type="button" class="palette-button" @click="go(3)">Preview</button>
+      </li>
+    </ul>
+  </div>
+
+  <p class="auth-error" x-show="error" x-cloak x-text="error" role="alert"></p>
+
+  {# the record list: a compact card grid, one card per record, published
+     beside unlisted #}
+  <div class="record-grid" aria-label="Records" data-record-grid>
+    <p class="empty-state" data-records-empty hidden x-show="empty" x-cloak>NO RECORD MATCHES THAT.</p>
+    {% if items %}
+    {% for r in items %}
+    <article class="record-card" data-record
+             data-title="{{ r.title }}" data-slug="{{ r.slug }}"
+             data-kind="{{ r.kind }}" data-id="{{ r.id }}">
+      <a class="record-link" href="/studio/items/{{ r.id }}">
+        <span class="record-title">{{ r.title }}</span>
+        <span class="record-meta">
+          <span>{{ r.kind|upper }}</span>
+          <span>{{ r.slug }}</span>
+        </span>
+        <span class="record-state">{{ 'LIVE' if r.published else 'UNLISTED' }}</span>
+      </a>
+    </article>
+    {% endfor %}
+    {% else %}
+    <p class="empty-state">THIS HOUSE HAS NO RECORDS YET.</p>
+    {% endif %}
+  </div>
+
+  <div class="reorder" x-show="reordering" x-cloak>
+    <p class="section-label">REORDER THE INDEX</p>
+    <ol class="reorder-list" data-reorder-list>
+      {% for r in items if r.kind == 'work' %}
+      <li class="reorder-row" data-reorder-row data-id="{{ r.id }}">
+        <span>{{ r.title }}</span>
+        <span class="reorder-controls">
+          <button type="button" class="link-button" @click="bump($el, -1)"
+                  aria-label="Move {{ r.title }} earlier">UP</button>
+          <button type="button" class="link-button" @click="bump($el, 1)"
+                  aria-label="Move {{ r.title }} later">DOWN</button>
+        </span>
+      </li>
+      {% endfor %}
+    </ol>
+    <button type="button" class="button" @click="saveOrder()" :disabled="busy">SAVE ORDER</button>
+    <button type="button" class="link-button" @click="reordering = false">CLOSE</button>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

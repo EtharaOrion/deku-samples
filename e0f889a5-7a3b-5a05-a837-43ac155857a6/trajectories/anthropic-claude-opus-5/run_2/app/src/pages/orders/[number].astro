@@ -1,0 +1,66 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import OrderDetail from '../../components/OrderDetail.astro';
+import { apiGet, authHeaders } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const { number } = Astro.params;
+const accessToken = Astro.url.searchParams.get('access_token');
+const justPlaced = Boolean(accessToken);
+
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<any>(
+  Astro.request,
+  `/orders/${number}${accessToken ? `?access_token=${encodeURIComponent(accessToken)}` : ''}`,
+  { headers: authHeaders(Astro.request) },
+);
+const order = result.ok ? result.data : null;
+---
+
+<Shell
+  title={order ? `Order ${order.number} — Vela` : 'Order — Vela'}
+  current="shop"
+  customer={viewer.customer}
+  cartCount={viewer.cartCount}
+>
+  {!order && (
+    <div class="empty-state">
+      <p>{result.ok ? 'That order does not exist.' : result.error.message}</p>
+      <p class="muted">An order opens from the link in its confirmation mail, or from your account.</p>
+      <a class="btn btn-secondary" href="/account/orders">Go to your orders</a>
+    </div>
+  )}
+
+  {order && (
+    <>
+      {justPlaced && (
+        <div class="confirmed" role="status">
+          <!-- Success is stated in words before it is coloured. -->
+          <h1>Order {order.number} is confirmed. We have emailed {order.email}.</h1>
+          <a class="btn keep" href={`/account/orders/${order.number}`}>Keep track of this order</a>
+        </div>
+      )}
+
+      {!justPlaced && <h1 class="plain">Order {order.number}</h1>}
+
+      <OrderDetail order={order} showRegister={Boolean(viewer.customer)} />
+    </>
+  )}
+</Shell>
+
+<style>
+  .confirmed {
+    border: var(--border-w) solid var(--state-done);
+    background: var(--state-done-bg);
+    border-radius: var(--radius);
+    padding: calc(var(--unit) * 6);
+    margin-bottom: calc(var(--unit) * 8);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 4);
+    align-items: flex-start;
+  }
+  .confirmed h1 { font-size: 24px; line-height: 1.3; font-weight: 700; }
+  h1.plain { font-size: 32px; line-height: 1.2; margin-bottom: calc(var(--unit) * 8); }
+  .muted { color: var(--fg-muted); font-size: 14px; }
+</style>

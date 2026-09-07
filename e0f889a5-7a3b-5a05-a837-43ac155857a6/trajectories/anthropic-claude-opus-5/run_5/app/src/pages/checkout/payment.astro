@@ -1,0 +1,89 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { apiFetch, currentCustomer, readCartForPage, forwardCookies } from '../../lib/api.js';
+import { formatMinor } from '../../lib/format.js';
+
+const customer = await currentCustomer(Astro.request);
+
+// Reading the delivery endpoint with no changes re-prices the cart and records
+// the figure this step shows, which is the figure the order authorizes.
+const repriced = await apiFetch(Astro.request, '/api/cart/delivery', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({}),
+});
+forwardCookies(Astro, repriced.headers);
+
+const cart = await readCartForPage(Astro.request);
+if ((cart.lines ?? []).length === 0) return Astro.redirect('/cart', 302);
+if (!cart.email || !cart.shipping_address) return Astro.redirect('/checkout/where-it-goes', 302);
+if (!cart.shipping_method) return Astro.redirect('/checkout/how-it-gets-there', 302);
+
+const address = cart.shipping_address;
+const hasNotices = (cart.notices ?? []).length > 0;
+---
+
+<Shell title="Payment — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <h1 class="page-title">Payment</h1>
+  <CheckoutSteps current="payment" />
+
+  <div class="grid grid--wide" style="align-items:start">
+    <div class="stack">
+      {hasNotices && (
+        <div>
+          {cart.notices.map((notice) => (
+            <p class="notice" style="margin-bottom:0.5rem" role="alert">{notice.message}</p>
+          ))}
+          <p><a href="/cart">Back to the cart</a></p>
+        </div>
+      )}
+
+      <section class="card">
+        <h2 class="section-title">Where it goes</h2>
+        <p style="margin-top:0.5rem">{address.name}</p>
+        <p>{address.line1}</p>
+        {address.line2 && <p>{address.line2}</p>}
+        <p>
+          {address.city}, {address.region} <span class="tnum">{address.postal_code}</span>
+        </p>
+        <p>{address.country}</p>
+        <p style="margin-top:0.5rem;color:var(--quiet)">{cart.email}</p>
+        <p style="margin-top:0.5rem"><a href="/checkout/where-it-goes">Change</a></p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">How it gets there</h2>
+        <p style="margin-top:0.5rem">
+          {cart.shipping_method}
+          <span class="money" style="margin-left:0.5rem">{formatMinor(cart.shipping_minor)}</span>
+        </p>
+        <p style="margin-top:0.5rem"><a href="/checkout/how-it-gets-there">Change</a></p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">The total</h2>
+        <p class="money" style="font-size:24px;line-height:32px;font-weight:700;margin-top:0.5rem">
+          {formatMinor(cart.total_minor)}
+        </p>
+        <p style="margin-top:0.5rem;color:var(--quiet)">
+          We raise an invoice for this amount and email it to {cart.email}.
+        </p>
+
+        {hasNotices ? (
+          <p class="notice" style="margin-top:1rem">
+            The cart changed. Check it before placing the order.
+          </p>
+        ) : (
+          <div style="margin-top:1rem">
+            <PlaceOrder client:load total={formatMinor(cart.total_minor)} />
+          </div>
+        )}
+      </section>
+    </div>
+
+    <CheckoutSummary cart={cart} step="payment" />
+  </div>
+</Shell>

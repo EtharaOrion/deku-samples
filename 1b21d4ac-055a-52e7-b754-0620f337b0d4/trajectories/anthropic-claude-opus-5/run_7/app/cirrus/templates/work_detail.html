@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "partials/tile.html" import tile, caption %}
+{% block html_class %}route-work-detail ground-light{% if preview is defined and preview %} route-preview{% endif %}{% endblock %}
+{% block content %}
+{% if preview is defined and preview %}
+<p class="preview-marker t-ui" role="status">PREVIEW - NOT PUBLISHED</p>
+{% endif %}
+<article class="work-detail">
+  <header class="work-head">
+    <h1 class="t-display work-title">{{ work.title }}</h1>
+    <p class="t-ui work-ordinal">{{ work.ordinal_label or '—' }}</p>
+  </header>
+
+  {% if work.credits %}
+  <dl class="credits" aria-label="Credits">
+    {% for credit in work.credits %}
+    <div class="credit-row">
+      <dt class="t-ui credit-role">{{ credit.role|upper }}</dt>
+      <dd class="t-ui credit-name">
+        {% if credit.href %}<a href="{{ credit.href }}" data-link>{{ credit.name|upper }}</a>
+        {% else %}{{ credit.name|upper }}{% endif %}
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="empty-state t-ui">No credits recorded for this work.</p>
+  {% endif %}
+
+  {% if work.reel %}
+  <div class="work-reel" data-reveal>
+    <div class="tile-frame tile-frame-bleed" style="aspect-ratio: {{ work.reel.width }} / {{ work.reel.height }};">
+      <div class="tile-media" data-media data-src="{{ work.reel.url }}"
+           data-width="{{ work.reel.width }}" data-height="{{ work.reel.height }}"
+           data-reel="{{ work.reel.url }}" data-reel-seed="{{ work.reel.media_id }}" data-reel-autoplay>
+        <img class="tile-img" src="{{ work.reel.url }}" width="{{ work.reel.width }}"
+             height="{{ work.reel.height }}" alt="{{ work.reel.alt }}" decoding="async" data-tile-img>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="work-sequence" aria-label="Stills">
+    {% if work.gallery %}
+      {% for still in work.gallery %}
+      {% set variant = ['left','right','centre'][loop.index0 % 3] %}
+      <div class="works-entry works-entry-{{ variant }}">
+        {{ tile(still, variant, none, work.title) }}
+        {{ caption(work.ordinal_label, work.title) }}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-state t-ui">No stills attached to this work.</p>
+    {% endif %}
+  </section>
+
+  {% if work.neighbours and work.neighbours.previous %}
+  <nav class="neighbours" aria-label="More work">
+    <a class="neighbour neighbour-prev" href="{{ work.neighbours.previous.href }}" data-link>
+      <span class="t-ui neighbour-label">PREVIOUS {{ work.neighbours.previous.ordinal_label }}</span>
+      <span class="t-display neighbour-title">{{ work.neighbours.previous.title }}</span>
+    </a>
+    <a class="neighbour neighbour-next" href="{{ work.neighbours.next.href }}" data-link>
+      <span class="t-ui neighbour-label">NEXT {{ work.neighbours.next.ordinal_label }}</span>
+      <span class="t-display neighbour-title">{{ work.neighbours.next.title }}</span>
+    </a>
+  </nav>
+  {% endif %}
+</article>
+{% endblock %}
+{% block footer %}{% if not (preview is defined and preview) %}{{ super() }}{% endif %}{% endblock %}

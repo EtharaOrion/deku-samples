@@ -1,0 +1,608 @@
+/* Cirrus design system.
+   Two colours and their opacity states. No accent, no brand hue, no state
+   colour, no link colour. A colour value is authored for a ground, a fill, a
+   gradient stop or a generator input, and never for text. */
+
+:root {
+  --color-dark: #060403;
+  --color-light: #e9eae4;
+  --fontM: 24px;
+  --fontS: 12px;
+  --fontXS: 10px;
+  --fontXXS: 8px;
+}
+
+/* Substituted open-licence variable faces, both loaded with swap.
+   Display is a serif, interface is a grotesque, both with a 100..900 axis. */
+@font-face {
+  font-family: "Cirrus Display";
+  src: local("Times New Roman"), local("Times");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cirrus Text";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* A hidden element is hidden whatever display a later rule gives it. */
+[hidden] { display: none !important; }
+[x-cloak] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-light);
+  color: var(--color-dark);
+}
+
+body {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: var(--fontS);
+  font-weight: 500;
+  line-height: 14.4px;      /* 1.2 ratio in the interface face */
+  letter-spacing: 0.04em;
+  text-transform: uppercase; /* every interface-face string renders in capitals */
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* The display face speaks in sentences. */
+.display {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1.1;          /* 1.1 ratio in the display face */
+  font-weight: 300;
+}
+/* The two content exceptions: the talent name and the index caption titles. */
+.display.title-case { text-transform: none; }
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; letter-spacing: inherit; text-transform: inherit;
+         color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+img, svg { display: block; }
+h1, h2, h3, p, figure, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+
+/* ---------------------------------------------------------------- hover */
+/* Every hover resolves to one opacity change and nothing else. */
+a, button, .hoverable { transition: opacity 0.2s ease-out; }
+a:hover, button:hover, .hoverable:hover { opacity: 0.5; }
+
+/* Focus is visible on every interactive element and is not the hover
+   treatment. */
+:focus-visible {
+  outline: 1px solid var(--color-dark);
+  outline-offset: 4px;
+  opacity: 1;
+}
+.ground-dark :focus-visible, .route-entry :focus-visible {
+  outline-color: var(--color-light);
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px; left: 8px;
+  z-index: 60;
+  padding: 8px 12px;
+  background: var(--color-light);
+  color: var(--color-dark);
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: translateY(0); }
+.route-entry .skip-link { background: var(--color-dark); color: var(--color-light); }
+
+.visually-hidden {
+  /* A live announcement is content, not chrome: it keeps the record's own case. */
+  text-transform: none;
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------- the two layers */
+/* A fixed frame pinned to the window, and a scrolling well under it. */
+.frame {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.frame > * { pointer-events: auto; }
+
+.well {
+  position: relative;
+  z-index: 0;
+  min-height: 100vh;
+}
+
+/* The route transition: the frame, the counter well, the footer and the
+   outgoing content all take one state class and fade together. */
+.frame, .counter-well, .site-footer, .well {
+  transition: opacity 0.4s;
+}
+html.route-leaving .frame,
+html.route-leaving .counter-well,
+html.route-leaving .site-footer,
+html.route-leaving .well { opacity: 0; }
+
+/* The cursor pair sits above the veil and does not participate. */
+html.route-leaving .cursor-pair { opacity: 1; }
+
+/* ------------------------------------------------------ the wordmark */
+.wordmark {
+  position: fixed;
+  top: 26px; left: 40px;
+  z-index: 11;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  color: #000;
+  mix-blend-mode: difference;
+}
+
+/* ---------------------------------------------------- the navigation */
+/* WORKS is centred in the window; the other three are grouped at the right. */
+.nav { position: fixed; top: 26px; left: 0; right: 0; z-index: 12; height: 18px; }
+.nav-centre {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.nav-right {
+  position: absolute;
+  right: 40px;
+  display: flex;
+  gap: 32px;
+}
+.nav a[aria-current="page"] { opacity: 1; }
+.nav a[aria-current="page"]::after {
+  content: "";
+  display: block;
+  width: 4px; height: 4px;
+  margin: 4px auto 0;
+  background: var(--color-dark);
+}
+.route-entry .nav a[aria-current="page"]::after { background: var(--color-light); }
+
+/* ------------------------------------------------- the centre mark */
+/* Below the frame but above content: a roster name passes in front of the
+   wordmark and behind nothing else. */
+.centre-mark {
+  position: fixed;
+  top: 438px;
+  left: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.centre-mark svg { fill: var(--color-dark); }
+.route-entry .centre-mark svg { fill: var(--color-light); }
+
+/* ------------------------------------------------ the corner credit */
+.corner-credit {
+  position: fixed;
+  right: 40px; bottom: 20px;
+  z-index: 11;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.corner-credit svg.credit-mark { fill: var(--color-dark); }
+.route-entry .corner-credit svg.credit-mark { fill: var(--color-light); }
+.credit-arrows { position: relative; width: 8px; height: 24px; }
+.credit-arrows svg {
+  position: absolute;
+  fill: var(--color-dark);
+  transition: transform 0.45s cubic-bezier(.83,.12,.35,.96), opacity 0.3s;
+}
+.route-entry .credit-arrows svg { fill: var(--color-light); }
+.credit-arrow-rest { left: 0; top: 8px; opacity: 1; }
+.credit-arrow-arrived { left: -8px; top: 24px; opacity: 0; }
+.corner-credit:hover .credit-arrow-rest { transform: translate(8px, -16px); opacity: 0; }
+.corner-credit:hover .credit-arrow-arrived { transform: translate(8px, -16px); opacity: 1; }
+
+/* ------------------------------------------------- the cursor pair */
+.cursor-pair {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+  pointer-events: none;
+  transform: translate3d(-999px, -999px, 0);
+}
+.cursor-square {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: #fff;
+  mix-blend-mode: difference;
+}
+.cursor-label {
+  position: absolute;
+  left: 20px; top: -2px;
+  white-space: nowrap;
+  color: #fff;
+  mix-blend-mode: difference;
+  font-size: var(--fontS);
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+}
+.cursor-pair.is-above .cursor-label { left: 0; top: -150px; }
+.cursor-pair.no-square .cursor-square { opacity: 0; }
+
+/* ------------------------------------------------- the loading veil */
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--color-dark);
+  transition: opacity 0.4s;
+}
+.veil.is-clear { opacity: 0; pointer-events: none; }
+
+.counter-well {
+  position: fixed;
+  z-index: 21;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 40px;
+  font-weight: 200;
+  color: var(--color-light);
+}
+
+/* --------------------------------------------------------- the footer */
+.site-footer { position: relative; z-index: 9; padding: 120px 40px 28px; }
+.footer-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(0deg, #313236 -1.82%, #31323684 43.56%, #eaebe500);
+  transform: scale(1.5);
+  transform-origin: bottom center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.site-footer.is-arrived .footer-scrim { opacity: 1; }
+.footer-cols {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  transform: translateY(249.506px);
+  transition: transform 0.8s cubic-bezier(.2,.65,.47,.96);
+}
+.site-footer.is-arrived .footer-cols { transform: translateY(0); }
+.footer-label { font-size: var(--fontXS); font-weight: 400; line-height: 19px;
+                letter-spacing: 0.08em; }
+.footer-premises { display: flex; gap: 24px; }
+.footer-right { text-align: right; }
+
+/* ------------------------------------------------------ the media tile */
+/* One component with a width variant, not three components. */
+.tile { position: relative; }
+.tile-frame {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  clip-path: inset(100% 0% 0%);
+  transform: translateX(-123px);
+  transition: clip-path 0.8s cubic-bezier(.2,.65,.47,.96),
+              transform 0.8s cubic-bezier(.2,.65,.47,.96);
+}
+.tile-frame.is-revealed { clip-path: inset(0% 0% 0%); transform: translateX(0); }
+.tile-frame img, .tile-frame canvas, .tile-frame .tile-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.015);   /* never expose a sub-pixel edge; not animated */
+  filter: grayscale(1);
+  transition: filter 0.8s cubic-bezier(.2,.65,.47,.96);
+}
+/* The colour return: the point of the work index. */
+.tile:hover .tile-media { filter: grayscale(0); }
+.tile-frame .grain {
+  position: absolute; inset: 0;
+  background-image: var(--grain-url);
+  background-size: 300px 300px;
+  opacity: 0.055;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+.tile-placeholder { position: absolute; inset: 0; background: #dedede; opacity: 0.25;
+                    transition: opacity 0.1s; }
+.tile-placeholder.is-clear { opacity: 0; }
+
+/* the caption row */
+.caption-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 14px;
+  gap: 24px;
+}
+.caption-left { display: flex; align-items: center; }
+.caption-square { width: 4px; height: 4px; background: var(--color-dark);
+                  margin-right: 8px; }
+.caption-ordinal { font-size: var(--fontS); font-weight: 500; line-height: 14.4px; }
+.caption-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24px; font-weight: 300; line-height: 25.2px;
+  text-transform: none; letter-spacing: 0;
+}
+
+/* the blur block: used by the about body and the work index opening line */
+.blur-block { filter: blur(0px); will-change: auto; }
+.blur-block.is-triggered { transition: filter 0.8s cubic-bezier(.2,.65,.47,.96); }
+
+/* ------------------------------------------------------- entry route */
+.route-entry, .route-entry body { background: var(--color-dark); color: var(--color-light); }
+.route-entry { overflow: hidden; height: 100%; }
+body.entry { background: var(--color-dark); color: var(--color-light);
+             height: 100vh; overflow: hidden; }
+body.entry .caption-square { background: var(--color-light); }
+.cluster { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.cluster-item { position: absolute; transition: opacity 0.2s ease-out; }
+.cluster-item > a { display: block; }
+/* The cluster is still: no wipe and no lateral slide on this route, and its
+   stills carry their colour, since the colour return belongs to the index. */
+.cluster .tile-frame { clip-path: none; transform: none; }
+.cluster .tile-media { filter: grayscale(0); }
+.cluster-item:hover { opacity: 0.5; }   /* fades to half and nothing else */
+.cluster-caption {
+  position: absolute; left: 20px; top: -2px; white-space: nowrap;
+  opacity: 0; font-size: var(--fontS);
+}
+.cluster-item a:focus-visible + .cluster-caption,
+.cluster-item:focus-within .cluster-caption { opacity: 1; }
+
+/* ------------------------------------------------------- works index */
+.works-opening {
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 40px 90px;
+}
+.works-opening-line {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: clamp(40px, 6.6vw, 96px);
+  font-weight: 200;
+  line-height: 1.02;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  max-width: 100%;
+}
+.works-list { padding-bottom: 40px; }
+.work-entry { position: relative; margin-bottom: 260px; }
+.work-entry.variant-left { width: 598px; margin-left: 40px; }
+.work-entry.variant-right { width: 300px; margin-left: auto; margin-right: 40px; }
+.work-entry.variant-centre { width: 1006px; margin-left: 219px; }
+.work-entry.gap-large { margin-bottom: 1350px; }
+
+/* ------------------------------------------------------ work detail */
+.work-detail { padding: 180px 40px 0; }
+.work-title { font-size: 56px; font-weight: 300; line-height: 61.6px; }
+.work-ordinal { font-size: 19px; font-weight: 500; line-height: 17.1px; }
+.credits { margin-top: 40px; display: grid; gap: 8px; max-width: 520px; }
+.credit-row { display: flex; justify-content: space-between; gap: 24px; }
+.credit-role { opacity: 0.5; }
+.reel-full { margin: 80px 0; width: 100%; }
+.neighbours { display: flex; justify-content: space-between; gap: 24px;
+              padding: 120px 0 40px; }
+.neighbour-title { font-family: "Cirrus Display", "Times New Roman", Times, serif;
+                   font-size: 40px; font-weight: 200; text-transform: none;
+                   letter-spacing: 0; }
+
+/* --------------------------------------------------------- the roster */
+.roster { position: relative; height: 100vh; overflow: hidden; }
+.roster-name {
+  position: absolute;
+  left: 0; right: 0;
+  top: 250px;
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 125px;
+  font-weight: 300;
+  line-height: 137.5px;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  transform: translateY(0);
+  transition: transform 0.8s cubic-bezier(.2,.65,.47,.96), opacity 0.3s;
+}
+.roster-name span { display: block; transform-origin: center; }
+.roster-discipline { position: absolute; left: 0; right: 0; top: 357px;
+                     text-align: center; transition: opacity 0.3s; }
+.roster-portrait {
+  position: absolute; top: 567px; left: 50%;
+  width: 246px; margin-left: -123px;
+}
+.filter {
+  position: absolute;
+  left: 54px; top: 443px;
+  display: flex; flex-direction: column; gap: 18px;
+  align-items: flex-start;
+}
+.filter-item { position: relative; }
+/* The one place on the site where a hover brightens rather than fades: the
+   resting state is already faded. */
+.filter-btn { opacity: 0.62; transition: opacity 0.2s ease-out; }
+.filter-btn:hover { opacity: 1; }
+.filter-btn[aria-pressed="true"] { opacity: 1; }
+.filter-marker {
+  position: absolute;
+  left: -18px; top: 50%;
+  width: 4px; height: 4px;
+  margin-top: -2px;
+  background: var(--color-dark);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.filter-btn[aria-pressed="true"] ~ .filter-marker { opacity: 1; }
+.roster-empty { position: absolute; inset: 0; display: grid; place-items: center; }
+
+/* ------------------------------------------------------- about route */
+.about-figure { min-height: 100vh; display: grid; place-items: center;
+                padding: 180px 40px 0; text-align: center; }
+.about-line { font-family: "Cirrus Display", "Times New Roman", Times, serif;
+              font-size: 36px; font-weight: 100; line-height: 34.56px;
+              letter-spacing: 0; }
+.about-body { padding: 0 40px; min-height: 100vh; display: grid;
+              align-content: center; gap: 300px; }
+.about-para { font-family: "Cirrus Display", "Times New Roman", Times, serif;
+              font-size: 18px; font-weight: 300; line-height: 21.6px;
+              text-transform: none; letter-spacing: 0; max-width: 620px; }
+.about-para-wide { max-width: 900px; margin-left: auto; }
+.about-para .line { display: block; }
+.lockup { position: relative; height: 100vh; }
+.lockup-inner { position: absolute; left: 50%; top: 50%;
+                transform: translate(-50%, -50%); width: 700px; height: 320px; }
+.lockup-large { position: absolute; font-family: "Cirrus Display","Times New Roman",Times,serif;
+                font-size: 58px; font-weight: 400; line-height: 40.6px; letter-spacing: 0; }
+.lockup-small { position: absolute; font-family: "Cirrus Display","Times New Roman",Times,serif;
+                font-size: 24.75px; font-weight: 100; line-height: 23.76px; letter-spacing: 0; }
+.lockup-tiny { position: absolute; font-family: "Cirrus Display","Times New Roman",Times,serif;
+               font-size: 9.75px; font-weight: 100; line-height: 9.36px; letter-spacing: 0; }
+
+/* ----------------------------------------------------- contact overlay */
+.contact-overlay {
+  position: fixed; inset: 0; z-index: 30;
+  background: var(--color-light);
+  display: grid; place-items: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.contact-overlay.is-open { opacity: 1; pointer-events: auto; }
+.contact-item {
+  transform: translateY(200px);
+  transition: transform 0.45s cubic-bezier(.83,.12,.35,.96), opacity 0.3s;
+  opacity: 0;
+}
+.contact-overlay.is-open .contact-item { transform: translateY(0); opacity: 1; }
+.contact-close { position: absolute; top: 26px; right: 40px; }
+
+/* --------------------------------------------------------- the studio */
+.studio-wrap { padding: 120px 40px 80px; max-width: 1100px; margin: 0 auto; }
+.palette-input {
+  width: 100%;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 40px; font-weight: 200;
+  background: transparent; border: 0; border-bottom: 1px solid var(--color-dark);
+  color: var(--color-dark); padding: 8px 0; text-transform: none; letter-spacing: 0;
+}
+.palette-input:focus { outline: none; opacity: 1; }
+.palette-actions { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0 40px; }
+.palette-action { border: 1px solid var(--color-dark); padding: 8px 14px; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+             gap: 12px; }
+.card { border: 1px solid var(--color-dark); padding: 12px; display: block; }
+.card-title { font-family: "Cirrus Display","Times New Roman",Times,serif; font-size: 24px;
+              font-weight: 300; line-height: 25.2px; text-transform: none; letter-spacing: 0; }
+.card-meta { display: flex; justify-content: space-between; margin-top: 10px;
+             font-size: var(--fontXS); letter-spacing: 0.08em; }
+.field { display: grid; gap: 8px; margin-bottom: 20px; max-width: 520px; }
+.field input, .field select, .field textarea {
+  font-family: inherit; font-size: var(--fontS); font-weight: 500;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--color-dark);
+  color: var(--color-dark); padding: 10px;
+}
+.field-error { opacity: 0.72; }
+.form-note { max-width: 520px; margin-bottom: 20px; opacity: 0.72; }
+.btn { border: 1px solid var(--color-dark); padding: 10px 16px; display: inline-block; }
+/* The preview route does not scroll and carries the full chrome. */
+.route-preview, .route-preview body { height: 100%; overflow: hidden; }
+.route-preview .well { max-height: 100vh; overflow: hidden; }
+/* The waiting state sits on the pale ground and clears once the record is up. */
+.counter-well.preview-waiting { color: var(--color-dark); }
+.counter-well.preview-waiting.is-clear { opacity: 0; transition: opacity 0.4s; }
+.preview-marker {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 40;
+  text-align: center; padding: 6px;
+  background: var(--color-dark); color: var(--color-light);
+  font-size: var(--fontS); letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------- not found */
+.not-found { min-height: 100vh; display: grid; place-items: center; }
+.not-found-line { font-family: "Cirrus Display","Times New Roman",Times,serif;
+                  font-size: 40px; font-weight: 200; text-transform: none;
+                  letter-spacing: 0; }
+
+.empty-state { padding: 40px; opacity: 0.72; }
+
+/* --------------------------------------------------------- responsive */
+/* One real breakpoint. A viewport shorter than 500px is treated as narrow. */
+@media (max-width: 768px), (max-height: 500px) {
+  .wordmark { top: 18px; left: 20px; font-size: 22px;
+              transition: transform 0.45s cubic-bezier(.83,.12,.35,.96); }
+  .nav { top: 18px; }
+  .nav-centre { left: 20px; transform: none; }
+  .nav-right { right: 20px; gap: 18px; }
+  html.chrome-retracted .wordmark,
+  html.chrome-retracted .nav { transform: translateY(-72px); }
+  .nav { transition: transform 0.45s cubic-bezier(.83,.12,.35,.96); }
+
+  .cursor-pair { display: none; }
+
+  .work-entry.variant-left, .work-entry.variant-right, .work-entry.variant-centre {
+    width: calc(100vw - 40px); margin: 0 20px 90px;
+  }
+  .work-entry.gap-large { margin-bottom: 120px; }
+  /* Colour is not held behind a hover that cannot happen. */
+  .tile-media { filter: grayscale(0) !important; }
+  .cluster-caption { opacity: 1; position: static; margin-top: 6px; }
+  .credit-arrows svg { transition: none; }
+
+  .roster { height: auto; overflow: visible; }
+  .roster-block { min-height: 100vh; position: relative; padding: 100px 20px 0; }
+  .roster-name { position: static; font-size: clamp(40px, 13vw, 72px);
+                 line-height: 1.05; text-align: center; }
+  .roster-discipline { position: static; margin-top: 16px; }
+  .roster-portrait { position: static; margin: 40px auto 0; width: min(246px, 70vw); }
+  .filter { position: static; flex-direction: row; gap: 20px; padding: 100px 20px 0;
+            justify-content: center; }
+  .filter-marker { left: 50%; top: auto; bottom: -10px; margin-left: -2px; }
+
+  .works-opening { padding: 0 20px 60px; }
+  .about-figure, .about-body { padding-left: 20px; padding-right: 20px; }
+  .about-body { gap: 120px; }
+  .about-line { font-size: 20px; line-height: 19.2px; }
+  /* Seven lines composed for a wide window become fourteen ragged ones here. */
+  .about-para .line { display: inline; }
+  .lockup-inner { width: 90vw; height: auto; position: static; transform: none;
+                  padding-top: 120px; }
+  .lockup-large, .lockup-small, .lockup-tiny { position: static; }
+  .lockup-large { font-size: 40px; line-height: 1.05; }
+  .lockup-small, .lockup-tiny { font-size: 17px; line-height: 1.1; }
+  .site-footer { padding: 80px 20px 24px; }
+  .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 32px 16px; }
+  .studio-wrap { padding: 100px 20px 60px; }
+  .centre-mark { display: none; }
+}
+
+/* --------------------------------------------------- reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .frame, .counter-well, .site-footer, .well { transition: none; }
+  .tile-frame { transition: none; clip-path: inset(0% 0% 0%); transform: none; }
+  .blur-block { filter: blur(0) !important; transition: none; }
+  .roster-name, .footer-cols, .contact-item { transition: none; transform: none; }
+  .cursor-pair { display: none; }
+  /* The colour return still applies: it carries information, not motion. */
+  .tile-frame img, .tile-frame canvas, .tile-frame .tile-media {
+    transition: filter 0.01s;
+  }
+  .site-footer .footer-cols { transform: translateY(0); }
+  .footer-scrim { opacity: 1; }
+}

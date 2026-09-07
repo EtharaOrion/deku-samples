@@ -1,0 +1,99 @@
+---
+import Base from '../layouts/Base.astro';
+import ScrollStage from '../islands/ScrollStage.jsx';
+import FooterField from '../islands/FooterField.jsx';
+import { LETTER_TITLE, LETTER_DATELINE, LETTER_CLOSING, LETTER_PARAGRAPHS } from '../lib/letter.js';
+import '../styles/letter.css';
+
+const footerEntries = [
+  { label: 'Shop', href: '/shop' },
+  { label: 'Support' },
+  { label: 'Terms' },
+  { label: 'Privacy' },
+  { label: 'Jobs' },
+  { label: 'Contact' },
+];
+---
+<Base title="Vela — the table" ground="dark">
+  <a class="skip-link" href="#letter">Skip to the letter</a>
+
+  <div class="letter-page" id="letter-page">
+    <!-- The stage: film, still, speckle, darkening, flat panel. Scenery, never
+         information, and inert. -->
+    <div class="stage" id="stage" aria-hidden="true">
+      <div class="stage-generated"></div>
+      <video
+        class="stage-film"
+        id="stage-film"
+        src="/media/table.webm"
+        poster="/media/table-still.jpg"
+        muted
+        loop
+        playsinline
+        preload="none"
+        tabindex="-1"
+        aria-hidden="true"
+        data-playing="false"
+      ></video>
+      <img
+        class="stage-still"
+        id="stage-still"
+        src="/media/table-still.jpg"
+        alt=""
+        decoding="async"
+        data-hidden="false"
+      />
+      <div class="stage-speckle"></div>
+      <div class="stage-darken"></div>
+      <div class="stage-flat"></div>
+    </div>
+
+    <div class="letter-wordmark"><a href="/">Vela</a></div>
+
+    <div class="letter-shell">
+      <article class="letter" id="letter">
+        <header class="letter-head">
+          <h1 class="letter-title">{LETTER_TITLE}</h1>
+          <p class="letter-dateline"><time datetime="2026-06-01">{LETTER_DATELINE}</time></p>
+        </header>
+
+        <!-- Normal flow: what the markup carries and what a reader with no
+             scripting receives, in correct reading order. -->
+        <div class="letter-flow">
+          <div class="letter-body">
+            {LETTER_PARAGRAPHS.map((p) => <p>{p.text}</p>)}
+            <p class="letter-closing">{LETTER_CLOSING}</p>
+          </div>
+        </div>
+
+        <!-- The driven layer, hidden from assistive technology. It is never the
+             only copy of a paragraph. -->
+        <div class="letter-driven" aria-hidden="true">
+          {LETTER_PARAGRAPHS.map((p) => (
+            <div class="letter-block" data-side={p.side}><p>{p.text}</p></div>
+          ))}
+          <div class="letter-block" data-side="start">
+            <p class="letter-closing">{LETTER_CLOSING}</p>
+          </div>
+        </div>
+      </article>
+
+      <footer class="letter-footer">
+        <div class="footer-canvas-wrap">
+          <FooterField client:idle />
+        </div>
+        <div class="footer-bottom">
+          <span class="footer-wordmark">Vela</span>
+          <span class="footer-rights">All rights reserved</span>
+          <ul class="footer-links">
+            {footerEntries.map((entry) => (
+              <li>{entry.href ? <a href={entry.href}>{entry.label}</a> : <span>{entry.label}</span>}</li>
+            ))}
+          </ul>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <ScrollStage client:load />
+</Base>

@@ -1,0 +1,581 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 52,
+            "passed": 21,
+            "failed": 31,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788696901.379327,
+            "stop": 1788696950.986702
+        },
+        "tests": [
+            {
+                "name": "test_community.py::test_registration_confirms_and_issues_ticket",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.30097825804841705,
+                "start": 1788696901.4947681,
+                "stop": 1788696901.8282814,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_registration_confirms_and_issues_ticket(host_client, db):\n        slug = probe_slug(\"probe-open-seat\")\n        create_event(host_client, \"Probe Open Seat\", slug, capacity=2)\n        token = signup(probe_email())\n        response = register(token, slug)\n>       assert response.status_code in (200, 201), (\n            f\"POST /api/registrations for {slug!r} returned {response.status_code}: \"\n            f\"{response.text[:400]}\"\n        )\nE       AssertionError: POST /api/registrations for 'probe-open-seat-35e311f7' returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:52: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_last_seat_race_confirms_exactly_one_row",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.2804389000230003,
+                "start": 1788696901.8285005,
+                "stop": 1788696902.1274228,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_last_seat_race_confirms_exactly_one_row(host_client, db):\n        slug = probe_slug(\"probe-last-seat\")\n        create_event(host_client, \"Probe Last Seat\", slug, capacity=1)\n        tokens = [signup(probe_email()), signup(probe_email())]\n        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:\n            results = list(pool.map(lambda t: register(t, slug), tokens))\n        statuses = []\n        for response in results:\n>           assert response.status_code in (200, 201, 409, 422), (\n                f\"POST /api/registrations racing for {slug!r} returned \"\n                f\"{response.status_code}: {response.text[:300]}\"\n            )\nE           AssertionError: POST /api/registrations racing for 'probe-last-seat-019026f8' returned 404: {\"message\":\"Not found.\"}\nE           assert 404 in (200, 201, 409, 422)\nE            +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:76: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_repeat_registration_stores_one_row",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.1405645270133391,
+                "start": 1788696902.127618,
+                "stop": 1788696902.2886934,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_repeat_registration_stores_one_row(host_client, db):\n        slug = probe_slug(\"probe-repeat\")\n        create_event(host_client, \"Probe Repeat\", slug, capacity=5)\n        email = probe_email()\n        token = signup(email)\n        first = register(token, slug)\n>       assert first.status_code in (200, 201), (\n            f\"first POST /api/registrations for {slug!r} returned {first.status_code}: \"\n            f\"{first.text[:300]}\"\n        )\nE       AssertionError: first POST /api/registrations for 'probe-repeat-3cc252df' returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:104: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_approval_queue_confirms_pending_registration",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.14073027003905736,
+                "start": 1788696902.2888925,
+                "stop": 1788696902.450343,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_approval_queue_confirms_pending_registration(host_client, db):\n        slug = probe_slug(\"probe-approval\")\n        create_event(host_client, \"Probe Approval\", slug, capacity=3,\n                     approval_required=True)\n        email = probe_email()\n        token = signup(email)\n        response = register(token, slug)\n>       assert response.status_code in (200, 201), (\n            f\"POST /api/registrations for the approval event {slug!r} returned \"\n            f\"{response.status_code}: {response.text[:300]}\"\n        )\nE       AssertionError: POST /api/registrations for the approval event 'probe-approval-4561a216' returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:130: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_declined_registration_holds_no_seat",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.1409778610104695,
+                "start": 1788696902.4505446,
+                "stop": 1788696902.6126416,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_declined_registration_holds_no_seat(host_client, db):\n        slug = probe_slug(\"probe-decline\")\n        create_event(host_client, \"Probe Decline\", slug, capacity=3,\n                     approval_required=True)\n        token = signup(probe_email())\n        created = register(token, slug)\n        registration_id = created.json().get(\"id\")\n        declined = host_client.post(f\"/registrations/{registration_id}/decline\")\n>       assert declined.status_code in (200, 201), (\n            f\"POST /api/registrations/{registration_id}/decline returned \"\n            f\"{declined.status_code}: {declined.text[:300]}\"\n        )\nE       AssertionError: POST /api/registrations/None/decline returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:164: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_cancel_promotes_head_of_waiting_list",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.2525160800141748,
+                "start": 1788696902.6128428,
+                "stop": 1788696902.8876953,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_cancel_promotes_head_of_waiting_list(host_client, db):\n        slug = probe_slug(\"probe-promote\")\n        create_event(host_client, \"Probe Promote\", slug, capacity=1)\n        first_email, second_email = probe_email(), probe_email()\n        first_token, second_token = signup(first_email), signup(second_email)\n        first = register(first_token, slug)\n>       assert str(first.json().get(\"status\")) == \"confirmed\", (\n            f\"the first registration on {slug!r} returned status \"\n            f\"{first.json().get('status')!r}, expected 'confirmed'\"\n        )\nE       AssertionError: the first registration on 'probe-promote-feb9520e' returned status None, expected 'confirmed'\nE       assert 'None' == 'confirmed'\nE         \nE         - confirmed\nE         + None\n\n/tests/test_community.py:184: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_check_in_records_one_arrival",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.14176771399797872,
+                "start": 1788696902.8878884,
+                "stop": 1788696903.0500379,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_check_in_records_one_arrival(host_client, db):\n        slug = probe_slug(\"probe-door\")\n        create_event(host_client, \"Probe Door\", slug, capacity=2)\n        token = signup(probe_email())\n        created = register(token, slug)\n        ticket = str(created.json().get(\"ticket_code\"))\n        first = host_client.post(f\"/tickets/{ticket}/check-in\")\n>       assert first.status_code in (200, 201), (\n            f\"POST /api/tickets/{ticket}/check-in returned {first.status_code}: \"\n            f\"{first.text[:300]}\"\n        )\nE       AssertionError: POST /api/tickets/None/check-in returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:219: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_event_cancel_requires_reason_and_is_one_way",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005090405989903957,
+                "start": 1788696903.0502305,
+                "stop": 1788696903.0737243,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_event_cancel_requires_reason_and_is_one_way(host_client, db):\n        slug = probe_slug(\"probe-callitoff\")\n        create_event(host_client, \"Probe Call It Off\", slug, capacity=4)\n        empty = host_client.post(f\"/events/{slug}/cancel\", json={\"reason\": \"\"})\n>       assert empty.status_code in (400, 409, 422), (\n            f\"cancelling {slug!r} with an empty reason returned {empty.status_code}, \"\n            f\"expected a client error: {empty.text[:300]}\"\n        )\nE       AssertionError: cancelling 'probe-callitoff-8b1738c3' with an empty reason returned 404, expected a client error: {\"message\":\"Not found.\"}\nE       assert 404 in (400, 409, 422)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:244: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_reserved_slug_is_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004101624974282458,
+                "start": 1788696903.073929,
+                "stop": 1788696903.0966547,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\n\n    def test_reserved_slug_is_refused(host_client):\n        response = host_client.post(\n            \"/events\",\n            json={\n                \"calendar_slug\": HOST_CALENDAR_SLUG,\n                \"title\": \"Probe Reserved Slug\",\n                \"slug\": \"discover\",\n                \"category\": \"running\",\n                \"city\": \"Berlin\",\n                \"description\": \"A probe naming a reserved root path.\",\n                \"starts_at\": \"2027-10-01T18:00:00Z\",\n                \"ends_at\": \"2027-10-01T20:00:00Z\",\n                \"capacity\": 5,\n                \"approval_required\": False,\n                \"waitlist_enabled\": False,\n            },\n        )\n>       assert response.status_code in (400, 409, 422), (\n            f\"POST /api/events with the reserved slug 'discover' returned \"\n            f\"{response.status_code}, expected a client error: {response.text[:300]}\"\n        )\nE       AssertionError: POST /api/events with the reserved slug 'discover' returned 201, expected a client error: {\"id\":\"evt__lHZoN_SAQLBCK45\",\"slug\":\"probe-reserved-slug\",\"title\":\"Probe Reserved Slug\",\"category\":\"running\",\"city\":\"Berlin\",\"time_zone\":\"UTC\",\"cover_seed\":\"probe-reserved-slug\",\"theme_hex\":\"#28cd41\",\"description\":\"A probe naming a reserved root path.\",\"starts_at\":\"2027-10-01T18:00:00.000Z\",\"ends_at\nE       assert 201 in (400, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\n\n/tests/test_community.py:287: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_capacity_below_confirmed_count_is_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.14120846902369522,
+                "start": 1788696903.0968518,
+                "stop": 1788696903.2646194,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\n\n    def test_capacity_below_confirmed_count_is_refused(host_client):\n        slug = probe_slug(\"probe-shrink\")\n        create_event(host_client, \"Probe Shrink\", slug, capacity=3)\n        token = signup(probe_email())\n        register(token, slug)\n        response = host_client.patch(f\"/events/{slug}\", json={\"capacity\": 0})\n>       assert response.status_code in (400, 409, 422), (\n            f\"PATCH /api/events/{slug} lowering capacity below the confirmed count \"\n            f\"returned {response.status_code}, expected a client error: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: PATCH /api/events/probe-shrink-da6610ce lowering capacity below the confirmed count returned 404, expected a client error: {\"message\":\"Not found.\"}\nE       assert 404 in (400, 409, 422)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:299: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_seeded_accounts_and_calendars_are_stored",
+                "status": "passed",
+                "duration": 0.030000377009855583,
+                "start": 1788696903.2648177,
+                "stop": 1788696903.2950187,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_seeded_events_are_stored_at_their_boundaries",
+                "status": "passed",
+                "duration": 0.027677379024680704,
+                "start": 1788696903.2952116,
+                "stop": 1788696903.3230681,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_seeded_cancelled_event_stores_its_reason",
+                "status": "passed",
+                "duration": 0.005866886960575357,
+                "start": 1788696903.3232489,
+                "stop": 1788696903.3292725,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_waitlist_positions_stay_contiguous",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.41960266800015233,
+                "start": 1788696903.3294487,
+                "stop": 1788696903.7685385,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_waitlist_positions_stay_contiguous(host_client, db):\n        slug = probe_slug(\"probe-queue\")\n        create_event(host_client, \"Probe Queue\", slug, capacity=1)\n        tokens = [signup(probe_email()) for _ in range(3)]\n        for token in tokens:\n            register(token, slug)\n        event = db.event_by_slug(slug)\n>       positions = db.waitlist_positions(event[\"id\"])\n                                          ^^^^^^^^^^^\nE       TypeError: 'NoneType' object is not subscriptable\n\n/tests/test_community.py:375: TypeError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_community.py::test_ticket_code_row_is_unique",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.27557921697734855,
+                "start": 1788696903.7687194,
+                "stop": 1788696904.0669842,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_ticket_code_row_is_unique(host_client, db):\n        slug = probe_slug(\"probe-ticket\")\n        create_event(host_client, \"Probe Ticket\", slug, capacity=3)\n        tokens = [signup(probe_email()) for _ in range(2)]\n        codes = []\n        for token in tokens:\n            response = register(token, slug)\n            codes.append(str(response.json().get(\"ticket_code\")))\n>       assert len(set(codes)) == len(codes), (\n            f\"two registrations on {slug!r} were issued the same ticket code: {codes}\"\n        )\nE       AssertionError: two registrations on 'probe-ticket-1232c540' were issued the same ticket code: ['None', 'None']\nE       assert 1 == 2\nE        +  where 1 = len({'None'})\nE        +    where {'None'} = set(['None', 'None'])\nE        +  and   2 = len(['None', 'None'])\n\n/tests/test_community.py:390: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_confirmed_count_reconciles_with_stored_rows",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.2976358980231453,
+                "start": 1788696904.0671725,
+                "stop": 1788696904.3882704,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\nanon_client = <httpx.Client object at 0xffff7e69b200>\n\n    def test_confirmed_count_reconciles_with_stored_rows(host_client, db, anon_client):\n        slug = probe_slug(\"probe-reconcile\")\n        create_event(host_client, \"Probe Reconcile\", slug, capacity=4)\n        for _ in range(2):\n            register(signup(probe_email()), slug)\n        response = anon_client.get(f\"/events/{slug}\")\n>       assert response.status_code == 200, (\n            f\"GET /api/events/{slug} returned {response.status_code}: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: GET /api/events/probe-reconcile-786ad409 returned 404: {\"message\":\"Not found.\"}\nE       assert 404 == 200\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:406: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_guest_is_denied_the_guest_list",
+                "status": "passed",
+                "duration": 0.07920772698707879,
+                "start": 1788696904.3884604,
+                "stop": 1788696904.4678884,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_guest_is_denied_the_approval_endpoint",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.1486456360144075,
+                "start": 1788696904.468065,
+                "stop": 1788696904.6374636,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\nguest_client = <httpx.Client object at 0xffff7e6a51f0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_guest_is_denied_the_approval_endpoint(host_client, guest_client, db):\n        slug = probe_slug(\"probe-denied-approve\")\n        create_event(host_client, \"Probe Denied Approve\", slug, capacity=3,\n                     approval_required=True)\n        created = register(signup(probe_email()), slug)\n        registration_id = created.json().get(\"id\")\n        response = guest_client.post(f\"/registrations/{registration_id}/approve\")\n        assert response.status_code in (401, 403, 404), (\n            f\"POST /api/registrations/{registration_id}/approve with a guest token \"\n            f\"returned {response.status_code}, expected a denial: {response.text[:300]}\"\n        )\n        event = db.event_by_slug(slug)\n>       assert db.confirmed_count(event[\"id\"]) == 0, (\n                                  ^^^^^^^^^^^\n            f\"the refused approval on {slug!r} still moved a registration into a seat\"\n        )\nE       TypeError: 'NoneType' object is not subscriptable\n\n/tests/test_community.py:444: TypeError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_community.py::test_other_host_cannot_cancel_a_foreign_event",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.08863155098515563,
+                "start": 1788696904.63765,
+                "stop": 1788696904.7478235,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\nhost2_client = <httpx.Client object at 0xffff7e667e30>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_other_host_cannot_cancel_a_foreign_event(host_client, host2_client, db):\n        slug = probe_slug(\"probe-foreign\")\n        create_event(host_client, \"Probe Foreign\", slug, capacity=3)\n        response = host2_client.post(f\"/events/{slug}/cancel\",\n                                     json={\"reason\": \"Not mine to call off.\"})\n        assert response.status_code in (401, 403, 404), (\n            f\"POST /api/events/{slug}/cancel from the other host returned \"\n            f\"{response.status_code}, expected a denial: {response.text[:300]}\"\n        )\n        event = db.event_by_slug(slug)\n>       assert str(event.get(\"state\")) == \"published\", (\n                   ^^^^^^^^^\n            f\"event {slug!r} holds state {event.get('state')!r} after a refused \"\n            f\"cancellation by another host, expected 'published'\"\n        )\nE       AttributeError: 'NoneType' object has no attribute 'get'\n\n/tests/test_community.py:459: AttributeError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_community.py::test_anonymous_registration_is_denied",
+                "status": "passed",
+                "duration": 0.013096698967274278,
+                "start": 1788696904.7480168,
+                "stop": 1788696904.7612936,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_draft_event_is_hidden_from_a_guest",
+                "status": "passed",
+                "duration": 0.0034451909887138754,
+                "start": 1788696904.761481,
+                "stop": 1788696904.76507,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_full_event_without_a_waiting_list_is_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.27923984502558596,
+                "start": 1788696904.765236,
+                "stop": 1788696905.0680325,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_full_event_without_a_waiting_list_is_refused(host_client, db):\n        slug = probe_slug(\"probe-nolist\")\n        create_event(host_client, \"Probe No List\", slug, capacity=1,\n                     waitlist_enabled=False)\n        register(signup(probe_email()), slug)\n        response = register(signup(probe_email()), slug)\n>       assert response.status_code in (400, 409, 422), (\n            f\"POST /api/registrations for the full event {slug!r} returned \"\n            f\"{response.status_code}, expected a client error naming the reason: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: POST /api/registrations for the full event 'probe-nolist-08a692e2' returned 404, expected a client error naming the reason: {\"message\":\"Not found.\"}\nE       assert 404 in (400, 409, 422)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:499: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_empty_guest_list_returns_an_empty_array",
+                "status": "passed",
+                "duration": 0.0021634379809256643,
+                "start": 1788696905.0682204,
+                "stop": 1788696905.0705116,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_event_with_a_bad_end_time_is_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.00413057001424022,
+                "start": 1788696905.07066,
+                "stop": 1788696905.0940547,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\n\n    def test_event_with_a_bad_end_time_is_refused(host_client):\n        response = host_client.post(\n            \"/events\",\n            json={\n                \"calendar_slug\": HOST_CALENDAR_SLUG,\n                \"title\": \"Probe Backwards\",\n                \"slug\": probe_slug(\"probe-backwards\"),\n                \"category\": \"running\",\n                \"city\": \"Berlin\",\n                \"description\": \"A probe whose end precedes its start.\",\n                \"starts_at\": \"2027-11-01T20:00:00Z\",\n                \"ends_at\": \"2027-11-01T18:00:00Z\",\n                \"capacity\": 5,\n                \"approval_required\": False,\n                \"waitlist_enabled\": False,\n            },\n        )\n>       assert response.status_code in (400, 409, 422), (\n            f\"POST /api/events with an end before its start returned \"\n            f\"{response.status_code}, expected a client error: {response.text[:300]}\"\n        )\nE       AssertionError: POST /api/events with an end before its start returned 201, expected a client error: {\"id\":\"evt_i_zFpQL87gUhK1H6\",\"slug\":\"probe-backwards\",\"title\":\"Probe Backwards\",\"category\":\"running\",\"city\":\"Berlin\",\"time_zone\":\"UTC\",\"cover_seed\":\"probe-backwards\",\"theme_hex\":\"#007aff\",\"description\":\"A probe whose end precedes its start.\",\"starts_at\":\"2027-11-01T20:00:00.000Z\",\"ends_at\":\"2027-11-\nE       assert 201 in (400, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\n\n/tests/test_community.py:545: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_discovery_filters_by_category_and_city",
+                "status": "passed",
+                "duration": 0.002510748978238553,
+                "start": 1788696905.0942512,
+                "stop": 1788696905.0969052,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_page_size_limit_is_enforced",
+                "status": "passed",
+                "duration": 0.003317922994028777,
+                "start": 1788696905.097074,
+                "stop": 1788696905.1005292,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_confirmation_email_reaches_the_registrant",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 10.181330678984523,
+                "start": 1788696905.1006944,
+                "stop": 1788696915.3015761,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_confirmation_email_reaches_the_registrant(host_client, inbox):\n        slug = probe_slug(\"probe-mail-confirm\")\n        title = \"Probe Mail Confirm\"\n        create_event(host_client, title, slug, capacity=2)\n        email = probe_email()\n        register(signup(email), slug)\n        message = poll_message(inbox, email, CONFIRMED_SUBJECT_PREFIX)\n>       assert message is not None, (\n            f\"no message with a subject beginning {CONFIRMED_SUBJECT_PREFIX!r} reached \"\n            f\"{email!r} after a confirmed registration on {slug!r}\"\n        )\nE       AssertionError: no message with a subject beginning \"You're going to \" reached 'probe-a097d3632f79@example.com' after a confirmed registration on 'probe-mail-confirm-6e08c0fb'\nE       assert None is not None\n\n/tests/test_community.py:601: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_waiting_list_mail_names_the_waiting_list",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 10.299727507983334,
+                "start": 1788696915.3017762,
+                "stop": 1788696925.6254513,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_waiting_list_mail_names_the_waiting_list(host_client, inbox):\n        slug = probe_slug(\"probe-mail-wait\")\n        title = \"Probe Mail Wait\"\n        create_event(host_client, title, slug, capacity=1)\n        register(signup(probe_email()), slug)\n        waiting = probe_email()\n        register(signup(waiting), slug)\n        message = poll_message(inbox, waiting, WAITLIST_SUBJECT_PREFIX)\n>       assert message is not None, (\n            f\"no message with a subject beginning {WAITLIST_SUBJECT_PREFIX!r} reached \"\n            f\"{waiting!r} after a waitlisted registration on {slug!r}\"\n        )\nE       AssertionError: no message with a subject beginning \"You're on the waiting list for \" reached 'probe-c8bd1235f33e@example.com' after a waitlisted registration on 'probe-mail-wait-5ccd2b7e'\nE       assert None is not None\n\n/tests/test_community.py:623: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_promotion_mail_follows_a_freed_seat",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 10.32200144600938,
+                "start": 1788696925.6256506,
+                "stop": 1788696935.9677181,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_promotion_mail_follows_a_freed_seat(host_client, inbox, db):\n        slug = probe_slug(\"probe-mail-promote\")\n        title = \"Probe Mail Promote\"\n        create_event(host_client, title, slug, capacity=1)\n        holder_email = probe_email()\n        holder = signup(holder_email)\n        held = register(holder, slug)\n        waiting = probe_email()\n        register(signup(waiting), slug)\n        with client(holder) as c:\n            c.post(f\"/registrations/{held.json().get('id')}/cancel\")\n        message = poll_message(inbox, waiting, PROMOTED_SUBJECT_PREFIX)\n>       assert message is not None, (\n            f\"no message with a subject beginning {PROMOTED_SUBJECT_PREFIX!r} reached \"\n            f\"{waiting!r} after the seat on {slug!r} was freed\"\n        )\nE       AssertionError: no message with a subject beginning 'A spot opened up for ' reached 'probe-24a0ac5d6327@example.com' after the seat on 'probe-mail-promote-a1e6d5c7' was freed\nE       assert None is not None\n\n/tests/test_community.py:645: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_event_cancellation_mail_carries_the_host_reason",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.14523736300179735,
+                "start": 1788696935.9679277,
+                "stop": 1788696936.1344464,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_event_cancellation_mail_carries_the_host_reason(host_client, inbox):\n        slug = probe_slug(\"probe-mail-callitoff\")\n        title = \"Probe Mail Call It Off\"\n        create_event(host_client, title, slug, capacity=3)\n        guest = probe_email()\n        register(signup(guest), slug)\n        reason = \"The hall flooded and cannot be dried in time.\"\n        response = host_client.post(f\"/events/{slug}/cancel\", json={\"reason\": reason})\n>       assert response.status_code in (200, 201), (\n            f\"POST /api/events/{slug}/cancel returned {response.status_code}: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: POST /api/events/probe-mail-callitoff-3dde9ba5/cancel returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:663: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_guest_cancellation_sends_no_confirmation_mail",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.16749644398805685,
+                "start": 1788696936.134622,
+                "stop": 1788696936.3228195,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_guest_cancellation_sends_no_confirmation_mail(host_client, inbox):\n        slug = probe_slug(\"probe-mail-silent\")\n        create_event(host_client, \"Probe Mail Silent\", slug, capacity=3)\n        guest = probe_email()\n        token = signup(guest)\n        created = register(token, slug)\n        before = inbox.count(guest)\n        with client(token) as c:\n            cancelled = c.post(f\"/registrations/{created.json().get('id')}/cancel\")\n>       assert cancelled.status_code in (200, 201), (\n            f\"POST /api/registrations/{created.json().get('id')}/cancel returned \"\n            f\"{cancelled.status_code}: {cancelled.text[:300]}\"\n        )\nE       AssertionError: POST /api/registrations/None/cancel returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:690: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_health_endpoint_answers_on_the_app_origin",
+                "status": "passed",
+                "duration": 0.001750300987623632,
+                "start": 1788696936.323009,
+                "stop": 1788696936.3249023,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_seeded_password_signs_every_account_in",
+                "status": "passed",
+                "duration": 0.2017340140300803,
+                "start": 1788696936.3250527,
+                "stop": 1788696936.5269558,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_registration_row_stores_status_and_position",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.29560939900693484,
+                "start": 1788696936.527138,
+                "stop": 1788696936.841775,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_registration_row_stores_status_and_position(host_client, db):\n        slug = probe_slug(\"probe-rowshape\")\n        create_event(host_client, \"Probe Row Shape\", slug, capacity=1)\n        holder = signup(probe_email())\n        register(holder, slug)\n        waiting_email = probe_email()\n        register(signup(waiting_email), slug)\n        event = db.event_by_slug(slug)\n        account = db.account_by_email(waiting_email)\n>       row = db.registration_for(event[\"id\"], account[\"id\"])\n                                  ^^^^^^^^^^^\nE       TypeError: 'NoneType' object is not subscriptable\n\n/tests/test_community.py:747: TypeError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_community.py::test_email_log_row_follows_a_real_send",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 10.161320022976724,
+                "start": 1788696936.841965,
+                "stop": 1788696947.025877,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_email_log_row_follows_a_real_send(host_client, db, inbox):\n        slug = probe_slug(\"probe-audit\")\n        title = \"Probe Audit\"\n        create_event(host_client, title, slug, capacity=2)\n        guest = probe_email()\n        before = db.count_email_log(guest)\n        register(signup(guest), slug)\n        message = poll_message(inbox, guest, CONFIRMED_SUBJECT_PREFIX)\n>       assert message is not None, (\n            f\"no confirmation reached {guest!r} after registering on {slug!r}\"\n        )\nE       AssertionError: no confirmation reached 'probe-dc7ae64ebc5a@example.com' after registering on 'probe-audit-beed9c04'\nE       assert None is not None\n\n/tests/test_community.py:779: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_rate_limit_refuses_a_login_burst",
+                "status": "passed",
+                "duration": 0.412768790993141,
+                "start": 1788696947.0260718,
+                "stop": 1788696947.4390295,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_root_slug_resolution_names_its_source",
+                "status": "passed",
+                "duration": 0.004785352008184418,
+                "start": 1788696947.4392138,
+                "stop": 1788696947.4441593,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_search_term_narrows_the_event_list",
+                "status": "passed",
+                "duration": 0.0038439079944510013,
+                "start": 1788696947.4443307,
+                "stop": 1788696947.4483151,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_event_list_reports_a_total_count_header",
+                "status": "passed",
+                "duration": 0.0022690230107400566,
+                "start": 1788696947.448483,
+                "stop": 1788696947.4508886,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_event_payload_carries_its_time_zone",
+                "status": "passed",
+                "duration": 0.0139214739901945,
+                "start": 1788696947.4510438,
+                "stop": 1788696947.4651413,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_seeded_closed_event_is_stored_closed",
+                "status": "passed",
+                "duration": 0.01225380296818912,
+                "start": 1788696947.4653366,
+                "stop": 1788696947.4777715,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_guest_list_export_carries_the_pinned_header",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.14671626602648757,
+                "start": 1788696947.4779654,
+                "stop": 1788696947.6486309,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_guest_list_export_carries_the_pinned_header(host_client, db):\n        slug = probe_slug(\"probe-export\")\n        create_event(host_client, \"Probe Export\", slug, capacity=4)\n        email = probe_email()\n        register(signup(email), slug)\n        response = host_client.get(f\"/events/{slug}/registrations.csv\")\n>       assert response.status_code == 200, (\n            f\"GET /api/events/{slug}/registrations.csv returned {response.status_code}: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: GET /api/events/probe-export-76ef3909/registrations.csv returned 404: {\"message\":\"Not found.\"}\nE       assert 404 == 200\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:935: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_guest_is_denied_the_guest_list_export",
+                "status": "passed",
+                "duration": 0.001974867016542703,
+                "start": 1788696947.648819,
+                "stop": 1788696947.65095,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_capacity_raise_promotes_the_waiting_list",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.4304349060112145,
+                "start": 1788696947.6510983,
+                "stop": 1788696948.1078506,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_capacity_raise_promotes_the_waiting_list(host_client, db):\n        slug = probe_slug(\"probe-raise\")\n        create_event(host_client, \"Probe Raise\", slug, capacity=1)\n        holder, first_waiter, second_waiter = probe_email(), probe_email(), probe_email()\n        register(signup(holder), slug)\n        register(signup(first_waiter), slug)\n        register(signup(second_waiter), slug)\n        event = db.event_by_slug(slug)\n>       assert db.confirmed_count(event[\"id\"]) == 1, (\n                                  ^^^^^^^^^^^\n            f\"event {slug!r} holds {db.confirmed_count(event['id'])} confirmed \"\n            f\"registrations before the raise, expected 1\"\n        )\nE       TypeError: 'NoneType' object is not subscriptable\n\n/tests/test_community.py:974: TypeError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_community.py::test_capacity_raise_mail_reaches_the_promoted_guest",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.284571838012198,
+                "start": 1788696948.108039,
+                "stop": 1788696948.4162717,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_capacity_raise_mail_reaches_the_promoted_guest(host_client, db, inbox):\n        slug = probe_slug(\"probe-raise-mail\")\n        title = \"Probe Raise Mail\"\n        create_event(host_client, title, slug, capacity=1)\n        holder, waiter = probe_email(), probe_email()\n        register(signup(holder), slug)\n        register(signup(waiter), slug)\n        response = set_event(host_client, slug, capacity=2)\n>       assert response.status_code in (200, 201), (\n            f\"PATCH /api/events/{slug} raising capacity returned {response.status_code}: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: PATCH /api/events/probe-raise-mail-2965b44a raising capacity returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:1021: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_capacity_raise_with_nobody_waiting_sends_no_mail",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 2.146603536006296,
+                "start": 1788696948.4164567,
+                "stop": 1788696950.5883703,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_capacity_raise_with_nobody_waiting_sends_no_mail(host_client, db, inbox):\n        slug = probe_slug(\"probe-raise-quiet\")\n        create_event(host_client, \"Probe Raise Quiet\", slug, capacity=3)\n        holder = probe_email()\n        register(signup(holder), slug)\n        settle()\n        before = inbox.count(holder)\n        response = set_event(host_client, slug, capacity=9)\n>       assert response.status_code in (200, 201), (\n            f\"PATCH /api/events/{slug} raising capacity returned {response.status_code}: \"\n            f\"{response.text[:300]}\"\n        )\nE       AssertionError: PATCH /api/events/probe-raise-quiet-53127fd7 raising capacity returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:1044: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_closed_registration_refuses_a_new_registration",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005273665010463446,
+                "start": 1788696950.5885737,
+                "stop": 1788696950.6139092,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_closed_registration_refuses_a_new_registration(host_client, db):\n        slug = probe_slug(\"probe-closed\")\n        create_event(host_client, \"Probe Closed\", slug, capacity=5)\n        response = set_event(host_client, slug, state=CLOSED_STATE)\n>       assert response.status_code in (200, 201), (\n            f\"PATCH /api/events/{slug} moving a published event to {CLOSED_STATE} \"\n            f\"returned {response.status_code}: {response.text[:300]}\"\n        )\nE       AssertionError: PATCH /api/events/probe-closed-43dde0cb moving a published event to registration_closed returned 404: {\"message\":\"Not found.\"}\nE       assert 404 in (200, 201)\nE        +  where 404 = <Response [404 Not Found]>.status_code\n\n/tests/test_community.py:1060: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_closed_event_keeps_held_registrations_and_the_door",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.1447219579713419,
+                "start": 1788696950.614114,
+                "stop": 1788696950.779341,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\ninbox = <capabilities.HttpInbox object at 0xffff7e326450>\n\n    def test_closed_event_keeps_held_registrations_and_the_door(host_client, db, inbox):\n        slug = probe_slug(\"probe-closed-door\")\n        create_event(host_client, \"Probe Closed Door\", slug, capacity=3)\n        email = probe_email()\n        held = register(signup(email), slug)\n        ticket = str(held.json().get(\"ticket_code\") or \"\")\n>       assert TICKET_RE.match(ticket), (\n            f\"the registration on {slug!r} carries ticket_code {ticket!r}, which is not \"\n            f\"{TICKET_PREFIX} plus 8 uppercase letters or digits\"\n        )\nE       AssertionError: the registration on 'probe-closed-door-6a8a1990' carries ticket_code '', which is not TKT- plus 8 uppercase letters or digits\nE       assert None\nE        +  where None = <built-in method match of re.Pattern object at 0xffff7f5a75b0>('')\nE        +    where <built-in method match of re.Pattern object at 0xffff7f5a75b0> = re.compile('^TKT-[A-Z0-9]{8}$').match\n\n/tests/test_community.py:1096: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_community.py::test_handle_change_is_refused_on_a_taken_name",
+                "status": "passed",
+                "duration": 0.15145005600061268,
+                "start": 1788696950.779531,
+                "stop": 1788696950.9311666,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_host_creates_a_calendar_in_the_namespace",
+                "status": "passed",
+                "duration": 0.017205540963914245,
+                "start": 1788696950.9313614,
+                "stop": 1788696950.9487355,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_guest_is_denied_calendar_creation",
+                "status": "passed",
+                "duration": 0.006981165031902492,
+                "start": 1788696950.9489212,
+                "stop": 1788696950.9560816,
+                "retries": 0,
+                "file_path": "test_community.py"
+            },
+            {
+                "name": "test_community.py::test_ticket_address_answers_anyone_presenting_the_code",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0042118600104004145,
+                "start": 1788696950.9562752,
+                "stop": 1788696950.9864192,
+                "retries": 0,
+                "file_path": "test_community.py",
+                "trace": "host_client = <httpx.Client object at 0xffff7f5162d0>\ndb = <conftest.CalendarStore object at 0xffff7f54f290>\n\n    def test_ticket_address_answers_anyone_presenting_the_code(host_client, db):\n        slug = probe_slug(\"probe-ticket-read\")\n>       create_event(host_client, \"Probe Ticket Read\", slug, capacity=3)\n\n/tests/test_community.py:1230: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nhost = <httpx.Client object at 0xffff7f5162d0>, title = 'Probe Ticket Read'\nslug = 'probe-ticket-read-b3eb122c', kwargs = {'capacity': 3}\nresponse = <Response [429 Too Many Requests]>, @py_assert1 = 429\n@py_assert4 = (200, 201), @py_assert3 = False\n@py_format6 = '429\\n{429 = <Response [429 Too Many Requests]>.status_code\\n} in (200, 201)'\n@py_format8 = 'POST /api/events for \\'probe-ticket-read-b3eb122c\\' returned 429: {\"message\":\"Too many attempts. The limit is 30 requ...n.\",\"rate_limit\":\"30 per minute\"}\\n>assert 429\\n{429 = <Response [429 Too Many Requests]>.status_code\\n} in (200, 201)'\n\n    def create_event(host, title: str, slug: str, **kwargs) -> dict:\n        response = host.post(\"/events\", json=new_event_payload(title, slug, **kwargs))\n>       assert response.status_code in (200, 201), (\n            f\"POST /api/events for {slug!r} returned {response.status_code}: \"\n            f\"{response.text[:400]}\"\n        )\nE       AssertionError: POST /api/events for 'probe-ticket-read-b3eb122c' returned 429: {\"message\":\"Too many attempts. The limit is 30 requests per minute; please wait a moment and try again.\",\"rate_limit\":\"30 per minute\"}\nE       assert 429 in (200, 201)\nE        +  where 429 = <Response [429 Too Many Requests]>.status_code\n\n/tests/conftest.py:203: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

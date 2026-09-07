@@ -1,0 +1,194 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import BuyControl from '../../islands/BuyControl.jsx';
+import { getProduct, formatDateLong } from '../../lib/server.js';
+
+const { handle } = Astro.params;
+
+let product = null;
+let missing = false;
+try {
+  product = await getProduct(handle);
+  // Shipment protection is never listed in the catalogue.
+  if (product.kind === 'protection') missing = true;
+} catch {
+  missing = true;
+}
+
+if (missing) Astro.response.status = 404;
+---
+{missing || !product ? (
+  <Shell title="Not found — Vela" current="shop">
+    <h1 class="page-title">That page does not exist.</h1>
+    <p class="page-lede">The product you asked for is not one we make.</p>
+    <p style="margin-top:24px;"><a class="button" href="/shop">Go to the shop</a></p>
+  </Shell>
+) : (
+  <Shell title={`${product.title} — Vela`} current="shop" description={product.subtitle}>
+    <nav aria-label="Breadcrumb" class="crumbs">
+      <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+    </nav>
+
+    <div class="product-layout">
+      <div class="gallery">
+        <div class="gallery-main" id="gallery-main">
+          <ProductMedia handle={product.handle} kind={product.kind} title={product.title} tall />
+        </div>
+        <ul class="gallery-thumbs" aria-label={`Views of the ${product.title}`}>
+          {['Front', 'Back', 'Underside'].map((view, i) => (
+            <li>
+              <a
+                class="gallery-thumb"
+                href="#gallery-main"
+                aria-label={`${view} view of the ${product.title}`}
+                aria-current={i === 0 ? 'true' : undefined}
+              >
+                <ProductMedia handle={product.handle} kind={product.kind} title={`${product.title}, ${view}`} />
+                <span class="thumb-label">{view}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div class="buy-column">
+        <h1 class="page-title">{product.title}</h1>
+        <p class="page-lede">{product.subtitle}</p>
+
+        {product.status === 'discontinued' && product.support_until && (
+          <p class="notice" style="margin-top:16px;">
+            We no longer sell this. We will support it until {formatDateLong(product.support_until)}.
+          </p>
+        )}
+
+        <noscript>
+          <p class="price tabular" style="font-size:24px;margin-top:16px;">
+            {product.price_varies ? 'From ' : ''}${(product.price_minor / 100).toFixed(2)}
+          </p>
+          <p>{product.availability.label}</p>
+        </noscript>
+
+        <BuyControl
+          client:load
+          product={product}
+          initialSku={
+            (product.variants.find((v) => v.sku.toLowerCase() === String(Astro.url.searchParams.get('variant') || '').toLowerCase())
+              || product.variants[0] || {}).sku
+          }
+        />
+      </div>
+    </div>
+
+    <div class="blocks">
+      {product.blocks.filter((b) => b.kind === 'lede').map((b) => (
+        <p class="block-lede">{b.payload.text}</p>
+      ))}
+
+      {product.blocks.some((b) => b.kind === 'spec_group') && (
+        <section aria-labelledby="specs-heading">
+          <h2 class="section-title" id="specs-heading">Specifications</h2>
+          {product.blocks.filter((b) => b.kind === 'spec_group').map((group) => (
+            <table class="table spec-table">
+              <caption class="spec-caption">{group.payload.title}</caption>
+              <tbody>
+                {group.payload.rows.map((row) => (
+                  <tr>
+                    <th scope="row">{row.label}</th>
+                    <td class="num tabular">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        </section>
+      )}
+
+      {product.blocks.filter((b) => b.kind === 'in_the_box').map((b) => (
+        <section aria-labelledby="box-heading">
+          <h2 class="section-title" id="box-heading">In the box</h2>
+          <ul class="box-list">{b.payload.items.map((item) => <li>{item}</li>)}</ul>
+        </section>
+      ))}
+
+      {product.blocks.filter((b) => b.kind === 'compatibility').map((b) => (
+        <section aria-labelledby="compat-heading">
+          <h2 class="section-title" id="compat-heading">Compatibility</h2>
+          <table class="table">
+            <tbody>
+              <tr><th scope="row">Minimum operating system</th><td>{b.payload.min_os}</td></tr>
+              <tr><th scope="row">Application version</th><td>{b.payload.min_app}</td></tr>
+              {b.payload.note && <tr><th scope="row">Note</th><td>{b.payload.note}</td></tr>}
+            </tbody>
+          </table>
+        </section>
+      ))}
+
+      {product.blocks.filter((b) => b.kind === 'support_note').map((b) => (
+        <section aria-labelledby="support-heading">
+          <h2 class="section-title" id="support-heading">Support</h2>
+          <p>{b.payload.text}</p>
+        </section>
+      ))}
+    </div>
+  </Shell>
+)}
+
+<style>
+  .crumbs { font-size: 14px; color: var(--ink-quiet); margin-bottom: calc(var(--unit) * 4); }
+  .product-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 24rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .product-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  .gallery-thumbs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: calc(var(--unit) * 2);
+    list-style: none;
+    padding: 0;
+    margin: calc(var(--unit) * 3) 0 0;
+  }
+  .gallery-thumb {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: var(--border-w) solid var(--rule);
+    border-radius: var(--radius);
+    padding: var(--unit);
+  }
+  .gallery-thumb[aria-current='true'] { border-color: var(--ink-strong); border-width: 2px; padding: calc(var(--unit) - 1px); }
+  .thumb-label { display: block; font-size: 12px; text-align: center; padding-top: var(--unit); }
+
+  .buy-column :global(.buy) {
+    border: var(--border-w) solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--ground-raised);
+    box-shadow: var(--elevation);
+    padding: calc(var(--unit) * 4);
+    margin-top: calc(var(--unit) * 4);
+  }
+  .buy-column :global(.buy-price) { font-size: 26px; margin: 0; }
+  .buy-column :global(.buy-availability) { margin: var(--unit) 0 calc(var(--unit) * 4); font-size: 14px; color: var(--ink-quiet); }
+  .buy-column :global(.buy-availability[data-state='sold_out']) { color: var(--state-wrong); font-weight: 700; }
+  .buy-column :global(.buy-options) { margin-bottom: calc(var(--unit) * 4); }
+  .buy-column :global(.option-state) { margin-left: auto; font-size: 12px; color: var(--ink-quiet); }
+  .buy-column :global(.option-price) { font-size: 14px; }
+  .buy-column :global(.buy-quantity) { margin-bottom: calc(var(--unit) * 4); }
+  .buy-column :global(.stepper) { display: inline-flex; align-items: center; gap: calc(var(--unit) * 2); }
+  .buy-column :global(.stepper-value) { min-width: 3ch; text-align: center; font-weight: 700; }
+  .buy-column :global(.buy-button) { width: 100%; }
+  .buy-column :global(.buy-message) { margin: calc(var(--unit) * 3) 0 0; font-size: 14px; min-height: 20px; }
+  .buy-column :global(.buy-message-wrong) { color: var(--state-wrong); }
+  .buy-column :global(.buy-message-done) { color: var(--state-done); }
+
+  .blocks { margin-top: calc(var(--unit) * 12); display: grid; gap: calc(var(--unit) * 8); max-width: 60rem; }
+  .block-lede { font-size: 18px; line-height: 28px; margin: 0; max-width: 60ch; }
+  .spec-caption { text-align: left; font-weight: 700; font-size: 14px; padding: calc(var(--unit) * 2) calc(var(--unit) * 3); }
+  .spec-table { margin-bottom: calc(var(--unit) * 4); }
+  .box-list { margin: 0; padding-left: calc(var(--unit) * 5); line-height: 26px; }
+</style>

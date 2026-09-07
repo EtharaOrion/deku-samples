@@ -1,0 +1,176 @@
+{
+  "_schema": "if-overlay-v1",
+  "banner": "GENERATED SECTION. DO NOT HAND-EDIT.",
+  "source_of_truth": "solution/trinity/if.yaml",
+  "task": "deku/talent-roster-reel",
+  "row_schema": [
+    "id",
+    "category",
+    "statement",
+    "src",
+    "evaluator",
+    "target",
+    "polarity"
+  ],
+  "categories": [
+    "format",
+    "scope",
+    "tool_use",
+    "ordering",
+    "output_shape",
+    "negative"
+  ],
+  "counts": {
+    "total": 15,
+    "by_category": {
+      "format": 3,
+      "scope": 2,
+      "tool_use": 2,
+      "ordering": 2,
+      "output_shape": 3,
+      "negative": 3
+    },
+    "by_evaluator": {
+      "pytest": 9,
+      "probe": 6
+    }
+  },
+  "constraints": [
+    {
+      "id": "IF-1",
+      "category": "format",
+      "statement": "A displayed ordinal is derived from the published set in stored order and rendered zero padded to three digits, contiguous from the first.",
+      "src": "Ordinals derive at read time from the published set in stored order, contiguous from `001`, zero padded to three digits.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_ordinals_are_contiguous_and_zero_padded",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-2",
+      "category": "format",
+      "statement": "A minted preview token carries the pinned length and alphabet and the pinned lifetime.",
+      "src": "`POST /api/studio/preview-tokens` mints one `32` character lowercase hex token for one record, good for `15 minutes`.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_preview_token_opens_its_own_record",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-3",
+      "category": "format",
+      "statement": "Every string set in the interface face renders in capitals on every route.",
+      "src": "**Every interface-face string renders in capitals.**",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_design_system_holds_at_rest[5]",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-4",
+      "category": "scope",
+      "statement": "A public read is confined to the published records of the house this deployment serves.",
+      "src": "Public reads answer with published records of the served house only.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_another_house_is_absent_from_every_public_read",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-5",
+      "category": "scope",
+      "statement": "A producer is confined to their own house at every studio address, and a foreign record is answered as a missing one.",
+      "src": "A producer asking for a record of a house that is not theirs is answered exactly as a producer asking for a record that does not exist, so the answer never confirms that the record is real.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_cross_house_studio_read_is_not_found",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-6",
+      "category": "tool_use",
+      "statement": "One backing service stands behind the deployment and no second store, cache, queue, object store, identity provider or mail vendor is reached.",
+      "src": "PostgreSQL is the single backing service standing behind this deployment, so a second datastore, a cache, a queue, an object store, an identity provider or a mail vendor is out of bounds however convenient it looks.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_seeded_records_survive_a_reread",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-7",
+      "category": "tool_use",
+      "statement": "No content service, image transform host or video host is used, and every rendered pixel is drawn by the app from a stored seed.",
+      "src": "There is no content service, no image transform host and no video host either: every pixel and every frame on this site is drawn by the app from a stored seed.",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_media_layer_answers_only_for_what_is_published[8]",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-8",
+      "category": "ordering",
+      "statement": "A record exists unlisted before it can be published, and the publish is what stamps the timestamp.",
+      "src": "A studio record is created unlisted, `published_at` null. Publishing stamps it; unlisting clears it and drops the record from every public read at once.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_created_record_is_unlisted_with_no_published_at",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-9",
+      "category": "ordering",
+      "statement": "A poster carries its written alternative before the record it belongs to can be published.",
+      "src": "Publishing a record whose poster `alt` is empty is refused and nothing changes.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_publishing_without_an_alt_is_refused",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-10",
+      "category": "output_shape",
+      "statement": "An endpoint returning a collection returns a JSON array at the top level rather than an envelope.",
+      "src": "Anything returning a collection returns it as a JSON array at the top level.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_list_endpoints_return_top_level_arrays",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-11",
+      "category": "output_shape",
+      "statement": "A refusal answers in the client-error range with a readable reason and leaves the store unchanged.",
+      "src": "Refusals answer in the client-error range, carry a reason a person can read, and leave the store exactly as they found it.",
+      "evaluator": "pytest",
+      "target": "test_roster.py::test_rejected_request_changes_no_state",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-12",
+      "category": "output_shape",
+      "statement": "An unmatched address answers with a real not-found status and does not echo the requested path back.",
+      "src": "**The requested path is not echoed back**, which is both charmless and the classic injection surface, and the response carries a real not-found status rather than a success status with error content.",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_house_speaks_on_the_about_route[4]",
+      "polarity": "positive"
+    },
+    {
+      "id": "IF-13",
+      "category": "negative",
+      "statement": "None of the four framework not-found values ship, and no stylesheet carrying the colour-scheme query ships with them.",
+      "src": "**Ship none of them, and ship no such stylesheet.**",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_design_system_holds_at_rest[3]",
+      "polarity": "negative"
+    },
+    {
+      "id": "IF-14",
+      "category": "negative",
+      "statement": "The ruled-out social and commerce features are absent from every route.",
+      "src": "No comments, likes, shares, view counters, ratings or site search.",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_site_holds_at_a_narrow_window_and_by_keyboard_alone[6]",
+      "polarity": "negative"
+    },
+    {
+      "id": "IF-15",
+      "category": "negative",
+      "statement": "No binary asset ships with the build; every still, reel, grain tile and share image is generated.",
+      "src": "**No binary ships with this build.**",
+      "evaluator": "probe",
+      "target": "workflows.yaml::the_media_layer_answers_only_for_what_is_published[8]",
+      "polarity": "negative"
+    }
+  ],
+  "not_applicable": {}
+}

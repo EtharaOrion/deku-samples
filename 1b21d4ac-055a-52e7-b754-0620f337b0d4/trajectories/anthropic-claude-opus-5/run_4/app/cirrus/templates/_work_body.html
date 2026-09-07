@@ -1,0 +1,60 @@
+{# The work detail's own body. The published route and the preview harness both
+   render this, so what the producer previews is what a visitor will see. #}
+{% from "_tile.html" import tile, caption %}
+
+<h1 class="detail__title display">{{ work.title }}</h1>
+<p class="detail__ordinal">{{ work.ordinal_label or 'UNLISTED' }}</p>
+
+{% if work.credits %}
+<div class="detail__credits">
+  {% for c in work.credits %}
+  <div class="detail__credit">
+    <span class="detail__credit-role">{{ c.role }}</span>
+    {% if c.href %}
+      <a href="{{ c.href }}" data-nav data-cursor-label="{{ c.name }}">{{ c.name }}</a>
+    {% else %}
+      <span>{{ c.name }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if work.reel %}
+<div class="detail__reel">
+  {{ tile(work.reel, reveal=true, reel=work.reel) }}
+</div>
+{% elif work.poster %}
+<div class="detail__reel">
+  {{ tile(work.poster, reveal=true) }}
+</div>
+{% endif %}
+
+<div class="detail__sequence">
+  {% for m in work.gallery %}
+  {% set variant = ['centre', 'left', 'right', 'left'][loop.index0 % 4] %}
+  <div class="work-entry work-entry--{{ variant }}">
+    <span class="tile-link" data-cursor-label="{{ work.title }}">
+      {{ tile(m, reveal=true) }}
+    </span>
+  </div>
+  {% endfor %}
+  {% if not work.gallery %}
+  <p class="empty-state">No further stills for this film.</p>
+  {% endif %}
+</div>
+
+{% if work.next and work.prev %}
+<nav class="detail__nav" aria-label="Works">
+  <a class="detail__nav-item" href="{{ work.prev.href }}" data-nav
+     data-cursor-label="{{ work.prev.title }}">
+    <span>PREVIOUS — {{ work.prev.ordinal_label }}</span>
+    <span class="detail__nav-title display">{{ work.prev.title }}</span>
+  </a>
+  <a class="detail__nav-item detail__nav-item--next" href="{{ work.next.href }}" data-nav
+     data-cursor-label="{{ work.next.title }}">
+    <span>NEXT — {{ work.next.ordinal_label }}</span>
+    <span class="detail__nav-title display">{{ work.next.title }}</span>
+  </a>
+</nav>
+{% endif %}

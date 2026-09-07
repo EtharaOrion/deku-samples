@@ -1,0 +1,22 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraGrid from '../../../islands/CameraGrid.jsx';
+import { apiGet } from '../../../lib/api.js';
+import { viewer, signInRedirect } from '../../../lib/page.js';
+
+const v = await viewer(Astro);
+if (!v.signedIn) return signInRedirect(Astro);
+
+const res = await apiGet(Astro.request, '/account/devices?page_size=100', { token: v.token });
+const devices = res.ok ? res.data.data : null;
+const prefill = Astro.url.searchParams.get('serial') || '';
+---
+<Shell title="Your cameras — Vela" signedIn cartCount={v.cartCount}>
+  <h1 class="page-title">Your cameras</h1>
+  <p class="page-lede">
+    A serial number is a record in its own right. Registering one links it to this
+    account; removing it releases the link and gives it to nobody.
+  </p>
+
+  <CameraGrid client:load initialDevices={devices} prefillSerial={prefill} />
+</Shell>

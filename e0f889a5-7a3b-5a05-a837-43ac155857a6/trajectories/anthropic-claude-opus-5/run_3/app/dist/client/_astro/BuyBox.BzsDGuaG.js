@@ -1,0 +1,21 @@
+import{d as h,T as M,h as f}from"./hooks.module.B6Bl1fq7.js";import{f as T}from"./money.C6oik2CJ.js";import{u as e}from"./jsxRuntime.module.Dqw-6DmR.js";import"./preact.module.BTqC4RwC.js";function N({product:v,initialSku:x}){const a=v.variants||[],[m,k]=h(()=>(a.find(i=>i.sku===x)??a[0])?.sku??""),[c,d]=h(1),[g,l]=h("idle"),[_,u]=h(null),r=M(()=>a.find(t=>t.sku===m)??a[0],[m,a]),b=v.status==="discontinued",p=r?.available??0,y=p<=0,n=!b&&!y,o=Math.max(1,Math.min(10,p));f(()=>{d(t=>Math.min(Math.max(1,t),o))},[o]),f(()=>{if(!r)return;const t=new URL(window.location.href);t.searchParams.set("variant",r.sku),window.history.replaceState({},"",t)},[r?.sku]);async function w(){if(!(!n||g==="working")){l("working"),u(null);try{const t=await fetch("/api/cart/lines",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sku:r.sku,quantity:c})}),i=await t.json().catch(()=>null);if(!t.ok){l("idle"),u({tone:"error",text:i?.message||"That did not work."});return}l("done"),u({tone:"done",text:"Added to your cart."}),window.dispatchEvent(new CustomEvent("vela:cart",{detail:i.cart})),setTimeout(()=>l("idle"),1200)}catch{l("idle"),u({tone:"error",text:"That did not work."})}}}let s=null;return b||y?s=null:p<=10&&(s=`Only ${p} left`),e("div",{class:"buybox",children:[e("p",{class:"buybox__price money strong",children:T(r?.price_minor??0)}),a.length>1&&e("fieldset",{class:"buybox__options",children:[e("legend",{class:"field__label",children:"Colour"}),a.map(t=>e("label",{class:"option",children:[e("input",{type:"radio",name:"variant",value:t.sku,checked:t.sku===m,onChange:()=>k(t.sku)}),e("span",{children:t.option_value}),t.available<=0&&e("span",{class:"chip chip--neutral",children:"Sold out"})]},t.sku))]}),e("div",{class:"buybox__qty",children:[e("label",{class:"field__label",for:"qty",children:"Quantity"}),e("div",{class:"stepper",children:[e("button",{type:"button",class:"btn btn--secondary btn--small",onClick:()=>d(t=>Math.max(1,t-1)),disabled:c<=1||!n,"aria-label":"One fewer",children:e("span",{"aria-hidden":"true",children:"−"})}),e("input",{id:"qty",class:"input stepper__input num",type:"number",min:"1",max:o,value:c,disabled:!n,onInput:t=>{const i=parseInt(t.currentTarget.value,10);d(Number.isNaN(i)?1:Math.min(Math.max(1,i),o))}}),e("button",{type:"button",class:"btn btn--secondary btn--small",onClick:()=>d(t=>Math.min(o,t+1)),disabled:c>=o||!n,"aria-label":"One more",children:e("span",{"aria-hidden":"true",children:"+"})})]})]}),s&&e("p",{class:"buybox__avail small",children:s}),e("button",{type:"button",class:"btn buybox__buy",onClick:w,disabled:!n,"aria-describedby":n?void 0:"buy-reason",children:b?"We no longer sell this":y?"Sold out":g==="working"?"Adding":"Add to cart"}),!n&&e("p",{id:"buy-reason",class:"small muted buybox__reason",children:b?"This product is discontinued.":"This option is sold out. Choose another colour if one is available."}),e("p",{class:"live-region small",role:"status","aria-live":"polite",children:_?_.text:""}),e("style",{children:`
+        .buybox__price { font-size: 24px; line-height: 30px; margin: 0 0 calc(var(--unit) * 4); }
+        .buybox__options { border: 0; padding: 0; margin: 0 0 calc(var(--unit) * 4); }
+        .option {
+          display: flex; align-items: center; gap: calc(var(--unit) * 2);
+          padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+          border: var(--border-w) solid var(--line-strong);
+          border-radius: var(--radius);
+          margin-bottom: calc(var(--unit) * 2);
+          cursor: pointer;
+          transition: border-color var(--speed) var(--ease);
+        }
+        .option:has(input:checked) { border-color: var(--fg); border-width: 2px; }
+        .buybox__qty { margin-bottom: calc(var(--unit) * 4); }
+        .stepper { display: flex; align-items: center; gap: calc(var(--unit) * 2); }
+        .stepper__input { width: 5rem; text-align: center; }
+        .buybox__avail { margin: 0 0 calc(var(--unit) * 3); color: var(--progress); }
+        .buybox__buy { width: 100%; }
+        .buybox__reason { margin-top: calc(var(--unit) * 2); }
+        .live-region { min-height: 21px; margin: calc(var(--unit) * 2) 0 0; }
+      `})]})}export{N as default};

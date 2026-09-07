@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" class="{% block html_class %}{% endblock %}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ public_url }}/share.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+{% if indexable is defined and not indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 41 18'><ellipse cx='20.5' cy='9' rx='19.75' ry='8.25' fill='none' stroke='%23060403' stroke-width='1.5'/></svg>">
+<link rel="stylesheet" href="/static/css/cirrus.css">
+{# Deferred scripts run in order: the components register on alpine:init before Alpine starts. #}
+<script defer src="/static/js/cirrus.js"></script>
+<script defer src="/static/js/alpine.min.js"></script>
+</head>
+<body
+  data-route="{{ route }}"
+  data-mark="{{ mark }}"
+  data-house="{{ house.slug }}"
+  data-contact="{{ house.contact_email }}"
+  {% if preview is defined and preview %}data-preview="1"{% endif %}
+  x-data="site()"
+  x-init="boot()"
+  :class="{'is-scrolling': scrolling, 'is-leaving': leaving, 'nav-retracted': retracted}"
+>
+
+<a class="skip-link t-ui" href="#content">Skip to content</a>
+
+<!-- The persistent tree. It mounts once and survives every navigation. -->
+<div class="frame" id="frame" :class="{'frame-out': leaving}">
+  <a class="wordmark no-cursor" href="/" data-link aria-label="Cirrus, home">{{ house.name|lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-item nav-works t-ui" href="/works" data-link data-nav="works"
+       :class="{'is-current': route === 'works'}"
+       :aria-current="route === 'works' ? 'page' : null"><span class="split" aria-hidden="true" data-split>WORKS</span><span class="sr-only">Works</span></a>
+    <span class="nav-group">
+      <a class="nav-item t-ui" href="/talents" data-link data-nav="talents"
+         :class="{'is-current': route === 'talents'}"
+         :aria-current="route === 'talents' ? 'page' : null"><span class="split" aria-hidden="true" data-split>TALENTS</span><span class="sr-only">Talents</span></a>
+      <a class="nav-item nav-contact t-ui" href="mailto:{{ house.contact_email }}"
+         data-contact-link @click="maybeOverlay($event)"><span class="split" aria-hidden="true" data-split>CONTACT</span><span class="sr-only">Contact</span></a>
+      <a class="nav-item t-ui" href="/about" data-link data-nav="about"
+         :class="{'is-current': route === 'about'}"
+         :aria-current="route === 'about' ? 'page' : null"><span class="split" aria-hidden="true" data-split>ABOUT</span><span class="sr-only">About</span></a>
+    </span>
+  </nav>
+
+  <div class="centre-mark" id="centre-mark" aria-hidden="true">
+    {% include "partials/marks.html" %}
+  </div>
+
+  <a class="corner-credit no-cursor" href="https://example.com/aube" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg class="credit-mark" viewBox="0 0 60 16" width="60" height="16" aria-hidden="true" focusable="false">
+      <path d="M0 13 L5 2 L10 13 L8 13 L5 6.5 L2 13 Z"/>
+      <path d="M14 2 h2 v7 a3 3 0 0 0 6 0 V2 h2 v7 a5 5 0 0 1 -10 0 Z"/>
+      <path d="M29 2 h5 a3 3 0 0 1 0 6 a3 3 0 0 1 0 6 h-5 Z M31 4 v3 h3 a1.5 1.5 0 0 0 0 -3 Z M31 9 v3 h3 a1.5 1.5 0 0 0 0 -3 Z"/>
+      <path d="M45 2 h8 v2 h-6 v3 h5 v2 h-5 v3 h6 v2 h-8 Z"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="credit-arrow credit-arrow-rest" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2.2 1 H6 V4.8" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+      <svg class="credit-arrow credit-arrow-arrive" viewBox="0 0 7 7" width="8" height="8" focusable="false">
+        <path d="M1 6 L6 1 M2.2 1 H6 V4.8" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+    </span>
+  </a>
+
+  <!-- The counter well: load progress on the entry route, position in the set on the roster. -->
+  <div class="counter-well" id="counter-well" x-show="counterVisible" x-cloak>
+    <span class="counter-value" id="counter-value" x-text="counterText"></span>
+  </div>
+</div>
+
+<!-- The cursor pair: depth 50, above the transition veil, never a child of the route. -->
+<div class="cursor-pair" id="cursor-pair" aria-hidden="true">
+  <div class="cursor-square" id="cursor-square"></div>
+  <div class="cursor-label t-ui" id="cursor-label"></div>
+</div>
+
+<div class="veil route-veil" :class="{'veil-on': leaving}" aria-hidden="true"></div>
+
+<!-- The contact overlay: parked 200px below, rises as a stagger. Never a route. -->
+<div class="contact-overlay" id="contact-overlay" x-show="contactOpen" x-cloak
+     :class="{'overlay-open': contactOpen}" role="dialog" aria-modal="true"
+     aria-label="Contact Cirrus" @keydown.escape="closeContact()">
+  <button type="button" class="overlay-close t-ui" @click="closeContact()">CLOSE</button>
+  <div class="overlay-items">
+    <p class="overlay-item t-ui" style="--i:0">{{ house.name|upper }}</p>
+    <a class="overlay-item overlay-mail t-ui" style="--i:1" href="mailto:{{ house.contact_email }}"
+       aria-label="{{ house.contact_email }}"><span aria-hidden="true" data-split>{{ house.contact_email|upper }}</span></a>
+    <p class="overlay-item t-ui" style="--i:2">{{ house.street }}, {{ house.city }}</p>
+  </div>
+</div>
+
+<!-- The route tree. It swaps beneath the persistent frame. -->
+<main class="well" id="content" data-well tabindex="-1">
+  <div class="route" id="route" :class="{'route-out': leaving}">
+    {% block content %}{% endblock %}
+  </div>
+  {% block footer %}{% include "partials/footer.html" %}{% endblock %}
+</main>
+
+<div class="veil load-veil" id="load-veil" x-show="loading" x-cloak aria-hidden="true"></div>
+
+<script id="route-data" type="application/json">{{ route_data|default({})|tojson }}</script>
+</body>
+</html>

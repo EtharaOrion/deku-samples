@@ -1,0 +1,719 @@
+{
+  "judge_score": 0.392857,
+  "advisory": true,
+  "note": "Diagnostic only. PLAN.md 1.4: judge_score never drives training. A judge-only reward is trivially gamed. The binary substep grader owns the RL reward; this score is for human review only.",
+  "dimensions": {
+    "R1_instruction_following": {
+      "number": "R1",
+      "criterion": "On the public event page the ground, the headings and the hairlines all derive from one stored key colour.",
+      "evaluation_rule": "A KEY COLOUR is the single colour stored on an event and used to derive that page's whole palette. Answer yes when the ground, the heading colour and the hairline colour on a seeded event page read as tints of one hue, and two seeded event pages read as two different hues. Answer no when the page uses the plain paper ground with the default ink.",
+      "dimension": "instruction_following",
+      "importance": "critically_important",
+      "satisfied": false,
+      "passed": false,
+      "is_positive": true,
+      "score": 0.0,
+      "confidence": 0.94,
+      "weight": 0.1,
+      "rationale": "The ground and event typography respond correctly to distinct stored key colours, but a measured visible hairline remains the same blue RGBA across both seeded pages. Therefore ground, headings/typography, and hairlines do not all derive from the single per-event key colour, so the positive criterion is not met.",
+      "evidence": [
+        "On /thursday-night-5k, measured event-region variables were --ev-key:#146aeb, --ev-ground:#eeeff1, and --ev-ink:#001638; visible event text measured rgb(0,22,56). A full-page screenshot was captured at 1440\u00d7900, and the measured presenter link occupied x=282,y=463,w=196,h=24.",
+        "On /riverside-track-session, measured event-region variables changed to --ev-key:#3cbd2c, --ev-ground:#eff1ee, and --ev-ink:#063800; visible event text changed to rgb(6,56,0). A full-page screenshot was captured at 1440\u00d7900, with the same presenter-link geometry x=282,y=463,w=196,h=24. Thus the two seeded event pages do have different blue and green key-derived grounds/inks.",
+        "However, the visible 1px solid Follow-control hairlines did not change hue with the event: their computed border-top and border-bottom colors were rgba(0,15,58,0.08) on both the blue-key page and the green-key page. On the green event this is still a navy/blue hairline rather than a green tint, while the surrounding event ground/ink are #eff1ee/#063800."
+      ],
+      "human_eval": "no",
+      "machine_status": "FAIL",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R2_instruction_following": {
+      "number": "R2",
+      "criterion": "On the landing route the brand mark carries the pink accent the palette reserves for the mark, the invite badge and one link hue.",
+      "evaluation_rule": "Answer yes when the brand mark in the bar is drawn in a hot pink and that same pink appears only on the invite badge and one inline link elsewhere. Answer no when the mark is drawn in the body ink, or when the pink is used as a general decorative fill.",
+      "dimension": "instruction_following",
+      "importance": "important",
+      "satisfied": false,
+      "passed": false,
+      "is_positive": true,
+      "score": 0.0,
+      "confidence": 0.99,
+      "weight": 0.06,
+      "rationale": "The evaluation rule explicitly requires a no when the bar brand mark is drawn in body ink. Direct computed-style measurement shows the `deku` brand mark is dark body ink (`rgb(21, 21, 21)`), so the positive palette-reservation criterion is not met regardless of any additional pink usage elsewhere.",
+      "evidence": [
+        "On landing route `/`, the bar brand link is visibly identified as `deku` (ref 1, class `brand`, href `/`). Its computed `color` is `rgb(21, 21, 21)`, the page's dark body-ink color, not hot pink.",
+        "Other sampled landing-page accents also do not establish the requested reserved pink treatment: the `Discover Events \u2192` inline link (ref 8) computes to `rgba(21, 21, 21, 0.64)` on `rgba(21, 21, 21, 0.04)`, while primary CTA links (refs 7 and 26) use white on `rgb(21, 21, 21)`.",
+        "The account/avatar link (ref 3) likewise computes to `rgb(21, 21, 21)` with transparent background; no hot-pink badge treatment was observed among the visible bar controls."
+      ],
+      "human_eval": "no",
+      "machine_status": "FAIL",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R3_instruction_following": {
+      "number": "R3",
+      "criterion": "Body text across the signed-in screens sits in the single near-black ink the palette pins.",
+      "evaluation_rule": "Answer yes when running text on the signed-in screens is one near-black throughout, with lighter greys reserved for secondary and tertiary text. Answer no when body text appears in two or more unrelated dark colours.",
+      "dimension": "instruction_following",
+      "importance": "important",
+      "satisfied": true,
+      "passed": true,
+      "is_positive": true,
+      "score": 1.0,
+      "confidence": 0.93,
+      "weight": 0.06,
+      "rationale": "Measured styles across the home and multiple signed-in host screens consistently use the single near-black base rgb(21,21,21) for primary/running text. Secondary text is the same ink at 64% opacity, and disabled text is light grey. No second unrelated dark body-text color was observed.",
+      "evidence": [
+        "On the signed-in Calendars screen (/calendars), both calendar titles measured rgb(21, 21, 21), 16px, weight 500, line-height 24px; their bounding boxes were x=321 y=159 w=446 h=24 and x=833 y=159 w=446 h=24.",
+        "On the signed-in Profile screen (/settings/profile), both text inputs measured rgb(21, 21, 21), 16px, weight 400, line-height 24px; their bounding boxes were x=300 y=114 w=568 h=46 and x=300 y=204 w=568 h=46.",
+        "Secondary navigation text on signed-in screens measured rgba(21, 21, 21, 0.64), preserving the same rgb(21,21,21) near-black ink with reduced opacity rather than introducing an unrelated dark color.",
+        "On the home screen, primary calendar-card text measured rgb(21, 21, 21), while secondary running text measured rgba(21, 21, 21, 0.64), consistent with the same palette ink and lighter hierarchy.",
+        "The disabled Save Changes text measured rgb(181, 181, 181), a light grey appropriately reserved for non-primary/disabled text."
+      ],
+      "human_eval": "no",
+      "machine_status": "PASS",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R4_functionality": {
+      "number": "R4",
+      "criterion": "On the public event page each cover tile carries a glow layer, a sheen layer and a blurred copy beneath the image.",
+      "evaluation_rule": "A GLOW is a soft coloured halo spilling onto the ground around the tile, and a SHEEN is a highlight inside the tile. Answer yes when the tile shows a coloured halo around its edges and a lit highlight across its face. Answer no when the tile sits flat on the ground with a hard edge.",
+      "dimension": "functionality",
+      "importance": "critically_important",
+      "satisfied": false,
+      "passed": false,
+      "is_positive": true,
+      "score": 0.0,
+      "confidence": 0.96,
+      "weight": 0.1,
+      "rationale": "The directly measured cover tiles lack the mechanisms and visible styling required for a coloured halo, an internal lit sheen, or a blurred image copy beneath. Instead, they are flat white cards with a small neutral drop shadow. This meets the evaluation rule's explicit negative case (flat tile with no coloured halo/highlight), so R4 is not satisfied.",
+      "evidence": [
+        "On the public Discover Events page (/discover), the first event cover tile (\u201cThursday Night 5K\u201d, class='card ev-card') has computed styles: background-image: none; filter: none; box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 4px 0px; background: solid rgb(255, 255, 255).",
+        "A second public event tile (\u201cRiverside Track Session\u201d) has the same computed styles: no background image, no filter, and only a small neutral 1px/4px shadow.",
+        "On the public calendar page (/riverside-run-club), its event cover tile likewise has background-image: none, filter: none, solid white background, and only the same neutral shadow.",
+        "The homepage calendar cover tiles also use a solid white background, no background image or filter, and the same neutral shadow, showing this is consistent rather than isolated."
+      ],
+      "human_eval": "no",
+      "machine_status": "FAIL",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R5_functionality": {
+      "number": "R5",
+      "criterion": "An event page whose derived ground would leave its own ink unreadable falls back to the plain paper ground and tells the host the cover is pale.",
+      "evaluation_rule": "Answer yes when an event whose cover produces a very light ground renders on the plain paper ground with the default ink and shows the host a message about the cover. Answer no when the page renders text that is too faint to read against its own ground.",
+      "dimension": "functionality",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "The required pale-cover fallback flow could not be exercised or identified from the observed browser UI. Readable ordinary event pages do not establish that a very light derived ground falls back to plain paper/default ink, and no host message about such a cover was observed. Therefore the criterion cannot be defensibly marked yes or no.",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "The authenticated host create-event form was reached and its visible controls included calendar, event details, capacity, approval, and a Theme section labeled \u201cSeasonal,\u201d but no observable cover-image control or pale-cover fixture was exposed in the captured form state.",
+        "Submitting the untouched form created \u201cUntitled event\u201d and the public page rendered readable event text, but this did not exercise the required condition of a cover that derives a very light ground.",
+        "A known event page (\u201cWinter Reading Night\u201d) also rendered readable text, but there was no direct evidence that its cover produced the very light derived ground required by R5, nor was a host-facing cover warning observed."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R6_ux_flow": {
+      "number": "R6",
+      "criterion": "The discover list states the empty-result heading the copy deck pins when a filter matches nothing.",
+      "evaluation_rule": "Compare the visible heading against the string No Events Found, ignoring surrounding whitespace, letter case and a trailing full stop. Answer yes when that heading appears with a sentence beneath and one action beside it. Answer no when the list renders as a blank area.",
+      "dimension": "ux_flow",
+      "importance": "important",
+      "satisfied": true,
+      "passed": true,
+      "is_positive": true,
+      "score": 1.0,
+      "confidence": 0.99,
+      "weight": 0.06,
+      "rationale": "The no-match discover state meets the rule: its heading matches \u201cNo Events Found\u201d exactly, it includes a sentence beneath, and it provides one associated empty-state action. The list does not render as a blank area.",
+      "evidence": [
+        "On /discover, entering the deliberately nonmatching search value \u201czzzz-no-such-event-r6-2026\u201d updated the URL to /discover?q=zzzz-no-such-event-r6-2026 and produced the visible empty-result content rather than a blank list.",
+        "The resulting visible text contained the exact heading \u201cNo Events Found\u201d, followed immediately by the sentence \u201cTry a wider date range or a different category.\u201d and an empty-state \u201cClear Filters\u201d button.",
+        "The empty-state action was directly verified as visible with display:flex, visibility:visible, opacity:1 and geometry x=652, y=398, width=136, height=50.",
+        "Clicking the empty-state \u201cClear Filters\u201d action restored the populated discover list and removed the search query, confirming the action is functional and the fixture interaction was reversible."
+      ],
+      "human_eval": "no",
+      "machine_status": "PASS",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R7_ux_flow": {
+      "number": "R7",
+      "criterion": "The themed ground of a public event page fades in once and then holds still.",
+      "evaluation_rule": "Answer yes when the coloured ground appears with a single slow fade on first load and stays static afterwards. Answer no when the ground pulses, loops or re-fades on scroll.",
+      "dimension": "ux_flow",
+      "importance": "somewhat_important",
+      "satisfied": true,
+      "passed": true,
+      "is_positive": true,
+      "score": 1.0,
+      "confidence": 0.99,
+      "weight": 0.02,
+      "rationale": "The event theme has one slow, finite two-second fade on first load. Once settled, it remains static, including through the required scroll interaction.",
+      "evidence": [
+        "On a fresh navigation to the public event route `/riverside-track-session`, CDP animation capture recorded `event-theme-fade-in` with duration 2000 ms and `iterations: 1`.",
+        "The same initial-load capture recorded only one additional finite `background-color` transition (300 ms, `iterations: 1`); neither animation looped.",
+        "After the initial fade had elapsed, a second capture spanning scroll to the bottom and back to the top recorded `animation_count: 0`, directly showing that scrolling did not trigger a pulse, loop, or re-fade."
+      ],
+      "human_eval": "no",
+      "machine_status": "PASS",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R8_ui_visual": {
+      "number": "R8",
+      "criterion": "Cover tiles carry a corner curve that tracks the tile aspect ratio rather than a constant radius.",
+      "evaluation_rule": "Answer yes when the corner curve on a wide tile differs from the curve on a square tile of the same design. Answer no when every tile shows the same corner curve at every shape.",
+      "dimension": "ui_visual",
+      "importance": "somewhat_important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.02,
+      "rationale": "active evaluator failed: RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "LLM error: peer closed connection without sending complete message body (incomplete chunked read)"
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R9_ui_visual": {
+      "number": "R9",
+      "criterion": "On the guest list one hue marks a failed action, a second marks a completed action and a third marks a pending action.",
+      "evaluation_rule": "Answer yes when the three meanings each own one hue and those three hues appear only on state markers. Answer no when one of the three hues is also used as a decorative fill or a background.",
+      "dimension": "ui_visual",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "The criterion requires direct visual and measured-style evidence from a guest list. The collected workflow did not reach that interface and therefore cannot defensibly establish satisfaction or failure.",
+      "evidence": [
+        "style criterion has no objective selector",
+        "The authenticated host dashboard and Riverside Run Club event listings were observed, but no guest-list view was reached.",
+        "Available snapshots exposed event and calendar text only; they did not expose the three guest action states (failed, completed, pending).",
+        "No screenshots with corresponding measured CSS colors and bounding boxes were obtained, so it was not possible to verify either three distinct state-marker hues or whether any of those hues are reused as decorative/background fills."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R10_motion": {
+      "number": "R10",
+      "criterion": "Every element that moves shares one motion duration and one settling curve.",
+      "evaluation_rule": "Answer yes when hovers, panel entrances and state changes all take the same short time and ease off at the end. Answer no when different controls move at visibly different speeds, or when a blurred layer is animated.",
+      "dimension": "motion",
+      "importance": "somewhat_important",
+      "satisfied": false,
+      "passed": false,
+      "is_positive": true,
+      "score": 0.0,
+      "confidence": 0.99,
+      "weight": 0.02,
+      "rationale": "R10 is not satisfied. Although common hover/state transitions share a short 300ms ease-out-like curve, the panel entrance uses linear easing, and the page includes 9000ms linear continuous motion. Therefore all moving elements do not share one motion duration and one settling curve.",
+      "evidence": [
+        "Computed styles for representative homepage links, CTA, event card, category link, and profile control consistently specify 0.3s transitions with cubic-bezier(0.4, 0, 0.2, 1).",
+        "Direct CDP capture of the New Calendar panel entrance recorded animation \u201cpanel-in\u201d at 300ms with linear easing, which differs from the controls\u2019 300ms cubic-bezier settling curve.",
+        "The supplied deterministic motion inventory also records multiple continuously running 9000ms linear animations with staggered delays, so not every moving element shares the same short duration as the 300ms interactions.",
+        "Inspected representative controls and panel fields reported filter:none and backdrop-filter:none; the failure is due to inconsistent duration/curve, not a blurred-layer animation."
+      ],
+      "human_eval": "no",
+      "machine_status": "FAIL",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R11_accessibility": {
+      "number": "R11",
+      "criterion": "Every icon-only control on the signed-in screens carries a readable text name.",
+      "evaluation_rule": "Answer yes when each control drawn as a glyph alone exposes a text name to a reader using the keyboard or a screen reader. Answer no when a glyph control is reachable with an empty name.",
+      "dimension": "accessibility",
+      "importance": "important",
+      "satisfied": true,
+      "passed": true,
+      "is_positive": true,
+      "score": 1.0,
+      "confidence": 0.9,
+      "weight": 0.06,
+      "rationale": "The observed glyph-only controls had non-empty, readable accessible names, including explicit aria-labels for the plus/minus controls and the account control. No reachable glyph control with an empty name was found in the sampled signed-in workflow screens. This resolves R11 as satisfied for the tested screens, without making a broader WCAG-conformance claim.",
+      "evidence": [
+        "On the signed-in Create screen (/create), the two glyph-only capacity buttons were exposed in the accessibility snapshot as buttons named \u201c\u2212\u201d and \u201c+\u201d; direct attribute inspection found aria-label=\"Fewer seats\" on the minus button and aria-label=\"More seats\" on the plus button.",
+        "The signed-in account/avatar control was exposed as button \u201cP Priya Raman Host \u00b7 Sign out\u201d on /calendars, /create, and /settings/profile; direct inspection on /create found aria-label=\"Sign out\".",
+        "Accessibility snapshots of the supplied root route and sampled signed-in destinations (/calendars, /create, /settings/profile, /riverside-run-club, /thursday-night-5k, and /probe-calendar-ce1e6fd0) showed no keyboard-reachable glyph control with an empty accessible name."
+      ],
+      "human_eval": "no",
+      "machine_status": "PASS",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R12_responsiveness": {
+      "number": "R12",
+      "criterion": "Every tappable control at phone width reaches the minimum touch target the responsive matrix pins.",
+      "evaluation_rule": "Answer yes when every button, link and field a finger would use measures at least forty-four device pixels on both axes at phone width. Answer no when any of them is smaller on either axis.",
+      "dimension": "responsiveness",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "active evaluator failed: RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)",
+      "evidence": [
+        "layout measurements captured",
+        "LLM error: peer closed connection without sending complete message body (incomplete chunked read)"
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R13_motion": {
+      "number": "R13",
+      "criterion": "The ambient rotation behind the event composer keeps turning for a visitor whose device asks for reduced motion.",
+      "evaluation_rule": "This records a DEFECT, so yes means the failure was seen. Answer yes when the coloured ground behind the composer is still turning under a reduced-motion preference. Answer no when the ground holds its first frame and the named reveals arrive in their final state.",
+      "dimension": "motion",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": false,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "The captures directly establish ambient background motion in the normal browser preference, but no direct observation or measurement was obtained with prefers-reduced-motion enabled. Therefore the criterion's required condition\u2014whether that ground keeps turning specifically for a visitor whose device requests reduced motion\u2014cannot be defensibly resolved.",
+      "evidence": [
+        "motion inventory captured; interaction is required to settle behavior",
+        "On authenticated host route /create, entering the event composer produced a running CSS animation named \"shift-background\" with linear easing, 60,000 ms duration, and infinite iterations (iterations reported as null).",
+        "A second capture after navigating away and re-entering /create again showed the same running infinite \"shift-background\" animation behind the composer."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R14_accessibility": {
+      "number": "R14",
+      "criterion": "A dialog opened on the calendars screen hands focus back to the control that opened the dialog once the escape key closes the dialog.",
+      "evaluation_rule": "Answer yes when opening the dialog moves keyboard focus inside it, the escape key closes it, and focus lands back on the control that opened it. Answer no when focus stays behind the dialog, or when closing the dialog drops focus at the top of the document.",
+      "dimension": "accessibility",
+      "importance": "important",
+      "satisfied": false,
+      "passed": false,
+      "is_positive": true,
+      "score": 0.0,
+      "confidence": 0.99,
+      "weight": 0.06,
+      "rationale": "The required sequence is not implemented for the New Calendar dialog/UI on the calendars screen: opening does not hand focus into it, and Escape does not close it. Therefore it cannot return focus to the opener after Escape closes it.",
+      "evidence": [
+        "On /calendars, activating the \u201cNew Calendar\u201d button exposed the New Calendar UI with Name, Address, Category, City, Public calendar, Cancel, and Create Calendar controls.",
+        "Immediately after opening, browser_get_focused reported focus remained on the opener: `tag=button text=New Calendar`, rather than moving to a control inside the opened UI.",
+        "Pressing Escape did not close the opened UI: the subsequent snapshot still exposed all New Calendar form controls, including Cancel and Create Calendar.",
+        "A later focus check still reported the \u201cNew Calendar\u201d opener focused, with a visible `solid 2px rgb(20, 106, 235)` outline. Because Escape did not close the UI, the required close-and-return-focus behavior was not present."
+      ],
+      "human_eval": "no",
+      "machine_status": "FAIL",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R15_responsiveness": {
+      "number": "R15",
+      "criterion": "At phone width the guest list on the event management screen shows one card per guest carrying the column words as labels.",
+      "evaluation_rule": "Answer yes when the guest table becomes a stack of cards at phone width and every value keeps its header word beside it. Answer no when the table keeps its columns and has to be scrolled sideways at that width.",
+      "dimension": "responsiveness",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "The event-management guest list itself was not reached, so there is no direct observation of whether the desktop table becomes one card per guest at phone width or whether each value carries its header word. The no-overflow measurement on '/' cannot establish this route-specific criterion.",
+      "evidence": [
+        "layout measurements captured",
+        "At a 390\u00d7844 phone viewport, supplied deterministic measurements report bodyScrollWidth=390 and horizontalOverflow=false, but those measurements are for route '/' rather than the event-management guest list.",
+        "The authenticated host account was verified (Priya Raman, Host), and the Riverside Run Club calendar and Thursday Night 5K event were reachable.",
+        "Attempts to reach likely event-management routes '/thursday-night-5k/manage', '/events/thursday-night-5k', '/calendars/riverside-run-club', and '/manage/thursday-night-5k' returned 404 pages."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R16_motion": {
+      "number": "R16",
+      "criterion": "A rejected sign in answers with a short shake of the card and a sentence beneath the field.",
+      "evaluation_rule": "Answer yes when a wrong password moves the card a few pixels from side to side once and a sentence appears under the field. Answer no when the card holds still, or when the outcome is marked by colour alone.",
+      "dimension": "motion",
+      "importance": "somewhat_important",
+      "satisfied": true,
+      "passed": true,
+      "is_positive": true,
+      "score": 1.0,
+      "confidence": 0.98,
+      "weight": 0.02,
+      "rationale": "The rejected sign-in directly triggered both required outcomes: a brief, one-iteration shake and a textual error sentence associated with the sign-in fields. The motion capture supplies direct animation evidence, so the outcome is not indicated by color alone.",
+      "evidence": [
+        "On /login, submitting host@example.com with an incorrect password produced the visible sentence: \u201cThat email and password combination is not right. Try again.\u201d",
+        "CDP motion capture started immediately before the rejected submission recorded a named \u201cshake\u201d animation with 400 ms duration, linear easing, and exactly 1 iteration.",
+        "A second rejected submission independently recorded the same named \u201cshake\u201d animation (400 ms, 1 iteration), confirming the response is repeatable and short-lived rather than continuous.",
+        "After settling, computed styles reported animation-name: none and transform: none, consistent with a one-time shake returning to rest."
+      ],
+      "human_eval": "no",
+      "machine_status": "PASS",
+      "resolved_by": "active_acquisition",
+      "voters": 1
+    },
+    "R17_ui_visual": {
+      "number": "R17",
+      "criterion": "A notice raised on the event management screen carries its status hue as a narrow leading edge rather than as a fill behind the words.",
+      "evaluation_rule": "Answer yes when the coloured part of the notice is a thin bar on one side and the words sit on the ordinary panel ground. Answer no when the whole notice is washed in the status colour.",
+      "dimension": "ui_visual",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "The relevant notice on an event management screen was not reached, so there is no direct visual or measured evidence establishing whether its status colour is a narrow leading edge or a full background wash. Missing access/evidence cannot support either yes or no.",
+      "evidence": [
+        "style criterion has no objective selector",
+        "The authenticated host dashboard was reachable at /calendars, but exposed only calendar links and no event-management controls.",
+        "The public event route /probe-raise showed event details and registration controls, but no management notice.",
+        "Attempts to reach plausible management routes /probe-raise/manage and /probe-raise/edit returned 404 pages.",
+        "No screenshot plus computed-style/bounding-box measurements of the criterion's notice could be obtained; the supplied deterministic measurement likewise reported no objective selector."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    },
+    "R18_ux_flow": {
+      "number": "R18",
+      "criterion": "The discover list paints skeleton blocks shaped like the cards still arriving rather than a centred spinner.",
+      "evaluation_rule": "Answer yes when the first paint shows grey blocks in the shape of the cards and the cards replace them in place. Answer no when a spinner sits in the middle of an empty page, or when the layout jumps once the data lands.",
+      "dimension": "ux_flow",
+      "importance": "important",
+      "satisfied": null,
+      "passed": null,
+      "is_positive": true,
+      "score": null,
+      "confidence": 0.0,
+      "weight": 0.06,
+      "rationale": "R18 is specifically about the transient first paint and in-place replacement behavior. The available browser observations only expose settled states, and the animation metadata is not specific enough to distinguish card-shaped skeletons from unrelated color transitions. Therefore neither satisfaction nor failure can be defensibly determined.",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "Navigating directly to `/discover` and to a cache-busted `/discover?cb=r18x` yielded only the fully loaded event-card list in the browser snapshot; the browser tool completed navigation before exposing the DOM, so the initial loading paint was not observable.",
+        "A reload under CDP animation capture reported one 300 ms `color` animation, but this does not identify a skeleton, spinner, or card-replacement transition.",
+        "Filter and pagination interactions updated the list successfully, but their intermediate loading frames were too short to capture with the available sequential browser calls; the post-update snapshots alone cannot establish whether placeholders replaced cards in place or whether layout jumped.",
+        "The screenshot transport explicitly omitted the captured image and instructed not to judge appearance from it, so it supplied no usable visual evidence of the first paint."
+      ],
+      "human_eval": "no",
+      "machine_status": "INSUFFICIENT_EVIDENCE",
+      "resolved_by": "machine_unresolved",
+      "voters": 1
+    }
+  },
+  "missing_features": [
+    "/<category>",
+    "/<slug>",
+    "/app",
+    "/create",
+    "/event/<slug>/manage/guests",
+    "/event/<slug>/manage/overview",
+    "/event/<slug>/manage/registration",
+    "/event/sunrise-long-run/manage/guests",
+    "/home",
+    "/login",
+    "/login?next=<current>",
+    "/login?next=<path>",
+    "/riverside-track-session",
+    "/settings/profile",
+    "/t/<ticket-code>",
+    "/thursday-night-5k"
+  ],
+  "console_errors": [
+    "ERROR TypeError: Failed to fetch\n    at http://deku-fresh-s_event_book_community-calendar__pqe3q96-app:4173/polyfills-5CFQRCPP.js:2:3143\n    at e.<computed> (http://deku-fresh-s_event_book_community-calendar__pqe3q96-app:4173/polyfills-5CFQRCPP.js:1:14181)\n    at e.<anonymous> (http://deku-fresh-s_event_book_community-calendar__pqe3q96-app:4173/main-HBQW3ML5.js:4:212402)\n    at Generator.next (<anonymous>)\n    at http://deku-fresh-s_event_book_community-calendar__pqe3q96-app:4173/main-HBQW3ML5.j",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "screenshots": [
+    "/logs/verifier/shots/00_root_1920x1200.png",
+    "/logs/verifier/shots/00_root_768x1024.png",
+    "/logs/verifier/shots/00_root_390x844.png",
+    "/logs/verifier/shots/01_discover_1920x1200.jpg",
+    "/logs/verifier/shots/01_discover_768x1024.jpg",
+    "/logs/verifier/shots/01_discover_390x844.jpg",
+    "/logs/verifier/shots/02_calendars_1920x1200.png",
+    "/logs/verifier/shots/02_calendars_768x1024.png",
+    "/logs/verifier/shots/02_calendars_390x844.png",
+    "/logs/verifier/shots/03_signup_1920x1200.png",
+    "/logs/verifier/shots/03_signup_768x1024.png",
+    "/logs/verifier/shots/03_signup_390x844.png",
+    "/logs/verifier/shots/04_riverside_run_club_1920x1200.jpg",
+    "/logs/verifier/shots/04_riverside_run_club_768x1024.jpg",
+    "/logs/verifier/shots/04_riverside_run_club_390x844.jpg",
+    "/logs/verifier/shots/05_northside_reading_nights_1920x1200.png",
+    "/logs/verifier/shots/05_northside_reading_nights_768x1024.png",
+    "/logs/verifier/shots/05_northside_reading_nights_390x844.png",
+    "/logs/verifier/shots/06_shelf_2_1920x1200.png",
+    "/logs/verifier/shots/06_shelf_2_768x1024.png",
+    "/logs/verifier/shots/06_shelf_2_390x844.png",
+    "/logs/verifier/shots/07_shelf_3_1920x1200.png",
+    "/logs/verifier/shots/07_shelf_3_768x1024.png",
+    "/logs/verifier/shots/07_shelf_3_390x844.png",
+    "/logs/verifier/shots/08_shelf_4_1920x1200.png",
+    "/logs/verifier/shots/08_shelf_4_768x1024.png",
+    "/logs/verifier/shots/08_shelf_4_390x844.png"
+  ],
+  "meta": {
+    "grader_model": "gpt-5.6-sol",
+    "url": "http://deku-fresh-s_event_book_community-calendar__pqe3q96-app:4173",
+    "viewports": [
+      "1920x1200",
+      "768x1024",
+      "390x844"
+    ],
+    "instruction": "/tests/instruction.md",
+    "started_at": "2026-09-06T12:00:33+00:00",
+    "harness": "run_rubric.py",
+    "rubric_source": "/tests/rubric.json",
+    "rubric_criteria": 18,
+    "evidence_first": true,
+    "probe_login_status": "logged in as host@example.com",
+    "routing_plan": {
+      "total_criteria": 18,
+      "by_resolution": {
+        "active_acquisition": 18
+      },
+      "by_specialist": {
+        "visual": 5,
+        "navigation": 1,
+        "forms": 5,
+        "motion": 3,
+        "accessibility": 2,
+        "responsive": 2
+      },
+      "needs_active": 18,
+      "probe_settled": 0
+    },
+    "active_acquisition": {
+      "steps_spent": 495,
+      "total_budget": 750,
+      "remaining": 255,
+      "circuit_broken": false,
+      "criteria_acquired": 18
+    },
+    "resolution_breakdown": {
+      "active_acquisition": 10,
+      "machine_unresolved": 8
+    },
+    "machine_resolution": {
+      "counts": {
+        "PASS": 5,
+        "FAIL": 5,
+        "INSUFFICIENT_EVIDENCE": 8,
+        "EVALUATOR_ERROR": 0
+      },
+      "criteria_total": 18,
+      "criteria_resolved": 10,
+      "criteria_unresolved": 8,
+      "coverage": 0.5555555555555556,
+      "weighted_coverage": 0.56
+    },
+    "finished_at": "2026-09-06T12:29:40+00:00",
+    "routes_visited": [
+      "/",
+      "/autumn-book-swap",
+      "/books",
+      "/calendars",
+      "/calendars/riverside-run-club",
+      "/create",
+      "/create.",
+      "/discover",
+      "/discover?category=books&city=Lisbon",
+      "/discover?category=climate",
+      "/discover?category=running",
+      "/discover?category=running&q=Probe",
+      "/discover?category=running&q=Probe&offset=20",
+      "/discover?cb=r18x",
+      "/discover?city=Lisbon",
+      "/discover?q=Riverside.",
+      "/discover?q=zzzz-no-such-event-r6-2026",
+      "/discover?q=zzzzzz",
+      "/event/untitled-event/manage/overview",
+      "/events/harbour-loop-recovery-jog",
+      "/events/probe-raise",
+      "/events/thursday-night-5k",
+      "/home",
+      "/login",
+      "/manage/thursday-night-5k",
+      "/northside-reading-nights",
+      "/probe-calendar-ce1e6fd0",
+      "/probe-decline",
+      "/probe-raise",
+      "/probe-raise/edit",
+      "/probe-raise/manage",
+      "/riverside-run-club",
+      "/riverside-track-session",
+      "/riverside-winter-time-trial",
+      "/running",
+      "/settings",
+      "/settings/profile",
+      "/shelf-2",
+      "/shelf-3",
+      "/shelf-4",
+      "/signup",
+      "/signup.",
+      "/thursday-night-5k",
+      "/thursday-night-5k/manage",
+      "/untitled-event",
+      "/winter-reading-night"
+    ],
+    "login_status": "logged in as host@example.com",
+    "judge_panel": [
+      "evidence_first_specialists",
+      "machine_adjudicator"
+    ],
+    "judge_panel_source": "evidence_first_pipeline",
+    "usage": {
+      "calls": 382,
+      "model_name": "gpt-5.6-sol",
+      "input_tokens": 678430,
+      "output_tokens": 31117,
+      "cache_read_input_tokens": 1127168,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "criteria_total": 18,
+  "criteria_passed": 5,
+  "criteria_failed": 5,
+  "criteria_unresolved": 8,
+  "machine_resolution": {
+    "counts": {
+      "PASS": 5,
+      "FAIL": 5,
+      "INSUFFICIENT_EVIDENCE": 8,
+      "EVALUATOR_ERROR": 0
+    },
+    "criteria_total": 18,
+    "criteria_resolved": 10,
+    "criteria_unresolved": 8,
+    "coverage": 0.5555555555555556,
+    "weighted_coverage": 0.56
+  },
+  "machine_unresolved": [
+    {
+      "criterion": "R5",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "The required pale-cover fallback flow could not be exercised or identified from the observed browser UI. Readable ordinary event pages do not establish that a very light derived ground falls back to plain paper/default ink, and no host message about such a cover was observed. Therefore the criterion cannot be defensibly marked yes or no.",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "The authenticated host create-event form was reached and its visible controls included calendar, event details, capacity, approval, and a Theme section labeled \u201cSeasonal,\u201d but no observable cover-image control or pale-cover fixture was exposed in the captured form state.",
+        "Submitting the untouched form created \u201cUntitled event\u201d and the public page rendered readable event text, but this did not exercise the required condition of a cover that derives a very light ground.",
+        "A known event page (\u201cWinter Reading Night\u201d) also rendered readable text, but there was no direct evidence that its cover produced the very light derived ground required by R5, nor was a host-facing cover warning observed."
+      ]
+    },
+    {
+      "criterion": "R8",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "active evaluator failed: RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "LLM error: peer closed connection without sending complete message body (incomplete chunked read)"
+      ]
+    },
+    {
+      "criterion": "R9",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "The criterion requires direct visual and measured-style evidence from a guest list. The collected workflow did not reach that interface and therefore cannot defensibly establish satisfaction or failure.",
+      "evidence": [
+        "style criterion has no objective selector",
+        "The authenticated host dashboard and Riverside Run Club event listings were observed, but no guest-list view was reached.",
+        "Available snapshots exposed event and calendar text only; they did not expose the three guest action states (failed, completed, pending).",
+        "No screenshots with corresponding measured CSS colors and bounding boxes were obtained, so it was not possible to verify either three distinct state-marker hues or whether any of those hues are reused as decorative/background fills."
+      ]
+    },
+    {
+      "criterion": "R12",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "active evaluator failed: RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)",
+      "evidence": [
+        "layout measurements captured",
+        "LLM error: peer closed connection without sending complete message body (incomplete chunked read)"
+      ]
+    },
+    {
+      "criterion": "R13",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "The captures directly establish ambient background motion in the normal browser preference, but no direct observation or measurement was obtained with prefers-reduced-motion enabled. Therefore the criterion's required condition\u2014whether that ground keeps turning specifically for a visitor whose device requests reduced motion\u2014cannot be defensibly resolved.",
+      "evidence": [
+        "motion inventory captured; interaction is required to settle behavior",
+        "On authenticated host route /create, entering the event composer produced a running CSS animation named \"shift-background\" with linear easing, 60,000 ms duration, and infinite iterations (iterations reported as null).",
+        "A second capture after navigating away and re-entering /create again showed the same running infinite \"shift-background\" animation behind the composer."
+      ]
+    },
+    {
+      "criterion": "R15",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "The event-management guest list itself was not reached, so there is no direct observation of whether the desktop table becomes one card per guest at phone width or whether each value carries its header word. The no-overflow measurement on '/' cannot establish this route-specific criterion.",
+      "evidence": [
+        "layout measurements captured",
+        "At a 390\u00d7844 phone viewport, supplied deterministic measurements report bodyScrollWidth=390 and horizontalOverflow=false, but those measurements are for route '/' rather than the event-management guest list.",
+        "The authenticated host account was verified (Priya Raman, Host), and the Riverside Run Club calendar and Thursday Night 5K event were reachable.",
+        "Attempts to reach likely event-management routes '/thursday-night-5k/manage', '/events/thursday-night-5k', '/calendars/riverside-run-club', and '/manage/thursday-night-5k' returned 404 pages."
+      ]
+    },
+    {
+      "criterion": "R17",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "The relevant notice on an event management screen was not reached, so there is no direct visual or measured evidence establishing whether its status colour is a narrow leading edge or a full background wash. Missing access/evidence cannot support either yes or no.",
+      "evidence": [
+        "style criterion has no objective selector",
+        "The authenticated host dashboard was reachable at /calendars, but exposed only calendar links and no event-management controls.",
+        "The public event route /probe-raise showed event details and registration controls, but no management notice.",
+        "Attempts to reach plausible management routes /probe-raise/manage and /probe-raise/edit returned 404 pages.",
+        "No screenshot plus computed-style/bounding-box measurements of the criterion's notice could be obtained; the supplied deterministic measurement likewise reported no objective selector."
+      ]
+    },
+    {
+      "criterion": "R18",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "rationale": "R18 is specifically about the transient first paint and in-place replacement behavior. The available browser observations only expose settled states, and the animation metadata is not specific enough to distinguish card-shaped skeletons from unrelated color transitions. Therefore neither satisfaction nor failure can be defensibly determined.",
+      "evidence": [
+        "no deterministic probe for composite; browser specialist required",
+        "Navigating directly to `/discover` and to a cache-busted `/discover?cb=r18x` yielded only the fully loaded event-card list in the browser snapshot; the browser tool completed navigation before exposing the DOM, so the initial loading paint was not observable.",
+        "A reload under CDP animation capture reported one 300 ms `color` animation, but this does not identify a skeleton, spinner, or card-replacement transition.",
+        "Filter and pagination interactions updated the list successfully, but their intermediate loading frames were too short to capture with the available sequential browser calls; the post-update snapshots alone cannot establish whether placeholders replaced cards in place or whether layout jumped.",
+        "The screenshot transport explicitly omitted the captured image and instructed not to judge appearance from it, so it supplied no usable visual evidence of the first paint."
+      ]
+    }
+  ],
+  "needs_human_eval": 0,
+  "evidence_first": true,
+  "review_queue": {
+    "count": 0,
+    "criteria": []
+  },
+  "needs_review": []
+}

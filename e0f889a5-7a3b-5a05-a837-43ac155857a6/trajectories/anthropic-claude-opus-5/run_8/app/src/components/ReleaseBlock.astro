@@ -1,0 +1,40 @@
+---
+import { formatBytes, formatDate } from '../lib/format.js';
+const { release, open = false } = Astro.props;
+// Four ordered groups only, in this fixed order, none invented beyond these.
+const GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+const notes = release.notes || {};
+---
+<details class="release" open={open}>
+  <summary>
+    <div class="release-head">
+      <h3 class="release-title">Arranger <span class="version">{release.version}</span></h3>
+      <span class="release-date">Released on {formatDate(release.released_on)}</span>
+      <span class="release-disclose"></span>
+    </div>
+  </summary>
+  <div class="release-body">
+    {release.description && <p style="margin-top: 0">{release.description}</p>}
+
+    <p>
+      <a class="btn btn-quiet btn-small" href={`/api/releases/${encodeURIComponent(release.version)}/artifact`} download>
+        Download Arranger {release.version}
+      </a>
+      <span class="dl-meta" style="margin-left: 0.75rem">
+        <span class="bytes">{formatBytes(release.size_bytes)}</span> bytes · build <span class="build">{release.build}</span>
+      </span>
+    </p>
+    <p class="dl-meta"><span class="digest">{release.sha256}</span></p>
+
+    {GROUPS.map((g) => (
+      notes[g] && notes[g].length > 0 && (
+        <>
+          <h4>{g}</h4>
+          <ul>{notes[g].map((n) => <li>{n}</li>)}</ul>
+        </>
+      )
+    ))}
+
+    <p class="release-sign">The Vela team.</p>
+  </div>
+</details>

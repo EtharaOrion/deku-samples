@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="studio" x-data="palette({{ items|tojson|forceescape }})" x-init="focusInput()">
+  <h1 class="studio-title">Studio.</h1>
+  <p class="studio-house">{{ house.name|upper }} - {{ account.email|upper }}
+    <button type="button" class="control control-inline" @click="signOut()">SIGN OUT</button></p>
+
+  <div class="palette">
+    <label class="field field-palette">
+      <span class="visually-hidden">Filter this house's records by title or slug</span>
+      <input class="field-input palette-input" type="search" x-model="term" x-ref="input"
+             placeholder="TYPE A NAME, OR CHOOSE AN ACTION"
+             @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="run()">
+    </label>
+
+    <ul class="palette-actions" aria-label="Actions">
+      <li><a class="palette-action" href="/studio/talents/new" data-nav>NEW TALENT</a></li>
+      <li><a class="palette-action" href="/studio/works/new" data-nav>NEW WORK</a></li>
+      <li><button type="button" class="palette-action" @click="reorderOpen = !reorderOpen">
+        REORDER INDEX</button></li>
+      <li><button type="button" class="palette-action" @click="previewFirst()">PREVIEW</button></li>
+    </ul>
+
+    <p class="form-error" x-show="errorText" x-cloak x-text="errorText" role="alert"></p>
+    <p class="form-note" x-show="noteText" x-cloak role="status">
+      <span x-text="noteText"></span>
+      <a x-show="noteHref" x-cloak :href="noteHref" x-text="noteHref"></a>
+    </p>
+
+    <div class="reorder" x-show="reorderOpen" x-cloak>
+      <h2 class="section-label">REORDER THE INDEX</h2>
+      <ol class="reorder-list">
+        <template x-for="(work, i) in works()" :key="work.id">
+          <li class="reorder-row">
+            <span x-text="work.title"></span>
+            <button type="button" class="control control-inline" @click="nudge(i, -1)"
+                    :aria-label="`Move ${work.title} earlier`">UP</button>
+            <button type="button" class="control control-inline" @click="nudge(i, 1)"
+                    :aria-label="`Move ${work.title} later`">DOWN</button>
+          </li>
+        </template>
+      </ol>
+      <button type="button" class="control" @click="saveOrder()">SAVE ORDER</button>
+    </div>
+
+    <ul class="card-grid" aria-label="Records">
+      <template x-for="item in filtered()" :key="item.id">
+        <li class="card" :class="{ 'is-live': item.published }">
+          <a class="card-link" :href="`/studio/items/${item.id}`" data-nav>
+            <span class="card-title" x-text="item.title"></span>
+            <span class="card-meta">
+              <span x-text="item.kind.toUpperCase()"></span>
+              <span x-text="item.slug"></span>
+              <span class="card-state" x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+            </span>
+          </a>
+        </li>
+      </template>
+    </ul>
+    <p class="empty-state" x-show="filtered().length === 0" x-cloak>No record matches that.</p>
+  </div>
+</section>
+{% endblock %}

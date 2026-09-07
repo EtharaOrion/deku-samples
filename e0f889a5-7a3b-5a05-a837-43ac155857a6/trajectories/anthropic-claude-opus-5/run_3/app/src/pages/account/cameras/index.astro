@@ -1,0 +1,106 @@
+---
+import Shell from '../../../components/Shell.astro';
+import RegisterRow from '../../../islands/RegisterRow.jsx';
+import { requirePageCustomer } from '../../../lib/guard.js';
+import { apiGet, pageCart } from '../../../lib/server-fetch.js';
+import { formatDateLong } from '../../../lib/domain.js';
+
+const { customer, redirect } = await requirePageCustomer(Astro);
+if (redirect) return redirect;
+
+const cart = await pageCart(Astro);
+const res = await apiGet('/api/account/devices?page_size=100', Astro);
+const devices = res.ok ? res.body.data : [];
+---
+
+<Shell
+  title="Cameras — Vela"
+  current="cameras"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">Cameras</h1>
+    <p class="page-sub">Every camera registered to this account.</p>
+  </div>
+
+  <RegisterRow client:load />
+
+  {
+    devices.length === 0 ? (
+      <div class="empty">
+        <p>No cameras registered yet.</p>
+      </div>
+    ) : (
+      <ul class="camera-grid" role="list">
+        {devices.map((device) => (
+          <li class="card camera">
+            <div class="row row--between">
+              <h2 class="camera__model">{device.model}</h2>
+              {/* An expired warranty reads as a neutral state and never as a
+                  warning, because an expired warranty is not a problem. */}
+              {device.warranty_until && (
+                <span class="chip chip--neutral">
+                  {device.warranty_expired
+                    ? 'Warranty ended'
+                    : `Warranty to ${formatDateLong(device.warranty_until)}`}
+                </span>
+              )}
+            </div>
+
+            {device.nickname && <p class="camera__nickname muted">{device.nickname}</p>}
+
+            <p class="serial camera__serial">{device.serial}</p>
+
+            <div class="row camera__chips">
+              {device.never_connected ? (
+                <span class="chip chip--neutral">Not yet connected</span>
+              ) : device.update_available ? (
+                <span class="chip chip--progress">Update available</span>
+              ) : (
+                <span class="chip chip--done">
+                  Firmware <span class="version">{device.firmware_version}</span>
+                </span>
+              )}
+            </div>
+
+            <a class="btn btn--secondary btn--small camera__open" href={`/account/cameras/${device.serial}`}>
+              Open
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Shell>
+
+<style>
+  .camera-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--unit) * 4);
+  }
+  .camera__model {
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .camera__nickname {
+    margin: calc(var(--unit) * 1) 0 0;
+  }
+  .camera__serial {
+    margin: calc(var(--unit) * 2) 0;
+  }
+  .camera__chips {
+    margin-bottom: calc(var(--unit) * 3);
+  }
+  @media (max-width: 63.999rem) {
+    .camera-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

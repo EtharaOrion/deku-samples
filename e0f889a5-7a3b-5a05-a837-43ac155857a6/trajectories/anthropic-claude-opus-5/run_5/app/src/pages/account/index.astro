@@ -1,0 +1,121 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { safeGet, readCartForPage } from '../../lib/api.js';
+import { requireCustomerPage } from '../../lib/guard.js';
+import { formatMinor, formatDateShort } from '../../lib/format.js';
+
+const { customer, redirect } = await requireCustomerPage(Astro);
+if (redirect) return redirect;
+
+const cart = await readCartForPage(Astro.request);
+// Blocks on the account overview fail independently, so a failed camera list
+// never blanks the orders beside it.
+const overview = await safeGet(Astro.request, '/api/account/overview');
+const data = overview.data ?? {};
+const devices = data.devices ?? [];
+const orders = data.orders ?? [];
+const software = data.software ?? null;
+---
+
+<Shell title="Your account — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <header class="stack--tight" style="margin-bottom:1.5rem">
+    <h1 class="page-title">Your account</h1>
+    <p class="page-lede">{customer.email}</p>
+  </header>
+
+  <div class="stack--loose">
+    <!-- Cameras first, deliberately not a shop's order. -->
+    <section aria-labelledby="cameras">
+      <div class="row" style="align-items:baseline">
+        <h2 class="section-title" id="cameras">Your cameras</h2>
+        <a href="/account/cameras" style="margin-left:auto">All cameras</a>
+      </div>
+
+      {overview.failed ? (
+        <p class="notice" style="margin-top:0.75rem" role="alert">
+          The camera list did not load. Reload the page to try again.
+        </p>
+      ) : devices.length === 0 ? (
+        <div class="empty-state" style="margin-top:0.75rem">
+          <p>No cameras registered yet.</p>
+          <p style="margin-top:0.5rem"><a href="/account/cameras">Register one</a></p>
+        </div>
+      ) : (
+        <div class="grid grid--cards" style="margin-top:0.75rem">
+          {devices.map((device) => (
+            <article class="card">
+              <h3 style="font-size:16px;line-height:24px;font-weight:700">
+                {device.nickname || device.model}
+              </h3>
+              <p class="mono" style="margin-top:0.25rem">{device.serial}</p>
+              <p class="row" style="margin-top:0.5rem;gap:0.5rem">
+                <span class={`chip ${device.firmware_state === 'Update available' ? 'chip--progress' : device.firmware_state === 'Not yet connected' ? '' : 'chip--done'}`}>
+                  {device.firmware_state}
+                </span>
+              </p>
+              <p style="margin-top:0.5rem">
+                <a href={`/account/cameras/${device.serial}`}>Open</a>
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section aria-labelledby="orders">
+      <div class="row" style="align-items:baseline">
+        <h2 class="section-title" id="orders">Recent orders</h2>
+        <a href="/account/orders" style="margin-left:auto">All orders</a>
+      </div>
+
+      {overview.failed ? (
+        <p class="notice" style="margin-top:0.75rem" role="alert">
+          The order list did not load. Reload the page to try again.
+        </p>
+      ) : orders.length === 0 ? (
+        <div class="empty-state" style="margin-top:0.75rem">
+          <p>No orders yet.</p>
+          <p style="margin-top:0.5rem"><a href="/shop">Go to the shop</a></p>
+        </div>
+      ) : (
+        <table class="table" style="margin-top:0.75rem">
+          <thead>
+            <tr>
+              <th scope="col">Order</th>
+              <th scope="col">Date</th>
+              <th scope="col">Items</th>
+              <th scope="col" class="figure">Total</th>
+              <th scope="col">State</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr>
+                <td class="mono"><a href={`/account/orders/${order.number}`}>{order.number}</a></td>
+                <td class="tnum">{formatDateShort(order.placed_at)}</td>
+                <td>{order.summary}</td>
+                <td class="figure money">{formatMinor(order.total_minor)}</td>
+                <td><span class="chip chip--done">{order.state_phrase}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section aria-labelledby="software">
+      <h2 class="section-title" id="software">Software</h2>
+      {software ? (
+        <p style="margin-top:0.75rem">
+          Arranger <span class="mono">{software.version}</span> is the current release.
+          {software.is_newer_than_seen && (
+            <span class="chip chip--progress" style="margin-left:0.5rem">Newer than the one you last saw</span>
+          )}
+        </p>
+      ) : (
+        <p style="margin-top:0.75rem;color:var(--quiet)">No releases yet.</p>
+      )}
+      <p style="margin-top:0.5rem"><a href="/downloads">Go to downloads</a></p>
+    </section>
+  </div>
+</Shell>

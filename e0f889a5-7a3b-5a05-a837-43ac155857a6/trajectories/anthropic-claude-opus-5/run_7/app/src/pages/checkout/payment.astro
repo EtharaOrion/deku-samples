@@ -1,0 +1,105 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import CheckoutSteps from '../../components/CheckoutSteps.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { apiGet, formatMinor } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const v = await viewer(Astro);
+const res = v.cartToken ? await apiGet(Astro.request, '/cart', { cartToken: v.cartToken }) : null;
+const cart = res && res.ok ? res.data.cart : null;
+
+if (!cart || cart.lines.length === 0) {
+  return new Response(null, { status: 302, headers: { location: '/cart' } });
+}
+if (!cart.email || !cart.shipping_address) {
+  return new Response(null, { status: 302, headers: { location: '/checkout/where-it-goes' } });
+}
+if (!cart.shipping_method) {
+  return new Response(null, { status: 302, headers: { location: '/checkout/how-it-gets-there' } });
+}
+
+const a = cart.shipping_address;
+---
+<Shell title="Payment — Vela" signedIn={v.signedIn} cartCount={v.cartCount}>
+  <h1 class="page-title">Payment</h1>
+  <CheckoutSteps current={3} />
+
+  <div class="checkout-layout">
+    <div>
+      {/* A price change found at this point sends the person back to the cart. */}
+      {cart.notices.length > 0 && (
+        <div class="notice notice-danger" role="alert">
+          {cart.notices.map((n) => <p>{n.message}</p>)}
+          <p class="small" style="margin-top:var(--unit)"><a href="/cart">Review your cart</a>.</p>
+        </div>
+      )}
+
+      <section class="section">
+        <h2 class="section-title">Review</h2>
+
+        <div class="grid-2" style="margin-bottom:calc(var(--unit)*6)">
+          <div>
+            <h3 style="font-size:14px;line-height:21px;margin-bottom:calc(var(--unit)*2)">Where it goes</h3>
+            <p class="small">{a.name}</p>
+            <p class="small muted">{a.line1}</p>
+            {a.line2 && <p class="small muted">{a.line2}</p>}
+            <p class="small muted">{a.city}, {a.region} <span class="tnum">{a.postal_code}</span></p>
+            <p class="small muted">{a.country}</p>
+            <p class="small muted" style="margin-top:calc(var(--unit)*2)">{cart.email}</p>
+            <p class="small" style="margin-top:calc(var(--unit)*2)"><a href="/checkout/where-it-goes">Change</a></p>
+          </div>
+
+          <div>
+            <h3 style="font-size:14px;line-height:21px;margin-bottom:calc(var(--unit)*2)">How it gets there</h3>
+            <p class="small">{cart.shipping_method}</p>
+            <p class="small muted money">{formatMinor(cart.shipping_minor)}</p>
+            <p class="small" style="margin-top:calc(var(--unit)*2)"><a href="/checkout/how-it-gets-there">Change</a></p>
+          </div>
+        </div>
+
+        <h3 style="font-size:14px;line-height:21px;margin-bottom:calc(var(--unit)*2)">What you are buying</h3>
+        <table class="data" style="margin-bottom:calc(var(--unit)*6)">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col" class="num">Quantity</th>
+              <th scope="col" class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cart.lines.map((l) => (
+              <tr>
+                <td>{l.title} <span class="muted">— {l.option_value}</span></td>
+                <td class="num tnum">{l.quantity}</td>
+                <td class="num money">{formatMinor(l.total_minor)}</td>
+              </tr>
+            ))}
+            {cart.protection_line && (
+              <tr>
+                <td>Shipment protection</td>
+                <td class="num tnum">1</td>
+                <td class="num money">{formatMinor(cart.protection_minor)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <p style="font-size:20px;font-weight:700;margin-bottom:calc(var(--unit)*5)" class="money">
+          Total {formatMinor(cart.total_minor)}
+        </p>
+
+        <PlaceOrder client:load totalMinor={cart.total_minor} />
+
+        <noscript>
+          <p class="small muted" style="margin-top:calc(var(--unit)*3)">
+            Placing the order needs scripting. Everything above is the exact amount you will be invoiced.
+          </p>
+        </noscript>
+      </section>
+    </div>
+
+    <CheckoutSummary cart={cart} exact={true} />
+  </div>
+</Shell>

@@ -1,0 +1,118 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ProductMedia from '../../components/ProductMedia.astro';
+import { apiGet, formatMoney } from '../../lib/api';
+import { viewerFor } from '../../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<{ data: any[] }>(Astro.request, '/products?page_size=100');
+const products = result.ok ? result.data.data : [];
+
+// Cameras render at full width, accessories in a denser row beneath them.
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+
+function priceLabel(product: any) {
+  const prices = product.variants.map((v: any) => v.price_minor);
+  const low = Math.min(...prices);
+  const varies = prices.some((p: number) => p !== low);
+  // A product whose variants differ in price reads `From ` and the lowest.
+  return varies ? `From ${formatMoney(low)}` : formatMoney(low);
+}
+---
+
+<Shell title="Shop — Vela" current="shop" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <header class="head">
+    <h1>Shop</h1>
+    <p class="sub">Two cameras, the parts that go with them, and the spares.</p>
+  </header>
+
+  {!result.ok && (
+    <p class="notice notice-error" role="alert">
+      {result.error.message}
+      {result.error.request_id && <span class="mono"> Reference {result.error.request_id}.</span>}
+    </p>
+  )}
+
+  {result.ok && products.length === 0 && (
+    <div class="empty-state">
+      <p>Nothing is on the table right now.</p>
+      <a class="btn btn-secondary" href="/downloads">Go to downloads</a>
+    </div>
+  )}
+
+  {cameras.length > 0 && (
+    <ul class="grid grid-wide">
+      {cameras.map((product) => (
+        <li>
+          <a class="card product-card" href={`/shop/${product.handle}`}>
+            <ProductMedia handle={product.handle} option={product.variants[0]?.option_value} title={product.title} ratio="16 / 9" />
+            <div class="card-body">
+              <div class="card-head">
+                <h2>{product.title}</h2>
+                {product.availability.state !== 'available' && (
+                  <span class="chip chip-neutral">{product.availability.label}</span>
+                )}
+              </div>
+              <p class="subtitle">{product.subtitle}</p>
+              <p class="price tnum">{priceLabel(product)}</p>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {rest.length > 0 && (
+    <ul class="grid grid-dense">
+      {rest.map((product) => (
+        <li>
+          <a class="card product-card" href={`/shop/${product.handle}`}>
+            <ProductMedia handle={product.handle} option={product.variants[0]?.option_value} title={product.title} />
+            <div class="card-body">
+              <div class="card-head">
+                <h2 class="small">{product.title}</h2>
+                {product.availability.state !== 'available' && (
+                  <span class="chip chip-neutral">{product.availability.label}</span>
+                )}
+              </div>
+              <p class="subtitle">{product.subtitle}</p>
+              <p class="price tnum">{priceLabel(product)}</p>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+</Shell>
+
+<style>
+  .head { margin-bottom: calc(var(--unit) * 8); }
+  h1 { font-size: 32px; line-height: 1.2; }
+  .sub { color: var(--fg-muted); margin-top: var(--unit); }
+
+  .grid { list-style: none; margin: 0 0 calc(var(--unit) * 10); padding: 0; display: grid; gap: calc(var(--unit) * 5); }
+  .grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-dense { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    text-decoration: none;
+    overflow: hidden;
+    transition: border-color var(--speed) var(--ease);
+  }
+  .product-card:hover { border-color: var(--line-strong); }
+  .card-body { padding: calc(var(--unit) * 4); display: flex; flex-direction: column; gap: var(--unit); }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  h2 { font-size: 20px; }
+  h2.small { font-size: 16px; }
+  .subtitle { color: var(--fg-muted); font-size: 14px; line-height: 21px; }
+  .price { font-weight: 700; margin-top: var(--unit); }
+
+  @media (max-width: 63.999rem) {
+    /* The whole grid falls to one column; nothing scrolls sideways. */
+    .grid-wide, .grid-dense { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

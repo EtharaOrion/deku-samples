@@ -1,0 +1,71 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { signup } from '../../server/lib/auth.mjs';
+import { SESSION_COOKIE } from '../lib/server.js';
+
+let errorMessage = null;
+const rawNext = Astro.url.searchParams.get('next') || '';
+let next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/account';
+let values = { email: '', name: '' };
+
+// Signup is open.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = { email: String(form.get('email') || ''), name: String(form.get('name') || '') };
+  const target = String(form.get('next') || '/account');
+  next = target.startsWith('/') && !target.startsWith('//') ? target : '/account';
+  try {
+    const result = await signup({
+      email: values.email,
+      name: values.name,
+      password: form.get('password'),
+    });
+    Astro.cookies.set(SESSION_COOKIE, result.access_token, {
+      path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 72,
+    });
+    return Astro.redirect(next);
+  } catch (err) {
+    errorMessage = err.message || 'That did not work.';
+  }
+}
+---
+<Shell title="Create an account — Vela" description="Create a Vela account.">
+  <div class="narrow stack stack-6">
+    <h1>Create an account</h1>
+    <p class="hint">You do not need an account to buy. It is for keeping your cameras together.</p>
+
+    {errorMessage && <p class="notice notice-danger" role="alert">{errorMessage}</p>}
+
+    <form method="post" class="form">
+      <input type="hidden" name="next" value={next} />
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input class="input" id="name" name="name" value={values.name} required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value={values.email} required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" required minlength="8"
+          autocomplete="new-password" aria-describedby="pw-hint" />
+        <span class="hint" id="pw-hint">At least eight characters.</span>
+      </div>
+
+      <button class="btn btn-primary" type="submit">Create account</button>
+    </form>
+
+    <p class="hint">Already have one? <a href="/sign-in">Sign in</a>.</p>
+  </div>
+</Shell>
+
+<style>
+  .narrow { max-width: 44ch; }
+  h1 { font-size: 28px; line-height: 34px; }
+  .form { display: flex; flex-direction: column; gap: calc(var(--space) * 4); }
+  .btn { align-self: flex-start; }
+</style>

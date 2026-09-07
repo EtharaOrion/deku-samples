@@ -1,0 +1,42 @@
+---
+import { formatMinor } from '../lib/server.js';
+const { cart, exact = false } = Astro.props;
+const label = (base) => (exact ? base : `Estimated ${base.toLowerCase()}`);
+---
+<!-- A persistent summary sits beside all three steps. -->
+<aside class="checkout-summary card" aria-label="Order summary">
+  <h2 class="section-title">Summary</h2>
+  <ul class="summary-lines">
+    {cart.lines.map((line) => (
+      <li>
+        <span class="summary-line-title">{line.title} <span class="summary-qty tabular">×{line.quantity}</span></span>
+        <span class="tabular">{formatMinor(line.total_minor)}</span>
+      </li>
+    ))}
+  </ul>
+  <dl class="totals">
+    <div><dt>{label('Subtotal')}</dt><dd class="tabular">{formatMinor(cart.subtotal_minor)}</dd></div>
+    {cart.protection_minor > 0 && (
+      <div><dt>Shipment protection</dt><dd class="tabular">{formatMinor(cart.protection_minor)}</dd></div>
+    )}
+    <div><dt>{label('Delivery')}</dt><dd class="tabular">{formatMinor(cart.shipping_minor)}</dd></div>
+    <div><dt>{label('Tax')}</dt><dd class="tabular">{formatMinor(cart.tax_minor)}</dd></div>
+    <div class="totals-total"><dt>{label('Total')}</dt><dd class="tabular">{formatMinor(cart.total_minor)}</dd></div>
+  </dl>
+  {!exact && (
+    <p class="totals-note">Estimated. We will show the exact amount once we know where it is going.</p>
+  )}
+</aside>
+
+<style>
+  .checkout-summary { position: sticky; top: calc(var(--header-h) + var(--unit) * 4); }
+  .summary-lines { list-style: none; margin: 0 0 calc(var(--unit) * 4); padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .summary-lines li { display: flex; justify-content: space-between; gap: calc(var(--unit) * 3); font-size: 14px; }
+  .summary-qty { color: var(--ink-quiet); }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); border-top: var(--border-w) solid var(--rule); padding-top: calc(var(--unit) * 3); }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .totals dt, .totals dd { margin: 0; font-size: 14px; }
+  .totals-total { border-top: var(--border-w) solid var(--rule); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .totals-total dt, .totals-total dd { font-size: 16px; }
+  .totals-note { font-size: 13px; color: var(--ink-quiet); margin: calc(var(--unit) * 3) 0 0; }
+</style>

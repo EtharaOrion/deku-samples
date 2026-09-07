@@ -1,0 +1,50 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseBlock from '../../components/ReleaseBlock.astro';
+import { apiGet, formatBytes } from '../../lib/api.js';
+import { viewer } from '../../lib/page.js';
+
+const { version } = Astro.params;
+const v = await viewer(Astro);
+
+const rel = await apiGet(Astro.request, '/releases?page_size=100');
+const releases = rel.ok ? rel.data.data : [];
+const wanted = releases.find((r) => r.version === version);
+---
+<Shell
+  title={wanted ? `Arranger ${wanted.version} — Vela` : 'Release — Vela'}
+  signedIn={v.signedIn}
+  cartCount={v.cartCount}
+>
+  {!wanted ? (
+    <div>
+      <h1 class="page-title">That page does not exist.</h1>
+      <p class="page-lede">There is no release with that version number.</p>
+      <p><a class="btn btn-secondary" href="/downloads">Go to downloads</a></p>
+    </div>
+  ) : (
+    <div>
+      <nav aria-label="Breadcrumb" class="small muted" style="margin-bottom:calc(var(--unit)*4)">
+        <a href="/downloads">Downloads</a> <span aria-hidden="true">/</span> <span>Arranger {wanted.version}</span>
+      </nav>
+
+      <h1 class="page-title">Arranger <span class="version">{wanted.version}</span></h1>
+      <p class="page-lede">
+        <span class="bytes">{formatBytes(wanted.size_bytes)}</span>
+        <span class="muted"> · build </span><span class="build">{wanted.build}</span>
+      </p>
+
+      <section class="section" aria-labelledby="archive-h">
+        <h2 class="section-title" id="archive-h">Release archive</h2>
+        {/* This release renders expanded with the rest collapsed. The whole archive
+            is still present in the markup. */}
+        {releases.map((r, i) => (
+          <div>
+            {i > 0 && <div class="release-rule" aria-hidden="true"></div>}
+            <ReleaseBlock release={r} open={r.version === wanted.version} />
+          </div>
+        ))}
+      </section>
+    </div>
+  )}
+</Shell>

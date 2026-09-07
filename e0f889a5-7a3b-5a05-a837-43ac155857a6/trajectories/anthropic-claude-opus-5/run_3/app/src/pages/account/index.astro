@@ -1,0 +1,188 @@
+---
+import Shell from '../../components/Shell.astro';
+import { requirePageCustomer } from '../../lib/guard.js';
+import { apiGet, pageCart } from '../../lib/server-fetch.js';
+import { formatMoney } from '../../lib/money.js';
+import { orderChip, formatDateShort } from '../../lib/domain.js';
+
+const { customer, redirect } = await requirePageCustomer(Astro);
+if (redirect) return redirect;
+
+const cart = await pageCart(Astro);
+
+// Blocks on the account overview fail independently, so a failed camera list
+// never blanks the orders beside it.
+const [devicesRes, ordersRes, releasesRes] = await Promise.all([
+  apiGet('/api/account/devices?page_size=100', Astro).catch(() => ({ ok: false })),
+  apiGet('/api/account/orders?page_size=2', Astro).catch(() => ({ ok: false })),
+  apiGet('/api/releases?page_size=1', Astro).catch(() => ({ ok: false })),
+]);
+
+const devices = devicesRes.ok ? devicesRes.body.data : null;
+const orders = ordersRes.ok ? ordersRes.body.data : null;
+const newest = releasesRes.ok ? releasesRes.body.data[0] : null;
+---
+
+<Shell
+  title="Account — Vela"
+  current="account"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <div class="page-head">
+    <h1 class="page-title">{customer.name}</h1>
+    <p class="page-sub">{customer.email}</p>
+  </div>
+
+  <div class="overview stack">
+    <!-- Cameras first: the order a camera owner arrives with, deliberately not
+         a shop's order. -->
+    <section>
+      <div class="row row--between section-head">
+        <h2 class="section-title">Cameras</h2>
+        <a class="btn btn--quiet btn--small" href="/account/cameras">All cameras</a>
+      </div>
+
+      {
+        devices === null ? (
+          <div class="notice notice--error">
+            <span class="notice__body">
+              We could not load your cameras. Reload the page to try again.
+            </span>
+          </div>
+        ) : devices.length === 0 ? (
+          <div class="empty">
+            <p>No cameras registered yet.</p>
+            <p>
+              <a href="/account/cameras">Register one</a>
+            </p>
+          </div>
+        ) : (
+          <ul class="mini-grid" role="list">
+            {devices.slice(0, 4).map((device) => (
+              <li class="card">
+                <div class="row row--between">
+                  <span class="strong">{device.model}</span>
+                  {device.never_connected ? (
+                    <span class="chip chip--neutral">Not yet connected</span>
+                  ) : device.update_available ? (
+                    <span class="chip chip--progress">Update available</span>
+                  ) : (
+                    <span class="chip chip--done">Up to date</span>
+                  )}
+                </div>
+                <p class="serial mini-serial">{device.serial}</p>
+                <a class="small" href={`/account/cameras/${device.serial}`}>
+                  Open
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    <!-- Then the two most recent orders. -->
+    <section>
+      <div class="row row--between section-head">
+        <h2 class="section-title">Recent orders</h2>
+        <a class="btn btn--quiet btn--small" href="/account/orders">All orders</a>
+      </div>
+
+      {
+        orders === null ? (
+          <div class="notice notice--error">
+            <span class="notice__body">
+              We could not load your orders. Reload the page to try again.
+            </span>
+          </div>
+        ) : orders.length === 0 ? (
+          <div class="empty">
+            <p>No orders yet.</p>
+            <p>
+              <a href="/shop">Shop</a>
+            </p>
+          </div>
+        ) : (
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Order</th>
+                <th scope="col">Placed</th>
+                <th scope="col">State</th>
+                <th scope="col" class="right">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => {
+                const chip = orderChip(order);
+                return (
+                  <tr>
+                    <td>
+                      <a class="order-number" href={`/account/orders/${order.number}`}>
+                        {order.number}
+                      </a>
+                    </td>
+                    <td class="num">{formatDateShort(order.placed_at)}</td>
+                    <td>
+                      <span class={`chip chip--${chip.tone}`}>{chip.text}</span>
+                    </td>
+                    <td class="right money">{formatMoney(order.total_minor)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )
+      }
+    </section>
+
+    <!-- Then the current application version. -->
+    <section>
+      <h2 class="section-title">Software</h2>
+      {
+        newest ? (
+          <div class="card row row--between">
+            <span>
+              Arranger <span class="version">{newest.version}</span> is the current release.
+            </span>
+            <a class="btn btn--secondary btn--small" href={`/downloads/${newest.version}`}>
+              Download
+            </a>
+          </div>
+        ) : (
+          <div class="empty">
+            <p>We could not load the release list.</p>
+          </div>
+        )
+      }
+    </section>
+  </div>
+</Shell>
+
+<style>
+  .section-head {
+    margin-bottom: calc(var(--unit) * 3);
+  }
+  .section-head .section-title {
+    margin: 0;
+  }
+  .mini-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--unit) * 3);
+  }
+  .mini-serial {
+    margin: calc(var(--unit) * 2) 0;
+  }
+  @media (max-width: 63.999rem) {
+    .mini-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

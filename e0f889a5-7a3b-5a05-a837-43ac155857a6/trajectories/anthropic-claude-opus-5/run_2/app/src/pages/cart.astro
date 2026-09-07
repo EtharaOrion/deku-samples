@@ -1,0 +1,38 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartLines from '../islands/CartLines.astro';
+import { apiGet } from '../lib/api';
+import { viewerFor } from '../lib/page';
+
+const viewer = await viewerFor(Astro.request);
+const result = await apiGet<any>(Astro.request, '/cart');
+const cart = result.ok ? result.data : null;
+const goods = (cart?.lines || []).filter((l: any) => l.kind !== 'protection');
+---
+
+<Shell title="Cart — Vela" current="shop" customer={viewer.customer} cartCount={viewer.cartCount}>
+  <header class="head">
+    <h1>Cart</h1>
+  </header>
+
+  {!result.ok && (
+    <p class="notice notice-error" role="alert">
+      {result.error.message}
+      {result.error.request_id && <span class="mono"> Reference {result.error.request_id}.</span>}
+    </p>
+  )}
+
+  {cart && goods.length === 0 && (
+    <div class="empty-state">
+      <p>Your cart is empty.</p>
+      <a class="btn btn-secondary" href="/shop">Go to the shop</a>
+    </div>
+  )}
+
+  {cart && goods.length > 0 && <CartLines cart={cart} />}
+</Shell>
+
+<style>
+  .head { margin-bottom: calc(var(--unit) * 6); }
+  h1 { font-size: 32px; line-height: 1.2; }
+</style>

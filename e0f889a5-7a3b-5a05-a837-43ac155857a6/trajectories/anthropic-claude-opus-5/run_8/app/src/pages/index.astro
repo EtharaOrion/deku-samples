@@ -1,0 +1,83 @@
+---
+import '../styles/tokens.css';
+import '../styles/shell.css';
+import '../styles/letter.css';
+import Footer from '../components/Footer.astro';
+import { letter } from '../../db/seed-data.js';
+
+// The pattern the argument follows, not a rule: the three consecutive paragraphs
+// about mass market electronics are pulled to one side together.
+const sides = letter.paragraphs.map((_, i) => {
+  if (letter.pulledTogether.includes(i)) return 'start';
+  return i % 2 === 0 ? 'start' : 'end';
+});
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vela</title>
+    <meta name="description" content="A letter from the table two cameras are built on." />
+    <link rel="preload" href="/fonts/Archivo-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="ground-dark letter-page">
+    <a class="skip-link" href="#letter">Skip to the letter</a>
+
+    <a class="letter-wordmark" href="/" aria-label="Vela, home"><span aria-hidden="true">VELA</span></a>
+
+    <div class="stage">
+      <!-- The film is inert: no controls, not focusable, hidden from assistive
+           technology, and dragging on it scrolls the page. -->
+      <div class="stage-film" aria-hidden="true">
+        <div class="stage-fallback"></div>
+        <video
+          class="stage-video"
+          src="/film/table.webm"
+          muted
+          playsinline
+          loop
+          preload="metadata"
+          tabindex="-1"
+          aria-hidden="true"
+          disablepictureinpicture
+        ></video>
+        <img class="stage-still" src="/film/table-still.jpg" alt="" width="1280" height="720" decoding="async" />
+        <img class="stage-speckle" src="/film/speckle.png" alt="" aria-hidden="true" />
+        <div class="stage-darken"></div>
+        <div class="stage-flat"></div>
+      </div>
+
+      <article class="letter" id="letter">
+        <div class="letter-inner">
+          <h1 class="letter-title">{letter.title}</h1>
+          <p class="letter-dateline">{letter.dateline}</p>
+
+          <!-- Normal flow: what the markup carries and what a reader with no
+               scripting receives, in correct reading order. -->
+          <div class="letter-body">
+            {letter.paragraphs.map((p) => <p>{p}</p>)}
+            <p class="letter-closing">{letter.closing}</p>
+          </div>
+
+          <!-- The inert layer the scroll drives, hidden from assistive
+               technology. It is never the only copy. -->
+          <div class="letter-driven" aria-hidden="true">
+            {letter.paragraphs.map((p, i) => (
+              <div class={`block side-${sides[i]}`}><p>{p}</p></div>
+            ))}
+            <div class="block side-start"><p class="letter-closing">{letter.closing}</p></div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <Footer />
+
+    <script>
+      import '../scripts/letter.js';
+      import '../scripts/footer-dots.js';
+    </script>
+  </body>
+</html>

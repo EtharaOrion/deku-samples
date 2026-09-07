@@ -1,0 +1,58 @@
+---
+import Shell from '../layouts/Shell.astro';
+import Doctor from '../islands/Doctor.jsx';
+import { safeGet, currentCustomer, readCartForPage } from '../lib/api.js';
+
+const customer = await currentCustomer(Astro.request);
+const cart = await readCartForPage(Astro.request);
+
+// The manifest is served for one product at a time, so both are read here and
+// the installer picks the one that matches the camera it finds.
+const cricket = await safeGet(Astro.request, '/api/firmware/manifest?model=compact', { entries: [] });
+const a1 = await safeGet(Astro.request, '/api/firmware/manifest?model=flagship', { entries: [] });
+
+const manifests = {
+  compact: cricket.data ?? { entries: [] },
+  flagship: a1.data ?? { entries: [] },
+};
+---
+
+<Shell
+  title="Firmware installer — Vela"
+  description="Write firmware to a camera that Arranger cannot see."
+  customer={customer}
+  cartCount={cart.item_count ?? 0}
+>
+  <header class="stack--tight" style="margin-bottom:1.5rem">
+    <h1 class="page-title">Firmware installer</h1>
+    <p class="page-lede">
+      This is for a camera that Arranger cannot see. If Arranger can see your
+      camera, use it instead: it is the ordinary path and this one is not.
+    </p>
+    <p style="margin-top:0.5rem;color:var(--quiet)">
+      You can leave at any point before the write with nothing changed. We repair
+      a camera whether or not it is registered to you and whether or not the
+      warranty has run out.
+    </p>
+  </header>
+
+  <Doctor client:load manifests={manifests} />
+</Shell>
+
+<style>
+  /* The write reports a figure from the device, not a bar on a timer, so the
+     meter is a readout of that figure rather than an animation. */
+  .meter {
+    margin-top: calc(var(--unit) * 2);
+    height: 8px;
+    border: var(--border) solid var(--rule-strong);
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-width: 24rem;
+  }
+  .meter__fill {
+    height: 100%;
+    background: var(--meaning-progress);
+    transition: width var(--speed) var(--easing);
+  }
+</style>

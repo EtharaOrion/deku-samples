@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block html_class %}route-studio ground-light{% endblock %}
+{% block content %}
+{# The records travel in a script element rather than an attribute: JSON carries double
+   quotes and an attribute cannot. #}
+<script id="studio-records" type="application/json">{{ records|tojson }}</script>
+<section class="studio" x-data="palette('studio-records')">
+  <h1 class="sr-only">Cirrus studio</h1>
+
+  <div class="palette" role="search">
+    <label class="palette-field">
+      <span class="sr-only">Filter records by title or slug</span>
+      <input class="t-ui palette-input" type="text" x-model="term" x-ref="input"
+             placeholder="TYPE A NAME, OR CHOOSE AN ACTION" autocomplete="off"
+             @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="choose()">
+    </label>
+
+    <ul class="palette-actions" role="list">
+      {% raw %}{% endraw %}
+      <template x-for="(action, i) in actions" :key="action.id">
+        <li>
+          <button type="button" class="t-ui palette-action"
+                  :class="{'is-cursored': cursor === i}"
+                  @click="run(action)" x-text="action.label"></button>
+        </li>
+      </template>
+    </ul>
+
+    <p class="t-ui palette-empty" x-show="filtered.length === 0" x-cloak>NO RECORD MATCHES THAT.</p>
+
+    <ul class="record-grid" role="list">
+      <template x-for="(record, i) in filtered" :key="record.id">
+        <li class="record-card">
+          <a class="record-link" :href="'/studio/items/' + record.id" data-link>
+            <span class="t-display record-title" x-text="record.title"></span>
+            <span class="t-ui record-meta">
+              <span x-text="record.kind.toUpperCase()"></span>
+              <span x-text="'/' + record.slug"></span>
+              <span class="record-state" x-text="record.published ? 'LIVE' : 'UNLISTED'"></span>
+            </span>
+          </a>
+        </li>
+      </template>
+    </ul>
+  </div>
+
+  <div class="reorder" x-show="reordering" x-cloak>
+    <h2 class="t-ui section-label">REORDER INDEX</h2>
+    <ol class="reorder-list">
+      <template x-for="(work, i) in works" :key="work.id">
+        <li class="reorder-row">
+          <span class="t-ui" x-text="String(i + 1).padStart(3, '0')"></span>
+          <span class="t-display" x-text="work.title"></span>
+          <button type="button" class="t-ui button-small" @click="bump(i, -1)" :disabled="i === 0">UP</button>
+          <button type="button" class="t-ui button-small" @click="bump(i, 1)" :disabled="i === works.length - 1">DOWN</button>
+        </li>
+      </template>
+    </ol>
+    <p class="t-ui form-error" x-show="error" x-text="error" x-cloak role="alert"></p>
+    <button type="button" class="t-ui button" @click="saveOrder()" :disabled="busy">SAVE ORDER</button>
+  </div>
+
+  <p class="t-ui studio-account">
+    SIGNED IN — {{ account.email|upper }}
+    <button type="button" class="t-ui button-inline" @click="signOut()">SIGN OUT</button>
+  </p>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}

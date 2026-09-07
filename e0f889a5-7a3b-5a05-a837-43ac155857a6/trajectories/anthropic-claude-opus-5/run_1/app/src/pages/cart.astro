@@ -1,0 +1,101 @@
+---
+import Shell from '../layouts/Shell.astro';
+import CartEditor from '../islands/CartEditor.jsx';
+import { currentCart, carts, formatMinor } from '../lib/server.js';
+
+let cart = { lines: [], notices: [], subtotal_minor: 0, shipping_minor: 0, tax_minor: 0, total_minor: 0, protection_rung: null, protection_enabled: false, protection_minor: 0, item_count: 0 };
+let failed = false;
+try {
+  const row = await currentCart(Astro, { create: true });
+  if (row) cart = await carts.showCart(row);
+} catch {
+  failed = true;
+}
+---
+<Shell title="Cart — Vela" current="shop" description="What is in your cart.">
+  <h1 class="page-title">Cart</h1>
+
+  {failed && (
+    <div class="notice notice-wrong" role="alert" style="margin-top:16px;">
+      <strong>The cart did not load.</strong> Reload the page to try again.
+    </div>
+  )}
+
+  <!-- Server-rendered lines, so the page is complete and readable before the
+       island takes over the editing. -->
+  <noscript>
+    <div style="margin-top:24px;">
+      {cart.lines.length === 0 ? (
+        <div class="empty"><p>Your cart is empty.</p><p><a href="/shop">Go to the shop</a></p></div>
+      ) : (
+        <table class="table">
+          <thead><tr><th>Item</th><th>Quantity</th><th class="num">Total</th></tr></thead>
+          <tbody>
+            {cart.lines.map((l) => (
+              <tr>
+                <td>{l.title} — {l.option_value}</td>
+                <td class="tabular">{l.quantity}</td>
+                <td class="num tabular">{formatMinor(l.total_minor)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p class="tabular">Estimated total {formatMinor(cart.total_minor)}</p>
+      <p><a class="button" href="/checkout/where-it-goes">Check out</a></p>
+    </div>
+  </noscript>
+
+  <div style="margin-top:24px;">
+    <CartEditor client:load cart={cart} />
+  </div>
+</Shell>
+
+<style>
+  .cart-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    gap: calc(var(--unit) * 8);
+    align-items: start;
+  }
+  @media (max-width: 63.999rem) {
+    .cart-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  .cart-notices { display: grid; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 4); }
+  .cart-lines { list-style: none; margin: 0; padding: 0; }
+  .cart-line {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto auto auto;
+    gap: calc(var(--unit) * 4);
+    align-items: center;
+    padding: calc(var(--unit) * 4) 0;
+    border-bottom: var(--border-w) solid var(--rule);
+  }
+  @media (max-width: 63.999rem) {
+    .cart-line { grid-template-columns: 56px minmax(0, 1fr); }
+    .cart-line-qty, .cart-line-total, .cart-line-remove { grid-column: 2; }
+  }
+  .cart-thumb {
+    width: 72px; height: 56px;
+    border-radius: var(--radius);
+    background: linear-gradient(150deg, hsl(220 12% 26%), hsl(220 14% 14%));
+  }
+  .cart-line-title { font-size: 16px; line-height: 22px; }
+  .cart-line-title a { text-decoration: none; }
+  .cart-line-variant { margin: var(--unit) 0 0; font-size: 13px; color: var(--ink-quiet); }
+  .cart-line-unit { margin: var(--unit) 0 0; font-size: 13px; color: var(--ink-quiet); }
+  .cart-line-total { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 6ch; text-align: right; }
+  .stepper { display: inline-flex; align-items: center; gap: calc(var(--unit) * 2); }
+  .stepper-value { min-width: 3ch; text-align: center; font-weight: 700; }
+
+  .cart-summary[data-pending='true'] .totals { opacity: 0.55; }
+  .totals { margin: calc(var(--unit) * 4) 0 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); }
+  .totals dt, .totals dd { margin: 0; font-size: 14px; }
+  .totals-total { border-top: var(--border-w) solid var(--rule); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .totals-total dt, .totals-total dd { font-size: 16px; }
+  .totals-note { font-size: 13px; color: var(--ink-quiet); margin: calc(var(--unit) * 3) 0 0; }
+  .pending-line { font-size: 13px; color: var(--state-progress); min-height: 18px; margin: calc(var(--unit) * 2) 0 0; }
+  .protection { margin-top: calc(var(--unit) * 2); font-size: 14px; }
+  .cart-checkout { width: 100%; margin-top: calc(var(--unit) * 4); }
+</style>

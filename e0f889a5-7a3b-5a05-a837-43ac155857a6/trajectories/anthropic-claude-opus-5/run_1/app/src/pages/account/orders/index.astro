@@ -1,0 +1,83 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, orders, signInRedirect, formatMinor, formatDateLong } from '../../../lib/server.js';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+const cursor = Astro.url.searchParams.get('cursor');
+let list = { data: [], has_more: false, next_cursor: null };
+let failed = false;
+try {
+  const { decodeCursor, encodeCursor } = await import('../../../../server/lib/pagination.js');
+  const out = await orders.listCustomerOrders(customer.id, {
+    pageSize: 20,
+    cursor: cursor ? decodeCursor(cursor) : null,
+  });
+  list = { ...out, next_cursor: out.next_cursor ? encodeCursor(out.next_cursor) : null };
+} catch {
+  failed = true;
+}
+---
+<Shell title="Orders — Vela" current="orders" description="Your order history.">
+  <h1 class="page-title">Orders</h1>
+  <p class="page-lede">Newest first.</p>
+
+  {failed ? (
+    <div class="notice notice-wrong" role="alert" style="margin-top:16px;">
+      <strong>The order list did not load.</strong> Reload the page to try again.
+    </div>
+  ) : list.data.length === 0 ? (
+    <div class="empty" style="margin-top:24px;">
+      <p>No orders yet.</p>
+      <p><a href="/shop">Go to the shop</a></p>
+    </div>
+  ) : (
+    <div style="margin-top:24px;">
+      <table class="table">
+        <caption class="visually-hidden">Your orders, newest first</caption>
+        <thead>
+          <tr>
+            <th scope="col">Number</th>
+            <th scope="col">Placed</th>
+            <th scope="col">What</th>
+            <th scope="col" class="num">Total</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.data.map((order) => (
+            <tr>
+              <td class="mono"><a href={`/account/orders/${order.number}`}>{order.number}</a></td>
+              <td>{formatDateLong(order.placed_at)}</td>
+              <td>
+                {order.lines[0]?.title_snapshot}
+                {order.lines.length > 1 && <span class="and-more"> and {order.lines.length - 1} more</span>}
+              </td>
+              <td class="num tabular">{formatMinor(order.total_minor)} {order.currency.toUpperCase()}</td>
+              <td>
+                {/* One chip combining the order, payment and fulfilment states
+                    into a single human phrase. */}
+                <span class={`chip ${order.status === 'confirmed' ? 'chip-done' : order.status === 'cancelled' ? 'chip-wrong' : 'chip-progress'}`}>
+                  {order.state_phrase}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {list.has_more && (
+        <p style="margin-top:24px;">
+          <a class="button button-quiet" href={`/account/orders?cursor=${encodeURIComponent(list.next_cursor)}`}>
+            Older orders
+          </a>
+        </p>
+      )}
+    </div>
+  )}
+</Shell>
+
+<style>
+  .and-more { color: var(--ink-quiet); }
+</style>

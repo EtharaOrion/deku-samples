@@ -1,0 +1,47 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import CameraGrid from '../../../islands/CameraGrid.jsx';
+import { apiFetch, safeGet, readCartForPage, redirectWithCookies } from '../../../lib/api.js';
+import { requireCustomerPage } from '../../../lib/guard.js';
+
+const { customer, redirect } = await requireCustomerPage(Astro);
+if (redirect) return redirect;
+
+let error = null;
+// The one-click control on an order posts here, so registering works with no
+// scripting as well as from the island.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const res = await apiFetch(Astro.request, '/api/account/devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serial: String(form.get('serial') ?? '') }),
+  });
+  if (res.ok) return redirectWithCookies('/account/cameras', res.headers);
+  error = res.data?.message ?? 'That did not work.';
+}
+
+const cart = await readCartForPage(Astro.request);
+const res = await safeGet(Astro.request, '/api/account/devices?page_size=100', { data: [] });
+const devices = res.data?.data ?? [];
+---
+
+<Shell title="Your cameras — Vela" customer={customer} cartCount={cart.item_count ?? 0}>
+  <header class="stack--tight" style="margin-bottom:1.5rem">
+    <h1 class="page-title">Your cameras</h1>
+    <p class="page-lede">
+      A camera is a record in its own right. Register one you own, and release it
+      when you sell it.
+    </p>
+  </header>
+
+  {error && <p class="notice" role="alert" style="margin-bottom:1rem">{error}</p>}
+
+  {res.failed && !error && (
+    <p class="notice" role="alert" style="margin-bottom:1rem">
+      The camera list did not load. Reload the page to try again.
+    </p>
+  )}
+
+  <CameraGrid client:load initial={devices} />
+</Shell>

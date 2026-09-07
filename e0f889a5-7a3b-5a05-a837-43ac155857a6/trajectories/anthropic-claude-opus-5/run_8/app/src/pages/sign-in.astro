@@ -1,0 +1,57 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { apiFetch } from '../lib/api.js';
+
+// A signed-out request for an /account route lands here carrying the intended
+// path and returns there after signing in; with none it lands on /account.
+const nextRaw = Astro.url.searchParams.get('next') || '';
+const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/account';
+
+let error = null;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') || '').trim();
+  const password = String(form.get('password') || '');
+  const target = String(form.get('next') || '/account');
+  const res = await apiFetch(Astro, '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.status === 200) {
+    return Astro.redirect(target.startsWith('/') && !target.startsWith('//') ? target : '/account', 303);
+  }
+  error = res.data?.message || 'That did not work.';
+}
+---
+<Shell title="Sign in" current="">
+  <div style="max-width: 34rem">
+    <div class="page-head">
+      <h1>Sign in</h1>
+      <p>Your orders and your cameras live behind this. Buying does not need it.</p>
+    </div>
+
+    <form method="POST">
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+      <input type="hidden" name="next" value={next} />
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" value={email} required autocomplete="email" autofocus />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required autocomplete="current-password" />
+      </label>
+
+      <button type="submit" class="btn">Sign in</button>
+    </form>
+
+    <p class="small" style="margin-top: 2rem">
+      No account yet? <a href={`/sign-up${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`}>Create one</a>.
+    </p>
+  </div>
+</Shell>

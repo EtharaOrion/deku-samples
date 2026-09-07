@@ -1,0 +1,133 @@
+---
+// A persistent left rail on every surface but the letter. The current entry is
+// marked with weight and a marker as well as colour, and carries the
+// current-page state programmatically.
+const { path = '/', customer = null } = Astro.props;
+
+const isCurrent = (href) =>
+  href === '/shop'
+    ? path === '/shop' || path.startsWith('/shop/')
+    : href === '/downloads'
+      ? path === '/downloads' || path.startsWith('/downloads/')
+      : href === '/account'
+        ? path === '/account'
+        : path === href || path.startsWith(`${href}/`);
+
+const shopGroup = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' },
+];
+
+const accountGroup = customer
+  ? [
+      { href: '/account', label: 'Overview' },
+      { href: '/account/orders', label: 'Orders' },
+      { href: '/account/cameras', label: 'Cameras' },
+    ]
+  : [];
+---
+
+<div class="rail">
+  <button
+    class="rail__toggle"
+    type="button"
+    aria-expanded="false"
+    aria-controls="rail-nav"
+    data-rail-toggle
+  >
+    <span aria-hidden="true">≡</span>
+    <span>Menu</span>
+  </button>
+
+  <nav id="rail-nav" class="rail__nav" aria-label="Sections" data-rail-nav hidden>
+    <ul class="rail__list">
+      {shopGroup.map((item) => (
+        <li>
+          <a
+            class="rail__link"
+            href={item.href}
+            aria-current={isCurrent(item.href) ? 'page' : undefined}
+          >
+            <span class="rail__marker" aria-hidden="true"></span>
+            <span>{item.label}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    {accountGroup.length > 0 && (
+      <>
+        <p class="rail__group-label" id="rail-account-label">Your account</p>
+        <ul class="rail__list" aria-labelledby="rail-account-label">
+          {accountGroup.map((item) => (
+            <li>
+              <a
+                class="rail__link"
+                href={item.href}
+                aria-current={isCurrent(item.href) ? 'page' : undefined}
+              >
+                <span class="rail__marker" aria-hidden="true"></span>
+                <span>{item.label}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+
+    <p class="rail__group-label">{customer ? customer.email : 'Not signed in'}</p>
+    <ul class="rail__list">
+      {customer ? (
+        <li>
+          <form method="POST" action="/sign-out">
+            <button class="rail__link" type="submit" style="border:0;background:none;cursor:pointer;width:100%;text-align:left">
+              <span class="rail__marker" aria-hidden="true"></span>
+              <span>Sign out</span>
+            </button>
+          </form>
+        </li>
+      ) : (
+        <>
+          <li>
+            <a class="rail__link" href="/sign-in" aria-current={path === '/sign-in' ? 'page' : undefined}>
+              <span class="rail__marker" aria-hidden="true"></span>
+              <span>Sign in</span>
+            </a>
+          </li>
+          <li>
+            <a class="rail__link" href="/sign-up" aria-current={path === '/sign-up' ? 'page' : undefined}>
+              <span class="rail__marker" aria-hidden="true"></span>
+              <span>Create an account</span>
+            </a>
+          </li>
+        </>
+      )}
+    </ul>
+  </nav>
+</div>
+
+<script>
+  // The rail is open by default on a wide screen and collapsed below the tier.
+  const toggle = document.querySelector('[data-rail-toggle]');
+  const nav = document.querySelector('[data-rail-nav]');
+  if (toggle && nav) {
+    const wide = window.matchMedia('(min-width: 64rem)');
+    const apply = () => {
+      if (wide.matches) {
+        nav.hidden = false;
+        toggle.setAttribute('aria-expanded', 'false');
+      } else {
+        nav.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    };
+    apply();
+    wide.addEventListener('change', apply);
+    toggle.addEventListener('click', () => {
+      const open = nav.hidden;
+      nav.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+  }
+</script>

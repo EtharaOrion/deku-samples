@@ -1,0 +1,132 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { apiFetch } from '../../../lib/api.js';
+import { requireCustomer } from '../../../lib/guard.js';
+import { formatDate } from '../../../lib/format.js';
+import '../../../styles/account.css';
+
+const guard = await requireCustomer(Astro);
+if (guard.redirect) return guard.redirect;
+
+const { serial } = Astro.params;
+let error = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+
+  if (action === 'rename') {
+    const res = await apiFetch(Astro, `/api/account/devices/${encodeURIComponent(serial)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: String(form.get('nickname') || '') }),
+    });
+    if (res.status === 200) return Astro.redirect(`/account/cameras/${serial}?renamed=1`, 303);
+    error = res.data?.message || 'That did not work.';
+  } else if (action === 'release') {
+    const res = await apiFetch(Astro, `/api/account/devices/${encodeURIComponent(serial)}`, { method: 'DELETE' });
+    if (res.status === 200) return Astro.redirect('/account/cameras?released=1', 303);
+    error = res.data?.message || 'That did not work.';
+  }
+}
+
+const res = await apiFetch(Astro, `/api/account/devices/${encodeURIComponent(serial)}`);
+// Another customer's serial reads as not found, never forbidden.
+const d = res.status === 200 ? res.data : null;
+const renamed = Astro.url.searchParams.get('renamed') === '1';
+---
+<Shell title={d ? `${d.model} ${d.serial}` : 'Camera'} current="cameras">
+  {!d && (
+    <div class="page-head">
+      <h1>We do not recognise that serial number.</h1>
+      <p><a href="/account/cameras">Back to your cameras.</a></p>
+    </div>
+  )}
+
+  {d && (
+    <>
+      <div class="page-head">
+        <h1>{d.nickname || d.model}</h1>
+        <p><span class="serial">{d.serial}</span> · {d.model}, {d.variant}</p>
+      </div>
+
+      {renamed && <p class="flash" role="status">Renamed.</p>}
+      {error && <p class="notice notice-wrong" role="alert">{error}</p>}
+
+      <div class="checkout-layout">
+        <div>
+          <h2 class="section-head">This camera</h2>
+          <table class="table">
+            <tbody>
+              <tr><th scope="row">Serial</th><td class="serial">{d.serial}</td></tr>
+              <tr><th scope="row">Model</th><td>{d.model}</td></tr>
+              <tr><th scope="row">Finish</th><td>{d.variant}</td></tr>
+              <tr>
+                <th scope="row">Firmware</th>
+                <td>
+                  {d.firmware_version ? <span class="version">{d.firmware_version}</span> : 'Not yet connected'}
+                  {d.update_available && <> — <span class="chip chip-progress">Update available</span></>}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Latest firmware</th>
+                <td>{d.latest_firmware_version ? <span class="version">{d.latest_firmware_version}</span> : 'None published'}</td>
+              </tr>
+              <tr>
+                <th scope="row">Warranty</th>
+                <td>
+                  {d.warranty_until
+                    ? d.warranty_active ? `Runs to ${formatDate(d.warranty_until)}` : `Ended ${formatDate(d.warranty_until)}`
+                    : 'None on record'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {d.update_available && (
+            <p style="margin-top: 1.5rem">
+              <a class="btn btn-quiet" href="/doctor">Write firmware {d.latest_firmware_version}</a>
+            </p>
+          )}
+
+          <h2 class="section-head" style="margin-top: 2.5rem">Name it</h2>
+          <form method="POST" style="max-width: 26rem">
+            <input type="hidden" name="action" value="rename" />
+            <label class="field">
+              <span>A name for this camera, so you can tell two apart</span>
+              <input type="text" name="nickname" value={d.nickname || ''} maxlength="60" />
+            </label>
+            <button type="submit" class="btn btn-quiet">Save the name</button>
+          </form>
+        </div>
+
+        <aside class="summary">
+          <h2>Hand it on</h2>
+          <p class="small muted">
+            Removing releases this camera without giving it to anyone. It is what you do when you sell it to a stranger:
+            they register it themselves afterwards.
+          </p>
+          <form method="POST" data-confirm-release>
+            <input type="hidden" name="action" value="release" />
+            <button type="submit" class="btn btn-quiet btn-small" style="width: 100%">Remove from my account</button>
+          </form>
+          <p class="small muted" style="margin-top: 1rem">
+            Handing this camera to someone else is the same act plus a conversation: remove it here, then give them the serial.
+          </p>
+        </aside>
+      </div>
+    </>
+  )}
+
+  <script>
+    // Every destructive action confirms first.
+    const form = document.querySelector('[data-confirm-release]');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        if (!window.confirm('Remove this camera from your account? It will belong to nobody until somebody registers it.')) {
+          e.preventDefault();
+        }
+      });
+    }
+  </script>
+</Shell>

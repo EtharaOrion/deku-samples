@@ -1,0 +1,168 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CameraCard from '../../components/CameraCard.astro';
+import { currentCustomer, signInRedirect, listDevicesForCustomer, newestRelease, query } from '../../lib/server.js';
+import { formatMinor, formatDate } from '../../lib/format.js';
+import { statePhrase, orderLines, ACCOUNT_ORDER_PREDICATE } from '../../../server/lib/orders.mjs';
+
+const customer = await currentCustomer(Astro);
+if (!customer) return signInRedirect(Astro);
+
+// Blocks on the account overview fail independently, so a failed camera list
+// never blanks the orders beside it.
+let devices = null;
+let devicesFailed = false;
+try {
+  // The overview shows the first few; /account/cameras holds the grid.
+  devices = await listDevicesForCustomer(customer.id, { limit: 4 });
+} catch {
+  devicesFailed = true;
+}
+
+let orders = null;
+let ordersFailed = false;
+try {
+  const { rows } = await query(
+    `SELECT * FROM "order" WHERE ${ACCOUNT_ORDER_PREDICATE} ORDER BY id DESC LIMIT 2`,
+    [customer.id, customer.email]);
+  orders = [];
+  for (const row of rows) {
+    const lines = await orderLines(row.id);
+    orders.push({
+      number: row.number,
+      placed_at: row.placed_at,
+      total_minor: Number(row.total_minor),
+      currency: row.currency,
+      state_phrase: statePhrase(row),
+      first_line_title: lines.length ? lines[0].title_snapshot : null,
+      extra: Math.max(lines.length - 1, 0),
+    });
+  }
+} catch {
+  ordersFailed = true;
+}
+
+let software = null;
+let softwareFailed = false;
+try {
+  const newest = await newestRelease();
+  const { rows } = await query(`SELECT build FROM account_seen_release WHERE customer_id = $1`, [customer.id]);
+  software = {
+    newest,
+    isNewer: newest ? (!rows.length || Number(rows[0].build) < newest.build) : false,
+  };
+} catch {
+  softwareFailed = true;
+}
+---
+<Shell title="Account — Vela" description="Your cameras, your orders and the software.">
+  <div class="stack stack-10">
+    <header class="stack stack-2">
+      <h1>Your account</h1>
+      <p class="hint">Signed in as {customer.email}</p>
+    </header>
+
+    <!-- Cameras first, then the two most recent orders, then the software. -->
+    <section class="stack stack-4">
+      <div class="row-between">
+        <h2>Your cameras</h2>
+        <a href="/account/cameras">All cameras</a>
+      </div>
+
+      {devicesFailed ? (
+        <p class="notice notice-danger">We could not load your cameras. Reload the page to try again.</p>
+      ) : devices.length === 0 ? (
+        <div class="card empty">
+          <p>No cameras registered yet.</p>
+          <a href="/account/cameras">Register one</a>
+        </div>
+      ) : (
+        <ul class="grid">
+          {devices.slice(0, 3).map((device) => (
+            <li><CameraCard device={device} /></li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+    <section class="stack stack-4">
+      <div class="row-between">
+        <h2>Recent orders</h2>
+        <a href="/account/orders">All orders</a>
+      </div>
+
+      {ordersFailed ? (
+        <p class="notice notice-danger">We could not load your orders. Reload the page to try again.</p>
+      ) : orders.length === 0 ? (
+        <div class="card empty">
+          <p>No orders yet.</p>
+          <a href="/shop">Shop</a>
+        </div>
+      ) : (
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order</th><th>Placed</th><th>Items</th>
+              <th>State</th><th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr>
+                <td><a class="ident" href={`/account/orders/${order.number}`}>{order.number}</a></td>
+                <td>{formatDate(order.placed_at)}</td>
+                <td>{order.first_line_title}{order.extra > 0 && ` and ${order.extra} more`}</td>
+                <td><span class="chip">{order.state_phrase}</span></td>
+                <td class="num money">{formatMinor(order.total_minor, order.currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section class="stack stack-3">
+      <h2>Software</h2>
+      {softwareFailed ? (
+        <p class="notice notice-danger">We could not load the software list.</p>
+      ) : software.newest && (
+        <div class="card software">
+          <div>
+            <p class="s-title">Arranger <span class="ident">{software.newest.version}</span></p>
+            <p class="hint">Released on {formatDate(software.newest.released_on)}</p>
+          </div>
+          {software.isNewer && <span class="chip chip-progress">Newer than the one you last saw</span>}
+          <a class="btn" href="/downloads">Downloads</a>
+        </div>
+      )}
+    </section>
+  </div>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  h2 { font-size: 18px; line-height: 24px; }
+  .grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: calc(var(--space) * 4);
+  }
+  .empty {
+    padding: calc(var(--space) * 6);
+    display: flex; flex-direction: column; gap: calc(var(--space) * 2);
+    align-items: flex-start;
+  }
+  .software {
+    padding: calc(var(--space) * 4);
+    display: flex; align-items: center; gap: calc(var(--space) * 4);
+    flex-wrap: wrap;
+  }
+  .software .btn { margin-left: auto; }
+  .s-title { font-weight: 700; }
+
+  @media (max-width: 63.999rem) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .software .btn { margin-left: 0; }
+  }
+</style>

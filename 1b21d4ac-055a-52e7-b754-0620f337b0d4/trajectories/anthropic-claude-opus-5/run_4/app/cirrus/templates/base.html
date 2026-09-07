@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:image" content="{{ share_image_url or '/share.png' }}">
+<meta name="twitter:card" content="summary_large_image">
+{%- if not indexable %}
+<meta name="robots" content="noindex, nofollow">
+{%- endif %}
+<link rel="preload" href="/static/fonts/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/css/cirrus.css">
+{# cirrus.js first: Alpine starts as soon as it runs, so every component
+   function it looks for must already be defined. #}
+<script src="/static/js/cirrus.js" defer></script>
+<script src="/static/js/alpine.min.js" defer></script>
+</head>
+<body data-route="{{ route }}" data-house="{{ house.slug if house }}"
+      x-data="cirrusShell()" x-init="init()">
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+{# The persistent tree: it mounts before the route renders and survives every
+   navigation. It is not a child of the route outlet. #}
+<div class="frame" id="frame" x-ref="frame">
+  <a class="wordmark" href="/" data-nav data-no-cursor aria-label="Cirrus, home">{{ (house.name if house else 'cirrus') | lower }}</a>
+
+  <nav class="nav" aria-label="Primary">
+    <a class="nav__link nav__works" href="/works" data-nav
+       {% if route == 'works' %}aria-current="page"{% endif %}>{{ split('WORKS') }}</a>
+    <div class="nav__group">
+      <a class="nav__link" href="/talents" data-nav
+         {% if route == 'talents' %}aria-current="page"{% endif %}>{{ split('TALENTS') }}</a>
+      {# CONTACT is not a route: no active state, never marked by the current route. #}
+      <a class="nav__link nav__contact" href="mailto:{{ contact_email }}"
+         data-contact @click="maybeOverlay($event)">{{ split('CONTACT') }}</a>
+      <a class="nav__link" href="/about" data-nav
+         {% if route == 'about' %}aria-current="page"{% endif %}>{{ split('ABOUT') }}</a>
+    </div>
+  </nav>
+
+  <div class="centre-mark" id="centre-mark" aria-hidden="true"
+       x-html="markFor(mark)" data-mark="{{ centre_mark }}"></div>
+
+  <a class="credit" href="https://example.com/aube" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab" data-no-cursor>
+    <svg width="60" height="16" viewBox="0 0 60 16" aria-hidden="true" focusable="false">
+      <path d="M2 12 L6 3 L10 12 L8.4 12 L6 6.2 L3.6 12 Z"/>
+      <path d="M14 3 h1.6 v6.4 a2.4 2.4 0 0 0 4.8 0 V3 H22 v6.4 a4 4 0 0 1 -8 0 Z"/>
+      <path d="M26 3 h4.2 a2.4 2.4 0 0 1 0 4.8 h-2.6 v2.6 h2.8 a2.4 2.4 0 0 1 0 1.6 H26 Z"/>
+      <path d="M38 3 h6 v1.6 h-4.4 v2.2 h4 v1.6 h-4 v2 H44 V12 h-6 Z"/>
+    </svg>
+    <span class="credit__arrows" aria-hidden="true">
+      <span class="credit__arrow credit__arrow--rest">
+        <svg width="8" height="8" viewBox="0 0 7 7" focusable="false"><path d="M1 6 L6 1 M2 1 h4 v4"
+          stroke="currentColor" fill="none" stroke-width="1"/></svg>
+      </span>
+      <span class="credit__arrow credit__arrow--arrive">
+        <svg width="8" height="8" viewBox="0 0 7 7" focusable="false"><path d="M1 6 L6 1 M2 1 h4 v4"
+          stroke="currentColor" fill="none" stroke-width="1"/></svg>
+      </span>
+    </span>
+  </a>
+</div>
+
+{# The cursor pair, at depth 50, above the transition veil. #}
+<div class="cursor__square" x-ref="cursorSquare" aria-hidden="true"></div>
+<div class="cursor__label" x-ref="cursorLabel" aria-hidden="true"></div>
+
+<div class="route-veil" aria-hidden="true"></div>
+
+{# The counter well: one loading component, used by the entry route and the preview. #}
+<div class="counter-well {% if route not in ['entry'] %}counter-well--pale{% endif %}"
+     x-ref="counterWell"
+     x-show="showCounter"
+     :data-done="counterDone"
+     role="status" aria-live="polite">
+  <div class="counter-well__value" x-ref="counterValue" x-text="counterText">0%</div>
+</div>
+
+<main class="well" id="content" x-ref="well" tabindex="-1">
+  {% block content %}{% endblock %}
+  {% block footer %}
+  {% if route not in ['entry', 'talents', 'preview'] %}
+    {% include "_footer.html" %}
+  {% endif %}
+  {% endblock %}
+</main>
+
+{% include "_contact_overlay.html" %}
+
+<script>window.CIRRUS = {{ {'route': route, 'mark': centre_mark, 'contact': contact_email} | tojson }};</script>
+</body>
+</html>

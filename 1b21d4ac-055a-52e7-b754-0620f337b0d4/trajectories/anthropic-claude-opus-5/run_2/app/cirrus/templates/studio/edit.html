@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% set hide_footer = True %}
+{% block route %}
+{# The record travels in a JSON node rather than inside an attribute, whose
+   own quoting would otherwise terminate it early. #}
+<script type="application/json" id="studio-item">{{ (item | tojson) if item else 'null' }}</script>
+<section class="studio studio-edit" x-data="itemForm('{{ kind }}')">
+  <header class="studio-head">
+    <h1 class="studio-title" x-text="item ? item.title : (kind === 'talent' ? 'New talent' : 'New work')">
+      {{ item.title if item else ('New talent' if kind == 'talent' else 'New work') }}</h1>
+    <p class="studio-meta">
+      <span x-text="item ? (item.published ? 'LIVE' : 'UNLISTED') : 'NOT SAVED'">UNLISTED</span>
+      <a class="link-button" href="/studio">BACK TO PALETTE</a>
+    </p>
+  </header>
+
+  <form class="studio-form" @submit.prevent="save()" novalidate>
+    <label class="field">
+      <span class="field-label">TITLE</span>
+      <input class="field-input" type="text" x-model="form.title" required>
+    </label>
+
+    <label class="field">
+      <span class="field-label">SLUG</span>
+      <input class="field-input" type="text" x-model="form.slug"
+             :placeholder="slugify(form.title)">
+      <span class="field-hint" x-show="item" x-cloak>CHANGING THIS LEAVES THE OLD ADDRESS REDIRECTING.</span>
+    </label>
+
+    <template x-if="kind === 'talent'">
+      <label class="field">
+        <span class="field-label">DISCIPLINE</span>
+        <select class="field-input" x-model="form.discipline">
+          <option value="director">DIRECTOR</option>
+          <option value="photographer">PHOTOGRAPHER</option>
+          <option value="stylist">STYLIST</option>
+        </select>
+      </label>
+    </template>
+
+    <template x-if="kind === 'work'">
+      <label class="field">
+        <span class="field-label">WIDTH VARIANT</span>
+        <select class="field-input" x-model="form.variant">
+          <option value="left">LEFT</option>
+          <option value="right">RIGHT</option>
+          <option value="centre">CENTRE</option>
+        </select>
+      </label>
+    </template>
+
+    <fieldset class="field-set" x-show="!item" x-cloak>
+      <legend class="field-label">POSTER</legend>
+      <label class="field">
+        <span class="field-label">WRITTEN ALTERNATIVE</span>
+        <input class="field-input" type="text" x-model="poster.alt">
+      </label>
+      <div class="field-pair">
+        <label class="field"><span class="field-label">WIDTH</span>
+          <input class="field-input" type="number" x-model.number="poster.width"></label>
+        <label class="field"><span class="field-label">HEIGHT</span>
+          <input class="field-input" type="number" x-model.number="poster.height"></label>
+      </div>
+    </fieldset>
+
+    <p class="field-error" x-show="error" x-text="error" role="alert" x-cloak></p>
+    <p class="field-note" x-show="notice" x-text="notice" role="status" x-cloak></p>
+
+    <div class="form-actions">
+      <button class="button" type="submit" :disabled="busy"
+              x-text="busy ? 'SAVING...' : (item ? 'SAVE' : 'CREATE')">CREATE</button>
+    </div>
+  </form>
+
+  <div class="studio-panel" x-show="item" x-cloak>
+    <h2 class="section-label">MEDIA</h2>
+    <ul class="media-list" role="list">
+      <template x-for="m in (item ? item.media : [])" :key="m.media_id">
+        <li class="media-row">
+          <span x-text="m.role.toUpperCase()"></span>
+          <span x-text="m.width + '×' + m.height"></span>
+          <span class="media-alt" x-text="m.alt"></span>
+        </li>
+      </template>
+    </ul>
+    <p class="empty-state" x-show="item && item.media.length === 0" x-cloak>No media attached.</p>
+
+    <form class="studio-form studio-form-inline" @submit.prevent="addMedia()">
+      <label class="field"><span class="field-label">ROLE</span>
+        <select class="field-input" x-model="media.role">
+          <option value="poster">POSTER</option>
+          <option value="reel">REEL</option>
+          <option value="gallery">GALLERY</option>
+        </select></label>
+      <label class="field"><span class="field-label">WRITTEN ALTERNATIVE</span>
+        <input class="field-input" type="text" x-model="media.alt"></label>
+      <div class="field-pair">
+        <label class="field"><span class="field-label">WIDTH</span>
+          <input class="field-input" type="number" x-model.number="media.width"></label>
+        <label class="field"><span class="field-label">HEIGHT</span>
+          <input class="field-input" type="number" x-model.number="media.height"></label>
+      </div>
+      <button class="button" type="submit">ATTACH MEDIA</button>
+    </form>
+  </div>
+
+  <div class="studio-panel" x-show="item && kind === 'work'" x-cloak>
+    <h2 class="section-label">CREDITS</h2>
+    <form class="studio-form studio-form-inline" @submit.prevent="addCredit()">
+      <label class="field"><span class="field-label">ROLE</span>
+        <input class="field-input" type="text" x-model="credit.role"></label>
+      <label class="field"><span class="field-label">NAME</span>
+        <input class="field-input" type="text" x-model="credit.name"></label>
+      <label class="field"><span class="field-label">TALENT (OPTIONAL)</span>
+        <select class="field-input" x-model="credit.talent_id">
+          <option value="">NONE</option>
+          {% for t in talents %}
+          <option value="{{ t.id }}">{{ t.title | upper }}</option>
+          {% endfor %}
+        </select></label>
+      <button class="button" type="submit">ADD CREDIT</button>
+    </form>
+  </div>
+
+  <div class="studio-panel" x-show="item" x-cloak>
+    <h2 class="section-label">PREVIEW AND PUBLISH</h2>
+    <div class="form-actions">
+      <button type="button" class="button" @click="mintPreview()">MINT PREVIEW TOKEN</button>
+      <a class="button" x-show="previewUrl" :href="previewUrl" x-cloak>OPEN PREVIEW</a>
+      <button type="button" class="button" @click="setPublished(true)"
+              x-show="item && !item.published">PUBLISH</button>
+      <button type="button" class="button" @click="setPublished(false)"
+              x-show="item && item.published">UNLIST</button>
+    </div>
+    <p class="field-hint" x-show="previewUrl" x-cloak>
+      GOOD FOR 15 MINUTES, <span x-text="previewExpiry"></span>
+    </p>
+  </div>
+</section>
+{% endblock %}

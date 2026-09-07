@@ -1,0 +1,58 @@
+---
+import { formatMinor } from '../lib/format.js';
+const { cart, step } = Astro.props;
+const known = cart.has_address;
+---
+
+<aside class="card" aria-label="Order summary" style="position:sticky;top:calc(var(--header-h) + 1rem)">
+  <h2 class="section-title">Your order</h2>
+
+  <table class="table" style="margin-top:0.75rem">
+    <tbody>
+      {(cart.lines ?? []).map((line) => (
+        <tr>
+          <th scope="row" style="font-weight:400">
+            {line.title}
+            <span class="tnum" style="color:var(--quiet)"> × {line.quantity}</span>
+          </th>
+          <td class="figure money">{formatMinor(line.line_total_minor)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <table class="table" style="margin-top:0.5rem">
+    <tbody>
+      <tr>
+        <th scope="row" style="font-weight:400">Subtotal</th>
+        <td class="figure money">{formatMinor(cart.subtotal_minor)}</td>
+      </tr>
+      {cart.protection_enabled && cart.protection_minor > 0 && (
+        <tr>
+          <th scope="row" style="font-weight:400">Shipment protection</th>
+          <td class="figure money">{formatMinor(cart.protection_minor)}</td>
+        </tr>
+      )}
+      <tr>
+        <th scope="row" style="font-weight:400">
+          {cart.shipping_method ? `Delivery, ${cart.shipping_method}` : 'Estimated delivery'}
+        </th>
+        <td class="figure money">{formatMinor(cart.shipping_minor ?? 0)}</td>
+      </tr>
+      <tr>
+        <th scope="row" style="font-weight:400">{known ? 'Tax' : 'Estimated tax'}</th>
+        <td class="figure money">{formatMinor(cart.tax_minor ?? 0)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Total</th>
+        <td class="figure money" style="font-weight:700">{formatMinor(cart.total_minor)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {!known && (
+    <p style="margin-top:0.5rem;color:var(--quiet);font-size:14px;line-height:21px">
+      Estimated. We will show the exact amount once we know where it is going.
+    </p>
+  )}
+</aside>

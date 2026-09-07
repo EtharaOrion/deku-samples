@@ -1,0 +1,205 @@
+---
+import Shell from '../../../components/Shell.astro';
+import ClaimSerial from '../../../islands/ClaimSerial.jsx';
+import { requirePageCustomer } from '../../../lib/guard.js';
+import { apiGet, pageCart } from '../../../lib/server-fetch.js';
+import { formatMoney } from '../../../lib/money.js';
+import { orderChip, formatDateShort } from '../../../lib/domain.js';
+
+const { number } = Astro.params;
+const { customer, redirect } = await requirePageCustomer(Astro);
+if (redirect) return redirect;
+
+const cart = await pageCart(Astro);
+const res = await apiGet(`/api/account/orders/${encodeURIComponent(number)}`, Astro);
+
+// Another customer's order reads as not found, never forbidden.
+if (!res.ok) return new Response(null, { status: 404 });
+
+const order = res.body.order;
+const chip = orderChip(order);
+const goods = order.lines.filter((l) => l.kind !== 'protection');
+const protection = order.lines.find((l) => l.kind === 'protection');
+---
+
+<Shell
+  title={`Order ${order.number} — Vela`}
+  current="orders"
+  customer={customer}
+  cartCount={cart?.item_count ?? 0}
+>
+  <nav class="crumbs small" aria-label="Breadcrumb">
+    <a href="/account/orders">Orders</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page" class="order-number">{order.number}</span>
+  </nav>
+
+  <div class="page-head">
+    <div class="row row--between">
+      <h1 class="page-title order-number">{order.number}</h1>
+      <span class={`chip chip--${chip.tone}`}>{chip.text}</span>
+    </div>
+    <p class="page-sub">
+      Placed <time datetime={order.placed_at}>{formatDateShort(order.placed_at)}</time>
+    </p>
+  </div>
+
+  <div class="order-grid">
+    <div class="stack">
+      <section class="panel">
+        <h2 class="section-title">The lines as they were bought</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col" class="right">Quantity</th>
+              <th scope="col" class="right">Unit</th>
+              <th scope="col" class="right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              goods.map((line) => (
+                <tr>
+                  <td>
+                    {line.title}
+                    <br />
+                    <span class="mono small faint">{line.sku}</span>
+                  </td>
+                  <td class="right num">{line.quantity}</td>
+                  <td class="right money">{formatMoney(line.unit_price_minor)}</td>
+                  <td class="right money">{formatMoney(line.total_minor)}</td>
+                </tr>
+              ))
+            }
+            {
+              protection && (
+                <tr>
+                  <td>Shipment protection</td>
+                  <td class="right num">1</td>
+                  <td class="right money">{formatMoney(protection.unit_price_minor)}</td>
+                  <td class="right money">{formatMoney(protection.total_minor)}</td>
+                </tr>
+              )
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <!-- The only place a person finds their serial numbers without the camera
+           in hand. -->
+      <section class="panel">
+        <h2 class="section-title">Serial numbers</h2>
+        {
+          order.serials.length === 0 ? (
+            <p class="muted small">
+              We allocate serial numbers when the order ships. They will appear here.
+            </p>
+          ) : (
+            <ul class="serial-list" role="list">
+              {order.serials.map((s) => (
+                <li class="serial-row">
+                  <span>
+                    <span class="serial">{s.serial}</span>
+                    <span class="muted small"> {s.model}</span>
+                  </span>
+                  {s.registered ? (
+                    <span class="chip chip--done">Registered</span>
+                  ) : (
+                    <ClaimSerial client:visible serial={s.serial} />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+    </div>
+
+    <aside class="panel">
+      <h2 class="section-title">Totals</h2>
+      <dl class="totals">
+        <div class="totals__row">
+          <dt>Subtotal</dt>
+          <dd class="money">{formatMoney(order.subtotal_minor)}</dd>
+        </div>
+        <div class="totals__row">
+          <dt>Delivery ({order.shipping_method})</dt>
+          <dd class="money">{formatMoney(order.shipping_minor)}</dd>
+        </div>
+        <div class="totals__row">
+          <dt>Tax</dt>
+          <dd class="money">{formatMoney(order.tax_minor)}</dd>
+        </div>
+        <div class="totals__row totals__row--total">
+          <dt>Total</dt>
+          <dd class="money strong">{formatMoney(order.total_minor)}</dd>
+        </div>
+      </dl>
+
+      <h3 class="addr-head">Where it went</h3>
+      <p class="small muted addr">
+        {order.shipping_address.name}<br />
+        {order.shipping_address.line1}<br />
+        {order.shipping_address.city}, {order.shipping_address.region}{' '}
+        <span class="num">{order.shipping_address.postal_code}</span><br />
+        {order.shipping_address.country}
+      </p>
+    </aside>
+  </div>
+</Shell>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: calc(var(--unit) * 2);
+    margin-bottom: calc(var(--unit) * 4);
+    color: var(--fg-muted);
+  }
+  .order-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: calc(var(--unit) * 6);
+    align-items: start;
+  }
+  .totals__row {
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 1) 0;
+  }
+  .totals__row dt,
+  .totals__row dd {
+    margin: 0;
+  }
+  .totals__row--total {
+    border-top: var(--border-w) solid var(--line);
+    margin-top: calc(var(--unit) * 2);
+    padding-top: calc(var(--unit) * 2);
+  }
+  .addr-head {
+    margin-top: calc(var(--unit) * 5);
+  }
+  .addr {
+    line-height: 21px;
+  }
+  .serial-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .serial-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 2) 0;
+    border-bottom: var(--border-w) solid var(--line);
+    flex-wrap: wrap;
+  }
+  @media (max-width: 63.999rem) {
+    .order-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

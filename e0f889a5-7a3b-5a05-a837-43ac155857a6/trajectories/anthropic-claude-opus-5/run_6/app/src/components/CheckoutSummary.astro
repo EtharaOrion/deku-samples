@@ -1,0 +1,93 @@
+---
+import { formatMinor } from '../lib/format.js';
+const { view, step } = Astro.props;
+const estimated = view.estimated || step < 2;
+---
+
+<aside class="card checkout-summary" aria-label="Order summary">
+  <h2 style="font-size:16px;line-height:24px;margin-bottom:calc(var(--unit) * 3)">Your order</h2>
+  <ul class="lines">
+    {
+      view.lines.map((l) => (
+        <li>
+          <span>
+            {l.title} <span class="hint tnum">× {l.quantity}</span>
+          </span>
+          <span class="tnum">{formatMinor(l.total_minor)}</span>
+        </li>
+      ))
+    }
+  </ul>
+  <dl class="totals">
+    <div>
+      <dt>{estimated ? 'Estimated subtotal' : 'Subtotal'}</dt>
+      <dd class="tnum" data-test="summary-subtotal">{formatMinor(view.subtotal_minor)}</dd>
+    </div>
+    <div>
+      <dt>{estimated ? 'Estimated delivery' : 'Delivery'}</dt>
+      <dd class="tnum" data-test="summary-shipping">{formatMinor(view.shipping_minor)}</dd>
+    </div>
+    <div>
+      <dt>{estimated ? 'Estimated tax' : 'Tax'}</dt>
+      <dd class="tnum" data-test="summary-tax">{formatMinor(view.tax_minor)}</dd>
+    </div>
+    <div class="total-row">
+      <dt>Total</dt>
+      <dd class="tnum" data-test="summary-total">{formatMinor(view.total_minor)}</dd>
+    </div>
+  </dl>
+  {
+    estimated ? (
+      <p class="hint" style="margin-top:calc(var(--unit) * 3)">
+        Estimated. We will show the exact amount once we know where it is going.
+      </p>
+    ) : null
+  }
+</aside>
+
+<style>
+  .checkout-summary {
+    position: sticky;
+    top: calc(var(--unit) * 4);
+  }
+  .lines {
+    list-style: none;
+    margin: 0 0 calc(var(--unit) * 4);
+    padding: 0 0 calc(var(--unit) * 3);
+    border-bottom: var(--border-w) solid var(--rule);
+  }
+  .lines li {
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 3);
+    font-size: 14px;
+    line-height: 21px;
+    padding: calc(var(--unit) * 1) 0;
+  }
+  .totals {
+    margin: 0;
+  }
+  .totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 1) 0;
+  }
+  .totals dt,
+  .totals dd {
+    margin: 0;
+    font-size: 14px;
+    line-height: 21px;
+  }
+  .total-row {
+    border-top: var(--border-w) solid var(--rule);
+    margin-top: calc(var(--unit) * 2);
+    padding-top: calc(var(--unit) * 2);
+  }
+  .total-row dt,
+  .total-row dd {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 700;
+  }
+</style>

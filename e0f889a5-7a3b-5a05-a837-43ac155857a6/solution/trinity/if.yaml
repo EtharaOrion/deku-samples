@@ -1,0 +1,113 @@
+schema_version: 1
+overlay_schema: if-overlay-v1
+task_name: deku/hardware-companion-storefront
+constraints:
+  - id: IF-1
+    category: format
+    evaluator: pytest
+    statement: "A refusal for a serial that already has an owner carries the pinned wording verbatim rather than a paraphrase."
+    target: test_storefront.py::test_registering_serial_owned_by_another_account_denied_and_row_untouched
+    src: "One owned by another account is refused with `That camera is registered to someone else.` and writes no ownership row."
+  - id: IF-2
+    category: format
+    evaluator: pytest
+    statement: "A refusal for a serial the store does not hold carries the pinned wording verbatim."
+    target: test_storefront.py::test_unknown_and_malformed_serial_refused_before_lookup
+    src: "An unknown one is refused with `We do not recognise that serial number.`"
+  - id: IF-3
+    category: format
+    evaluator: pytest
+    statement: "The confirmation mail subject opens with the pinned prefix and then the order number, in that order."
+    target: test_storefront.py::test_confirmed_order_email_delivered_to_buyer_only
+    src: "The subject is `Order confirmed:` then a space then the order number"
+  - id: IF-4
+    category: output_shape
+    evaluator: pytest
+    statement: "Every collection response carries the cursor and the further-page flag beside its rows rather than a bare array."
+    target: test_storefront.py::test_health_route_and_reserved_directories_exist
+    src: "Every list endpoint returns a JSON object carrying a top-level `data` array plus `next_cursor` and `has_more`."
+  - id: IF-5
+    category: output_shape
+    evaluator: pytest
+    statement: "A device listing carries the same page metadata as every other collection response."
+    target: test_storefront.py::test_device_registration_claims_unowned_serial_and_writes_one_ownership_row
+    src: "`data` of devices with `serial`, `model`, `firmware_version`, `update_available`, `warranty_until`"
+  - id: IF-6
+    category: output_shape
+    evaluator: pytest
+    statement: "A stored order line carries the title and the sku as they were at purchase rather than a live reference."
+    target: test_storefront.py::test_order_totals_reconcile_with_stored_lines
+    src: "The snapshot columns mean an order still reads correctly after a product is renamed"
+  - id: IF-7
+    category: scope
+    evaluator: pytest
+    statement: "A read is confined to the acting customer, and another customer's camera is answered as absent rather than as a refusal with detail."
+    target: test_storefront.py::test_cross_customer_device_read_denied_at_api
+    src: "Another customer's order or serial reads as not found, never forbidden."
+  - id: IF-8
+    category: scope
+    evaluator: pytest
+    statement: "An order listing is confined to the acting customer, so another customer's order never appears in it."
+    target: test_storefront.py::test_cross_customer_order_read_denied_at_api
+    src: "Never read, register, rename, release or flash another customer's camera, or read their orders"
+  - id: IF-9
+    category: scope
+    evaluator: pytest
+    statement: "The account routes are confined to a signed-in customer, so a signed-out caller reaches none of them."
+    target: test_storefront.py::test_unauthenticated_account_routes_denied_at_api
+    src: "an expired or absent token is rejected and mutates nothing"
+  - id: IF-10
+    category: ordering
+    evaluator: pytest
+    statement: "Stock is committed at the moment the order is placed, never at the moment a line is added to the cart."
+    target: test_storefront.py::test_stock_commit_moves_available_and_committed_on_order
+    src: "Placing an order commits stock in one step: `available` falls and `committed` rises per line."
+  - id: IF-11
+    category: ordering
+    evaluator: pytest
+    statement: "A firmware version is recorded only after the camera has reported it, never at the moment the write was requested."
+    target: test_storefront.py::test_flash_session_complete_records_reported_version_not_requested
+    src: "Completing a flash session records the version read back from the device, never the one requested."
+  - id: IF-12
+    category: ordering
+    evaluator: pytest
+    statement: "The archive orders by build number, so two releases sharing a date still order deterministically."
+    target: test_storefront.py::test_release_archive_orders_by_build_descending_across_shared_date
+    src: "The release archive orders by build number descending and never by release date"
+  - id: IF-13
+    category: tool_use
+    evaluator: pytest
+    statement: "The invoice for a confirmed order is raised in the named billing platform rather than composed by the app."
+    target: test_storefront.py::test_confirmed_order_invoice_exists_in_billing_platform_for_total
+    src: "A confirmed order creates or reuses one `killbill` account keyed by the order email lowercased"
+  - id: IF-14
+    category: tool_use
+    evaluator: pytest
+    statement: "The confirmation mail travels over real SMTP to the named mail server rather than to a log."
+    target: test_storefront.py::test_no_email_sent_for_cart_change_or_device_registration
+    src: "A confirmed order sends its mail over real SMTP at `SMTP_HOST` and `SMTP_PORT`"
+  - id: IF-15
+    category: tool_use
+    evaluator: pytest
+    statement: "The catalogue, the orders and the devices are read from the named datastore rather than from an in-process stand-in."
+    target: test_storefront.py::test_seeded_catalogue_rows_exist_as_specified
+    src: "The orders, the stock, the devices and the sessions live in PostgreSQL and nowhere else"
+  - id: IF-16
+    category: negative
+    evaluator: pytest
+    statement: "No session row is written for a firmware write the installer refused."
+    target: test_storefront.py::test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched
+    src: "A refusal writes no session row and leaves the firmware untouched."
+  - id: IF-17
+    category: negative
+    evaluator: pytest
+    statement: "No second invoice is raised for a submission replayed under one key."
+    target: test_storefront.py::test_repeat_idempotency_key_creates_no_second_order_or_invoice
+    src: "A repeated `Idempotency-Key` returns the original order and creates no second account or invoice."
+  - id: IF-18
+    category: negative
+    evaluator: pytest
+    statement: "No ownership row is written for a claim on a serial the store already owns."
+    target: test_storefront.py::test_blocked_device_registration_refused
+    src: "A blocked device is refused as blocked."
+not_applicable: {}

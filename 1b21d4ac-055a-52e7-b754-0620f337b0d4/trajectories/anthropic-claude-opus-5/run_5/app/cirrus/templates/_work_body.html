@@ -1,0 +1,48 @@
+{% import "components.html" as c %}
+<article class="work-detail" aria-labelledby="work-heading">
+  <header class="work-head">
+    <h1 class="display d-work" id="work-heading">{{ work.title }}</h1>
+    <span class="t-numeral">{{ work.ordinal if work.ordinal else 'UNLISTED' }}</span>
+  </header>
+
+  {% if work.credits %}
+  <dl class="credits t-default">
+    {% for credit in work.credits %}
+      <dt style="opacity:0.5">{{ credit.role }}</dt>
+      <dd style="margin:0">
+        {% if credit.href %}<a href="{{ credit.href }}">{{ credit.name }}</a>{% else %}{{ credit.name }}{% endif %}
+      </dd>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="t-default" style="margin-bottom:96px">No credits are listed for this film.</p>
+  {% endif %}
+
+  {% if work.reel %}
+  <div class="tile work-reel" data-cursor-label="{{ work.title }}">
+    {{ c.tile(work.reel, reveal=true, reel=work.reel) }}
+  </div>
+  {% endif %}
+
+  <div class="index-list">
+    {% for m in work.media if m.role == 'gallery' %}
+      <div class="tile index-entry" data-variant="{{ ['left','centre','right'][loop.index0 % 3] }}"
+           data-cursor-label="{{ work.title }}">
+        {{ c.tile(m) }}
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if work.previous and work.next %}
+  <nav class="work-neighbours" aria-label="Adjacent works">
+    <a href="{{ work.previous.href }}" data-cursor-label="{{ work.previous.title }}">
+      <span class="t-default" style="opacity:0.5;display:block">PREVIOUS {{ work.previous.ordinal }}</span>
+      <span class="display d-mid">{{ work.previous.title }}</span>
+    </a>
+    <a href="{{ work.next.href }}" style="text-align:right" data-cursor-label="{{ work.next.title }}">
+      <span class="t-default" style="opacity:0.5;display:block">NEXT {{ work.next.ordinal }}</span>
+      <span class="display d-mid">{{ work.next.title }}</span>
+    </a>
+  </nav>
+  {% endif %}
+</article>
