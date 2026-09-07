@@ -1,41 +1,57 @@
-<div align="center">
-
-<picture>
-  <source type="image/svg+xml" srcset="images/hero.svg">
-  <img src="images/hero.png" alt="DEKU: greenfield application builds measured from a prose brief, an empty /app and a live browser walkthrough" width="880">
-</picture>
-
-<strong>Three greenfield application briefs. Twenty-four graded rollouts. No starting codebase.</strong>
-
-<p>
-<img alt="tasks" src="https://img.shields.io/badge/tasks-3-2b3352?style=flat-square">
-<img alt="rollouts" src="https://img.shields.io/badge/rollouts-24-2b3352?style=flat-square">
-<img alt="workflows" src="https://img.shields.io/badge/workflows-52-2b3352?style=flat-square">
-<img alt="requirements" src="https://img.shields.io/badge/traced%20requirements-339-2b3352?style=flat-square">
-<img alt="license" src="https://img.shields.io/badge/license-MIT-2b3352?style=flat-square">
+<p align="center">
+  <picture>
+    <source type="image/svg+xml" srcset="images/hero.svg">
+    <img src="images/hero.png" alt="DEKU: greenfield application builds measured from a prose brief, an empty /app and a live browser walkthrough" width="880">
+  </picture>
 </p>
 
-<sub>
-<a href="#summary">Summary</a> ·
-<a href="#repository-layout">Layout</a> ·
-<a href="#difficulty-tiers">Tiers</a> ·
-<a href="#results">Results</a> ·
-<a href="#analysis">Analysis</a> ·
-<a href="#coverage">Coverage</a> ·
-<a href="#dataset-structure">Dataset</a> ·
-<a href="#trajectory-structure">Trajectories</a> ·
-<a href="#scoring-methodology">Scoring</a> ·
-<a href="#reproduction">Reproduction</a> ·
-<a href="#verification-and-quality-assurance">Verification</a>
-</sub>
+<p align="center">
+  <strong>Measuring whether a coding agent can build a working web application from a prose brief alone.</strong>
+</p>
 
-</div>
+<p align="center">
+  <a href="#summary"><img alt="Built by Ethara.AI" src="https://img.shields.io/badge/built%20by-Ethara.AI-ee00ee.svg?labelColor=0d1220"></a>
+  <a href="#scoring-methodology"><img alt="Scoring: workflows + pytest + rubric" src="https://img.shields.io/badge/scoring-workflows_·_pytest_·_rubric-7a99d1.svg?labelColor=0d1220"></a>
+  <a href="#difficulty-tiers"><img alt="Difficulty: opus-5 pass rate, 8 runs" src="https://img.shields.io/badge/difficulty-opus--5_pass_rate%2C_8_runs-9a7400.svg?labelColor=0d1220"></a>
+  <a href="#reproduction"><img alt="Figures: re-derive from bytes" src="https://img.shields.io/badge/figures-re--derive_from_bytes-845EF7.svg?labelColor=0d1220"></a>
+</p>
 
-# Deku — Greenfield Application Build Evaluation
+<p align="center"><sub>
+  <a href="#summary">Summary</a> · <a href="#repository-layout">Layout</a> · <a href="#difficulty-tiers">Tiers</a> · <a href="#results">Results</a> · <a href="#analysis">Analysis</a> · <a href="#coverage">Coverage</a> · <a href="#dataset-structure">Dataset</a> · <a href="#trajectory-structure">Trajectories</a> · <a href="#scoring-methodology">Scoring</a> · <a href="#reproduction">Reproduction</a> · <a href="#verification">Verification</a> · <a href="#limitations">Limitations</a>
+</sub></p>
 
-**Deku measures whether a coding agent can turn a prose product brief into a deployed, working web application that a stranger can drive in a browser.** There is no repository to patch, no failing test to flip, no oracle diff to approximate. The agent receives a 47–94 KB specification, an empty `/app`, and a service stack, and must ship something that boots, answers an HTTP health probe, and survives a live browser walkthrough of its own user flows.
+# DEKU: 3-Task Greenfield Application Build Sample
 
-> The hard part of every brief is deliberately placed outside the app's own screens. `Vela` must prove an invoice really landed in Kill Bill — "a confirmation the app returns to itself does not count." `Cirrus` must make an unlisted record *absent*, not merely unlinked, including its generated media. `Ravel` must keep a mass-balance ledger that reconciles against physical inputs.
+**DEKU measures whether a coding agent can turn a prose product brief into a deployed, working web
+application that a stranger can drive in a browser.**
+
+Each task hands an agent a 47–94 KB specification, an empty `/app` and a service stack, and asks it
+to ship something that boots, answers an HTTP health probe, and survives a live browser walkthrough
+of its own user flows. There is no repository to patch, no failing test to flip and no oracle diff to
+approximate. The hard part of every brief sits deliberately outside the app's own screens: `e0f889a5`
+must prove an invoice really landed in Kill Bill – "a confirmation the app returns to itself does not
+count" – `1b21d4ac` must make an unlisted record *absent* rather than merely unlinked, including its
+generated media, and `63376906` must keep a mass-balance ledger that reconciles against physical
+inputs.
+
+This sample is narrow and deep: **3 tasks × 1 model × 8 runs = 24 graded rollouts.** The budget goes
+on repetition rather than breadth, so difficulty is a measured rate over eight attempts rather than a
+single observation. The three tasks span three domains, two languages and two sub-categories, and
+land in two bands of opus-5's measured pass rate.
+
+**Not one of the 24 rollouts passed every workflow.** Strict all-or-nothing scoring is therefore `0`
+everywhere and carries no signal. Throughout this document **pass rate is the mean `combined_score`
+over a task's 8 runs**, as a percentage:
+
+```
+pass_rate(task) = mean( combined_score over that task's 8 runs )
+```
+
+**This is *not* pass@k.** It is a partial-credit rate: a run scoring 40% contributes 40, not 0. It is
+the same number the difficulty bands are cut on.
+
+> **This is a curated, quality-controlled sample of the DEKU corpus,** provided for evaluation. The
+> dataset format, trajectory format and scoring are identical to the production benchmark.
 
 ## Summary
 
@@ -60,7 +76,7 @@
 | Workflows passed | 116 / 416 |
 | Substeps passed | 1,515 / 2,200 |
 | Rubric resolution | 82.5% |
-| Total agent spend | $3,748.88 |
+| Total agent spend | $3,782.08 |
 
 Two numbers travel together throughout this document and must not be confused. **Pass rate is `combined_score`** from `final_score.json`, a weighted geometric mean of the three grading channels:
 
@@ -74,52 +90,77 @@ It is the headline measure of how much of a task an agent actually delivered. **
 
 ```
 deku-samples/
-├── LICENSE
-├── README.md
-├── images/                                 charts ship in -light and -dark variants
-├── scripts/generate_charts.py              re-derives every figure from the bundles
-├── 1b21d4ac-055a-52e7-b754-0620f337b0d4/   deku/talent-roster-reel            (python)
-├── 63376906-d58e-5ef4-a179-0ee63775b5c0/   deku/mass-balance-attestation      (typescript)
-└── e0f889a5-7a3b-5a05-a837-43ac155857a6/   deku/hardware-companion-storefront (typescript)
+├── README.md                 # this document
+├── LICENSE                   # MIT
+├── images/                   # charts ship in -light and -dark variants
+│   ├── hero.png
+│   ├── pass_rate_by_run-{light,dark}.png
+│   ├── cost_by_task-{light,dark}.png
+│   ├── composition_gap-{light,dark}.png
+│   └── tasks_by_domain-{light,dark}.png
+├── scripts/
+│   └── generate_charts.py    # re-derives every figure from the bundles
+└── <uuid>/                   # one self-contained directory per task (3)
+    ├── task.toml, instruction.md, environment/, solution/, tests/
+    └── trajectories/opus-5/run_1 … run_8
 ```
 
-Each task directory is a self-contained bundle: the brief, the environment that hosts it, the reference solution, the grader, and all eight trajectories recorded against it.
+Task directories are named by UUID, and every task is referred to by its UUID prefix throughout this
+document: `1b21d4ac` is `deku/talent-roster-reel` (python), `63376906` is
+`deku/mass-balance-attestation` (typescript) and `e0f889a5` is `deku/hardware-companion-storefront`
+(typescript). Each directory is a self-contained bundle – the brief, the environment that hosts it,
+the reference solution, the grader, and all eight trajectories recorded against it.
 
-Every chart below is generated by `scripts/generate_charts.py`, which reads the shipped `final_score.json`, `reward.json`, `workflows.json` and `usage.json` files and recomputes each number before drawing it. Nothing in the figures is hand-entered. The banner is hand-drawn artwork and carries no data.
+Every chart below is generated by `scripts/generate_charts.py`, which reads the shipped
+`final_score.json`, `reward.json`, `workflows.json` and `usage.json` files and recomputes each number
+before drawing it. Nothing in the figures is hand-entered. The banner is hand-drawn artwork and
+carries no data.
 
 ## Difficulty tiers
 
-The shipped `task.toml` files are **uncalibrated** — `difficulty = ""`, `pass_rate = 0.0`, `calibration_trials = 0` on all three. The bands below are derived post hoc from the observed pass rate.
+A tier is a **band on a measured rate** – the mean `combined_score` over eight runs:
 
-| Band | Threshold (pass rate) |
-| --- | --- |
-| trivial | ≥ 0.875 |
-| easy | ≥ 0.500 |
-| medium | ≥ 0.375 |
-| hard | ≥ 0.250 |
-| expert | < 0.250 |
+| band | mean `combined_score` |
+|---|---|
+| `trivial` | ≥ 87.5% |
+| `easy` | [50%, 87.5%) |
+| `medium` | [37.5%, 50%) |
+| `hard` | [25%, 37.5%) |
+| `expert` | < 25% |
 
-| Task | Pass rate | Band |
-| --- | ---: | --- |
-| `e0f889a5` hardware-companion-storefront | 44.67% | medium |
-| `1b21d4ac` talent-roster-reel | 44.05% | medium |
-| `63376906` mass-balance-attestation | 24.65% | expert |
+| tier | tasks |
+|---|--:|
+| `medium` | 2 |
+| `expert` | 1 |
+
+| task | pass rate | tier |
+|---|--:|---|
+| `e0f889a5` hardware-companion-storefront | 44.67% | `medium` |
+| `1b21d4ac` talent-roster-reel | 44.05% | `medium` |
+| `63376906` mass-balance-attestation | 24.64% | `expert` |
+
+Unlike a production bundle, these labels are **not** read off the metadata. `[metadata].difficulty`
+is `""` in all three `task.toml` files, alongside `pass_rate = 0.0` and `calibration_trials = 0`, so
+the bands above are cut post hoc from the observed rate against the same thresholds a calibration
+pass would use. The banding is a derivation from the shipped scores, not a shipped label.
+
+No task lands in `trivial`, `easy` or `hard`.
 
 ## Results
 
-### 1. Pass rate by task
+### Partial-credit pass rate by task
 
 | Task | Pass rate | σ | Range | Workflow | Pytest | Rubric | Coverage |
 | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
 | `e0f889a5` hardware-companion-storefront | 44.67% | 0.0924 | 0.297–0.569 | 0.3750 | 0.6696 | 0.5924 | 0.740 |
 | `1b21d4ac` talent-roster-reel | 44.05% | 0.0830 | 0.267–0.517 | 0.4038 | 0.8023 | 0.4678 | 0.661 |
-| `63376906` mass-balance-attestation | 24.65% | 0.0379 | 0.176–0.290 | 0.1413 | 0.5324 | 0.3512 | 1.000 |
+| `63376906` mass-balance-attestation | 24.64% | 0.0379 | 0.176–0.290 | 0.1413 | 0.5324 | 0.3512 | 1.000 |
 
 `63376906` is the wall. It is the only enterprise task, the only one requiring Keycloak, and it marks **85 of its 122 substeps critical** — a design in which almost nothing is allowed to be partially right. Eight runs never cleared a 29.0% pass rate, and a σ of 0.0379 says the agent failed in the same place every time. That is a structural block, not variance.
 
 The top two tasks are a statistical tie — 0.62 points apart against σ of 0.083 and 0.092 on n=8. Read them as equivalent, not ranked.
 
-### 2. Per-run pass rate
+### Per-run pass rate
 
 Each cell is that run's `combined_score`.
 
@@ -141,11 +182,11 @@ Each cell is that run's `combined_score`.
 
 All 24 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric 0.25}` — the rubric channel never fully unresolved, so `weights_applied` never renormalised. The lowest channel value anywhere in the corpus is a workflow score of 0.087, so no run approached the zero that would collapse the product.
 
-### 3. Cost
+### Cost and effort
 
 | Aggregate | Value |
 | --- | ---: |
-| Total agent spend | **$3,748.88** |
+| Total agent spend | **$3,782.08** |
 | Per-run range | $28.53 – $349.03 |
 | Input tokens | 659,866,603 |
 | Output tokens | 9,128,383 |
@@ -154,7 +195,7 @@ All 24 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric
 
 | Task | Cost / run | Requests / run |
 | --- | ---: | ---: |
-| `1b21d4ac` | $93.04 | 1,125 |
+| `1b21d4ac` | $97.19 | 1,125 |
 | `63376906` | $174.61 | 1,640 |
 | `e0f889a5` | $200.95 | 1,216 |
 
@@ -166,7 +207,7 @@ All 24 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric
   <img alt="Mean agent spend per run for each task, with whiskers spanning the cheapest and dearest of the eight runs" src="images/cost_by_task-light.png" width="880">
 </picture>
 
-Output is **1.4% of input**. These agents are overwhelmingly reading — the brief, their own files, browser state — not writing. The 12× per-run cost spread inside a single model matters more than the mean: the same model on the same task can cost $29 or $349 depending on how early it finds its footing. Spend does not buy score either — `e0f889a5` costs 2.2× more per run than `1b21d4ac` and scores below it.
+Output is **1.4% of input**. These agents are overwhelmingly reading — the brief, their own files, browser state — not writing. The 12× per-run cost spread inside a single model matters more than the mean: the same model on the same task can cost $29 or $349 depending on how early it finds its footing. Spend does not buy score either — `e0f889a5` costs 2.1× more per run than `1b21d4ac` and scores below it.
 
 ## Analysis
 
@@ -274,6 +315,10 @@ The sample carries **485 screenshots** across the 24 rollouts, captured at three
 
 ## Scoring methodology
 
+Three channels are computed per run over three different objects – the running application, the
+delivered source, and the recorded evidence – all behind a hard deploy gate. They compose into the
+headline number as a weighted geometric mean, and exactly one of them is allowed to train anything.
+
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2b3352','primaryTextColor':'#ffffff','primaryBorderColor':'#7a99d1','lineColor':'#7a99d1','fontFamily':'DM Sans, Roboto, Segoe UI, sans-serif'}}}%%
 flowchart TD
@@ -313,15 +358,15 @@ Two properties follow, and both are deliberate.
 
 Each run records its own arithmetic in `final_score.json` under `scoring`, alongside `components.rubric.score_discounted`.
 
-### Channel 1 — Browser workflows
+### Channel 1 – Browser workflows
 
 A workflow passes only when **all** of its substeps pass. `reward` is the fraction of workflows that pass, and it is the only number that trains anything. Substeps declare `kind: browser` or `kind: pytest`, an optional `critical: true`, and a `cov:` list of requirement IDs. 119 of the 275 substeps are driven through a real browser against the running app.
 
-### Channel 2 — Pytest
+### Channel 2 – Pytest
 
 156 substeps execute as pytest cases inside the verifier container, producing 1,248 test results across the corpus (788 passed, 460 failed, **0 skipped, 0 pending, 0 errored**). `test.sh` deliberately omits `set -e`: a failing test is a *score*, not a harness error. The script writes `{"reward": 0.0}` before anything else runs, so every exit path leaves a reward file behind — a missing file raises `RewardFileNotFoundError` and the trial is lost rather than scored zero.
 
-### Channel 3 — LLM rubric
+### Channel 3 – LLM rubric
 
 93 criteria, two of them **negative** criteria that penalise behaviour rather than reward it. The rubric now carries source-quality dimensions alongside behavioural ones:
 
@@ -339,7 +384,10 @@ Verdicts resolve to PASS, FAIL, INSUFFICIENT_EVIDENCE or EVALUATOR_ERROR, reache
 
 ## Reproduction
 
-Recompute the pass rate for a single task, alongside the reward it is built on:
+Every figure re-derives from the shipped bytes; no re-execution is needed. All snippets run from the
+repository root, using the Python standard library or `jq` over the JSON the bundles already carry.
+
+**Recompute the pass rate for a single task, alongside the reward it is built on:**
 
 ```python
 import json, pathlib
@@ -355,15 +403,15 @@ print(f"n={len(runs)}  pass_rate={sum(scores)/len(scores):.4f}  reward={sum(rewa
 # -> n=8  pass_rate=0.4405  reward=0.4038
 ```
 
-Total agent spend across the sample:
+**Total agent spend across the sample:**
 
 ```bash
 find . -name usage.json -print0 \
   | xargs -0 jq -s 'map(.cost_usd) | add | .*100|round/100'
-# -> 3748.88
+# -> 3782.08
 ```
 
-Rubric resolution across all 24 rollouts:
+**Rubric resolution across all 24 rollouts:**
 
 ```bash
 find . -name final_score.json -print0 \
@@ -375,7 +423,7 @@ find . -name final_score.json -print0 \
 # -> {"PASS": 288, "FAIL": 326, "INSUF": 130, "ERROR": 0}
 ```
 
-Confirm every rollout deployed and none was flagged:
+**Confirm every rollout deployed and none was flagged:**
 
 ```bash
 find . -name workflows.json -print0 \
@@ -386,7 +434,7 @@ find . -name workflows.json -print0 \
 # -> {"runs": 24, "deployed": 24, "degraded": 0, "invalid": 0}
 ```
 
-Workflow composition gap — substep accuracy versus workflow accuracy:
+**Workflow composition gap – substep accuracy versus workflow accuracy:**
 
 ```bash
 find . -name workflows.json -print0 \
@@ -398,16 +446,21 @@ find . -name workflows.json -print0 \
 # -> {"workflows": "116/416", "browser": "727/952", "pytest": "788/1248", "critical_failed": 437}
 ```
 
-Redraw every chart in `images/` and print the figures behind them. The script asserts each stored `combined_score` against a recomputation of `workflow^0.50 · pytest^0.25 · (rubric × coverage)^0.25`, and each `reward` against `workflows_passed / workflows_total`, before it draws anything — so a bundle whose numbers disagree with its own bytes fails the build rather than producing a chart:
+**Redraw every chart in `images/` and print the figures behind them.**
+The script asserts each stored `combined_score` against a recomputation of
+`workflow^0.50 · pytest^0.25 · (rubric × coverage)^0.25`, and each `reward` against
+`workflows_passed / workflows_total`, before it draws anything – so a bundle whose numbers disagree
+with its own bytes fails the build rather than producing a chart:
 
 ```bash
 python3 scripts/generate_charts.py
 # -> pass rate  37.79%   reward  30.67%
 # -> workflows 116/416 (27.88%)   browser 727/952 (76.37%)   pytest 788/1248 (63.14%)
-# -> total agent spend $3748.88 across 24 rollouts
+# -> total agent spend $3782.08 across 24 rollouts
 ```
 
-The script emits SVG only. The `.png` fallbacks beside them are browser-rendered exports of those exact SVGs:
+**The script emits SVG only.** The `.png` fallbacks beside them are browser-rendered exports of
+those exact SVGs:
 
 ```bash
 for f in images/*-light.svg images/*-dark.svg; do
@@ -417,35 +470,65 @@ for f in images/*-light.svg images/*-dark.svg; do
 done
 ```
 
-## Verification and quality assurance
+## Verification
 
-**Confirmed clean:**
+Every structural claim below was checked against the shipped bytes, and
+`scripts/generate_charts.py` re-asserts the scoring arithmetic on all 24 runs before it will draw a
+chart – a bundle that disagrees with itself fails the build rather than producing a figure.
 
 - All 24 rollouts deployed successfully and cleared the `/api/health` gate.
 - `invalid = []` and `degraded = []` on every rollout.
-- All 24 run directories are structurally complete — no missing `reward.json`, `final_score.json`, `workflows.json`, `usage.json`, `verifier/`, `app/`, `screenshots/` or `trajectory/`.
+- All 24 run directories are structurally complete – no missing `reward.json`, `final_score.json`,
+  `workflows.json`, `usage.json`, `verifier/`, `app/`, `screenshots/` or `trajectory/`.
 - All 24 `trajectory.json` files are present and parse as valid JSON.
 - `reward` in `reward.json` matches `workflows_passed / workflows_total` on all 24 runs.
-- Pytest reported 0 skipped, 0 pending and 0 errored across 1,248 test results — every result is a real pass or a real fail.
+- `combined_score` recomputes from its three channels on all 24 runs, to within `0.001`.
+- Pytest reported 0 skipped, 0 pending and 0 errored across 1,248 test results – every result is a
+  real pass or a real fail.
 - 0 `EVALUATOR_ERROR` verdicts across 744 rubric criteria.
 - 339 of 345 traceability rows carry a `YES` verdict.
 - `uuid_v5` in each `task.toml` matches its directory name.
-- No rollout scored 1.0 or 0.0 — no ceiling or floor saturation.
+- No rollout scored 1.0 or 0.0 – no ceiling or floor saturation.
 
-**Known defects:**
+## Limitations
 
-- **All three `task.toml` files are invalid TOML.** The `authors` array uses `{ "name@ethara.ai" }`, which is not a valid inline table — a parse fails at line 8 or 9 in every file. Any consumer using a standards-compliant TOML reader will reject these bundles until the entries are given keys, e.g. `{ email = "name@ethara.ai" }`.
-- **`1b21d4ac` run_5 sets `needs_human_review = 12`** — the only rollout in the corpus awaiting human adjudication, with all 12 of its rubric criteria flagged `needs_human_eval`.
-- **130 of 744 rubric verdicts (17.5%) are unresolved**, all of them on `1b21d4ac` and `e0f889a5`. 26 trace to evaluator HTTP 400s from `http://host.docker.internal:8790/responses`; the rest to browser-tool and screenshot limits. Rubric figures in this README are means over resolved verdicts only.
-- **Browser evidence is uneven.** `e0f889a5` captured only 4–6 screenshots per run against 24–41 for the other two tasks, which is consistent with its lower rubric coverage.
+**Sample size.** Three tasks under one model is a small corpus. Every figure here describes these
+three tasks under `opus-5`; none of it estimates the wider corpus, and each band rests on one or two
+tasks, so a band row is close to a task row.
 
-**Not certified:**
+**No clean solves.** No rollout passed every workflow, so a strict pass/fail metric reports 0% and
+separates nothing. The ranking is entirely a partial-credit result, and the corpus cannot distinguish
+an agent that nearly finished a task from one that passed a large fraction of its independent checks.
 
-- **Difficulty is uncalibrated.** `difficulty`, `reference_model_used`, `calibration_date` and `openhands_version` are empty strings; `pass_rate = 0.0` and `calibration_trials = 0` on all three tasks. The bands in this README are derived from observed results, not from a calibration pass.
-- **Single model, single scaffold.** Every rollout is `opus-5`. Nothing here supports a cross-model claim.
-- **No provenance or index files ship with this sample.** `INDEX.json`, `provenance.yaml` and the `solution/trinity/` grading-derivation set are not included, so run-to-run task checksums cannot be verified from the bundle alone.
-- `[delivery]` and `[signoff]` blocks are absent from all three `task.toml` files.
+**Single model, single scaffold.** Every rollout is `opus-5`. Nothing here supports a cross-model
+claim, and the tier assignment has no second model reported against it.
+
+**Uncalibrated difficulty.** `difficulty`, `reference_model_used`, `calibration_date` and
+`openhands_version` are empty strings; `pass_rate = 0.0` and `calibration_trials = 0` on all three
+tasks. The bands in this document are derived from the observed results, not from a calibration pass.
+
+**Invalid TOML in two of three bundles.** `1b21d4ac` and `e0f889a5` fail a standards-compliant TOML
+parse at line 9: `authors` uses `{ "name@ethara.ai" }`, which is not a valid inline table. `63376906`
+has since been corrected to `{ email = "…" }`; the other two have not, and any consumer using a
+strict reader will reject them until they are.
+
+**Unresolved rubric verdicts.** 130 of 744 verdicts (17.5%) are unresolved, all of them on `1b21d4ac`
+and `e0f889a5`. 26 trace to evaluator HTTP 400s from `http://host.docker.internal:8790/responses`;
+the rest to browser-tool and screenshot limits. Rubric figures in this document are means over
+resolved verdicts only, and `1b21d4ac` run_5 sets `needs_human_review = 12` – the only rollout in the
+corpus awaiting human adjudication.
+
+**Uneven browser evidence.** `e0f889a5` captured only 4–6 screenshots per run against 24–41 for the
+other two tasks, which is consistent with its lower rubric coverage.
+
+**Missing provenance.** `INDEX.json`, `provenance.yaml` and the `solution/trinity/`
+grading-derivation set are not included, and `[delivery]` and `[signoff]` blocks are absent from all
+three `task.toml` files, so run-to-run task checksums cannot be verified from the bundle alone.
+
+**Cost figures.** Costs are the harness's own `cost_usd` accounting, not billed invoices.
 
 ## License
 
-MIT © 2026 Ethara.AI
+MIT © 2026 Ethara.AI – see [LICENSE](LICENSE).
+
+Task content, specification briefs and recorded trajectories are released under the same terms.
