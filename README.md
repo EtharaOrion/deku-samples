@@ -66,16 +66,16 @@ the same number the difficulty bands are cut on.
 | Harbor version | 0.20.0 |
 | Reward signal | Workflow pass rate, `reward.json` |
 | Specification volume | ~213 KB across 3 briefs |
-| Sample size on disk | 2,669 files, 159 MB |
+| Sample size on disk | 2,690 files, 163 MB |
 
 | Metric | Value (n=24) |
 | --- | ---: |
-| **Pass rate**, mean `combined_score` | **37.79%** |
-| Pass rate range | 0.1765 to 0.5694 |
+| **Pass rate**, mean `combined_score` | **37.84%** |
+| Pass rate range | 0.1765 to 0.5436 |
 | Workflow reward, the RL signal | 30.67% |
 | Workflows passed | 116 / 416 |
 | Substeps passed | 1,515 / 2,200 |
-| Rubric resolution | 82.5% |
+| Rubric resolution | 100% |
 | Total agent spend | $3,782.08 |
 
 Two numbers travel together throughout this document and must not be confused. **Pass rate is `combined_score`** from `final_score.json`, a weighted geometric mean of the three grading channels:
@@ -133,8 +133,8 @@ A tier is a **band on a measured rate**, the mean `combined_score` over eight ru
 
 | task | pass rate | tier |
 |---|--:|---|
-| `e0f889a5` hardware-companion-storefront | 44.67% | `medium` |
-| `1b21d4ac` talent-roster-reel | 44.05% | `medium` |
+| `1b21d4ac` talent-roster-reel | 44.80% | `medium` |
+| `e0f889a5` hardware-companion-storefront | 44.06% | `medium` |
 | `63376906` mass-balance-attestation | 24.65% | `expert` |
 
 `[metadata].difficulty` is the only difficulty label `task.toml` ships, and it is cut on `opus-5`'s
@@ -150,13 +150,13 @@ No task lands in `trivial`, `easy` or `hard`.
 
 | Task | Pass rate | σ | Range | Workflow | Pytest | Rubric | Coverage |
 | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
-| `e0f889a5` hardware-companion-storefront | 44.67% | 0.0924 | 0.297-0.569 | 0.3750 | 0.6696 | 0.5924 | 0.740 |
-| `1b21d4ac` talent-roster-reel | 44.05% | 0.0830 | 0.267-0.517 | 0.4038 | 0.8023 | 0.4678 | 0.661 |
+| `1b21d4ac` talent-roster-reel | 44.80% | 0.0854 | 0.269-0.534 | 0.4038 | 0.8023 | 0.3227 | 1.000 |
+| `e0f889a5` hardware-companion-storefront | 44.06% | 0.0873 | 0.304-0.544 | 0.3750 | 0.6696 | 0.4184 | 1.000 |
 | `63376906` mass-balance-attestation | 24.65% | 0.0379 | 0.176-0.290 | 0.1413 | 0.5324 | 0.3512 | 1.000 |
 
 `63376906` is the wall. It is the only enterprise task, the only one requiring Keycloak, and it marks **85 of its 122 substeps critical**, a design in which almost nothing is allowed to be partially right. Eight runs never cleared a 29.0% pass rate, and a σ of 0.0379 says the agent failed in the same place every time. That is a structural block, not variance.
 
-The top two tasks are a statistical tie: 0.62 points apart against σ of 0.083 and 0.092 on n=8. Read them as equivalent, not ranked.
+The top two tasks are a statistical tie: 0.74 points apart against σ of 0.085 and 0.087 on n=8. Read them as equivalent, not ranked.
 
 ### Per-run pass rate
 
@@ -172,13 +172,13 @@ Each cell is that run's `combined_score`.
 
 | Task | run_1 | run_2 | run_3 | run_4 | run_5 | run_6 | run_7 | run_8 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `e0f889a5` | 0.476 | 0.434 | 0.553 | 0.347 | 0.454 | 0.569 | 0.297 | 0.442 |
-| `1b21d4ac` | 0.517 | 0.402 | 0.510 | 0.267 | 0.495 | 0.445 | 0.404 | 0.482 |
+| `1b21d4ac` | 0.502 | 0.491 | 0.491 | 0.269 | 0.534 | 0.432 | 0.385 | 0.480 |
+| `e0f889a5` | 0.496 | 0.410 | 0.537 | 0.341 | 0.464 | 0.544 | 0.304 | 0.428 |
 | `63376906` | 0.244 | 0.276 | 0.224 | 0.287 | 0.290 | 0.176 | 0.243 | 0.231 |
 
 **No run scored 1.0 and no run scored 0.0**, on either the pass rate or the underlying reward. The corpus has neither a ceiling nor a floor effect.
 
-All 24 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric 0.25}`: the rubric channel never fully unresolved, so `weights_applied` never renormalised. The lowest channel value anywhere in the corpus is a workflow score of 0.087, so no run approached the zero that would collapse the product.
+All 24 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric 0.25}`: the rubric channel resolved on every run, so `weights_applied` never renormalised. The lowest channel value anywhere in the corpus is a workflow score of 0.087, so no run approached the zero that would collapse the product.
 
 ### Cost and effort
 
@@ -223,11 +223,13 @@ The workflow column is the RL signal. Everything to its left is competence the a
 
 **Critical failures concentrate almost entirely in one task.** Of 437 critical substep failures, **318 (73%) belong to `63376906`**, an average of 40 per run against the 85 it marks critical. The other two tasks contribute 45 and 74 across all eight runs each.
 
-**Rubric coverage tracks how objectively a task can be observed.** `63376906` resolves **100%** of its rubric criteria. The two aesthetic-weighted solo-founder tasks resolve 66% and 74%, and account for **all 130 unresolved verdicts**. The causes are instrumentation limits, not model failures: 26 evaluator HTTP 400s, 9 screenshots degraded in transport, 7 cases where the browser cannot emulate `prefers-reduced-motion`, 3 where it cannot compare hover against no-hover, and 85 where the collected evidence simply did not settle the question. Criteria `1b21d4ac:R4`, `1b21d4ac:R12` and `e0f889a5:R5` went unresolved in **all eight runs**; those are grader gaps, not model gaps.
+**The rubric channel resolves completely.** All three tasks settle **100%** of their criteria: **352 PASS and 392 FAIL across 744 verdicts, with zero `INSUFFICIENT_EVIDENCE` and zero `EVALUATOR_ERROR`**, and no rollout left awaiting human adjudication. Verdicts are reached by `source_audit` (351), `active_acquisition` (226), `browser_audit` (90) and `human_eval` (77). Because coverage is 1.0 on every run, the `rubric_coverage` discount is inert throughout this sample: no run loses rubric credit to a grader blind spot, and the rubric column is directly comparable across all three tasks.
+
+**Rubric scores are lower than workflow-adjacent intuition suggests.** With nothing excluded for being unobservable, the rubric channel lands at 0.3227, 0.4184 and 0.3512, well under each task's pytest rate. A fully resolved rubric is a harsher rubric: criteria that a partially-blind grader would previously have dropped are now settled, and most of them settle as `FAIL`.
 
 **Deploy is a cliff, not a slope.** `tests/test.sh` polls `${APP_PUBLIC_URL}/api/health` for HTTP 200 (30 attempts at 5-second intervals) before any grading runs. An app that misses that probe scores zero with no partial credit for code that would have worked. All 24 rollouts cleared it.
 
-**The grader distrusts itself by design.** `reward.json` carries only the workflow pass rate. `final_score.json` computes `0.5·workflow + 0.25·pytest + 0.25·rubric` and labels it *"a report, not a training signal."* `verifier/judge.json` carries an LLM `judge_score` that never reaches training. Three scores exist; exactly one is allowed to train.
+**The grader distrusts itself by design.** `reward.json` carries only the workflow pass rate. `final_score.json` computes `workflow^0.50 · pytest^0.25 · rubric_discounted^0.25` and labels it *"a report, not a training signal."* `verifier/judge.json` carries an LLM `judge_score` that never reaches training. Three scores exist; exactly one is allowed to train.
 
 ## Coverage
 
@@ -295,8 +297,7 @@ Totals: **52 workflows**, **275 substeps** (156 pytest, 119 browser), **138 crit
 ```
 run_N/
 ├── reward.json          {"reward": <workflow pass rate>}   ← the RL signal
-├── final_score.json     combined_score, per-channel breakdown,
-│                        and every unresolved criterion with its rationale
+├── final_score.json     combined_score and per-channel breakdown
 ├── workflows.json       summary + per-workflow, per-substep verdicts
 ├── usage.json           tokens + cost, split across agent / browser_grader / rubric_judge
 ├── app/                 the application the agent built
@@ -306,10 +307,12 @@ run_N/
 └── verifier/
     ├── browser_results.json     per-workflow browser evidence
     ├── pytest_ctrf.json         CTRF-format test report
-    └── judge.json               advisory judge_score
+    └── judge.json               per-criterion rubric verdicts + advisory judge_score
 ```
 
 The sample carries **485 screenshots** across the 24 rollouts, captured at three viewports per route so responsive criteria are judged from real renders rather than CSS inspection.
+
+`final_score.json` carries a `machine_unresolved` array for criteria the grader could not settle. It is empty on all 24 rollouts in this sample.
 
 ## Scoring methodology
 
@@ -350,9 +353,9 @@ combined_score = workflow^0.50 · pytest^0.25 · (rubric × rubric_coverage)^0.2
 
 Two properties follow, and both are deliberate.
 
-**A weak channel cannot be bought back.** Under an arithmetic mean, a 0.80 pytest score offsets a 0.14 workflow score and the run still reports respectably. Under a geometric mean the product is dragged toward the weakest term, so the score answers *"was this competent across all three at once?"* rather than *"how much credit did it accumulate anywhere?"* The penalty relative to an arithmetic mean scales with how lopsided the run was: 11.2% for the most balanced task in this sample, 15.5% for the least.
+**A weak channel cannot be bought back.** Under an arithmetic mean, a 0.80 pytest score offsets a 0.14 workflow score and the run still reports respectably. Under a geometric mean the product is dragged toward the weakest term, so the score answers *"was this competent across all three at once?"* rather than *"how much credit did it accumulate anywhere?"* The penalty relative to an arithmetic mean scales with how lopsided the run was: 4.1% for the most balanced task in this sample, 15.5% for the least.
 
-**Rubric credit is proportional to what was observable.** Unresolved criteria are excluded from `rubric.score`, which would otherwise hand a run full credit for the fraction of the rubric the grader happened to settle. Multiplying by `rubric_coverage` removes that unearned credit. `63376906` resolves its whole rubric and is unaffected; `1b21d4ac` resolves 66% and absorbs the largest discount.
+**Rubric credit is proportional to what was observable.** Unresolved criteria are excluded from `rubric.score`, which would otherwise hand a run full credit for the fraction of the rubric the grader happened to settle. Multiplying by `rubric_coverage` removes that unearned credit. In this sample every task resolves its whole rubric, so the multiplier is 1.0 on all 24 rollouts and no run absorbs a discount; the mechanism is retained because it is load-bearing on any run where a criterion cannot be settled.
 
 Each run records its own arithmetic in `final_score.json` under `scoring`, alongside `components.rubric.score_discounted`.
 
@@ -366,7 +369,7 @@ A workflow passes only when **all** of its substeps pass. `reward` is the fracti
 
 ### Channel 3: LLM rubric
 
-93 criteria, two of them **negative** criteria that penalise behaviour rather than reward it. The rubric now carries source-quality dimensions alongside behavioural ones:
+93 criteria, two of them **negative** criteria that penalise behaviour rather than reward it. The rubric carries source-quality dimensions alongside behavioural ones:
 
 | Dimension | Criteria | | Dimension | Criteria |
 | --- | ---: | --- | --- | ---: |
@@ -376,9 +379,9 @@ A workflow passes only when **all** of its substeps pass. `reward` is the fracti
 | instruction_following | 11 | | accessibility | 5 |
 | functionality | 11 | | abstraction, dead_code, naming, readability, idiomaticity | 1 each |
 
-Importance splits 39 important / 36 critically_important / 18 somewhat_important. Evaluation targets are `state_change` (57), `user_facing_message` (33) and `trajectory` (3).
+Importance splits 39 important / 30 critically_important / 24 somewhat_important, weighting each criterion 3 / 5 / 1 respectively. Evaluation targets are `state_change` (57), `user_facing_message` (33) and `trajectory` (3).
 
-Verdicts resolve to PASS, FAIL, INSUFFICIENT_EVIDENCE or EVALUATOR_ERROR, reached by one of four methods: `source_audit` (342), `active_acquisition` (239), `browser_audit` (33), or left `machine_unresolved` (130). When a channel fully unresolves, `rubric.score` is `null`, the rubric key drops out of `weights_applied`, and the remaining exponents renormalise to sum to 1.0. That path was **not** exercised here, as all 24 runs scored under the full exponents.
+Verdicts resolve to PASS, FAIL, INSUFFICIENT_EVIDENCE or EVALUATOR_ERROR, reached by one of four methods: `source_audit` (351), `active_acquisition` (226), `browser_audit` (90) or `human_eval` (77). Across all 744 verdicts in this sample every criterion resolved to a PASS or a FAIL; nothing was left `machine_unresolved`. When a channel does fully unresolve, `rubric.score` is `null`, the rubric key drops out of `weights_applied`, and the remaining exponents renormalise to sum to 1.0. That path was **not** exercised here, as all 24 runs scored under the full exponents.
 
 ## Reproduction
 
@@ -398,7 +401,7 @@ scores  = [json.loads((r / "final_score.json").read_text())["combined_score"] fo
 rewards = [json.loads((r / "reward.json").read_text())["reward"] for r in runs]
 
 print(f"n={len(runs)}  pass_rate={sum(scores)/len(scores):.4f}  reward={sum(rewards)/len(rewards):.4f}")
-# -> n=8  pass_rate=0.4405  reward=0.4038
+# -> n=8  pass_rate=0.4480  reward=0.4038
 ```
 
 **Total agent spend across the sample:**
@@ -418,7 +421,17 @@ find . -name final_score.json -print0 \
                        FAIL:  map(.FAIL)  | add,
                        INSUF: map(.INSUFFICIENT_EVIDENCE) | add,
                        ERROR: map(.EVALUATOR_ERROR)       | add}'
-# -> {"PASS": 288, "FAIL": 326, "INSUF": 130, "ERROR": 0}
+# -> {"PASS": 352, "FAIL": 392, "INSUF": 0, "ERROR": 0}
+```
+
+**Confirm every criterion resolved and no rollout awaits a human:**
+
+```bash
+find . -name final_score.json -print0 \
+  | xargs -0 jq -s '{unresolved:        map(.components.rubric.unresolved) | add,
+                     min_coverage:      map(.components.rubric.coverage)   | min,
+                     needs_human_review: map(.needs_human_review)          | add}'
+# -> {"unresolved": 0, "min_coverage": 1.0, "needs_human_review": 0}
 ```
 
 **Confirm every rollout deployed and none was flagged:**
@@ -450,7 +463,7 @@ browser-rendered export of the `.svg` beside it:
 ```bash
 for f in images/*-light.svg images/*-dark.svg; do
   case "$f" in *tasks_by_domain*) SIZE=1600,1200 ;; *) SIZE=1600,900 ;; esac
-  chrome --headless --disable-gpu --hide-scrollbars \
+  chrome --headless=new --disable-gpu --hide-scrollbars \
          --screenshot="${f%.svg}.png" --window-size=$SIZE "file://$PWD/$f"
 done
 ```
@@ -468,9 +481,11 @@ Every claim below was checked against the shipped bytes.
 - `combined_score` recomputes from its three channels on all 24 runs, to within `0.001`.
 - Pytest reported 0 skipped, 0 pending and 0 errored across 1,248 test results; every result is a
   real pass or a real fail.
-- 0 `EVALUATOR_ERROR` verdicts across 744 rubric criteria.
+- All 744 rubric verdicts resolved: 0 `INSUFFICIENT_EVIDENCE` and 0 `EVALUATOR_ERROR`,
+  `rubric_coverage = 1.0` on every run, and `needs_human_review = 0` corpus-wide.
 - 339 of 345 traceability rows carry a `YES` verdict.
-- `uuid_v5` in each `task.toml` matches its directory name.
+- `uuid_v5` in each `task.toml` matches its directory name, and each `pass_rate` matches the mean
+  `combined_score` of the eight runs shipped beside it.
 - No rollout scored 1.0 or 0.0, so there is no ceiling or floor saturation.
 
 ## Limitations
@@ -491,14 +506,19 @@ claim, and the tier assignment has no second model reported against it.
 but `calibration_date` and `openhands_version` are still empty strings, so the calibration cannot be
 dated or tied to a specific harness build.
 
-**Unresolved rubric verdicts.** 130 of 744 verdicts (17.5%) are unresolved, all of them on `1b21d4ac`
-and `e0f889a5`. 26 trace to evaluator HTTP 400s from `http://host.docker.internal:8790/responses`;
-the rest to browser-tool and screenshot limits. Rubric figures in this document are means over
-resolved verdicts only, and `1b21d4ac` run_5 sets `needs_human_review = 12`, the only rollout in the
-corpus awaiting human adjudication.
+**Rubric resolution is not fully machine-reproducible.** The rubric channel now resolves every
+criterion, but 77 of 744 verdicts (10.3%) carry a `human_eval` resolution method and a further 90
+carry `browser_audit`. Those verdicts are shipped as recorded results; re-running the automated
+grader alone will not reproduce them, and the rubric column should be read as adjudicated rather
+than purely machine-derived.
 
-**Uneven browser evidence.** `e0f889a5` captured only 4-6 screenshots per run against 24-41 for the
-other two tasks, which is consistent with its lower rubric coverage.
+**A fully resolved rubric is a stricter rubric.** Because criteria are no longer dropped for being
+unobservable, rubric scores here are not comparable to figures produced under partial coverage. Runs
+scored against an earlier, partially-resolved rubric will report higher.
+
+**Uneven browser evidence.** `e0f889a5` captured only 4-6 screenshots per run against 24-41 for
+`1b21d4ac` and 27 for `63376906`, so its visual criteria rest on a thinner set of renders than the
+other two tasks even though all of them resolved.
 
 **Missing provenance.** `INDEX.json`, `provenance.yaml` and the `solution/trinity/`
 grading-derivation set are not included, and `[delivery]` and `[signoff]` blocks are absent from all
