@@ -1,0 +1,99 @@
+---
+import App from '../../layouts/App.astro';
+import { money, shortDateTime, orderStatusChip } from '../../lib/format';
+import { one, rows } from '../../lib/queries';
+import { sha256 } from '../../lib/server-crypto.js';
+const { number } = Astro.params;
+const url = new URL(Astro.request.url);
+const accessToken = url.searchParams.get('access_token');
+const order = await one(`SELECT * FROM orders WHERE number=$1`, [number]);
+let view = null;
+let authorized = false;
+if (order) {
+  if (accessToken && sha256(accessToken) === order.access_token_hash) authorized = true;
+  if (!authorized && order.access_token === null && order.customer_id === null && order.status === 'pending') authorized = false;
+}
+if (!order || !authorized) {
+  Astro.response.status = 404;
+  return Astro.rewrite('/404');
+}
+const lines = await rows(`SELECT * FROM order_line WHERE order_id=$1 ORDER BY id`, [order.id]);
+const serials = await rows(
+  `SELECT ols.serial, ols.order_line_id, p.title AS model FROM order_line_serial ols
+     JOIN order_line ol ON ol.id = ols.order_line_id JOIN device d ON d.serial = ols.serial
+     JOIN product p ON p.id = d.product_id WHERE ol.order_id=$1 ORDER BY ols.serial`, [order.id]);
+const addr = order.shipping_address || {};
+const keepHref = `/orders/${order.number}?access_token=${encodeURIComponent(order.access_token || accessToken)}`;
+---
+<App title={`Order ${order.number}`} active="orders">
+  <article class="order">
+    <header class="order-head">
+      <h1 class="page-title">Order <span class="mono">{order.number}</span> {order.status === 'confirmed' ? 'is confirmed.' : 'is being placed.'}</h1>
+      <p class="order-sub">{order.status === 'confirmed' ? `We have emailed ${order.email}.` : 'We are finishing the paperwork for this order.'}</p>
+      <span class="chip" data-tone={order.status === 'confirmed' ? 'finished' : ''}>{orderStatusChip(order)}</span>
+    </header>
+
+    <section class="block">
+      <h2>What you bought</h2>
+      <table class="spec">
+        <thead><tr><th scope="col">Item</th><th scope="col" class="num">Each</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Total</th></tr></thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr>
+              <td>
+                {l.title_snapshot} <span class="line-option">{l.option_snapshot}</span><br />
+                <span class="line-sku mono">{l.sku_snapshot}</span>
+                {serials.filter((s) => s.order_line_id === l.id).map((s) => (
+                  <span class="line-serial"><span class="mono">{s.serial}</span> ({s.model})</span>
+                ))}
+              </td>
+              <td class="num tnum">{money(l.unit_price_minor)}</td>
+              <td class="num tnum">{l.quantity}</td>
+              <td class="num tnum">{money(l.total_minor)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="block">
+      <h2>Totals</h2>
+      <dl class="totals">
+        <div class="sumrow"><dt>Subtotal</dt><dd class="tnum">{money(order.subtotal_minor)}</dd></div>
+        <div class="sumrow"><dt>Delivery, {order.shipping_method}</dt><dd class="tnum">{money(order.shipping_minor)}</dd></div>
+        <div class="sumrow"><dt>Tax</dt><dd class="tnum">{money(order.tax_minor)}</dd></div>
+        {Number(order.discount_minor) > 0 && <div class="sumrow"><dt>Discount</dt><dd class="tnum">−{money(order.discount_minor)}</dd></div>}
+        <div class="sumrow sumrow-total"><dt>Total</dt><dd class="tnum">{money(order.total_minor)} {order.currency}</dd></div>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>Where it goes</h2>
+      <address class="addr">
+        {addr.name}<br />
+        {addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}<br />
+        {addr.city}{addr.region ? `, ${addr.region}` : ''} {addr.postal_code}<br />
+        {addr.country}
+      </address>
+    </section>
+
+    <p class="keep"><a class="btn" href={keepHref}>Keep track of this order</a></p>
+    <p class="keep-hint">Bookmark this link. It is the only way back to this order without an account.</p>
+  </article>
+</App>
+<style>
+  .order-head { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); align-items: start; margin-bottom: calc(var(--unit) * 5); }
+  .order-sub { margin: 0; }
+  .block { margin-bottom: calc(var(--unit) * 5); }
+  .block h2 { font-size: 1.125rem; margin-bottom: calc(var(--unit) * 2); }
+  .line-option { color: var(--surface-ink-2); }
+  .line-sku { display: block; font-size: 0.8125rem; color: var(--surface-ink-2); }
+  .line-serial { display: block; font-size: 0.875rem; }
+  .totals { margin: 0; }
+  .sumrow { display: flex; justify-content: space-between; padding: calc(var(--unit) * 1) 0; }
+  .sumrow dt { color: var(--surface-ink-2); }
+  .sumrow dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .sumrow-total { border-top: 1px solid var(--surface-ink-2); font-weight: 700; }
+  .addr { font-style: normal; }
+  .keep-hint { color: var(--surface-ink-2); font-size: 0.875rem; }
+</style>

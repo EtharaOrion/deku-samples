@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Cirrus - Talents{% endblock %}
+{% block route %}talents{% endblock %}
+{% block well %}
+<section class="roster" x-data='roster({{ roster|tojson }})' @keydown.arrow-left.prevent="prev()"
+         @keydown.arrow-right.prevent="next()">
+  <div class="roster__filter" role="group" aria-label="Filter the roster by discipline">
+    {% for discipline in disciplines %}
+    <button class="filter" type="button" :class="active==='{{ discipline }}' && 'is-active'"
+            :aria-pressed="active==='{{ discipline }}'" @click="setActive('{{ discipline }}')">
+      <span class="filter__mark" aria-hidden="true"></span>{{ discipline|upper }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="roster__viewport" aria-live="polite">
+    {% if not roster %}
+    <p class="empty roster__empty">The roster is empty for now. The house is signing.</p>
+    {% endif %}
+    {% for talent in roster %}
+    <article class="talentcard" x-show="wide() || current.slug==='{{ talent.slug }}'"
+             :class="current.slug==='{{ talent.slug }}' && 'is-current'"
+             :aria-hidden="current.slug!=='{{ talent.slug }}'"
+             data-discipline="{{ talent.discipline }}" data-slug="{{ talent.slug }}">
+      {% if loop.first %}<h1 class="talentcard__name" data-name>{{ talent.title }}</h1>
+      {% else %}<p class="talentcard__name" aria-hidden="true">{{ talent.title }}</p>{% endif %}
+      <p class="talentcard__discipline">{{ talent.discipline|upper }}</p>
+      <a class="talentcard__portrait tile" href="/talents/{{ talent.slug }}" data-cursor="{{ talent.title }}"
+         style="--tw:{{ talent.poster.width if talent.poster else 246 }}px;--th:{{ talent.poster.height if talent.poster else 340 }}px">
+        {% if talent.poster %}
+        <span class="tile__holder" style="padding-top:{{ (talent.poster.height / talent.poster.width * 100)|round(3) }}%"></span>
+        <span class="tile__media" data-src="{{ talent.poster.url }}" data-seed="{{ talent.poster.seed }}"
+              role="img" aria-label="{{ talent.poster.alt }}"></span>
+        {% endif %}
+      </a>
+    </article>
+    {% endfor %}
+  </div>
+
+  <p class="roster__count" x-ref="count" aria-hidden="true">
+    <span x-text="index + 1"></span>/<span x-text="filtered.length"></span>
+  </p>
+</section>
+{% endblock %}

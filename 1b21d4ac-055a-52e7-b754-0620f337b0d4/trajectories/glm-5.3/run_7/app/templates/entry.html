@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block route %}
+<section class="entry" x-data="entryRoute()" x-init="init()" aria-label="Entry">
+  <h1 class="sr-only">Cirrus</h1>
+  <p class="entry-counter" :class="{done: progress.done}" :style="counterStyle"
+     role="status" aria-live="polite" aria-label="Loading, percent complete">
+    <span class="entry-count" x-text="progress.pct"></span><span class="entry-sign">%</span>
+  </p>
+  <div class="entry-cluster" :class="{ready: progress.done}" aria-hidden="false">
+    {% for s in stills %}{% set p = CLUSTER_POSITIONS[loop.index0 % CLUSTER_POSITIONS|length] %}
+    <a class="cluster-still" href="/works/{{ s.item_slug }}" data-cur="{{ s.item_title|upper }}"
+       style="left:{{ p.x }}px; top:{{ p.y }}px; width:{{ p.w }}px"
+       data-ordinal="{{ '%03d' % (loop.index) }}">
+      <img class="cluster-img" src="/api/media/{{ s.id }}" alt="{{ s.alt }}" width="{{ s.width }}" height="{{ s.height }}"
+           loading="eager" decoding="async">
+      <span class="cluster-caption">{{ s.item_title }}<span class="cluster-caption-ord">, {{ '%03d' % loop.index }}</span></span>
+    </a>
+    {% else %}<p class="empty-state">The work is not published yet. Come back soon.</p>{% endfor %}
+  </div>
+  <div class="entry-veil" :class="{gone: progress.done}" aria-hidden="true"></div>
+</section>
+{% endblock %}

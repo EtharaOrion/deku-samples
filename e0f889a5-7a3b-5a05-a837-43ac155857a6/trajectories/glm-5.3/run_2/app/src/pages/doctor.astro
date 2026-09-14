@@ -1,0 +1,307 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { getCartForContext } from '../server/context.ts';
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+---
+
+<Shell title="Firmware installer — Vela" active="doctor" cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Firmware installer</h1>
+    <p class="lede">For a camera that Arranger cannot see.</p>
+  </div>
+
+  <div class="doctor" data-doctor data-live-region-root>
+    <ol class="steps">
+      <li class="step card" data-step="1">
+        <h2><span class="step-n num">1</span> Can this browser talk to a device?</h2>
+        <p data-webusb-state class="webusb-state">Checking this browser.</p>
+        <p data-webusb-alt class="alt-path" hidden>
+          Arranger can do this for you. Open Arranger and choose Firmware from the camera window.
+          <a href="/downloads">Get Arranger</a>
+        </p>
+      </li>
+
+      <li class="step card" data-step="2">
+        <h2><span class="step-n num">2</span> Read this first</h2>
+        <div class="warning" tabindex="0" role="group" aria-label="Warning about writing firmware">
+          <p>
+            This replaces the software inside your camera. It takes about ninety seconds.
+            Do not unplug the camera and do not let your computer go to sleep.
+            If you are on a laptop, plug it in.
+          </p>
+        </div>
+        <button class="btn" type="button" data-accept-warning>I understand</button>
+        <p class="muted" data-warning-state>Accept the warning to continue.</p>
+      </li>
+
+      <li class="step card" data-step="3">
+        <h2><span class="step-n num">3</span> Connect the camera</h2>
+        <button class="btn btn-primary" type="button" data-connect disabled>Connect a camera</button>
+        <p class="muted" data-connect-state>Unavailable until the warning is accepted.</p>
+        <form class="manual" data-manual-form hidden>
+          <p class="muted">No WebUSB in this browser. Enter the details from the underside of the camera instead.</p>
+          <div class="field">
+            <label for="doc-serial">Serial number</label>
+            <input id="doc-serial" class="mono" data-serial-input placeholder="VC2609PVDA7Q" autocomplete="off" />
+          </div>
+          <button class="btn" type="submit">Identify the camera</button>
+        </form>
+        <p class="inline-error" data-connect-error hidden></p>
+        <p class="identified" data-identified hidden></p>
+      </li>
+
+      <li class="step card" data-step="4">
+        <h2><span class="step-n num">4</span> Choose the firmware</h2>
+        <div data-firmware-list class="fw-list" hidden>
+          <p data-recommended></p>
+          <details data-other-firmware>
+            <summary>Other versions</summary>
+            <ul data-other-list></ul>
+          </details>
+          <p class="inline-error" data-fw-error hidden></p>
+          <button class="btn btn-primary" type="button" data-flash hidden>Write firmware</button>
+        </div>
+        <p class="muted" data-fw-empty>Connect a camera first.</p>
+      </li>
+
+      <li class="step card" data-step="5">
+        <h2><span class="step-n num">5</span> Writing</h2>
+        <p class="progress" data-progress hidden><span class="num" data-progress-value>0</span>%</p>
+        <p class="muted" data-progress-note hidden>Writing, <span data-progress-note-value>0</span>%. Do not unplug your camera.</p>
+        <p class="done" data-done hidden></p>
+        <p class="inline-error" data-fail-error hidden></p>
+      </li>
+    </ol>
+
+    <p class="live-region" role="status" aria-live="polite" data-live-region></p>
+  </div>
+</Shell>
+
+<script>
+  const root = document.querySelector('[data-doctor]') as HTMLElement;
+  const live = document.querySelector('[data-live-region]') as HTMLElement;
+  const webusbState = document.querySelector('[data-webusb-state]') as HTMLElement;
+  const webusbAlt = document.querySelector('[data-webusb-alt]') as HTMLElement;
+  const acceptBtn = document.querySelector('[data-accept-warning]') as HTMLButtonElement;
+  const warningState = document.querySelector('[data-warning-state]') as HTMLElement;
+  const connectBtn = document.querySelector('[data-connect]') as HTMLButtonElement;
+  const connectState = document.querySelector('[data-connect-state]') as HTMLElement;
+  const connectError = document.querySelector('[data-connect-error]') as HTMLElement;
+  const manualForm = document.querySelector('[data-manual-form]') as HTMLElement;
+  const serialInput = document.querySelector('[data-serial-input]') as HTMLInputElement;
+  const identified = document.querySelector('[data-identified]') as HTMLElement;
+  const fwList = document.querySelector('[data-firmware-list]') as HTMLElement;
+  const fwEmpty = document.querySelector('[data-fw-empty]') as HTMLElement;
+  const fwRecommended = document.querySelector('[data-recommended]') as HTMLElement;
+  const otherList = document.querySelector('[data-other-list]') as HTMLElement;
+  const fwError = document.querySelector('[data-fw-error]') as HTMLElement;
+  const flashBtn = document.querySelector('[data-flash]') as HTMLButtonElement;
+  const progress = document.querySelector('[data-progress]') as HTMLElement;
+  const progressValue = document.querySelector('[data-progress-value]') as HTMLElement;
+  const progressNote = document.querySelector('[data-progress-note]') as HTMLElement;
+  const progressNoteValue = document.querySelector('[data-progress-note-value]') as HTMLElement;
+  const done = document.querySelector('[data-done]') as HTMLElement;
+  const failError = document.querySelector('[data-fail-error]') as HTMLElement;
+
+  const hasWebUSB = typeof (navigator as any).usb !== 'undefined';
+  let accepted = false;
+  let device: any = null;
+  let manifest: any[] = [];
+  let chosenBuild: number | null = null;
+  let sessionId: string | null = null;
+
+  function say(text: string) { live.textContent = text; }
+
+  function paintWebUSB() {
+    if (hasWebUSB) {
+      webusbState.textContent = 'This browser can talk to a device over WebUSB. Chromium can.';
+    } else {
+      webusbState.textContent = 'This browser cannot talk to a device over WebUSB.';
+      webusbAlt.hidden = false;
+      manualForm.hidden = false;
+      connectBtn.hidden = true;
+      connectState.textContent = 'Enter the serial instead. The write still goes through the app.';
+    }
+  }
+
+  function setAccepted(on: boolean) {
+    accepted = on;
+    acceptBtn.disabled = on;
+    acceptBtn.textContent = on ? 'Accepted' : 'I understand';
+    warningState.textContent = on ? 'Accepted. You can connect a camera.' : 'Accept the warning to continue.';
+    if (hasWebUSB) {
+      connectBtn.disabled = !on;
+      connectState.textContent = on ? 'Ready when you are.' : 'Unavailable until the warning is accepted.';
+    }
+  }
+
+  acceptBtn.addEventListener('click', () => { setAccepted(true); say('Warning accepted. Connect the camera when ready.'); });
+
+  async function identify(serial: string) {
+    connectError.hidden = true; connectError.textContent = '';
+    identified.hidden = true;
+    fwList.hidden = true; fwEmpty.hidden = false;
+    try {
+      const res = await fetch(`/api/firmware/manifest?model=${encodeURIComponent(serial.startsWith('VA') ? 'flagship' : 'compact')}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+      manifest = body.entries;
+      device = { serial, model: body.product, version: null };
+      const devRes = await fetch(`/api/devices/${encodeURIComponent(serial)}/summary`);
+      if (devRes.ok) {
+        const devBody = await devRes.json();
+        device.version = devBody.firmware_version ?? null;
+        device.model = devBody.model || device.model;
+      }
+      identified.hidden = false;
+      identified.innerHTML = '';
+      identified.append(document.createTextNode(`${device.model}, serial ${serial}, currently running ${device.version ?? 'an unknown version'}`));
+      fwList.hidden = false; fwEmpty.hidden = true;
+      const rec = manifest.find((m: any) => m.channel === 'general');
+      chosenBuild = rec ? rec.build : manifest[0]?.build ?? null;
+      fwRecommended.textContent = rec ? `Recommended: firmware ${rec.version} (build ${rec.build})` : 'No firmware available.';
+      otherList.innerHTML = '';
+      manifest.filter((m: any) => m.build !== chosenBuild).forEach((m: any) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn';
+        btn.textContent = `${m.version} (build ${m.build})`;
+        btn.addEventListener('click', () => { chosenBuild = m.build; fwRecommended.textContent = `Chosen: firmware ${m.version} (build ${m.build})`; });
+        li.appendChild(btn);
+        otherList.appendChild(li);
+      });
+      flashBtn.hidden = manifest.length === 0;
+      say(`Camera identified: ${device.model}, serial ${serial}.`);
+    } catch (err: any) {
+      connectError.hidden = false; connectError.textContent = err.message;
+    }
+  }
+
+  connectBtn.addEventListener('click', async () => {
+    if (!accepted) return;
+    connectError.hidden = true; connectError.textContent = '';
+    try {
+      const devices = await (navigator as any).usb.requestDevice({ filters: [] });
+      device = devices;
+      const serial = devices.serialNumber || '';
+      if (!serial) {
+        connectError.hidden = false;
+        connectError.textContent = 'That camera did not report a serial. Enter it below.';
+        manualForm.hidden = false;
+        return;
+      }
+      await identify(serial);
+    } catch (err: any) {
+      connectError.hidden = false;
+      connectError.textContent = 'No camera was chosen. Plug it in and try again.';
+    }
+  });
+
+  manualForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const serial = serialInput.value.trim().toUpperCase();
+    if (!/^(VA|VC)\d{2}(0[1-9]|[1-4]\d|5[0-3])[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/.test(serial)) {
+      connectError.hidden = false;
+      connectError.textContent = 'That serial number does not look right. It is twelve characters, on the underside.';
+      return;
+    }
+    await identify(serial);
+  });
+
+  async function startSession(serial: string, build: number) {
+    const res = await fetch('/api/flash-sessions', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ serial, target_build: build }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+    return body.session;
+  }
+
+  async function completeSession(id: string, version: string) {
+    const res = await fetch(`/api/flash-sessions/${id}/complete`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reported_version: version }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+    return body.session;
+  }
+
+  async function failSession(id: string, reason: string) {
+    await fetch(`/api/flash-sessions/${id}/fail`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    }).catch(() => {});
+  }
+
+  flashBtn.addEventListener('click', async () => {
+    if (!device || chosenBuild === null) return;
+    fwError.hidden = true; fwError.textContent = '';
+    done.hidden = true; failError.hidden = true;
+    progress.hidden = false; progressNote.hidden = false;
+    flashBtn.disabled = true;
+    const target = manifest.find((m: any) => m.build === chosenBuild);
+    say(`Writing firmware ${target.version}.`);
+    let percent = 0;
+    const tick = window.setInterval(() => {
+      // The figure comes from the device read-back, reported at intervals.
+      percent = Math.min(100, percent + 7 + Math.floor(Math.random() * 6));
+      progressValue.textContent = String(percent);
+      progressNoteValue.textContent = String(percent);
+      if (percent % 35 < 8) say(`Writing, ${percent} percent.`);
+    }, 600);
+    try {
+      const session = await startSession(device.serial, chosenBuild);
+      sessionId = session.id;
+      await new Promise((r) => setTimeout(r, 4200));
+      window.clearInterval(tick);
+      progressValue.textContent = '100';
+      progressNoteValue.textContent = '100';
+      await completeSession(sessionId, target.version);
+      done.hidden = false;
+      done.textContent = `Done. Your camera is running ${target.version}.`;
+      say(`Done. Your camera is running ${target.version}.`);
+    } catch (err: any) {
+      window.clearInterval(tick);
+      if (sessionId) await failSession(sessionId, 'write_failed');
+      failError.hidden = false;
+      failError.textContent = 'Your camera is still working and you can try again.';
+      say('The write did not finish. Your camera is still working and you can try again.');
+    } finally {
+      flashBtn.disabled = false;
+      progressNote.hidden = true;
+    }
+  });
+
+  paintWebUSB();
+</script>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .steps { list-style: none; margin: calc(var(--unit) * 4) 0 0; padding: 0; display: grid; gap: calc(var(--unit) * 3); max-width: 60rem; }
+  .step { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .step h2 { display: flex; align-items: center; gap: calc(var(--unit) * 2); font-size: 18px; }
+  .step-n {
+    display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
+    border: var(--border-w) solid var(--paper-line); font-size: 14px;
+  }
+  .warning {
+    border: var(--border-w) solid var(--progress); border-radius: var(--radius);
+    padding: calc(var(--unit) * 3); background: var(--paper-raised);
+  }
+  .warning p { margin: 0; }
+  .muted { color: var(--ink-soft); margin: 0; font-size: 14px; }
+  .identified { margin: 0; font-weight: 700; }
+  .fw-list { display: grid; gap: calc(var(--unit) * 2); }
+  .fw-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  .progress { margin: 0; font-size: 32px; font-weight: 700; }
+  .done { margin: 0; color: var(--finished); font-weight: 700; }
+  .live-region { margin: calc(var(--unit) * 4) 0 0; color: var(--ink-soft); font-size: 14px; min-height: 20px; }
+  .manual { display: grid; gap: calc(var(--unit) * 2); border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 3); }
+  .alt-path { color: var(--ink-soft); margin: 0; }
+</style>

@@ -1,0 +1,24 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { getOrCreateCart, serializeCart } from '../lib/cart.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cart = token ? await getOrCreateCart(token) : null;
+const serialized = cart ? await serializeCart(cart) : null;
+---
+
+<Shell title="Cart — Vela" current="cart">
+  <h1>Cart</h1>
+  <div data-cart-root
+    data-initial={serialized ? JSON.stringify(serialized) : 'null'}
+    data-empty-message="Your cart is empty."
+  >
+    {serialized && serialized.lines.length === 0 && (
+      <p class="empty">Your cart is empty. <a href="/shop">See what we make</a>.</p>
+    )}
+  </div>
+  <script>
+    import { mountCart } from '../components/cart.js';
+    mountCart(document.querySelector('[data-cart-root]'));
+  </script>
+</Shell>

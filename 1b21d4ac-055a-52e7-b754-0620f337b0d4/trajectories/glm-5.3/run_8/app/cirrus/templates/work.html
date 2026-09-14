@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tile %}
+{% block content %}
+<article class="route--work">
+  <header class="work-head">
+    <p class="work-ordinal">Film {{ work.ordinal }}</p>
+    <h1>{{ work.title }}</h1>
+  </header>
+  {% if work.credits %}
+  <dl class="credits">
+    {% for c in work.credits %}
+    <dt>{{ c.role }}</dt>
+    <dd>{% if c.talent %}<a href="/talents/{{ c.talent.slug }}" data-cursor="{{ c.talent.title }}">{{ c.name }}</a>{% else %}{{ c.name }}{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
+  <div class="work-reel" data-reel-slot
+       {% if work.media %}data-seed="{{ work.media[0].seed }}"{% endif %}>
+    {#- the full-bleed reel: the still is laid in first and the motion field
+        draws over it only once ready, so no blank frame is ever shown -#}
+    {% for m in work.media if m.role == 'poster' %}
+    <img src="{{ m.url }}" alt="{{ m.alt }}" width="{{ m.width }}" height="{{ m.height }}"
+         decoding="async">
+    {% endfor %}
+  </div>
+  {% set gallery = work.media | selectattr('role', 'equalto', 'gallery') | list %}
+  {% if gallery %}
+  <div class="works-list">
+    {% for m in gallery %}
+    <div class="work-entry">
+      <a class="tile tile--detail tile--{{ work.variant or 'left' }} variant-{{ work.variant or 'left' }}"
+         href="/works/{{ work.slug }}" aria-hidden="true" tabindex="-1" data-cursor="{{ work.title }}">
+        <span class="tile-inner">
+          <img class="tile-img" src="{{ m.url }}" alt="{{ m.alt }}" width="{{ m.width }}"
+               height="{{ m.height }}" decoding="async">
+        </span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if work.next and work.previous %}
+  <nav class="work-neighbours" aria-label="More films">
+    <a class="previous" href="/works/{{ work.previous.slug }}" data-cursor="{{ work.previous.title }}">
+      <span>Previous - {{ work.previous.ordinal }}</span>{{ work.previous.title }}</a>
+    <a class="next" href="/works/{{ work.next.slug }}" data-cursor="{{ work.next.title }}">
+      <span>Next - {{ work.next.ordinal }}</span>{{ work.next.title }}</a>
+  </nav>
+  {% endif %}
+  {% if preview %}
+  <div class="counter counter--preview" data-preview-counter><span class="counter-value">Loading preview...</span></div>
+
+  <div class="preview-banner">Preview - not published</div>
+  {% endif %}
+</article>
+{% endblock %}

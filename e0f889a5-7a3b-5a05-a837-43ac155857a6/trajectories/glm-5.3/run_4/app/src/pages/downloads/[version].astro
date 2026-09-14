@@ -1,0 +1,46 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { releaseByVersion, releasesPage, serializeRelease } from '../../lib/releases.js';
+import { formatDate, formatBytes } from '../../lib/format.js';
+
+const { version } = Astro.params;
+const target = await releaseByVersion(version);
+if (!target) return Astro.rewrite('/404');
+
+const all = (await releasesPage(100, null)).data.map((r) => r);
+---
+
+<Shell title={`Arranger ${version} — Vela`} current="downloads">
+  <nav class="breadcrumb"><a href="/downloads">Downloads</a> / <span>Arranger {version}</span></nav>
+
+  <article class="release release-full">
+    <h1>Arranger {target.version}</h1>
+    <p class="release-date">Released on {formatDate(target.released_on)}</p>
+    <a class="btn btn-primary" href={`/downloads/artifact/${target.version}`}>Download Arranger {target.version}</a>
+    <p class="download-meta">
+      <span class="tnum">{formatBytes(target.size_bytes)}</span>
+      <span class="mono digest" title={target.sha256}>{target.sha256}</span>
+    </p>
+
+    <div class="release-notes">
+      {serializeRelease(target).notes.map((g) => (
+        <section>
+          <h2>{g.group}</h2>
+          <ul>{g.items.map((item) => <li>{item}</li>)}</ul>
+        </section>
+      ))}
+      <p class="release-signoff">The Vela team.</p>
+    </div>
+  </article>
+
+  <section class="archive-collapsed">
+    <h2>Other releases</h2>
+    {all.filter((r) => r.version !== target.version).map((r) => (
+      <article class="release">
+        <h3><a href={`/downloads/${r.version}`}>Arranger {r.version}</a></h3>
+        <p class="release-date">Released on {formatDate(r.released_on)}</p>
+        <a class="btn" href={`/api/releases/artifact/${r.version}`}>Download</a>
+      </article>
+    ))}
+  </section>
+</Shell>

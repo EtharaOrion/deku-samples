@@ -1,0 +1,90 @@
+---
+import '@styles/global.css';
+import CartCount from '@components/CartCount.jsx';
+
+export async function getFrontmatter() {}
+const { request, url } = Astro;
+const { currentCustomer, currentCart, cartCount } = await import('@lib/session.js');
+const customer = await currentCustomer(request);
+const { state } = await currentCart(request);
+const count = cartCount(state);
+const path = url.pathname;
+const rail = [
+  { href: '/shop', label: 'Shop', match: (p) => p === '/shop' || p.startsWith('/shop/') },
+  { href: '/downloads', label: 'Downloads', match: (p) => p === '/downloads' || (p.startsWith('/downloads/') && p !== '/downloads') },
+  { href: '/doctor', label: 'Firmware installer', match: (p) => p === '/doctor' },
+];
+if (customer) {
+  rail.push({ href: '/account', label: 'Overview', match: (p) => p === '/account' });
+  rail.push({ href: '/account/orders', label: 'Orders', match: (p) => p.startsWith('/account/orders') });
+  rail.push({ href: '/account/cameras', label: 'Cameras', match: (p) => p.startsWith('/account/cameras') });
+}
+const nav = rail.map((r) => ({ ...r, current: !!r.match(path) }));
+const title = Astro.props.title ?? 'Vela';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>{title} — Vela</title>
+  </head>
+  <body class="surface-light">
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="shell">
+      <nav class="rail" aria-label="Main">
+        <a class="rail-wordmark" href="/" aria-label="Vela home">vela</a>
+        {nav.map((item) => (
+          <a href={item.href} aria-current={item.current ? 'page' : undefined} class:list={['rail-link', { current: item.current }]}>
+            <span class="rail-marker" aria-hidden="true"></span>{item.label}
+          </a>
+        ))}
+      </nav>
+      <div class="content">
+        <header class="bar">
+          <a class="bar-wordmark" href="/">vela</a>
+          <CartCount client:load initial={count} signedIn={!!customer} email={customer?.email ?? ''} />
+        </header>
+        <main id="main" class="page">
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
+<style>
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.rail {
+  position: sticky; top: 0; height: 100vh; padding: var(--gutter);
+  border-right: var(--border) solid var(--line);
+  display: flex; flex-direction: column; gap: calc(var(--unit) * 2);
+  background: var(--surface);
+}
+.rail-wordmark { font-weight: 700; font-size: 1.25rem; text-decoration: none; margin-bottom: calc(var(--unit) * 3); }
+.rail-link {
+  display: flex; align-items: center; gap: var(--unit);
+  text-decoration: none; padding: var(--unit) calc(var(--unit) * 1);
+  border-radius: var(--radius); font-weight: 400;
+}
+.rail-link.current { font-weight: 700; }
+.rail-marker { width: 0.5rem; height: 0.5rem; border-radius: 999px; border: var(--border) solid var(--line); display: inline-block; }
+.rail-link.current .rail-marker { background: var(--ink); border-color: var(--ink); }
+.content { min-width: 0; }
+.bar {
+  height: 80px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--gutter); border-bottom: var(--border) solid var(--line);
+  background: var(--surface); position: sticky; top: 0; z-index: 5;
+}
+.bar-wordmark { font-size: 40px; font-weight: 700; text-decoration: none; line-height: 1; }
+.page { padding: calc(var(--unit) * 4) var(--gutter) calc(var(--unit) * 8); max-width: 72rem; }
+@media (max-width: 64rem) {
+  .shell { grid-template-columns: 1fr; }
+  .rail {
+    position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center;
+    border-right: none; border-bottom: var(--border) solid var(--line); padding: calc(var(--unit) * 2) var(--gutter);
+  }
+  .rail-wordmark { margin-bottom: 0; }
+  .page { padding: calc(var(--unit) * 3) var(--gutter); }
+}
+</style>

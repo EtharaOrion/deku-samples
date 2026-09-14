@@ -1,0 +1,59 @@
+---
+import Shell from '../layouts/Shell.astro';
+
+const next = Astro.url.searchParams.get('next') || '/account';
+---
+<Shell title="Sign in — Vela" current="signin">
+  <div class="narrow card">
+    <h1>Sign in</h1>
+    <p class="lede">Cameras, orders and firmware, in one place.</p>
+    <form data-signin data-next={next}>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+      </div>
+      <p class="form-error" role="alert" data-error></p>
+      <button class="btn" type="submit">Sign in</button>
+    </form>
+    <p class="alt">No account? <a href="/sign-up">Create one</a>.</p>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-signin]');
+  const err = document.querySelector('[data-error]');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (err) err.textContent = '';
+      const fd = new FormData(form);
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (!res || !res.ok) {
+        if (btn) btn.disabled = false;
+        if (err) err.textContent = body?.error?.message || 'That did not work.';
+        return;
+      }
+      window.location.href = form.dataset.next || '/account';
+    });
+  }
+</script>
+
+<style>
+  .narrow { max-width: 420px; margin: calc(var(--unit) * 8) auto; padding: calc(var(--unit) * 6); display: grid; gap: calc(var(--unit) * 4); }
+  h1 { font-size: 24px; }
+  .lede { color: var(--ground-light-fg-muted); font-size: 14px; }
+  form { display: grid; gap: calc(var(--unit) * 4); }
+  .form-error { color: var(--bad); font-size: 14px; min-height: 20px; }
+  .alt { font-size: 14px; }
+</style>

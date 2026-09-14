@@ -1,0 +1,58 @@
+---
+import Shell from '../layouts/Shell.astro';
+
+const redirectTo = Astro.url.searchParams.get('redirect') || '/account';
+const error = Astro.url.searchParams.get('error');
+---
+
+<Shell title="Sign in — Vela" active="">
+  <div class="auth-wrap">
+    <form class="card auth" method="post" action="/sign-in" data-auth-form data-mode="login" data-redirect={redirectTo}>
+      <h1>Sign in</h1>
+      <p class="lede">For your cameras and your orders.</p>
+      {error ? <p class="inline-error">That did not work. Check the email and the password.</p> : null}
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+      </div>
+      <p class="inline-error" data-form-error hidden></p>
+      <button class="btn btn-primary" type="submit">Sign in</button>
+      <p class="muted">No account yet? <a href="/sign-up">Create one</a>.</p>
+    </form>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-auth-form]') as HTMLFormElement | null;
+  const errEl = document.querySelector('[data-form-error]') as HTMLElement | null;
+  const redirect = form?.dataset.redirect || '/account';
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl!.hidden = true; errEl!.textContent = '';
+    const data = new FormData(form!);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: data.get('email'), password: data.get('password') }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+      document.cookie = `vela_token=${body.access_token}; Path=/; Max-Age=1209600; SameSite=Lax`;
+      window.location.href = redirect;
+    } catch (err: any) {
+      errEl!.hidden = false; errEl!.textContent = err.message;
+    }
+  });
+</script>
+
+<style>
+  .auth-wrap { display: grid; place-items: start center; padding-top: calc(var(--unit) * 6); }
+  .auth { width: min(420px, 100%); padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 3); }
+  h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .muted { color: var(--ink-soft); margin: 0; font-size: 14px; }
+</style>

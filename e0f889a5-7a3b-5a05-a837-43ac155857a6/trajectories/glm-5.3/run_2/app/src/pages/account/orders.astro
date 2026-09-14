@@ -1,0 +1,52 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { requirePageCustomer, signInRedirect } from '../../server/pageguard.ts';
+import { q } from '../../server/db/pool.ts';
+import { orderView } from '../../server/orders.ts';
+import { money, shortDate, orderChip } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+
+const customer = await requirePageCustomer(Astro);
+if (!customer) return Astro.redirect(signInRedirect('/account/orders'));
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const res = await q('SELECT * FROM order_row WHERE customer_id = $1 ORDER BY placed_at DESC NULLS LAST, id DESC LIMIT 100', [customer.id]);
+const orders = await Promise.all(res.rows.map((o: any) => orderView(o)));
+---
+
+<Shell title="Orders — Vela" active="orders" customer={{ email: customer.email, name: customer.name }} cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Orders</h1>
+  </div>
+
+  {orders.length === 0 ? (
+    <div class="empty"><p>No orders yet.</p><a class="btn" href="/shop">See the shop</a></div>
+  ) : (
+    <ul class="order-list">
+      {orders.map((o: any) => (
+        <li class="card order">
+          <a class="order-link" href={`/account/orders/${o.number}`}>
+            <span class="mono order-number">{o.number}</span>
+            <span class="order-date">{shortDate(o.placed_at)}</span>
+            <span class="order-first">{o.lines[0]?.title_snapshot ?? 'Order'}{o.lines.length > 1 ? ` and ${o.lines.length - 1} more` : ''}</span>
+            <span class="num order-total">{money(o.total_minor)}</span>
+            <span class="chip">{orderChip(o)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+</Shell>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .empty { display: grid; gap: calc(var(--unit) * 3); padding: calc(var(--unit) * 6) 0; }
+  .order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .order { padding: 0; }
+  .order-link { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: calc(var(--unit) * 3); align-items: baseline; padding: calc(var(--unit) * 3); text-decoration: none; }
+  .order-date, .order-first { color: var(--ink-soft); }
+  .order-total { font-weight: 700; }
+  @media (max-width: 48rem) { .order-link { grid-template-columns: 1fr auto; } .order-date, .order-first { display: none; } }
+</style>

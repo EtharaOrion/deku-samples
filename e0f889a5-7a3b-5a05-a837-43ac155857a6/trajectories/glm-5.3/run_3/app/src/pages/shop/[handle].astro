@@ -1,0 +1,186 @@
+---
+import App from '../../layouts/App.astro';
+import { money, longDate } from '../../lib/format';
+import { productByHandle } from '../../lib/queries';
+const { handle } = Astro.params;
+const product = await productByHandle(handle);
+if (!product) {
+  Astro.response.status = 404;
+  return Astro.rewrite('/404');
+}
+const url = new URL(Astro.request.url);
+const asked = url.searchParams.get('variant');
+const known = product.variants.find((v) => v.sku === asked);
+const selected = known || product.variants[0];
+const droppedParam = asked && !known;
+const isDiscontinued = product.status === 'discontinued';
+const soldOut = !isDiscontinued && (selected.available || 0) <= 0;
+const onlyLeft = !isDiscontinued && !soldOut && (selected.available || 0) <= 10 ? selected.available : null;
+const support = product.blocks.find((b) => b.kind === 'support_note');
+const groups = product.blocks.filter((b) => b.kind === 'spec_group');
+const boxes = product.blocks.filter((b) => b.kind === 'in_the_box');
+const compats = product.blocks.filter((b) => b.kind === 'compatibility');
+const ledes = product.blocks.filter((b) => b.kind === 'lede');
+---
+<App title={product.title} active="shop">
+  <div class="product">
+    <div class="gallery" aria-label="{product.title} views">
+      <div class="frame frame-main" data-tone={product.handle}></div>
+      <div class="thumbs" role="tablist" aria-label="Views">
+        <button class="thumb is-active" role="tab" aria-selected="true" data-view="0" aria-label="Front view"></button>
+        <button class="thumb" role="tab" aria-selected="false" data-view="1" aria-label="Top view"></button>
+        <button class="thumb" role="tab" aria-selected="false" data-view="2" aria-label="Back view"></button>
+      </div>
+    </div>
+
+    <div class="detail">
+      <h1 class="title">{product.title}</h1>
+      <p class="subtitle">{product.subtitle}</p>
+      <p class="price tnum">{money(selected.price_minor)} <span class="vat">USD</span></p>
+
+      <p class="availability">
+        {isDiscontinued ? (
+          <span class="chip" data-tone="">Discontinued</span>
+        ) : soldOut ? (
+          <span class="chip" data-tone="wrong">Sold out</span>
+        ) : onlyLeft !== null ? (
+          <span class="chip">Only {onlyLeft} left</span>
+        ) : (
+          <span class="chip" data-tone="finished">Available</span>
+        )}
+      </p>
+
+      {isDiscontinued && support && (
+        <div class="notice" role="note">
+          {support.payload.note}
+        </div>
+      )}
+
+      {product.variants.length > 1 && (
+        <fieldset class="options">
+          <legend class="option-label">{product.kind === 'camera' ? 'Colour' : 'Option'}</legend>
+          <div class="radios" role="radiogroup" aria-label="Option">
+            {product.variants.map((v) => (
+              <label class={`radio ${v.sku === selected.sku ? 'is-selected' : ''}`}>
+                <input type="radio" name="variant" value={v.sku} checked={v.sku === selected.sku} data-price={v.price_minor} data-available={v.available} />
+                <span>{v.option_value}</span>
+                <span class="radio-note tnum">{money(v.price_minor)}</span>
+                {(v.available || 0) <= 0 && !isDiscontinued && <span class="radio-sold">Sold out</span>}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {droppedParam && <p class="dropped-note">That option does not exist, so we are showing {selected.option_value}.</p>}
+
+      <buy-control
+        sku={selected.sku}
+        price-minor={selected.price_minor}
+        available={selected.available ?? 0}
+        max-qty={Math.min(10, Math.max(1, selected.available || 1))}
+        disabled={isDiscontinued || soldOut ? '' : undefined}
+        label={isDiscontinued ? 'Discontinued' : soldOut ? 'Sold out' : `Add ${product.title} to cart`}
+      ></buy-control>
+
+      {ledes.map((b) => <p class="lede">{b.payload.text}</p>)}
+
+      {groups.map((g) => (
+        <section class="block">
+          <h2>{g.payload.title}</h2>
+          <table class="spec">
+            <tbody>
+              {g.payload.rows.map(([k, v]) => (
+                <tr><th scope="row">{k}</th><td>{v}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+
+      {boxes.map((b) => (
+        <section class="block">
+          <h2>In the box</h2>
+          <ul>{b.payload.items.map((i) => <li>{i}</li>)}</ul>
+        </section>
+      ))}
+
+      {compats.map((b) => (
+        <section class="block">
+          <h2>Compatibility</h2>
+          <p>Minimum operating system: {b.payload.os}. Application: {b.payload.app}.</p>
+        </section>
+      ))}
+
+      {product.firmware.length > 0 && (
+        <section class="block">
+          <h2>Firmware</h2>
+          <table class="spec">
+            <tbody>
+              {product.firmware.map((f) => (
+                <tr>
+                  <th scope="row"><span class="mono">{f.version}</span></th>
+                  <td>build <span class="mono tnum">{f.build}</span>, minimum firmware {f.min_firmware ? <span class="mono">{f.min_firmware}</span> : 'none'}, minimum app <span class="mono">{f.min_app_version}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </div>
+  </div>
+</App>
+<script>
+  import "../../islands/buy-control.js";
+  // Option changes replace history, so the back control leaves the product.
+  document.querySelectorAll('input[name="variant"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('variant', r.value);
+      window.history.replaceState({}, '', url);
+      window.location.reload();
+    });
+  });
+</script>
+<style>
+  .product { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: calc(var(--unit) * 6); }
+  .gallery { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .frame { aspect-ratio: 4 / 3; border-radius: 0; background: var(--ground-light-2); }
+  .frame[data-view="1"] { filter: brightness(1.06); }
+  .frame[data-tone="flagship"] { background: linear-gradient(150deg, hsl(220 6% 62%), hsl(220 5% 42%)); }
+  .frame[data-tone="compact"] { background: linear-gradient(150deg, hsl(28 10% 58%), hsl(28 8% 38%)); }
+  .frame[data-tone="mount"] { background: linear-gradient(150deg, hsl(140 5% 66%), hsl(140 4% 48%)); }
+  .frame[data-tone="case"] { background: linear-gradient(150deg, hsl(40 12% 60%), hsl(40 10% 40%)); }
+  .frame[data-tone="cable"] { background: linear-gradient(150deg, hsl(200 6% 64%), hsl(200 5% 46%)); }
+  .thumbs { display: flex; gap: calc(var(--unit) * 2); }
+  .thumb { width: 72px; height: 54px; border-radius: 0; border: 1px solid var(--surface-ink-2); background: var(--ground-light-2); cursor: pointer; }
+  .thumb.is-active { border-color: var(--surface-ink); box-shadow: inset 0 0 0 1px var(--surface-ink); }
+  .thumb:nth-child(1) { background: linear-gradient(150deg, hsl(220 6% 62%), hsl(28 8% 38%)); }
+  .thumb:nth-child(2) { background: linear-gradient(150deg, hsl(28 10% 58%), hsl(220 5% 42%)); }
+  .thumb:nth-child(3) { background: linear-gradient(150deg, hsl(40 12% 60%), hsl(140 4% 48%)); }
+  .title { font-size: 2rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--surface-ink-2); margin: 0 0 calc(var(--unit) * 3); }
+  .price { font-size: 1.5rem; font-variant-numeric: tabular-nums; margin: 0 0 calc(var(--unit) * 2); }
+  .vat { font-size: 0.875rem; color: var(--surface-ink-2); }
+  .availability { margin: 0 0 calc(var(--unit) * 3); }
+  .options { border: 0; padding: 0; margin: 0 0 calc(var(--unit) * 4); }
+  .option-label { font-weight: 700; margin-bottom: calc(var(--unit) * 2); padding: 0; }
+  .radios { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .radio {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: calc(var(--unit) * 2);
+    border: 1px solid var(--surface-ink-2); border-radius: var(--radius); padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    cursor: pointer;
+  }
+  .radio.is-selected { border-color: var(--surface-ink); box-shadow: inset 0 0 0 1px var(--surface-ink); font-weight: 700; }
+  .radio input { width: auto; }
+  .radio-note { color: var(--surface-ink-2); font-variant-numeric: tabular-nums; }
+  .radio-sold { grid-column: 2; font-size: 0.8125rem; color: var(--wrong); }
+  .lede { font-size: 1.0625rem; line-height: 1.6; margin: calc(var(--unit) * 5) 0; }
+  .block { margin-top: calc(var(--unit) * 6); }
+  .block h2 { font-size: 1.125rem; margin-bottom: calc(var(--unit) * 2); }
+  .block ul { margin: 0; padding-left: 1.25rem; }
+  .dropped-note { color: var(--surface-ink-2); font-size: 0.875rem; }
+  @media (max-width: 63.99rem) {
+    .product { grid-template-columns: 1fr; }
+  }
+</style>

@@ -1,0 +1,60 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { listReleases } from '../../server/releases.js';
+
+const { version } = Astro.params;
+const releases = await listReleases();
+const wanted = releases.find((r) => r.version === version) ?? null;
+if (!wanted) return Astro.redirect('/404');
+
+function bytes(n: number): string {
+  const mb = n / (1024 * 1024);
+  return mb >= 1000 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(1)} MB`;
+}
+function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+}
+---
+<PageShell title={`Arranger ${wanted.version} — Vela`} heading={`Arranger ${wanted.version}`} active="downloads">
+  <div class="downloads">
+    <article class="release card">
+      <p class="release__date tnum">Released on {formatDate(wanted.released_on)}</p>
+      <a class="btn btn--primary" href={`/downloads/artifact/${wanted.artifact_name}`} download>Download</a>
+      <p class="release__meta tnum">
+        <span class="size">{bytes(wanted.size_bytes)}</span> · <span class="build mono">build {wanted.build}</span> ·
+        <span class="digest mono">{wanted.sha256}</span>
+      </p>
+      {wanted.description && <p class="release__description">{wanted.description}</p>}
+      {wanted.notes.map((group) => (
+        <section class="note-group">
+          <h2>{group.group}</h2>
+          <ul>{group.items.map((item) => <li>{item}</li>)}</ul>
+        </section>
+      ))}
+      <p class="release__signoff">The Vela team.</p>
+    </article>
+
+    <section class="others">
+      <h2>Other releases</h2>
+      <ul>
+        {releases.filter((r) => r.version !== wanted.version).map((r) => (
+          <li><a href={`/downloads/${r.version}`}>Arranger {r.version}</a> <span class="field-hint">Released on {formatDate(r.released_on)}</span></li>
+        ))}
+      </ul>
+      <p><a href="/downloads">The whole archive</a></p>
+    </section>
+  </div>
+</PageShell>
+
+<style>
+  .downloads { display: grid; gap: calc(var(--space) * 6); padding: 0 var(--gutter); max-width: 44rem; }
+  .release { padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .release__date { color: var(--ink-on-light-muted); margin: 0; }
+  .release__meta { margin: 0; color: var(--ink-on-light-muted); word-break: break-all; }
+  .note-group h2 { margin: 0 0 var(--space); font-size: 16px; line-height: 24px; }
+  .note-group ul { margin: 0; padding-left: 1.25rem; }
+  .note-group li { margin-bottom: var(--space); }
+  .release__signoff { margin: 0; color: var(--ink-on-light-muted); }
+  .others ul { list-style: none; margin: 0 0 calc(var(--space) * 2); padding: 0; display: grid; gap: var(--space); }
+  .others h2 { margin: 0 0 var(--space) * 2; font-size: 16px; line-height: 24px; }
+</style>

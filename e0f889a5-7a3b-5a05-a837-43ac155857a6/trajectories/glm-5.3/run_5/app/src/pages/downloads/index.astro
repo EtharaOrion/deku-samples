@@ -1,0 +1,116 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { listReleases } from '../../server/releases.js';
+import { latestFirmware } from '../../server/releases.js';
+import { dollars } from '../../server/money.js';
+
+const releases = await listReleases();
+const newest = releases[0] ?? null;
+const cricketFirmware = await latestFirmware('compact');
+
+function bytes(n: number): string {
+  const mb = n / (1024 * 1024);
+  return mb >= 1000 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(1)} MB`;
+}
+function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+}
+---
+<PageShell title="Downloads — Vela" heading="Downloads" active="downloads">
+  <div class="downloads">
+    <section class="app">
+      <p class="lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+      <div class="primary card">
+        {newest && (
+          <>
+            <a class="btn btn--primary" href={`/downloads/artifact/${newest.artifact_name}`} data-download-latest download>
+              Download Arranger {newest.version}
+            </a>
+            <p class="field-hint">Arranger is a macOS application.</p>
+            <dl class="meta tnum">
+              <dt>Size</dt><dd class="size">{bytes(newest.size_bytes)}</dd>
+              <dt>Build</dt><dd class="build mono">{newest.build}</dd>
+              <dt>SHA-256</dt><dd class="digest mono">{newest.sha256}</dd>
+            </dl>
+          </>
+        )}
+      </div>
+    </section>
+
+    <section class="firmware card">
+      <h2>Firmware</h2>
+      {cricketFirmware && (
+        <div class="firmware__row">
+          <a class="btn" href="/downloads/firmware/compact/{cricketFirmware.version}" download>Download Vela Cricket Firmware {cricketFirmware.version}</a>
+          <p class="field-hint">
+            Firmware install (web-based) — <a href="/doctor">use the browser installer</a>.<br />
+            Only use this if Arranger cannot see your camera.
+          </p>
+        </div>
+      )}
+    </section>
+
+    <section class="archive" aria-label="Release archive">
+      <h2>Every release</h2>
+      <ul class="releases">
+        {releases.map((r, i) => (
+          <li class="release">
+            <details class="release__details" open={i === 0} data-release-details data-version={r.version}>
+              <summary>
+                <span class="release__head">
+                  <span class="release__title">Arranger {r.version}</span>
+                  <span class="release__date tnum">Released on {formatDate(r.released_on)}</span>
+                  <span class="release__download"><a class="btn" href={`/downloads/artifact/${r.artifact_name}`} download>Download</a></span>
+                </span>
+              </summary>
+              <div class="release__body">
+                <p class="release__meta tnum">
+                  <span class="size">{bytes(r.size_bytes)}</span> · <span class="build mono">build {r.build}</span> ·
+                  <span class="digest mono">{r.sha256}</span>
+                </p>
+                {r.description && <p class="release__description">{r.description}</p>}
+                {r.notes.map((group) => (
+                  <section class="note-group">
+                    <h3>{group.group}</h3>
+                    <ul>
+                      {group.items.map((item) => <li>{item}</li>)}
+                    </ul>
+                  </section>
+                ))}
+                <p class="release__signoff">The Vela team.</p>
+              </div>
+            </details>
+            <a class="release__permalink" href={`/downloads/${r.version}`}>Permalink</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
+</PageShell>
+
+<style>
+  .downloads { display: grid; gap: calc(var(--space) * 8); padding: 0 var(--gutter); }
+  .lede { font-size: 20px; line-height: 30px; margin: 0; }
+  .primary, .firmware { padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .primary h2, .firmware h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .meta { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .meta dt { color: var(--ink-on-light-muted); }
+  .meta dd { margin: 0; word-break: break-all; }
+  .firmware__row { display: grid; gap: calc(var(--space) * 2); }
+  .archive h2 { margin: 0 0 calc(var(--space) * 2); font-size: 16px; line-height: 24px; }
+  .releases { list-style: none; margin: 0; padding: 0; }
+  .release { border-top: var(--border-w) solid var(--ink-on-light-muted); padding: calc(var(--space) * 4) 0; }
+  .release__details summary { list-style: none; cursor: pointer; }
+  .release__details summary::-webkit-details-marker { display: none; }
+  .release__head { display: flex; gap: calc(var(--space) * 4); align-items: baseline; flex-wrap: wrap; }
+  .release__title { font-weight: 700; font-size: 20px; line-height: 28px; }
+  .release__date { color: var(--ink-on-light-muted); }
+  .release__download { margin-left: auto; }
+  .release__body { display: grid; gap: calc(var(--space) * 3); padding-top: calc(var(--space) * 3); }
+  .release__meta { color: var(--ink-on-light-muted); margin: 0; word-break: break-all; }
+  .note-group h3 { margin: 0 0 var(--space); font-size: 16px; line-height: 24px; }
+  .note-group ul { margin: 0; padding-left: 1.25rem; }
+  .note-group li { margin-bottom: var(--space); }
+  .release__signoff { margin: 0; color: var(--ink-on-light-muted); }
+  .release__permalink { display: inline-block; margin-top: var(--space); font-size: 14px; line-height: 21px; }
+</style>

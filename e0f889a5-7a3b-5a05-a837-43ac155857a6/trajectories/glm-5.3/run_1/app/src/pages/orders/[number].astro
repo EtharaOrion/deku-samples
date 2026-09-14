@@ -1,0 +1,93 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCustomer, orderByNumber, verifyOrderAccess, db } from '../../lib/store.mjs';
+import { usd } from '../../../server/domain.mjs';
+
+const customer = await getCustomer(Astro.request);
+const number = String(Astro.params.number || '').toUpperCase();
+const order = await orderByNumber(number);
+const token = Astro.url.searchParams.get('access_token');
+const mine = customer?.customer && order && order.customer_id === customer.customer.id;
+if (!order || !(mine || verifyOrderAccess(token, order))) {
+  return new Response('That page does not exist.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+}
+const addr = order.shipping_address || {};
+const confirmed = order.status === 'confirmed';
+// A guest order has no customer to own it, so the trackable address is the
+// order's own token URL; a signed-in purchase tracks in the account.
+const trackHref = order.customer_id
+  ? `/account/orders/${order.number}`
+  : `/orders/${order.number}?access_token=${encodeURIComponent(token || '')}`;
+---
+<Shell title={`Order ${order.number} — Vela`} customer={customer?.customer}>
+  <article>
+    <header class="order-head">
+      <h1 class="mono">Order {order.number}</h1>
+      {confirmed ? (
+        <p class="confirm-line">
+          Order {order.number} is confirmed. We have emailed {order.email}.
+        </p>
+      ) : (
+        <p class="confirm-line">Order {order.number} is {order.status}.</p>
+      )}
+      {confirmed && <a class="btn" href={trackHref}>Keep track of this order</a>}
+    </header>
+
+    <section class="card block">
+      <h2>Lines</h2>
+      <table class="data">
+        <thead><tr><th>Item</th><th>Option</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          {order.lines.map((l) => (
+            <tr>
+              <td>{l.title_snapshot}</td>
+              <td><span class="mono">{l.sku_snapshot}</span></td>
+              <td class="num tnum">{l.quantity}</td>
+              <td class="num money tnum">{usd(l.unit_price_minor)}</td>
+              <td class="num money tnum">{usd(l.total_minor)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {(order.lines || []).some((l) => (l.serials || []).length > 0) && (
+        <div class="serials">
+          <h3>Serial numbers</h3>
+          {order.lines.map((l) => (l.serials || []).length > 0 && (
+            <p><span class="mono serial">{l.serials.join(', ')}</span> — {l.title_snapshot}</p>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section class="card block">
+      <h2>Totals</h2>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{usd(order.subtotal_minor)}</dd></div>
+        <div><dt>Delivery ({order.shipping_method})</dt><dd class="money tnum">{usd(order.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="money tnum">{usd(order.tax_minor)}</dd></div>
+        <div class="grand"><dt>Total</dt><dd class="money tnum">{usd(order.total_minor)}</dd></div>
+      </dl>
+      <p class="hint">Invoiced in {order.currency}. {order.payment_status === 'invoiced' ? 'Invoiced.' : 'Not yet invoiced.'}</p>
+    </section>
+
+    <section class="card block">
+      <h2>Address</h2>
+      <p>{addr.name}<br />{addr.line1}{addr.line2 ? <><br />{addr.line2}</> : ''}<br />{addr.city} {addr.region} {addr.postal_code}<br />{addr.country}</p>
+    </section>
+  </article>
+</Shell>
+
+<style>
+  .order-head { display: grid; gap: calc(var(--unit) * 3); margin-bottom: calc(var(--unit) * 6); }
+  h1 { font-size: 26px; }
+  .confirm-line { font-size: 18px; line-height: 28px; }
+  .block { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); margin-bottom: calc(var(--unit) * 4); }
+  .block h2 { font-size: 17px; }
+  .serials h3 { font-size: 14px; color: var(--ground-light-fg-muted); font-weight: 400; }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--ground-light-fg-muted); }
+  .totals dd { margin: 0; }
+  .totals .grand { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 2); font-weight: 700; font-size: 18px; }
+  .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+</style>

@@ -1,0 +1,72 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import { sha256 } from '@server/util.js';
+
+const number = Astro.params.number;
+const token = Astro.url.searchParams.get('access_token');
+
+const order = await one('SELECT * FROM orders WHERE number = $1', [number]);
+const { currentCustomer } = await import('@lib/session.js');
+const customer = await currentCustomer(Astro.request);
+const tokenOk = token && sha256(String(token)) === order?.access_token_hash;
+const ownerOk = customer && order && order.customer_id === customer.id;
+
+if (!order || (!tokenOk && !ownerOk)) {
+  return Astro.redirect('/404');
+}
+
+const lines = await q('SELECT * FROM order_line WHERE order_id = $1 ORDER BY id', [order.id]);
+const serials = await q('SELECT serial FROM device WHERE order_id = $1 ORDER BY id', [order.id]);
+const addr = order.shipping_address || {};
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+const date = new Date(order.placed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+---
+<App title={`Order ${order.number}`}>
+  <div class="order-page">
+    <h1>Order <span class="mono">{order.number}</span> is confirmed.</h1>
+    <p>We have emailed {order.email}.</p>
+    <p><a class="btn" href={tokenOk ? `/orders/${order.number}?access_token=${encodeURIComponent(token)}` : '/account'}>Keep track of this order</a></p>
+
+    <section class="card">
+      <h2>The order</h2>
+      <table class="spec">
+        <tbody>
+          {lines.map((l) => (
+            <tr>
+              <th scope="row">{l.title_snapshot} <span class="muted small mono">{l.sku_snapshot}</span> x{l.quantity}</th>
+              <td class="num tnum">{fmt(l.total_minor)}</td>
+            </tr>
+          ))}
+          <tr><th scope="row">Subtotal</th><td class="num tnum">{fmt(order.subtotal_minor)}</td></tr>
+          {order.protection_minor ? <tr><th scope="row">Shipment protection</th><td class="num tnum">{fmt(order.protection_minor)}</td></tr> : null}
+          <tr><th scope="row">Delivery ({order.shipping_method})</th><td class="num tnum">{fmt(order.shipping_minor)}</td></tr>
+          <tr><th scope="row">Tax</th><td class="num tnum">{fmt(order.tax_minor)}</td></tr>
+          <tr><th scope="row">Total</th><td class="num tnum"><strong>{fmt(order.total_minor)}</strong></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    {serials.length ? (
+      <section class="card">
+        <h2>Serial numbers</h2>
+        <p>The serials engraved under the cameras on this order.</p>
+        <ul class="mono">{serials.map((s) => <li>{s.serial}</li>)}</ul>
+      </section>
+    ) : null}
+
+    <section class="card">
+      <h2>Where it goes</h2>
+      <address>
+        {addr.name}<br />
+        {addr.line1}{addr.line2 ? <><br />{addr.line2}</> : null}<br />
+        {addr.city}{addr.region ? `, ${addr.region}` : ''} {addr.postal_code}<br />
+        {addr.country}
+      </address>
+      <p class="muted small">Placed {date}. Invoiced to {order.killbill_external_key || order.email}.</p>
+    </section>
+  </div>
+</App>
+<style>
+.order-page { display: grid; gap: calc(var(--unit) * 3); max-width: 40rem; }
+</style>

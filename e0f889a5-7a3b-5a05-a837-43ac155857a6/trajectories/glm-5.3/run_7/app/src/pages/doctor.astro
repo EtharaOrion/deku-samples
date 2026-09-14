@@ -1,0 +1,111 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { q } from '../lib/db.js';
+import { compareVersions } from '../lib/store.js';
+
+const models = await q(`SELECT p.handle, p.title FROM product p WHERE p.kind = 'camera' ORDER BY p.position`);
+const manifests = {};
+for (const m of models) {
+  manifests[m.handle] = await q(
+    `SELECT * FROM firmware WHERE product_id = (SELECT id FROM product WHERE handle = $1) AND channel = 'general' ORDER BY build DESC`,
+    [m.handle]
+  );
+}
+---
+
+<Shell>
+  <h1 class="page-title">Firmware installer</h1>
+  <p class="doctor-lede">
+    This page writes firmware to a camera your computer can see over USB. Use it only when Arranger cannot see your camera.
+  </p>
+
+  <ol class="doctor-steps">
+    <li class="doctor-step" data-step="1">
+      <h2>1. Check this browser</h2>
+      <p data-capability-line role="status">Checking whether this browser can talk to a device.</p>
+      <p data-capability-alternative hidden>
+        This browser cannot talk to a device. Install the firmware with Arranger instead:
+        <a href="/downloads">go to downloads</a>.
+      </p>
+    </li>
+
+    <li class="doctor-step" data-step="2">
+      <h2>2. Read the warning</h2>
+      <div class="warning-block" role="region" aria-label="Warning" tabindex="0">
+        <p>
+          This replaces the software inside your camera. It takes about ninety seconds.
+          Do not unplug the camera and do not let your computer go to sleep.
+          If you are on a laptop, plug it in.
+        </p>
+      </div>
+      <button class="btn btn-quiet" type="button" data-accept-warning disabled aria-describedby="accept-note">
+        I understand
+      </button>
+      <p id="accept-note" class="accept-note">Accept the warning to continue. The connect control stays unavailable until you do.</p>
+    </li>
+
+    <li class="doctor-step" data-step="3">
+      <h2>3. Connect the camera</h2>
+      <button class="btn btn-primary" type="button" data-connect disabled>Connect a camera</button>
+      <form class="manual-serial" data-manual-serial hidden>
+        <label class="field">
+          <span>Serial number</span>
+          <input class="mono" name="serial" placeholder="VC2609PVDA7Q" autocomplete="off" data-serial-input />
+        </label>
+        <button class="btn btn-quiet" type="submit">Use this serial</button>
+      </form>
+      <p data-identified hidden>
+        <span data-identity></span>
+      </p>
+      <p data-identity-error role="alert" hidden></p>
+    </li>
+
+    <li class="doctor-step" data-step="4">
+      <h2>4. Choose the image</h2>
+      <div data-image-choice hidden>
+        <p>Recommended image: <strong data-recommended></strong></p>
+        <details class="other-images">
+          <summary>Other images</summary>
+          <ul class="image-list" data-image-list></ul>
+        </details>
+        <button class="btn btn-primary" type="button" data-write disabled>Write firmware</button>
+        <p class="image-reason" data-image-reason role="status"></p>
+      </div>
+    </li>
+
+    <li class="doctor-step" data-step="5">
+      <h2>5. Write</h2>
+      <div data-writing hidden>
+        <p data-write-progress role="status" aria-live="polite">Writing, 0%. Do not unplug your camera.</p>
+        <p class="mono tnum" data-device-percent>0%</p>
+        <p class="no-cancel">There is no safe cancel. Let it finish.</p>
+      </div>
+    </li>
+
+    <li class="doctor-step" data-step="6">
+      <h2>6. Done</h2>
+      <p data-done hidden role="status"></p>
+      <p data-fail-present hidden role="status">Your camera is still working and you can try again.</p>
+      <p data-fail-gone hidden role="status">The camera disconnected. Plug it back in and reload this page. Your camera is very probably fine.</p>
+    </li>
+  </ol>
+
+  <p class="sr-only" aria-live="polite" data-live-region></p>
+</Shell>
+
+<script is:inline src="/scripts/doctor.js" data-models={JSON.stringify(models)} data-manifests={JSON.stringify(manifests)}></script>
+
+<style is:global>
+  .doctor-lede { color: var(--muted-light); max-width: 42rem; margin-bottom: calc(var(--unit) * 6); }
+  .doctor-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 6); max-width: 42rem; }
+  .doctor-step h2 { font-size: 1rem; margin-bottom: calc(var(--unit) * 2); }
+  .warning-block { border: var(--border) solid var(--progress); border-left-width: 3px; border-radius: var(--radius); padding: calc(var(--unit) * 3) calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 3); background: var(--bg-light); }
+  .accept-note { color: var(--muted-light); font-size: 13px; margin-top: var(--unit); }
+  .manual-serial { display: flex; gap: calc(var(--unit) * 3); align-items: flex-end; max-width: 28rem; }
+  .image-list { list-style: none; margin: var(--unit) 0; padding: 0; display: grid; gap: var(--unit); }
+  .image-list button { font: inherit; text-align: left; background: none; border: var(--border) solid var(--line-light); border-radius: var(--radius); padding: calc(var(--unit) * 2) calc(var(--unit) * 3); cursor: pointer; width: 100%; display: flex; justify-content: space-between; gap: var(--unit); }
+  .image-reason { color: var(--error); min-height: 1.4rem; }
+  .no-cancel { color: var(--muted-light); font-size: 13px; }
+  [data-device-percent] { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .other-images { margin: calc(var(--unit) * 3) 0; }
+</style>

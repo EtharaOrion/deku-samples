@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-entry" data-route="entry" x-data='entryRoute({{ works|tojson }})'>
+  <h1 class="visually-hidden">Cirrus, a production house for picture and its makers</h1>
+  <div class="entry-counter" role="status" aria-live="polite">
+    <span class="entry-figure" x-text="counter.text">0%</span>
+  </div>
+  <div class="entry-veil" :class="{ 'entry-veil-clear': counter.done }" aria-hidden="true"></div>
+  <div class="entry-cluster" :class="{ 'entry-cluster-live': counter.done }">
+    {% for w in works %}
+    {% set p = w.poster %}
+    {% if p %}
+    {% set long = p.width if p.width >= p.height else p.height %}
+    {% set scale = (160 if loop.index % 5 == 0 else (330 if loop.index % 3 == 0 else 240)) %}
+    <a class="cluster-still" data-pos="{{ loop.index0 }}" data-scale="{{ scale }}"
+       href="/works/{{ w.slug }}" data-cursor-label="{{ w.title }}" data-cursor="none"
+       aria-label="{{ w.title }}, work {{ '%03d'|format(w.ordinal) }}">
+      <img class="cluster-img" src="{{ p.url }}" width="{{ p.width }}" height="{{ p.height }}"
+           alt="{{ p.alt }}" decoding="async" loading="lazy">
+      <span class="cluster-caption" aria-hidden="false">{{ w.title }}</span>
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,150 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { requirePageCustomer, signInRedirect } from '../../../server/pageguard.ts';
+import { deviceOwnedBy, deviceView } from '../../../server/devices.ts';
+import { getCartForContext } from '../../../server/context.ts';
+import { firmwareForProduct } from '../../../server/flash.ts';
+
+const customer = await requirePageCustomer(Astro);
+if (!customer) return Astro.redirect(signInRedirect(`/account/cameras/${Astro.params.serial}`));
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const device = await deviceOwnedBy(customer.id, Astro.params.serial || '');
+if (!device) return Astro.redirect('/404');
+const view = await deviceView(device);
+const firmware = await firmwareForProduct(device.product_id);
+const general = firmware.filter((f: any) => f.channel === 'general');
+const latest = general[0] ?? null;
+---
+
+<Shell title={`${view.model} — Vela`} active="cameras" customer={{ email: customer.email, name: customer.name }} cartCount={cartCount}>
+  <nav class="crumbs"><a href="/account/cameras">Cameras</a> <span aria-hidden="true">/</span> <span class="mono">{view.serial}</span></nav>
+
+  <div class="camera-page">
+    <section class="card main">
+      <h1>{view.nickname || view.model}</h1>
+      <p class="model">{view.model} · {view.option_value}</p>
+      <p class="mono serial">{view.serial}</p>
+      <div class="chips">
+        <span class={view.never_connected ? 'chip' : (view.update_available ? 'chip chip-low' : 'chip chip-ok')}>
+          {view.never_connected ? 'Not yet connected' : (view.update_available ? `Update available (${view.latest_firmware_version})` : `Firmware ${view.firmware_version}`)}
+        </span>
+        <span class="chip">{view.warranty_until ? `Warranty to ${view.warranty_until}` : 'Warranty expired'}</span>
+      </div>
+
+      <form class="rename" data-rename>
+        <div class="field">
+          <label for="nickname">Nickname</label>
+          <input id="nickname" name="nickname" value={view.nickname || ''} placeholder="The little one" />
+        </div>
+        <button class="btn" type="submit">Save the nickname</button>
+        <p class="inline-error" data-rename-error hidden></p>
+      </form>
+
+      <div class="actions">
+        <form data-remove>
+          <button class="btn" type="submit" data-remove-btn>Remove from my account</button>
+          <p class="hint">Releases the camera without giving it to anyone.</p>
+          <p class="inline-error" data-remove-error hidden></p>
+        </form>
+        <form data-hand-over>
+          <button class="btn" type="submit" data-handover-btn>Hand this camera to someone else</button>
+          <p class="hint">Releases it so the next owner can register it.</p>
+        </form>
+      </div>
+      <dialog class="confirm" data-confirm>
+        <p data-confirm-text></p>
+        <div class="confirm-actions">
+          <button class="btn" type="button" data-confirm-cancel>Keep it</button>
+          <button class="btn btn-danger" type="button" data-confirm-go>Yes, do it</button>
+        </div>
+      </dialog>
+    </section>
+
+    <aside class="card side">
+      <h2>Firmware</h2>
+      {latest ? (
+        <p class="muted">Latest general release is <span class="mono">{latest.version}</span> (build <span class="mono">{latest.build}</span>).
+        This camera {view.firmware_version ? `reports ${view.firmware_version}.` : 'has never reported a version.'}</p>
+      ) : <p class="muted">No firmware published for this model.</p>}
+      <h2>Where it came from</h2>
+      <p class="muted">{view.registered ? 'Registered to this account.' : 'Not registered.'}</p>
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const serial = document.querySelector('.serial')?.textContent?.trim() || '';
+  const renameForm = document.querySelector('[data-rename]') as HTMLFormElement | null;
+  const renameError = document.querySelector('[data-rename-error]') as HTMLElement | null;
+  const confirmEl = document.querySelector('[data-confirm]') as HTMLDialogElement | null;
+  const confirmText = document.querySelector('[data-confirm-text]') as HTMLElement | null;
+  const removeForm = document.querySelector('[data-remove]') as HTMLFormElement | null;
+  const handOverForm = document.querySelector('[data-hand-over]') as HTMLFormElement | null;
+  const removeError = document.querySelector('[data-remove-error]') as HTMLElement | null;
+
+  renameForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    renameError!.hidden = true;
+    const nickname = new FormData(renameForm).get('nickname');
+    try {
+      const res = await fetch(`/api/account/devices/${encodeURIComponent(serial)}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nickname }), credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body?.error?.message || 'That did not work.');
+      }
+      window.location.reload();
+    } catch (err: any) {
+      renameError!.hidden = false; renameError!.textContent = err.message;
+    }
+  });
+
+  function wire(form: HTMLFormElement | null, text: string, target: string) {
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      confirmText!.textContent = text;
+      confirmEl?.setAttribute('data-target', target);
+      confirmEl?.showModal();
+    });
+  }
+  wire(removeForm, 'Remove this camera from your account? It will belong to nobody until someone registers it.', 'remove');
+  wire(handOverForm, 'Hand this camera to someone else? It will belong to nobody until they register it.', 'handover');
+
+  document.querySelector('[data-confirm-cancel]')?.addEventListener('click', () => confirmEl?.close());
+  document.querySelector('[data-confirm-go]')?.addEventListener('click', async () => {
+    confirmEl?.close();
+    try {
+      const res = await fetch(`/api/account/devices/${encodeURIComponent(serial)}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body?.error?.message || 'That did not work.');
+      }
+      window.location.href = '/account/cameras';
+    } catch (err: any) {
+      removeError!.hidden = false; removeError!.textContent = err.message;
+    }
+  });
+</script>
+
+<style>
+  .crumbs { color: var(--ink-soft); display: flex; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 3); }
+  .camera-page { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; align-items: start; }
+  .main, .side { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  h1 { font-size: 28px; }
+  .model, .serial { color: var(--ink-soft); margin: 0; }
+  .chips { display: flex; gap: calc(var(--unit) * 1); flex-wrap: wrap; }
+  .rename { display: grid; gap: calc(var(--unit) * 2); border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 3); }
+  .actions { display: grid; gap: calc(var(--unit) * 3); border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 3); }
+  .actions form { display: grid; gap: calc(var(--unit) * 1); justify-items: start; }
+  .hint { color: var(--ink-soft); font-size: 13px; margin: 0; }
+  .muted { color: var(--ink-soft); margin: 0; }
+  .confirm { border: 0; border-radius: var(--radius); box-shadow: var(--elevation); padding: calc(var(--unit) * 4); max-width: 30rem; }
+  .confirm::backdrop { background: rgba(20 22 26 / 40%); }
+  .confirm-actions { display: flex; gap: calc(var(--unit) * 2); margin-top: calc(var(--unit) * 3); justify-content: flex-end; }
+  @media (min-width: 64rem) { .camera-page { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); } }
+</style>

@@ -1,0 +1,169 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { productByHandle, productView } from '../../server/catalog.ts';
+import { money, longDate } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+import BuyControl from '../../components/BuyControl.astro';
+
+const { handle } = Astro.params;
+const requestedVariant = Astro.url.searchParams.get('variant');
+
+const row = await productByHandle(handle || '');
+if (!row) return Astro.redirect('/404');
+
+const product = await productView(row, true);
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+// A variant parameter that does not exist renders the default and drops the parameter.
+const requested = product.variants.find((v) => v.sku === requestedVariant) ?? null;
+// A variant parameter that does not exist renders the default and drops the parameter without comment.
+if (requestedVariant && !requested) {
+  const clean = new URL(Astro.url);
+  clean.searchParams.delete('variant');
+  return Astro.redirect(clean.pathname + (clean.searchParams.toString() ? `?${clean.searchParams}` : ''), 302);
+}
+const selected = requested ?? product.variants.find((v) => v.availability.buyable) ?? product.variants[0];
+
+const mediaMap: Record<string, string> = { flagship: '/img/a1.svg', compact: '/img/cricket.svg', mount: '/img/mount.svg', case: '/img/case.svg', cable: '/img/cable.svg' };
+const media = mediaMap[product.handle] || '/img/cricket.svg';
+
+const variantPriceLabels = product.variants.map((v) => v.price_minor);
+const fromPrice = variantPriceLabels.length > 1 ? Math.min(...variantPriceLabels) : null;
+
+const blocks = product.blocks || [];
+const lede = blocks.find((b: any) => b.kind === 'lede');
+const specGroups = blocks.filter((b: any) => b.kind === 'spec_group');
+const inTheBox = blocks.find((b: any) => b.kind === 'in_the_box');
+const compatibility = blocks.find((b: any) => b.kind === 'compatibility');
+const supportNote = blocks.find((b: any) => b.kind === 'support_note');
+
+const discontinued = product.status === 'discontinued';
+const gallery = [media, ...product.variants.slice(0, 3).map(() => media)];
+---
+
+<Shell title={`${product.title} — Vela`} active="shop" cartCount={cartCount}>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+  </nav>
+
+  <div class="product">
+    <section class="gallery" aria-label={`${product.title} images`}>
+      <div class="gallery-stage" data-gallery-stage>
+        {gallery.map((src, i) => (
+          <img class="gallery-frame" src={src} alt={i === 0 ? `${product.title}` : `${product.title}, view ${i + 1}`} loading={i === 0 ? 'eager' : 'lazy'} class:list={{ 'is-current': i === 0 }} data-frame={i} />
+        ))}
+      </div>
+      <div class="gallery-thumbs" role="tablist" aria-label="Views">
+        {gallery.map((src, i) => (
+          <button class="gallery-thumb" type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-thumb={i} aria-label={`View ${i + 1}`}>
+            <img src={src} alt="" />
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <section class="detail" aria-labelledby="product-title">
+      <h1 id="product-title">{product.title}</h1>
+      <p class="subtitle">{product.subtitle}</p>
+      <p class="price num">
+        {fromPrice !== null ? <span>From </span> : null}{money(fromPrice ?? selected.price_minor)}
+      </p>
+      <p class="availability">
+        {discontinued ? (
+          <span class="chip">Discontinued</span>
+        ) : selected.availability.state === 'sold_out' ? (
+          <span class="chip chip-sold">Sold out</span>
+        ) : selected.availability.state === 'low' ? (
+          <span class="chip chip-low">{selected.availability.label}</span>
+        ) : (
+          <span class="chip chip-ok">Available</span>
+        )}
+      </p>
+
+      <BuyControl product={product} selectedSku={selected.sku} discontinued={discontinued} supportUntil={product.support_until} supportNote={supportNote} />
+
+      {discontinued && supportNote ? (
+        <p class="support-note">{supportNote.text}</p>
+      ) : null}
+    </section>
+  </div>
+
+  <div class="blocks">
+    {lede ? <p class="lede-block">{lede.text}</p> : null}
+    {specGroups.map((g: any) => (
+      <section class="spec-group">
+        <h2>{g.title}</h2>
+        <table class="spec-table">
+          <tbody>
+            {g.rows.map(([k, v]: [string, string]) => (
+              <tr><th scope="row">{k}</th><td>{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+    {inTheBox ? (
+      <section class="box-block">
+        <h2>In the box</h2>
+        <ul>{inTheBox.items.map((i: string) => <li>{i}</li>)}</ul>
+      </section>
+    ) : null}
+    {compatibility ? (
+      <section class="compat-block">
+        <h2>Compatibility</h2>
+        <p>Requires {compatibility.os}. Works with Arranger {compatibility.app} or later.</p>
+      </section>
+    ) : null}
+    {supportNote && !discontinued ? (
+      <section class="compat-block">
+        <h2>Support</h2>
+        <p>{supportNote.text}</p>
+      </section>
+    ) : null}
+  </div>
+</Shell>
+
+<script>
+  // The gallery and the option→address wiring run without a framework.
+  document.querySelectorAll('[data-thumb]').forEach((thumb) => {
+    thumb.addEventListener('click', () => {
+      const i = (thumb as HTMLElement).dataset.thumb;
+      document.querySelectorAll('[data-frame]').forEach((f) => {
+        (f as HTMLElement).classList.toggle('is-current', (f as HTMLElement).dataset.frame === i);
+      });
+      document.querySelectorAll('[data-thumb]').forEach((t) => t.setAttribute('aria-selected', t === thumb ? 'true' : 'false'));
+    });
+  });
+</script>
+
+<style>
+  .crumbs { color: var(--ink-soft); margin-bottom: calc(var(--unit) * 3); display: flex; gap: calc(var(--unit) * 2); }
+  .crumbs a { color: inherit; }
+  .product { display: grid; gap: calc(var(--unit) * 5); grid-template-columns: 1fr; margin-bottom: calc(var(--unit) * 6); }
+  .gallery { display: grid; gap: calc(var(--unit) * 2); }
+  .gallery-stage { position: relative; aspect-ratio: 16 / 10; border-radius: 0; border: var(--border-w) solid var(--paper-line); overflow: hidden; background: var(--paper-raised); }
+  .gallery-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 160ms linear; }
+  .gallery-frame.is-current { opacity: 1; }
+  .gallery-thumbs { display: flex; gap: calc(var(--unit) * 1); }
+  .gallery-thumb { width: 72px; height: 48px; padding: 0; border-radius: var(--radius); border: var(--border-w) solid var(--paper-line); background: var(--paper); overflow: hidden; cursor: pointer; }
+  .gallery-thumb[aria-selected='true'] { border-color: var(--ink); border-width: 2px; }
+  .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .detail { display: grid; gap: calc(var(--unit) * 2); align-content: start; }
+  h1 { font-size: 32px; }
+  .subtitle { color: var(--ink-soft); margin: 0; }
+  .price { font-size: 24px; font-weight: 700; margin: 0; }
+  .availability { margin: 0; }
+  .blocks { display: grid; gap: calc(var(--unit) * 5); border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 5); }
+  .blocks h2 { font-size: 17px; margin-bottom: calc(var(--unit) * 2); }
+  .lede-block { font-size: 19px; max-width: 60ch; margin: 0; }
+  .spec-table { border-collapse: collapse; width: 100%; max-width: 48rem; }
+  .spec-table th, .spec-table td { text-align: left; padding: calc(var(--unit) * 1) calc(var(--unit) * 2) calc(var(--unit) * 1) 0; border-bottom: var(--border-w) solid var(--paper-line); vertical-align: top; }
+  .spec-table th { font-weight: 400; color: var(--ink-soft); width: 40%; }
+  .spec-table td { font-variant-numeric: tabular-nums; }
+  .box-block ul { margin: 0; padding-left: 1.2rem; }
+  .support-note { color: var(--ink-soft); border-left: 3px solid var(--paper-line); padding-left: calc(var(--unit) * 3); }
+  @media (min-width: 64rem) {
+    .product { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: calc(var(--unit) * 8); }
+  }
+</style>

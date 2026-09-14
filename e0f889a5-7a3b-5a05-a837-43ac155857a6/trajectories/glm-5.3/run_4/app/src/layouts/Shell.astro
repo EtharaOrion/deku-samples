@@ -1,0 +1,69 @@
+---
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  current?: string;
+  customer?: { name: string; email: string } | null;
+  cartCount?: number;
+}
+const { title = 'Vela', current, customer = null, cartCount = 0 } = Astro.props;
+
+const railEntries = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+  ...(customer
+    ? [
+        { href: '/account', label: 'Overview', key: 'account' },
+        { href: '/account/orders', label: 'Orders', key: 'orders' },
+        { href: '/account/cameras', label: 'Cameras', key: 'cameras' },
+      ]
+    : []),
+];
+
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="on-light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <nav class="rail" aria-label="Main">
+        <a class="wordmark" href="/">vela</a>
+        {railEntries.map((e) => (
+          <a href={e.href} aria-current={current === e.key ? 'page' : undefined}>
+            {current === e.key && <span class="rail-marker" aria-hidden="true" />}
+            <span>{e.label}</span>
+          </a>
+        ))}
+        {customer ? (
+          <form method="get" action="/sign-out" style="margin-top:auto">
+            <button class="btn" type="submit">Sign out</button>
+   </form>
+        ) : (
+          <a href="/sign-in" style="margin-top:auto" class="rail-signin">Sign in</a>
+        )}
+      </nav>
+      <div class="shell-main">
+        <header class="topbar">
+          <a class="wordmark" href="/">vela</a>
+          <a class="cart-control" href="/cart" aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}>
+            Cart
+            {cartCount > 0 && <span class="badge tnum">{badge}</span>}
+          </a>
+        </header>
+        <main id="main" class="content">
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

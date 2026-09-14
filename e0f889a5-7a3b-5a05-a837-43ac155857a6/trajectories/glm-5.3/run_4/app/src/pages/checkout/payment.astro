@@ -1,0 +1,60 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getOrCreateCart, serializeCart } from '../../lib/cart.js';
+import { money } from '../../lib/format.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cartRow = token ? await getOrCreateCart(token) : null;
+const cart = cartRow ? await serializeCart(cartRow) : null;
+
+if (!cart || cart.lines.length === 0) return Astro.redirect('/cart');
+if (!cart.shipping_address) return Astro.redirect('/checkout/where-it-goes');
+if (!cart.shipping_method) return Astro.redirect('/checkout/how-it-gets-there');
+---
+
+<Shell title="Payment — Vela" current="checkout">
+  <h1>Checkout</h1>
+  <ol class="checkout-steps">
+    <li><a href="/checkout/where-it-goes">Where it goes</a></li>
+    <li><a href="/checkout/how-it-gets-there">How it gets there</a></li>
+    <li aria-current="step">Payment</li>
+  </ol>
+
+  <div class="checkout-layout">
+    <form class="checkout-form" data-place-form data-total={cart.total_minor}>
+      <h2>Payment</h2>
+      <p>This order has no card. Vela invoices the total to your account.</p>
+      <p class="final-total">
+        <span>Total</span>
+        <strong class="tnum">{money(cart.total_minor)}</strong>
+      </p>
+      <p class="feedback" role="alert" data-step-error></p>
+      <a class="btn" href="/checkout/how-it-gets-there">Back</a>
+      <button class="btn btn-primary" type="submit" data-place>Place order</button>
+    </form>
+
+    <aside class="checkout-summary" aria-label="Order summary">
+      <h2>Summary</h2>
+      <ul class="summary-lines">
+        {cart.lines.map((l) => (
+          <li><span>{l.product_title} ({l.option_value}) × {l.quantity}</span><span class="tnum">{money(l.line_total_minor)}</span></li>
+        ))}
+      </ul>
+      <dl class="summary-rows">
+        <div><dt>Subtotal</dt><dd class="tnum">{money(cart.subtotal_minor)}</dd></div>
+        <div><dt>Delivery ({cart.shipping_method})</dt><dd class="tnum">{money(cart.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="tnum">{money(cart.tax_minor)}</dd></div>
+        {cart.protection_minor > 0 && (
+          <div><dt>Shipment protection</dt><dd class="tnum">{money(cart.protection_minor)}</dd></div>
+        )}
+        <div class="summary-total"><dt>Total</dt><dd class="tnum">{money(cart.total_minor)}</dd></div>
+      </dl>
+      <p class="summary-note">The total authorised is the figure this page showed.</p>
+    </aside>
+  </div>
+
+  <script>
+    import { mountPlaceForm } from '../../components/checkout.js';
+    mountPlaceForm(document.querySelector('[data-place-form]'));
+  </script>
+</Shell>

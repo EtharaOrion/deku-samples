@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block route %}talent-detail{% endblock %}
+{% block title %}Cirrus - {{ talent.title }}{% endblock %}
+{% block centre_mark %}{% include 'marks/talents.svg' %}{% endblock %}
+{% block well %}
+<article class="talent-detail" x-data="talentDetail">
+  <header class="talent-head">
+    <h1 class="roster-name fit-name" data-fit>{{ talent.title }}</h1>
+    <p class="roster-discipline">{{ talent.discipline|upper }}</p>
+  </header>
+  {% if talent.reel %}
+  <figure class="work-reel talent-reel" data-reel="{{ talent.reel.id }}" data-poster="{{ talent.poster.id if talent.poster }}"
+          data-w="{{ talent.reel.width }}" data-h="{{ talent.reel.height }}">
+    <canvas class="reel-canvas" width="{{ talent.reel.width }}" height="{{ talent.reel.height }}"
+            aria-label="{{ talent.reel.alt|e }}" role="img"></canvas>
+  </figure>
+  {% endif %}
+  <section class="talent-selected">
+    <h2 class="selected-heading">SELECTED WORK</h2>
+    <ol class="works-list talent-works">
+      {% for w in talent.selected %}
+      <li class="work-entry variant-{{ w.variant }}">
+        <a class="work-link" href="/works/{{ w.slug }}" data-cursor="{{ w.ordinal }}">
+          <span class="media-tile variant-{{ w.variant }}" data-reveal
+                {% if w.poster %}style="--ar:{{ w.poster.width }} / {{ w.poster.height }}"{% endif %}>
+            {% if w.poster %}
+            <img class="still" src="/api/media/{{ w.poster.id }}" alt="{{ w.alt|e }}"
+                 width="{{ w.poster.width }}" height="{{ w.poster.height }}" loading="lazy" decoding="async">
+            {% else %}<span class="still is-blank"></span>{% endif %}
+          </span>
+          <span class="caption-row">
+            <span class="caption-square" aria-hidden="true"></span>
+            <span class="caption-ordinal">{{ w.ordinal }}</span>
+            <span class="caption-title">{{ w.title }}</span>
+          </span>
+        </a>
+      </li>
+      {% else %}
+      <li class="empty-state">No published work carries this name yet.</li>
+      {% endfor %}
+    </ol>
+  </section>
+  <section class="talent-contact">
+    <p class="talent-contact-label">CONTACT</p>
+    <a class="talent-mail" href="mailto:prod@example.com" aria-label="prod@example.com">PROD@EXAMPLE.COM</a>
+  </section>
+</article>
+{% endblock %}

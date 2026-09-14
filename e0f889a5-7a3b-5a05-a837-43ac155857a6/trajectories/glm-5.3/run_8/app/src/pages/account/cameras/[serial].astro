@@ -1,0 +1,31 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import { currentCustomer } from '@lib/session.js';
+import CameraDetail from '@components/CameraDetail.jsx';
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) return Astro.redirect(`/sign-in?redirect=${encodeURIComponent('/account/cameras')}`);
+
+const serial = String(Astro.params.serial || '').toUpperCase();
+const dev = await one(
+  `SELECT d.*, p.title AS model, v.title AS variant_title,
+          (SELECT f.version FROM firmware f WHERE f.product_id = d.product_id AND f.channel='general' ORDER BY f.build DESC LIMIT 1) AS latest_firmware
+   FROM device d JOIN product p ON p.id = d.product_id JOIN variant v ON v.id = d.variant_id
+   WHERE upper(d.serial) = $1`, [serial]
+);
+// Another customer's camera reads as not found, never forbidden.
+const own = await one(
+  'SELECT id FROM device_ownership WHERE device_id = $1 AND customer_id = $2 AND released_at IS NULL',
+  [dev?.id ?? -1, customer.id]
+);
+if (!dev || !own) return Astro.redirect('/404');
+---
+<App title={dev.model}>
+  <CameraDetail client:load camera={{
+    serial: dev.serial, model: dev.model, variant_title: dev.variant_title,
+    nickname: dev.nickname, firmware_version: dev.firmware_version,
+    latest_firmware: dev.latest_firmware, warranty_until: dev.warranty_until,
+    firmware_reported_at: dev.firmware_reported_at,
+  }} />
+</App>

@@ -1,0 +1,128 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { requirePageCustomer, signInRedirect } from '../../../server/pageguard.ts';
+import { q } from '../../../server/db/pool.ts';
+import { orderView } from '../../../server/orders.ts';
+import { money, longDate, orderChip } from '../../../server/format.ts';
+import { getCartForContext } from '../../../server/context.ts';
+import { rememberLastSeenRelease } from '../../../server/auth.ts';
+
+const customer = await requirePageCustomer(Astro);
+if (!customer) return Astro.redirect(signInRedirect(`/account/orders/${Astro.params.number}`));
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const res = await q('SELECT * FROM order_row WHERE number = $1', [Astro.params.number]);
+const row = res.rows[0];
+if (!row || !row.customer_id || String(row.customer_id) !== String(customer.id)) return Astro.redirect('/404');
+const order = await orderView(row);
+const address = order.shipping_address || {};
+---
+
+<Shell title={`Order ${order.number} — Vela`} active="orders" customer={{ email: customer.email, name: customer.name }} cartCount={cartCount}>
+  <nav class="crumbs"><a href="/account/orders">Orders</a> <span aria-hidden="true">/</span> <span class="mono">{order.number}</span></nav>
+
+  <div class="order-page">
+    <section class="card main">
+      <div class="head-row">
+        <h1 class="mono">{order.number}</h1>
+        <span class="chip">{orderChip(order)}</span>
+      </div>
+      <p class="muted">Placed {longDate(order.placed_at)} · {money(order.total_minor)}</p>
+      <h2>Lines</h2>
+      <ul class="lines">
+        {order.lines.map((l: any) => (
+          <li>
+            <span>{l.title_snapshot} <span class="mono sku">{l.sku_snapshot}</span></span>
+            <span class="num">{l.quantity} × {money(l.unit_price_minor)}</span>
+            <span class="num total">{money(l.total_minor)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="num">{money(order.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="num">{money(order.shipping_minor)}</dd></div>
+        {order.protection_minor > 0 ? <div><dt>Shipment protection</dt><dd class="num">{money(order.protection_minor)}</dd></div> : null}
+        <div><dt>Tax</dt><dd class="num">{money(order.tax_minor)}</dd></div>
+        <div class="total-row"><dt>Total</dt><dd class="num">{money(order.total_minor)}</dd></div>
+      </dl>
+    </section>
+
+    <aside class="card side">
+      <h2>Where it went</h2>
+      <address class="address">
+        {address.name}<br />
+        {address.line1}{address.line2 ? <><br />{address.line2}</> : null}<br />
+        {[address.city, address.region].filter(Boolean).join(', ')} {address.postal_code}<br />
+        {address.country}
+      </address>
+      <h2>How it got there</h2>
+      <p class="muted">{order.shipping_method} · {order.shipping_method === 'Express' ? '2 days' : '5 to 7 days'}</p>
+      <h2>Serials</h2>
+      {order.serials.length === 0 ? (
+        <p class="muted">No cameras on this order.</p>
+      ) : (
+        <ul class="serials">
+          {order.serials.map((s: any) => (
+            <li>
+              <span class="mono">{s.serial}</span>
+              {s.registered ? (
+                <span class="chip chip-ok">Registered</span>
+              ) : (
+                <button class="btn" type="button" data-register-serial={s.serial}>Register to this account</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="inline-error" data-serial-error hidden></p>
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const errEl = document.querySelector('[data-serial-error]') as HTMLElement | null;
+  document.querySelectorAll('[data-register-serial]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const serial = (btn as HTMLElement).dataset.registerSerial!;
+      errEl!.hidden = true;
+      try {
+        const res = await fetch('/api/account/devices', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ serial }), credentials: 'include',
+        });
+        if (!res.ok) {
+          const body = await res.json();
+          throw new Error(body?.error?.message || 'That did not work.');
+        }
+        window.location.reload();
+      } catch (err: any) {
+        errEl!.hidden = false; errEl!.textContent = err.message;
+      }
+    });
+  });
+</script>
+
+<style>
+  .crumbs { color: var(--ink-soft); display: flex; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 3); }
+  .order-page { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; align-items: start; }
+  .main, .side { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  h1 { font-size: 26px; }
+  h2 { font-size: 16px; }
+  .head-row { display: flex; align-items: center; gap: calc(var(--unit) * 3); }
+  .muted { color: var(--ink-soft); margin: 0; }
+  .lines { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .lines li { display: grid; grid-template-columns: 1fr auto auto; gap: calc(var(--unit) * 3); }
+  .sku { color: var(--ink-soft); font-size: 13px; margin-left: calc(var(--unit) * 1); }
+  .total { font-weight: 700; }
+  .totals { display: grid; gap: calc(var(--unit) * 1); margin: 0; border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  .totals dt { color: var(--ink-soft); }
+  .totals dd { margin: 0; }
+  .total-row { border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .address { font-style: normal; }
+  .serials { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  .serials li { display: flex; gap: calc(var(--unit) * 2); align-items: center; flex-wrap: wrap; }
+  @media (min-width: 64rem) { .order-page { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); } }
+</style>

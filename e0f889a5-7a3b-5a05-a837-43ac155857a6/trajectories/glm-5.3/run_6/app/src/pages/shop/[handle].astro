@@ -1,0 +1,177 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import BuyBox from '../../islands/BuyBox.jsx';
+import { getProduct, variantAvailability } from '../../lib/catalog.js';
+import { formatUsd } from '../../lib/money.js';
+import { formatDate } from '../../lib/session.js';
+
+export const prerender = false;
+
+const { handle } = Astro.params;
+const url = new URL(Astro.request.url);
+const requestedVariant = url.searchParams.get('variant');
+
+const product = await getProduct(handle);
+if (!product) return Astro.redirect('/404');
+
+const variantExists = product.variants.some((v) => v.sku === requestedVariant);
+// A parameter naming a variant that does not exist renders the default and
+// drops the parameter without comment.
+const selectedSku = variantExists ? requestedVariant : (product.variants.find((v) => v.available > 0) || product.variants[0])?.sku || null;
+
+const lede = product.blocks.find((b) => b.kind === 'lede');
+const specGroups = product.blocks.filter((b) => b.kind === 'spec_group');
+const inTheBox = product.blocks.find((b) => b.kind === 'in_the_box');
+const compatibility = product.blocks.find((b) => b.kind === 'compatibility');
+const supportNote = product.blocks.find((b) => b.kind === 'support_note');
+---
+
+<Shell title={product.title} description={product.subtitle || product.title}>
+  <h1 class="page-title">{product.title}</h1>
+  <p class="subtitle">{product.subtitle}</p>
+
+  <div class="product-layout">
+    <div class="gallery" aria-label={`${product.title} gallery`}>
+      <div class="gallery-main media-frame" data-kind={product.kind} role="img" aria-label={`${product.title} in ${product.variants[0]?.option_value || 'its body'}`}>
+        <span class="media-caption">{product.title}</span>
+      </div>
+      <ul class="gallery-thumbs">
+        {
+          product.variants.map((variant) => (
+            <li>
+              <button class="thumb" type="button" data-kind={product.kind} data-option={variant.option_value} aria-label={`${product.title} in ${variant.option_value}`} />
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="buy">
+      <p class="price tnum">
+        {product.variants.length > 1 && product.variants.some((v) => v.price_minor !== product.variants[0].price_minor)
+          ? `From ${formatUsd(Math.min(...product.variants.map((v) => v.price_minor)))}`
+          : formatUsd(product.variants[0]?.price_minor ?? 0)}
+      </p>
+
+      <BuyBox
+        client:load
+        variants={product.variants}
+        selectedSku={selectedSku}
+        productStatus={product.status}
+        optionName="Colour"
+      />
+
+      {
+        product.status === 'discontinued' && supportNote && (
+          <div class="notice">
+            <p>{supportNote.payload.text}</p>
+            <p class="hint">
+              We will support it until {formatDate(product.support_until)}.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        product.variants.map((variant) => {
+          const state = variantAvailability(variant, product);
+          return (
+            <p class="variant-row" data-sku={variant.sku} hidden={variant.sku !== selectedSku}>
+              <span>{variant.title} · {variant.option_value}</span>
+              <span class="mono">{variant.sku}</span>
+              <span class="tnum">{formatUsd(variant.price_minor)}</span>
+              <span>{state.label}</span>
+            </p>
+          );
+        })
+      }
+    </div>
+  </div>
+
+  <div class="blocks">
+    {lede && <p class="lede">{lede.payload.text}</p>}
+
+    {
+      specGroups.map((group) => (
+        <section class="spec-group">
+          <h2 class="section-title">{group.payload.title}</h2>
+          <table class="data num">
+            <tbody>
+              {group.payload.rows.map((row) => (
+                <tr>
+                  <th scope="row">{row[0]}</th>
+                  <td>{row[1]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))
+    }
+
+    {
+      inTheBox && (
+        <section>
+          <h2 class="section-title">In the box</h2>
+          <ul class="box-list">
+            {inTheBox.payload.items.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      compatibility && (
+        <section>
+          <h2 class="section-title">Compatibility</h2>
+          <dl class="compat">
+            <div><dt>Operating system</dt><dd>{compatibility.payload.operatingSystem}</dd></div>
+            <div><dt>Application</dt><dd>{compatibility.payload.appVersion}</dd></div>
+          </dl>
+        </section>
+      )
+    }
+  </div>
+
+  <script>
+    // The gallery is keyboard navigable: each thumbnail is a button and choosing
+    // one replaces history so the back control leaves the page.
+    document.querySelectorAll('.thumb').forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const option = thumb.dataset.option || '';
+        const variantRow = Array.from(document.querySelectorAll('.variant-row')).find((row) =>
+          row.textContent.includes(option)
+        );
+        const sku = variantRow ? variantRow.dataset.sku : null;
+        if (!sku) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('variant', sku);
+        window.history.replaceState({}, '', url);
+        const input = document.querySelector(`input[name="variant"][value="${sku}"]`);
+        if (input) {
+          input.checked = true;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const main = document.querySelector('.gallery-main');
+        if (main) main.dataset.option = option;
+      });
+    });
+  </script>
+</Shell>
+
+<style>
+  .subtitle { color: var(--ink-soft); margin-bottom: calc(var(--step) * 6); }
+  .product-layout { display: grid; gap: calc(var(--step) * 6); margin-bottom: calc(var(--step) * 8); }
+  .product-price { font-size: 1.25rem; font-weight: 700; margin-bottom: calc(var(--step) * 4); }
+  .lede { font-size: 1.125rem; max-width: 42rem; margin-bottom: calc(var(--step) * 6); }
+  .spec-group { margin-bottom: calc(var(--step) * 6); }
+  .box-list { display: grid; gap: var(--step); }
+  .box-list li { border-bottom: var(--border) solid var(--line); padding: calc(var(--step) * 2) 0; }
+  .compat { display: grid; gap: calc(var(--step) * 2); }
+  .compat div { display: flex; gap: calc(var(--step) * 4); }
+  .compat dt { color: var(--ink-soft); min-width: 12rem; }
+
+  @media (min-width: 64rem) {
+    .product-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  }
+</style>

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block well %}
+<div class="works-index" x-data="works">
+  <section class="works-opening" aria-label="Opening">
+    <h1 class="works-line blur-block" data-blur-target>Quiet decisions, made early, are the ones you notice last.</h1>
+  </section>
+
+  <section class="works-list" aria-label="Works">
+    {% if not works %}
+    <p class="empty-state">There is no published work to show yet.</p>
+    {% endif %}
+    {% for w in works %}
+    <article class="entry-row entry-{{ w.variant or 'left' }}" style="--i:{{ loop.index0 }}">
+      {% set poster = (w.poster_media or [None])[0] %}
+      <a class="tile-link tile-{{ w.variant }}" href="/works/{{ w.slug }}" data-cursor="{{ w.title }}">
+        <span class="tile-box reveal" data-width="{{ poster.width if poster else 598 }}" data-height="{{ poster.height if poster else 320 }}" style="aspect-ratio:{{ (poster.width if poster else 598) }}/{{ (poster.height if poster else 320) }}">
+          {% if poster %}
+          <img class="tile-still colour-return" src="/api/media/{{ poster.id }}" width="{{ poster.width }}" height="{{ poster.height }}"
+               alt="{{ poster.alt }}" loading="lazy" decoding="async">
+          {% endif %}
+        </span>
+      </a>
+      {% with ordinal = w.ordinal, title = w.title %}{% include 'partials/_caption.html' %}{% endwith %}
+    </article>
+    {% endfor %}
+  </section>
+</div>
+  {% include 'partials/_footer.html' %}
+{% endblock %}

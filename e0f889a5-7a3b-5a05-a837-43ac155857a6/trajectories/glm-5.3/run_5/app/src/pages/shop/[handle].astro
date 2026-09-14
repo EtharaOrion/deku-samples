@@ -1,0 +1,244 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { getProduct, PROTECTION_PRODUCT_HANDLE } from '../../server/catalogue.js';
+import { dollars } from '../../server/money.js';
+import { latestFirmware } from '../../server/releases.js';
+
+const { handle } = Astro.params;
+const product = handle ? await getProduct(handle) : null;
+if (!product || product.handle === PROTECTION_PRODUCT_HANDLE) {
+  return Astro.redirect('/404');
+}
+
+// A parameter naming a variant that does not exist renders the default and drops it.
+const url = Astro.url;
+const asked = url.searchParams.get('variant');
+const valid = asked ? product.variants.find((v) => v.sku === asked || v.option_value.toLowerCase() === asked.toLowerCase()) : null;
+const selected = valid ?? product.variants[0];
+
+const prices = product.variants.map((v) => v.price_minor);
+const priceLabel = new Set(prices).size > 1 ? `From ${dollars(Math.min(...prices))}` : dollars(prices[0] ?? 0);
+
+const availability = (() => {
+  if (product.status === 'discontinued') return { state: 'discontinued' as const, note: `We no longer sell this. We will support it until ${new Date(product.support_until!).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` };
+  const available = selected?.available ?? 0;
+  if (available <= 0) return { state: 'sold_out' as const, note: null };
+  if (available <= 10) return { state: 'low' as const, count: available, note: `Only ${available} left` };
+  return { state: 'available' as const, note: null };
+})();
+
+const firmware = await latestFirmware(product.handle);
+const maxQty = Math.min(10, Math.max(1, selected?.available ?? 1));
+---
+<PageShell title={`${product.title} — Vela`} heading={product.title} active="shop">
+  <div class="product">
+    <div class="gallery" data-gallery>
+      <img class="media" src={`/assets/${product.handle}.png`} alt={`${product.title}`} width="640" height="420" data-gallery-main />
+      <div class="thumbs" role="group" aria-label="Product views" data-gallery-thumbs>
+        {['Front', 'Top', 'Back'].map((label, i) => (
+          <button type="button" class="thumb" aria-pressed={i === 0 ? 'true' : 'false'} data-thumb={i}>{label}</button>
+        ))}
+      </div>
+    </div>
+
+    <form class="buy" method="post" action="/api/cart/lines" data-buy-form>
+      <p class="subtitle">{product.subtitle}</p>
+      <p class="price tnum">{priceLabel}</p>
+      <p class="availability" data-availability>
+        {availability.state === 'discontinued' && <span class="chip chip--warn">Discontinued</span>}
+        {availability.state === 'sold_out' && <span class="chip chip--warn">Sold out</span>}
+        {availability.state === 'low' && <span class="chip chip--progress">Only {availability.count} left</span>}
+        {availability.state === 'available' && <span class="chip chip--done">Available</span>}
+      </p>
+
+      {product.variants.length > 1 && (
+        <fieldset class="options">
+          <legend>{product.kind === 'camera' ? 'Colour' : 'Option'}</legend>
+          <div class="radios" role="radiogroup" aria-label="Option">
+            {product.variants.map((v, i) => (
+              <label class:list={['radio', { 'is-selected': v.sku === selected?.sku }]}>
+                <input
+                  type="radio"
+                  name="variant"
+                  value={v.sku}
+                  checked={v.sku === selected?.sku}
+                  data-variant-radio
+                  data-out-of-stock={v.available <= 0 ? 'true' : 'false'}
+                />
+                <span>{v.option_value}</span>
+                {v.available <= 0 && <span class="radio__note">Sold out</span>}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <input type="hidden" name="sku" value={selected?.sku} data-sku />
+
+      <div class="qty">
+        <label for="quantity">Quantity</label>
+        <div class="stepper" data-qty-stepper>
+          <button type="button" class="btn" aria-label="Decrease quantity" data-qty-decrease>−</button>
+          <input id="quantity" name="quantity" type="number" min="1" max={maxQty} value="1" data-qty-input />
+          <button type="button" class="btn" aria-label="Increase quantity" data-qty-increase>+</button>
+        </div>
+        <p class="field-hint">Up to {maxQty}.</p>
+      </div>
+
+      {availability.state === 'discontinued' ? (
+        <div class="notice notice--error">
+          <p>{availability.note}</p>
+          <button class="btn" type="button" disabled aria-describedby="why-disabled">Sold out</button>
+          <p id="why-disabled" class="field-hint">We no longer sell this product.</p>
+        </div>
+      ) : availability.state === 'sold_out' ? (
+        <div class="notice notice--error">
+          <p>This option is sold out.</p>
+          <button class="btn" type="button" disabled aria-describedby="why-empty">Sold out</button>
+          <p id="why-empty" class="field-hint">Every one we made has gone. Try the other colours.</p>
+        </div>
+      ) : (
+        <button class="btn btn--primary" type="submit" data-add-to-cart>Add to cart</button>
+      )}
+
+      <p class="status" role="status" data-buy-status aria-live="polite"></p>
+    </form>
+
+    <div class="blocks">
+      {product.blocks.map((b) => {
+        const payload = b.payload as any;
+        if (b.kind === 'lede') return <p class="lede">{payload.text}</p>;
+        if (b.kind === 'spec_group') return (
+          <section class="block">
+            <h2>{payload.title}</h2>
+            <table class="spec-table">
+              <tbody>{payload.rows.map(([k, v]: [string, string]) => (<tr><th scope="row">{k}</th><td class="tnum">{v}</td></tr>))}</tbody>
+            </table>
+          </section>
+        );
+        if (b.kind === 'in_the_box') return (
+          <section class="block">
+            <h2>In the box</h2>
+            <ul>{payload.items.map((i: string) => <li>{i}</li>)}</ul>
+          </section>
+        );
+        if (b.kind === 'compatibility') return (
+          <section class="block">
+            <h2>Compatibility</h2>
+            <dl>
+              <dt>Minimum operating system</dt><dd class="mono">{payload.min_os}</dd>
+              <dt>Application</dt><dd class="mono">{payload.min_app} or later</dd>
+              {firmware && (<><dt>Latest firmware</dt><dd class="mono">{firmware.version}</dd></>)}
+            </dl>
+          </section>
+        );
+        if (b.kind === 'support_note') return (
+          <section class="block">
+            <h2>Support</h2>
+            <p>{payload.text}</p>
+          </section>
+        );
+        return null;
+      })}
+    </div>
+  </div>
+</PageShell>
+
+<script>
+  const form = document.querySelector('[data-buy-form]') as HTMLFormElement | null;
+  const status = document.querySelector('[data-buy-status]') as HTMLElement | null;
+  const skuField = form?.querySelector('[data-sku]') as HTMLInputElement | null;
+  const qtyInput = form?.querySelector('[data-qty-input]') as HTMLInputElement | null;
+  const radios = Array.from(form?.querySelectorAll<HTMLInputElement>('[data-variant-radio]') ?? []);
+
+  // Choosing an option updates the address by replacing history, not pushing it.
+  radios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      skuField!.value = radio.value;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('variant') === radio.value) return;
+      url.searchParams.set('variant', radio.value);
+      window.history.replaceState({}, '', url);
+    });
+  });
+
+  form?.querySelector('[data-qty-decrease]')?.addEventListener('click', () => {
+    const n = Number(qtyInput?.value ?? 1) - 1;
+    if (qtyInput && n >= Number(qtyInput.min)) qtyInput.value = String(n);
+  });
+  form?.querySelector('[data-qty-increase]')?.addEventListener('click', () => {
+    const n = Number(qtyInput?.value ?? 1) + 1;
+    if (qtyInput && n <= Number(qtyInput.max)) qtyInput.value = String(n);
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!skuField || !status) return;
+    const button = form.querySelector('[data-add-to-cart]') as HTMLButtonElement | null;
+    const quantity = Math.trunc(Number(qtyInput?.value ?? 1));
+    status.textContent = 'Adding.';
+    if (button) button.disabled = true;
+    try {
+      const res = await fetch('/api/cart/lines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sku: skuField.value, quantity }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      status.textContent = `Added to cart. Your cart holds ${body.lines.reduce((n: number, l: any) => n + l.quantity, 0)} item${body.lines.reduce((n: number, l: any) => n + l.quantity, 0) === 1 ? '' : 's'}.`;
+      const badge = document.querySelector('[data-cart-badge]');
+      const control = document.querySelector('[data-cart-control]');
+      const total = body.lines.reduce((n: number, l: any) => n + l.quantity, 0);
+      if (control) {
+        control.querySelector('.visually-hidden')!.textContent = total === 0 ? 'Cart, empty' : `Cart, ${total} item${total === 1 ? '' : 's'}`;
+        if (badge) {
+          badge.textContent = total > 99 ? '99+' : String(total);
+        } else if (total > 0) {
+          const span = document.createElement('span');
+          span.className = 'bar__badge';
+          span.setAttribute('data-cart-badge', '');
+          span.textContent = total > 99 ? '99+' : String(total);
+          control.insertBefore(span, control.querySelector('.visually-hidden'));
+        }
+      }
+    } catch (err) {
+      status.textContent = err instanceof Error ? err.message : 'That did not work.';
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .product { padding: 0 var(--gutter); display: grid; gap: calc(var(--space) * 8); }
+  .gallery { display: grid; gap: calc(var(--space) * 3); }
+  .gallery img { width: 100%; height: auto; display: block; }
+  .thumbs { display: flex; gap: var(--space); }
+  .thumb { border: var(--border-w) solid var(--ink-on-light-muted); background: transparent; border-radius: var(--radius); padding: calc(var(--space) * 1) calc(var(--space) * 3); cursor: pointer; }
+  .thumb[aria-pressed='true'] { border-color: var(--ink-on-light); font-weight: 700; }
+  .subtitle { color: var(--ink-on-light-muted); margin: 0; }
+  .price { font-size: 24px; line-height: 32px; font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
+  .options { border: 0; padding: 0; margin: calc(var(--space) * 4) 0 0; }
+  .options legend { font-weight: 700; padding: 0; margin-bottom: var(--space); }
+  .radios { display: grid; gap: var(--space); }
+  .radio { display: flex; align-items: center; gap: calc(var(--space) * 2); border: var(--border-w) solid var(--ink-on-light-muted); border-radius: var(--radius); padding: calc(var(--space) * 2) calc(var(--space) * 3); font-weight: 400; cursor: pointer; }
+  .radio.is-selected { border-color: var(--ink-on-light); font-weight: 700; }
+  .radio input { width: auto; }
+  .radio__note { color: var(--ink-on-light-muted); font-size: 14px; margin-left: auto; }
+  .qty { margin-top: calc(var(--space) * 4); }
+  .stepper { display: flex; gap: var(--space); align-items: center; }
+  .stepper input { width: 5rem; text-align: center; }
+  .status { min-height: 24px; margin: calc(var(--space) * 3) 0 0; }
+  .blocks { display: grid; gap: calc(var(--space) * 6); border-top: var(--border-w) solid var(--ink-on-light-muted); padding-top: calc(var(--space) * 6); }
+  .block h2 { font-size: 16px; line-height: 24px; font-weight: 700; margin: 0 0 calc(var(--space) * 2); }
+  .lede { font-size: 20px; line-height: 30px; margin: 0; }
+  .block ul { margin: 0; padding-left: 1.25rem; }
+  .block dl { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .block dt { color: var(--ink-on-light-muted); }
+  .block dd { margin: 0; }
+  .notice { display: grid; gap: calc(var(--space) * 2); margin-top: calc(var(--space) * 4); }
+  @media (min-width: 64rem) {
+    .product { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .blocks { grid-column: 1 / -1; }
+  }
+</style>

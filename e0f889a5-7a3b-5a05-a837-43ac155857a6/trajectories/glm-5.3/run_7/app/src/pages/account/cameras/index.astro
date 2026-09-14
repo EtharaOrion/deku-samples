@@ -1,0 +1,91 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { q } from '../../../lib/db.js';
+import { guard } from '../../../lib/guard.js';
+import { latestFirmwareForProduct, compareVersions } from '../../../lib/store.js';
+import { dateLong } from '../../../lib/view-helpers.js';
+
+const { customer, expired, next, bearer } = await guard(Astro.request);
+if (!customer) return Astro.redirect('/sign-in?next=' + encodeURIComponent(next) + (expired ? '&expired=1' : ''));
+
+const devices = await q(
+  `SELECT d.*, p.title AS model, p.handle AS product_handle, v.title AS variant_title
+     FROM device_ownership o
+     JOIN device d ON d.id = o.device_id
+     JOIN product p ON p.id = d.product_id
+     JOIN variant v ON v.id = d.variant_id
+    WHERE o.customer_id = $1 AND o.released_at IS NULL
+    ORDER BY o.claimed_at DESC`,
+  [customer.id]
+);
+const cards = [];
+for (const d of devices) {
+  const fw = await latestFirmwareForProduct(d.product_id);
+  const behind = !!(fw && d.firmware_version && compareVersions(fw.version, d.firmware_version) > 0);
+  const warrantyGone = d.warranty_until ? new Date(d.warranty_until + 'T00:00:00Z') < new Date() : false;
+  cards.push({ ...d, behind, neverConnected: !d.firmware_version, warrantyGone, latestVersion: fw ? fw.version : null });
+}
+---
+
+<Shell>
+  <h1 class="page-title">Cameras</h1>
+  <p class="muted">A serial is a record in its own right. Register one you own, release one you sell.</p>
+
+  <section class="register-row" aria-labelledby="register-h">
+    <h2 id="register-h">Register a camera</h2>
+    <form data-register-form>
+      <label class="field">
+        <span>Serial number</span>
+        <input class="mono" name="serial" placeholder="VA 2609 KT MHX4" autocomplete="off" data-serial-input aria-describedby="serial-help" />
+      </label>
+      <span id="serial-help" class="muted small">
+        Twelve characters, grouped as you type, stored unformatted.
+      </span>
+      <button class="btn btn-primary" type="submit">Register</button>
+    </form>
+    <p class="register-note" role="status" data-register-note></p>
+    <p class="register-error" role="alert" data-register-error></p>
+  </section>
+
+  <div class="grid grid-cards" data-camera-grid>
+    {cards.length === 0 ? (
+      <p class="empty" data-no-cameras>No cameras registered yet.</p>
+    ) : (
+      cards.map((d) => (
+        <article class="card cam-card" data-camera={d.serial}>
+          <h3><a href={`/account/cameras/${d.serial}`}>{d.model}</a></h3>
+          <p class="muted">{d.nickname || d.variant_title}</p>
+          <p class="mono serial">{d.serial}</p>
+          <p class="chips">
+            {d.behind && <span class="chip chip-progress">Update available</span>}
+            {d.neverConnected && <span class="chip chip-muted">Not yet connected</span>}
+            {!d.behind && !d.neverConnected && <span class="chip chip-finished">Up to date</span>}
+            <span class="chip chip-muted">{d.warrantyGone ? 'Warranty ended' : 'In warranty'}</span>
+          </p>
+          <form method="post" data-release-form data-serial={d.serial}>
+            <button class="link-remove" type="button" data-release>Remove from my account</button>
+          </form>
+        </article>
+      ))
+    )}
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/register-serial.js"></script>
+<script is:inline src="/scripts/cameras.js"></script>
+
+<style is:global>
+  .muted { color: var(--muted-light); }
+  .small { font-size: 13px; }
+  .register-row { border: var(--border) solid var(--line-light); border-radius: var(--radius); padding: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 6); display: grid; gap: calc(var(--unit) * 3); box-shadow: var(--shadow); }
+  .register-row h2 { font-size: 1rem; }
+  .register-row form { display: flex; flex-wrap: wrap; gap: calc(var(--unit) * 3); align-items: flex-end; }
+  .register-row .field { flex: 1 1 16rem; }
+  .register-note { color: var(--finished); min-height: 1.4rem; }
+  .register-error { color: var(--error); min-height: 1.4rem; }
+  .cam-card { display: grid; gap: calc(var(--unit) * 1.5); padding: calc(var(--unit) * 3); }
+  .cam-card h3 { font-size: 1rem; }
+  .cam-card h3 a { text-decoration: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--unit); }
+  .link-remove { background: none; border: 0; padding: 0; color: var(--muted-light); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
+</style>

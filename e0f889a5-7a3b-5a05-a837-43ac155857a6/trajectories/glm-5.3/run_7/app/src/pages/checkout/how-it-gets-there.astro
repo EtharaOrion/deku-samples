@@ -1,0 +1,85 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { ensureCart, cartPayload, SHIPPING_METHODS } from '../../lib/store.js';
+import { money } from '../../lib/view-helpers.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cart = token ? await ensureCart(token, null) : null;
+const payload = cart ? await cartPayload(cart) : null;
+if (!payload || payload.lines.length === 0) return Astro.redirect('/cart');
+const noneSelected = !payload.shipping_method;
+---
+
+<Shell>
+  <ol class="steps" aria-label="Checkout steps">
+    <li><a href="/checkout/where-it-goes">Where it goes</a></li>
+    <li aria-current="step">How it gets there</li>
+    <li>Payment</li>
+  </ol>
+
+  <div class="checkout-grid">
+    <form class="checkout-form" data-step-form data-method-step data-next="/checkout/payment">
+      <h1 class="page-title">How it gets there</h1>
+      <p class="step-note">No method is chosen until you choose one.</p>
+
+      <fieldset class="method-set">
+        <legend>Delivery method</legend>
+        <div class="methods" role="radiogroup" aria-label="Delivery method">
+          {SHIPPING_METHODS.map((m) => (
+            <label class={`method ${payload.shipping_method === m.code ? 'is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="shipping_method"
+                value={m.code}
+                checked={payload.shipping_method === m.code}
+                data-price={m.price_minor}
+              />
+              <span class="method-name">{m.title}</span>
+              <span class="method-window">{m.window}</span>
+              <span class="method-price money tnum">{m.price_minor === 0 ? 'Included' : money(m.price_minor)}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <p class="form-error" role="alert" data-form-error></p>
+      <div class="step-actions">
+        <a class="btn btn-quiet" href="/checkout/where-it-goes">Back</a>
+        <button class="btn btn-primary" type="submit">Continue to payment</button>
+      </div>
+    </form>
+
+    <aside class="cart-summary" aria-label="Summary">
+      <h2>Summary</h2>
+      {payload.lines.map((l) => (
+        <p class="sum-line"><span>{l.product_title} × {l.quantity}</span> <span class="money tnum">{money(l.line_total_minor)}</span></p>
+      ))}
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{money(payload.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="money tnum">{money(payload.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="money tnum">{money(payload.tax_minor)}</dd></div>
+        <div class="grand"><dt>Total</dt><dd class="money tnum">{money(payload.total_minor)}</dd></div>
+      </dl>
+      <p class="estimate-note">{noneSelected ? 'Choose a method to see the exact total.' : 'Exact for this address and method.'}</p>
+      <p class="address-read">
+        Going to {payload.shipping_address?.name}, {payload.shipping_address?.city}, {payload.shipping_address?.country}.
+        <a href="/checkout/where-it-goes">Change</a>
+      </p>
+    </aside>
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/checkout.js" data-next="/checkout/payment" data-method-step></script>
+
+<style is:global>
+  .method-set { border: 0; padding: 0; margin: 0 0 calc(var(--unit) * 6); }
+  .method-set legend { font-size: 14px; padding: 0 0 calc(var(--unit) * 2); }
+  .methods { display: grid; gap: var(--unit); max-width: 32rem; }
+  .method { display: grid; grid-template-columns: auto 1fr auto; gap: calc(var(--unit) * 3); align-items: baseline;
+            border: var(--border) solid var(--line-light); border-radius: var(--radius); padding: calc(var(--unit) * 3); cursor: pointer; }
+  .method.is-selected { border-color: var(--fg-light); box-shadow: var(--shadow); }
+  .method-name { font-weight: 700; }
+  .method-window { color: var(--muted-light); font-size: 14px; grid-column: 2; }
+  .method-price { font-variant-numeric: tabular-nums; }
+  .address-read { font-size: 14px; color: var(--muted-light); }
+</style>

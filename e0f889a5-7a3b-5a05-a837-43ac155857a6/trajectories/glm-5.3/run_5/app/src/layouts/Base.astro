@@ -1,0 +1,189 @@
+---
+import '../styles/global.css';
+import '@fontsource/space-grotesk/400.css';
+import '@fontsource/space-grotesk/700.css';
+
+export interface Props {
+  title?: string;
+  heading?: string;
+  active?: string;
+  customer?: { name: string; email: string } | null;
+  cartCount?: number;
+  bare?: boolean;
+}
+const { title = 'Vela', heading, active = '', customer = null, cartCount = 0, bare = false } = Astro.props;
+const rail = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+];
+if (customer) {
+  rail.push({ href: '/account', label: 'Overview', key: 'account' });
+  rail.push({ href: '/account/orders', label: 'Orders', key: 'orders' });
+  rail.push({ href: '/account/cameras', label: 'Cameras', key: 'cameras' });
+}
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="/favicon.png" sizes="any" />
+  </head>
+  <body class:list={[bare ? 'surface-dark' : 'surface-light', 'layout-shell']}>
+    <a class="skip-link" href="#main">Skip to content</a>
+    {bare ? (
+      <slot />
+    ) : (
+      <div class="frame">
+        <nav class="rail" aria-label="Main">
+          <a class="rail__wordmark" href="/">Vela</a>
+          <ul class="rail__list">
+            {rail.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  aria-current={active === item.key ? 'page' : undefined}
+                  class:list={['rail__link', { 'is-current': active === item.key }]}
+                >
+                  <span class="rail__marker" aria-hidden="true"></span>
+                  <span>{item.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div class="rail__foot">
+            {customer ? (
+              <form method="post" action="/sign-out">
+                <span class="rail__who">{customer.name}</span>
+                <button class="btn btn--quiet rail__signout" type="submit">Sign out</button>
+              </form>
+            ) : (
+              <a class="rail__link" href="/sign-in"><span class="rail__marker" aria-hidden="true"></span><span>Sign in</span></a>
+            )}
+          </div>
+        </nav>
+
+        <div class="column">
+          <header class="bar">
+            <details class="rail-toggle">
+              <summary aria-label="Open navigation">Menu</summary>
+              <ul class="rail-toggle__list">
+                {rail.map((item) => (
+                  <li><a href={item.href} aria-current={active === item.key ? 'page' : undefined}>{item.label}</a></li>
+                ))}
+                <li><a href={customer ? '/account' : '/sign-in'}>{customer ? 'Overview' : 'Sign in'}</a></li>
+              </ul>
+            </details>
+            <a class="bar__wordmark" href="/">Vela</a>
+            <a class="bar__cart" href="/cart" data-cart-control>
+              <span class="bar__cart-label">Cart</span>
+              {cartCount > 0 && <span class="bar__badge" data-cart-badge>{badge}</span>}
+              <span class="visually-hidden">{cartCount === 0 ? 'Cart, empty' : `Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}</span>
+            </a>
+          </header>
+          <main id="main" tabindex="-1">
+            {heading && <h1 class="page-title">{heading}</h1>}
+            <slot />
+          </main>
+        </div>
+      </div>
+    )}
+  </body>
+</html>
+
+<style>
+  .frame { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
+  .rail { display: none; }
+  .column { min-width: 0; }
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--space) * 4);
+    height: var(--header-h);
+    padding: 0 var(--gutter);
+    background: var(--ground-light);
+    border-bottom: var(--border-w) solid var(--ink-on-light-muted);
+  }
+  .bar__wordmark {
+    font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em;
+    text-decoration: none; flex: 1;
+  }
+  .bar__cart {
+    display: inline-flex; align-items: center; gap: var(--space);
+    border: var(--border-w) solid var(--ink-on-light);
+    border-radius: var(--radius);
+    padding: calc(var(--space) * 2) calc(var(--space) * 3);
+    text-decoration: none; font-weight: 700;
+  }
+  .bar__cart-label { font-weight: 400; }
+  .bar__badge {
+    font-variant-numeric: tabular-nums;
+    border-radius: 999px;
+    background: var(--ink-on-light);
+    color: var(--ground-light);
+    padding: 0 calc(var(--space) * 1.5);
+    font-size: 13px; line-height: 20px;
+  }
+  .rail-toggle { position: relative; }
+  .rail-toggle summary {
+    list-style: none; cursor: pointer;
+    border: var(--border-w) solid var(--ink-on-light);
+    border-radius: var(--radius);
+    padding: calc(var(--space) * 2) calc(var(--space) * 3);
+    font-weight: 700;
+  }
+  .rail-toggle summary::-webkit-details-marker { display: none; }
+  .rail-toggle__list {
+    position: absolute; left: 0; top: calc(100% + var(--space));
+    margin: 0; padding: calc(var(--space) * 2); list-style: none;
+    background: var(--ground-light-raised);
+    border: var(--border-w) solid var(--ink-on-light-muted);
+    border-radius: var(--radius);
+    box-shadow: var(--elevation);
+    min-width: 220px; z-index: 30;
+  }
+  .rail-toggle__list a { display: block; padding: calc(var(--space) * 2); text-decoration: none; }
+  .page-title {
+    font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.01em;
+    margin: calc(var(--space) * 6) 0 calc(var(--space) * 4);
+  }
+  @media (min-width: 64rem) {
+    .frame { grid-template-columns: var(--rail-w) 1fr; }
+    .rail {
+      display: flex; flex-direction: column; gap: calc(var(--space) * 6);
+      position: sticky; top: 0; height: 100vh;
+      padding: calc(var(--space) * 6) calc(var(--space) * 4);
+      border-right: var(--border-w) solid var(--ink-on-light-muted);
+    }
+    .rail__wordmark {
+      font-size: 24px; line-height: 32px; font-weight: 700;
+      text-decoration: none; letter-spacing: -0.01em;
+    }
+    .rail__list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 1); }
+    .rail__link {
+      display: flex; align-items: center; gap: var(--space);
+      padding: calc(var(--space) * 2); border-radius: var(--radius);
+      text-decoration: none;
+      transition: background-color var(--transition-ms) linear;
+    }
+    .rail__link:hover { background: var(--ground-light-raised); }
+    .rail__link.is-current { font-weight: 700; }
+    .rail__marker {
+      width: 6px; height: 6px; border-radius: 999px; background: transparent; display: inline-block;
+    }
+    .rail__link.is-current .rail__marker { background: currentColor; }
+    .rail__foot { margin-top: auto; font-size: 14px; line-height: 21px; }
+    .rail__who { display: block; color: var(--ink-on-light-muted); }
+    .rail-toggle { display: none; }
+  }
+  @media (max-width: 63.99rem) {
+    .rail { display: none; }
+  }
+</style>

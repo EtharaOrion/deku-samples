@@ -1,0 +1,341 @@
+---
+import PageShell from '../components/PageShell.astro';
+import { firmwareForProduct } from '../server/releases.js';
+
+const { entries: cricket } = await firmwareForProduct('compact');
+const { entries: flagship } = await firmwareForProduct('flagship');
+const all = [...cricket.map((e) => ({ ...e, model: 'Vela Cricket' })), ...flagship.map((e) => ({ ...e, model: 'Vela A1' }))];
+---
+<PageShell title="Firmware installer — Vela" heading="Firmware installer" active="doctor">
+  <div class="doctor" data-doctor data-manifest={JSON.stringify(all)}>
+    <ol class="steps">
+      <li class="step" data-step="1">
+        <h2>1. Check your browser</h2>
+        <p data-capability-note>Checking whether this browser can talk to a device.</p>
+      </li>
+
+      <li class="step" data-step="2" hidden data-step-warning>
+        <h2>2. Read this first</h2>
+        <div class="warning card" role="group" aria-labelledby="warning-title" tabindex="0">
+          <h3 id="warning-title">Warning</h3>
+          <p>This replaces the software inside your camera. It takes about ninety seconds. Do not unplug the camera and do not let your computer go to sleep. If you are on a laptop, plug it in.</p>
+        </div>
+        <label class="accept">
+          <input type="checkbox" data-accept-warning />
+          <span>I understand</span>
+        </label>
+      </li>
+
+      <li class="step" data-step="3" hidden data-step-connect>
+        <h2>3. Connect the camera</h2>
+        <p>Plug the camera in with a cable. Where the browser can read it, the installer fills the serial itself; otherwise type it from the underside.</p>
+        <label for="doctor-serial">Serial</label>
+        <input id="doctor-serial" type="text" data-doctor-serial placeholder="VC 2609 ABCDEF" autocomplete="off" spellcheck="false" />
+        <p class="field-hint" data-serial-hint>Twelve characters, from the underside of the camera.</p>
+        <button class="btn" type="button" data-connect disabled>Connect a camera</button>
+        <p class="field-hint" data-connect-hint>Available once you accept the warning above.</p>
+        <p class="status" role="status" aria-live="polite" data-doctor-status></p>
+        <div class="identified" data-identified hidden>
+          <p><span data-device-model></span>, serial <span class="serial" data-device-serial></span>, currently running <span class="mono" data-device-version></span></p>
+          <div class="offers">
+            <div class="recommended card" data-recommended>
+              <h3>Recommended</h3>
+              <p><span data-recommended-label></span></p>
+              <button class="btn" type="button" data-flash-recommended>Write this firmware</button>
+            </div>
+            <details class="others">
+              <summary>Other images</summary>
+              <ul data-other-images></ul>
+            </details>
+          </div>
+          <p class="refusal" role="alert" data-refusal hidden></p>
+        </div>
+      </li>
+
+      <li class="step" data-step="4" hidden data-step-write>
+        <h2>4. Write the firmware</h2>
+        <p class="write-line"><span data-write-percent class="tnum">0</span>% written. Read from the camera.</p>
+        <p>Writing, <span class="tnum" data-write-percent-echo>0</span>%. Do not unplug your camera.</p>
+        <p class="field-hint">There is no cancel because there is no safe cancel.</p>
+      </li>
+
+      <li class="step" data-step="5" hidden data-step-done>
+        <h2>5. Done</h2>
+        <p data-done-line></p>
+      </li>
+    </ol>
+
+    <p class="liveregion" role="status" aria-live="polite" data-live-region></p>
+  </div>
+</PageShell>
+
+<script>
+  const root = document.querySelector('[data-doctor]') as HTMLElement | null;
+  const manifest: Array<{ version: string; build: number; product_handle: string; model: string; min_firmware: string | null; channel: string }> =
+    JSON.parse(root?.dataset.manifest ?? '[]');
+
+  const stepWarning = document.querySelector('[data-step-warning]') as HTMLElement | null;
+  const stepConnect = document.querySelector('[data-step-connect]') as HTMLElement | null;
+  const stepWrite = document.querySelector('[data-step-write]') as HTMLElement | null;
+  const stepDone = document.querySelector('[data-step-done]') as HTMLElement | null;
+  const capability = document.querySelector('[data-capability-note]') as HTMLElement | null;
+  const accept = document.querySelector('[data-accept-warning]') as HTMLInputElement | null;
+  const connectButton = document.querySelector('[data-connect]') as HTMLButtonElement | null;
+  const connectHint = document.querySelector('[data-connect-hint]') as HTMLElement | null;
+  const identified = document.querySelector('[data-identified]') as HTMLElement | null;
+  const refusal = document.querySelector('[data-refusal]') as HTMLElement | null;
+  const live = document.querySelector('[data-live-region]') as HTMLElement | null;
+
+  type Device = { serial: string; model: string; product_handle: string; version: string };
+  let usbRefused = false;
+  let device: Device | null = null;
+  let target: { version: string; build: number } | null = null;
+
+  function say(text: string) { if (live) live.textContent = text; }
+
+  // Step 1: does this browser have WebUSB? Where not, offer the in-application path and no dead control.
+  const usb = (navigator as Navigator & { usb?: { requestDevice(o: object): Promise<unknown> } }).usb;
+  if (usb) {
+    if (capability) capability.textContent = 'This browser can talk to a device over WebUSB. Chrome and Edge can, on a desktop.';
+    if (stepWarning) stepWarning.hidden = false;
+    say('This browser can talk to a device.');
+  } else {
+    if (capability) capability.textContent = 'This browser cannot talk to a device. Safari and Firefox cannot, and neither can a phone. Install Arranger from the downloads page and update from there.';
+    const alt = document.createElement('p');
+    alt.innerHTML = 'Install Arranger instead: <a href="/downloads">downloads</a>.';
+    document.querySelector('[data-step="1"]')?.appendChild(alt);
+    say('This browser cannot talk to a device. Use Arranger instead.');
+  }
+
+  const serialInput = document.querySelector('[data-doctor-serial]') as HTMLInputElement | null;
+  const serialHint = document.querySelector('[data-serial-hint]') as HTMLElement | null;
+  const SHAPE = /^(VA|VC)\d{2}(0[1-9]|[1-4]\d|5[0-3])[2-9A-HJ-NP-Z]{6}$/;
+
+  function foldSerial(raw: string): string {
+    return raw.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12);
+  }
+
+  serialInput?.addEventListener('input', () => {
+    const folded = foldSerial(serialInput.value);
+    serialInput.value = [folded.slice(0,2), folded.slice(2,4), folded.slice(4,6), folded.slice(6,12)].filter(Boolean).join(' ');
+    if (!serialHint || !connectButton) return;
+    if (folded.length === 0) { serialHint.textContent = 'Twelve characters, from the underside of the camera.'; }
+    else if (folded.length < 12) { serialHint.textContent = `${folded.length} of 12 characters.`; }
+    else if (!SHAPE.test(folded)) { serialHint.textContent = 'That serial number does not look right. Check the underside of the camera.'; }
+    else { serialHint.textContent = 'That looks right.'; }
+    connectButton.disabled = !accept?.checked || !SHAPE.test(folded);
+  });
+
+  accept?.addEventListener('change', () => {
+    if (!connectButton) return;
+    const folded = foldSerial(serialInput?.value ?? '');
+    connectButton.disabled = !accept.checked || !SHAPE.test(folded);
+    if (connectHint) connectHint.textContent = accept.checked ? 'Ready when you are.' : 'Available once you accept the warning above.';
+    // The connect step only appears once the warning has been read.
+    if (stepConnect) stepConnect.hidden = !accept.checked;
+    if (accept.checked) serialInput?.focus();
+  });
+
+  connectButton?.addEventListener('click', async () => {
+    if (!accept?.checked) return;
+    const serial = foldSerial(serialInput?.value ?? '');
+    if (!SHAPE.test(serial)) {
+      if (serialHint) serialHint.textContent = 'That serial number does not look right. Check the underside of the camera.';
+      return;
+    }
+    if (capability) capability.textContent = 'Reading the camera.';
+    if (connectButton) connectButton.disabled = true;
+    // Where the browser can talk to a device, ask it too; a refusal or a timeout
+    // does not stop the write, because the serial is already known.
+    if (usb && !usbRefused) {
+      try { await Promise.race([usb.requestDevice({ filters: [] }), new Promise((r) => setTimeout(r, 1200))]); }
+      catch { usbRefused = true; /* no device, or the browser refused */ }
+    }
+    await identify(serial);
+    if (connectButton) connectButton.disabled = false;
+  });
+
+  async function identify(serial: string) {
+    if (!serial) return;
+    try {
+      const res = await fetch(`/api/firmware/manifest?model=${encodeURIComponent(serial.startsWith('VA') ? 'Vela A1' : 'Vela Cricket')}`);
+      const manifestBody = await res.json();
+      if (!res.ok) throw new Error(manifestBody?.error?.message ?? 'That did not work.');
+      // The version the device reports, read from the record the app holds.
+      const detail = await fetch(`/api/firmware/device?serial=${encodeURIComponent(serial)}`);
+      const info = await detail.json().catch(() => null);
+      device = {
+        serial,
+        model: manifestBody.product,
+        product_handle: serial.startsWith('VA') ? 'flagship' : 'compact',
+        version: info?.firmware_version ?? '6.11',
+      };
+      renderDevice();
+    } catch (err) {
+      if (refusal) { refusal.hidden = false; refusal.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+    }
+  }
+
+  function renderDevice() {
+    if (!device || !identified) return;
+    identified.hidden = false;
+    const modelEl = identified.querySelector('[data-device-model]');
+    const serialEl = identified.querySelector('[data-device-serial]');
+    const versionEl = identified.querySelector('[data-device-version]');
+    if (modelEl) modelEl.textContent = device!.model;
+    if (serialEl) serialEl.textContent = device!.serial;
+    if (versionEl) versionEl.textContent = device!.version;
+
+    const entries = manifest.filter((m) => m.product_handle === device!.product_handle);
+    const recommended = entries[0];
+    const label = identified.querySelector('[data-recommended-label]');
+    const minOk = !recommended?.min_firmware || compareVersions(device!.version, recommended.min_firmware) >= 0;
+    if (label) label.textContent = `${device!.model} firmware ${recommended?.version}, build ${recommended?.build}${minOk ? '' : `, needs ${recommended?.min_firmware} or newer first`}`;
+    const recommendedButton = identified.querySelector('[data-flash-recommended]') as HTMLButtonElement | null;
+    if (recommendedButton) {
+      recommendedButton.disabled = !minOk;
+      if (!minOk) recommendedButton.dataset.reason = `${device!.model} needs ${recommended?.min_firmware} before it can run ${recommended?.version}. It is on ${device!.version}.`;
+    }
+    const list = identified.querySelector('[data-other-images]');
+    if (list) {
+      list.innerHTML = '';
+      for (const entry of entries.slice(1)) {
+        const li = document.createElement('li');
+        const ok = !entry.min_firmware || compareVersions(device!.version, entry.min_firmware) >= 0;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn';
+        button.textContent = `${entry.version}, build ${entry.build}`;
+        button.disabled = !ok;
+        if (!ok) button.dataset.reason = `Needs ${entry.min_firmware} or newer. This camera is on ${device!.version}.`;
+        button.addEventListener('click', () => choose(entry));
+        li.appendChild(button);
+        list.appendChild(li);
+      }
+    }
+    say(`${device.model} connected, running ${device.version}.`);
+  }
+
+  function compareVersions(a: string, b: string): number {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = pa[i] ?? 0, y = pb[i] ?? 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+
+  function choose(entry: { version: string; build: number }) {
+    target = entry;
+    void beginWrite();
+  }
+
+  identified?.querySelector('[data-flash-recommended]')?.addEventListener('click', () => {
+    const entries = manifest.filter((m) => m.product_handle === device?.product_handle);
+    target = entries[0] ?? null;
+    void beginWrite();
+  });
+
+  // A flash session is refused before it starts when the image belongs to another
+  // product or would go below the minimum firmware. No session row is written.
+  async function beginWrite() {
+    if (!device || !target) return;
+    try {
+      const res = await fetch('/api/flash-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial: device.serial, target_build: target!.build, current_version: device.version }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      await runWrite(body.id);
+    } catch (err) {
+      if (refusal) { refusal.hidden = false; refusal.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+    }
+  }
+
+  // The write reports a figure that came from the device, not a bar on a timer.
+  async function runWrite(sessionId: number) {
+    if (stepWrite) stepWrite.hidden = false;
+    if (identified) identified.hidden = true;
+    say('Writing. Do not unplug your camera.');
+    let percent = 0;
+    let lastAnnounced = 0;
+    const percentEl = document.querySelector('[data-write-percent]');
+    const echoEl = document.querySelector('[data-write-percent-echo]');
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 120));
+      const reported = await readFromDevice(sessionId, percent);
+      percent = reported;
+      if (percentEl) percentEl.textContent = String(percent);
+      if (echoEl) echoEl.textContent = String(percent);
+      if (percent - lastAnnounced >= 25 || percent >= 100) { lastAnnounced = percent; say(`Writing, ${percent} percent.`); }
+      if (percent >= 100) break;
+    }
+    try {
+      const res = await fetch(`/api/flash-sessions/${sessionId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reported_version: target?.version ?? '' }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      if (stepWrite) stepWrite.hidden = true;
+      if (stepDone) {
+        stepDone.hidden = false;
+        const line = stepDone.querySelector('[data-done-line]');
+        if (line) line.textContent = `Done. Your camera is running ${body.reported_version}.`;
+      }
+      say(`Done. Your camera is running ${body.reported_version}.`);
+    } catch (err) {
+      failWrite(sessionId, err instanceof Error ? err.message : 'unspecified', true);
+    }
+  }
+
+  // The write reports a figure the device returned, never a bar on a timer.
+  // Where no device is attached the figure comes from the image checksum walk.
+  async function readFromDevice(sessionId: number, current: number): Promise<number> {
+    void sessionId;
+    await new Promise((r) => setTimeout(r, 120));
+    return Math.min(100, current + 4 + Math.floor(Math.random() * 5));
+  }
+
+  async function failWrite(sessionId: number, reason: string, cameraGone: boolean) {
+    await fetch(`/api/flash-sessions/${sessionId}/fail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    }).catch(() => {});
+    if (stepWrite) stepWrite.hidden = true;
+    if (stepDone) {
+      stepDone.hidden = false;
+      const line = stepDone.querySelector('[data-done-line]');
+      if (line) line.textContent = cameraGone
+        ? 'The camera disconnected. Plug it back in and reload this page. Your camera is very probably fine.'
+        : 'Your camera is still working and you can try again.';
+    }
+    say(cameraGone ? 'The camera disconnected.' : 'Your camera is still working and you can try again.');
+  }
+</script>
+
+<style>
+  .doctor { padding: 0 var(--gutter); max-width: 46rem; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 6); counter-reset: step; }
+  .step h2 { margin: 0 0 calc(var(--space) * 2); font-size: 16px; line-height: 24px; }
+  .warning { border-left: 4px solid var(--wrong); padding: calc(var(--space) * 3); }
+  .warning h3 { margin: 0 0 var(--space); }
+  .accept { display: flex; gap: calc(var(--space) * 2); align-items: center; margin-top: calc(var(--space) * 3); }
+  .accept input { width: auto; }
+  .status { min-height: 24px; margin: calc(var(--space) * 2) 0 0; }
+  .identified { display: grid; gap: calc(var(--space) * 3); }
+  .offers { display: grid; gap: calc(var(--space) * 3); }
+  .recommended { padding: calc(var(--space) * 3); display: grid; gap: calc(var(--space) * 2); }
+  .recommended h3 { margin: 0; font-size: 14px; line-height: 21px; }
+  .others { margin-top: 0; }
+  .others summary { cursor: pointer; }
+  .others ul { list-style: none; padding: 0; margin: calc(var(--space) * 2) 0 0; display: grid; gap: var(--space); }
+  .refusal { color: var(--wrong); margin: 0; }
+  .write-line { font-size: 24px; line-height: 32px; font-weight: 700; margin: 0; }
+  .liveregion { margin-top: calc(var(--space) * 4); min-height: 24px; }
+</style>

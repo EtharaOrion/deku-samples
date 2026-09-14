@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="entry" id="entry"
+     x-data="entryRoute({{ works | length }})"
+     x-init="start()"
+     :class="{ 'is-done': done }">
+  <div class="entry-veil" :style="`opacity:${done ? 0 : 1 - progress}`"></div>
+  <div class="entry-cluster" aria-hidden="{{ 'false' if true else 'true' }}">
+    {% set authored = [
+      (17, 15, 190, 1.0), (62, 8, 150, 1.0), (55, 46, 230, 1.0), (80, 30, 170, 1.0),
+      (44, 63, 205, 1.0), (20, 52, 160, 1.0), (70, 62, 250, 1.0), (30, 28, 180, 1.0),
+      (60, 70, 300, 1.0), (12, 34, 155, 1.0), (72, 12, 210, 1.0), (38, 78, 330, 1.0),
+      (52, 20, 175, 1.0), (66, 44, 195, 1.0), (28, 68, 220, 1.0), (8, 68, 185, 1.0),
+      (86, 52, 165, 1.0), (34, 12, 150, 1.0), (48, 36, 260, 1.0), (76, 26, 240, 1.0)
+    ] %}
+    {% for item in works %}
+    {% set a = authored[loop.index0 % authored | length] %}
+    <a class="entry-still"
+       style="left: {{ a[0] }}%; top: {{ a[1] }}%; width: {{ a[2] }}px; z-index: {{ 20 - (loop.index0 % 12) }};"
+       href="/works/{{ item.slug }}" data-cursor="{{ item.title }}">
+      {% if item.poster %}
+      <img src="/api/media/{{ item.poster.id }}" alt="{{ item.poster.alt }}" width="{{ item.poster.width }}" height="{{ item.poster.height }}" loading="eager" decoding="async">
+      {% endif %}
+      <span class="entry-caption">{{ item.title }} · {{ item.ordinal }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <div class="entry-count" x-ref="count" aria-hidden="true"><span x-text="count">0%</span></div>
+</div>
+{% endblock %}

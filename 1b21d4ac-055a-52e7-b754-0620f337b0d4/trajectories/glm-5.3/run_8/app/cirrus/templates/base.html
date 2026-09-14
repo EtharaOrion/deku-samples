@@ -1,0 +1,114 @@
+{%- import "_macros.html" as m -%}
+<!doctype html>
+<html lang="en" data-ground="light" class="js">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or 'Cirrus' }}</title>
+  <meta name="description" content="A production house for picture and its makers.">
+  <meta property="og:title" content="{{ title or 'Cirrus' }}">
+  <meta property="og:description" content="A production house for picture and its makers.">
+  <meta property="og:image" content="{{ request.host_url }}share-image">
+  <meta name="twitter:card" content="summary_large_image">
+  {% if noindex %}<meta name="robots" content="noindex, nofollow">{% endif %}
+  <link rel="preload" href="{{ url_for('static', filename='fonts/CirrusDisplay.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/CirrusText.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+  <link rel="icon" href="data:image/svg+xml,{{ ('<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 41 18%22><ellipse cx=%2220.5%22 cy=%229%22 rx=%2219.75%22 ry=%228.25%22 fill=%22none%22 stroke=%22%23060403%22 stroke-width=%221.5%22/></svg>') | e }}">
+  <script>
+    document.documentElement.classList.add('js');
+    window.CIRRUS = {
+      route: {{ (route or 'entry') | tojson }},
+      ground: {{ (ground or ('dark' if route == 'entry' else 'light')) | tojson }},
+      mail: {{ (house.contact_email if house else 'prod@example.com') | tojson }}
+    };
+  </script>
+</head>
+<body data-route="{{ route or 'entry' }}"{% if preview %} class="is-preview"{% endif %}>
+  <a class="skip" href="#content">Skip to content</a>
+
+  <div class="frame" id="frame" aria-hidden="false">
+    <a class="wordmark opt" href="/" aria-label="Cirrus, home" data-nosplit>cirrus</a>
+
+    <nav class="nav" aria-label="Main">
+      <span class="nav-item nav-item--works{% if route in ('works', 'work') %} is-active{% endif %}">
+        <a href="/works" data-cursor="WORKS" aria-label="WORKS" {% if route in ('works','work') %}aria-current="page"{% endif %}>{{ m.split_label('WORKS') }}</a>
+      </span>
+      <a class="nav-item nav-item--contact" href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         data-cursor="CONTACT" data-contact aria-label="CONTACT">{{ m.split_label('CONTACT') }}</a>
+      <a class="nav-item{% if route in ('talents', 'talent') %} is-active{% endif %}" href="/talents"
+         data-cursor="TALENTS" aria-label="TALENTS" {% if route in ('talents','talent') %}aria-current="page"{% endif %}>{{ m.split_label('TALENTS') }}</a>
+      <a class="nav-item{% if route == 'about' %} is-active{% endif %}" href="/about"
+         data-cursor="ABOUT" aria-label="ABOUT" {% if route == 'about' %}aria-current="page"{% endif %}>{{ m.split_label('ABOUT') }}</a>
+    </nav>
+
+    <div class="mark-slot" data-mark="{{ route or 'entry' }}">
+      {% if route in ('works', 'work') %}{{ m.mark_works() }}
+      {% elif route in ('talents', 'talent') %}{{ m.mark_roster() }}
+      {% elif route == 'about' %}{{ m.mark_about() }}
+      {% else %}{{ m.mark_entry() }}{% endif %}
+    </div>
+
+    <a class="corner-credit opt" href="https://aube.studio" target="_blank" rel="noopener noreferrer"
+       aria-label="Site by Aube, opens in a new tab">
+      <span class="credit-word">Site by Aube</span>
+      <span class="arrows" aria-hidden="true">
+        <svg class="arrow arrow--rest" viewBox="0 0 7 7" width="8" height="8"><path d="M0 7V0h7L0 7Z" fill="currentColor"/></svg>
+        <svg class="arrow arrow--arrived" viewBox="0 0 7 7" width="8" height="8"><path d="M0 7V0h7L0 7Z" fill="currentColor"/></svg>
+      </span>
+    </a>
+
+    <div class="cursor-pair" id="cursorPair" aria-hidden="true">
+      <span class="cursor-square" data-cursor-square></span>
+      <span class="cursor-label" data-cursor-label></span>
+    </div>
+  </div>
+
+  <div class="counter" id="counterWell" data-counter hidden>
+    <span class="counter-value">0%</span>
+  </div>
+
+  <div class="overlay" id="contactOverlay" role="dialog" aria-modal="true" aria-label="Contact" data-overlay hidden>
+    <button class="btn btn--ghost overlay-close" data-overlay-close>Close</button>
+    <div class="overlay-items">
+      <p class="overlay-label footer-label">Write to the house</p>
+      <a class="mail" href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+         aria-label="{{ house.contact_email if house else 'prod@example.com' }}">{{ house.contact_email if house else 'prod@example.com' }}</a>
+    </div>
+  </div>
+
+  <main id="content" class="well" data-well>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer" id="footer" data-footer>
+    <div class="footer-scrim" aria-hidden="true"></div>
+    <div class="footer-cols">
+      <div class="footer-col footer-col--premises">
+        <span class="footer-label">9 passage Bellevue</span>
+        <span>Paris</span>
+        <span class="num footer-label">11</span>
+      </div>
+      <div class="footer-col">
+        <span class="footer-label">For picture</span>
+        <span>and its makers</span>
+      </div>
+      <div class="footer-col">
+        <span class="footer-label">Work with us</span>
+        <a href="mailto:{{ house.contact_email if house else 'prod@example.com' }}"
+           aria-label="{{ house.contact_email if house else 'prod@example.com' }}">{{ m.split_label(house.contact_email.upper() if house else 'PROD@EXAMPLE.COM') }}</a>
+      </div>
+      <div class="footer-col footer-col--right">
+        <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+
+  <div class="loading-veil" id="loadingVeil" aria-hidden="true"></div>
+
+  <script defer src="{{ url_for('static', filename='js/site.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
+</body>
+</html>

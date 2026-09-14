@@ -1,0 +1,39 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { listOrdersForCustomer } from '../../../lib/orders.js';
+import { money, formatDate } from '../../../lib/format.js';
+
+const customer = Astro.locals.customer;
+if (!customer) return Astro.redirect('/sign-in?next=/account/orders');
+
+const page = await listOrdersForCustomer(customer.id, 100, null);
+const orders = page.data;
+
+function chipFor(o) {
+  if (o.status === 'cancelled') return { label: 'Cancelled', cls: 'chip-wrong' };
+  if (o.fulfilment_status === 'fulfilled') return { label: 'Delivered', cls: 'chip-finished' };
+  if (o.payment_status === 'invoiced') return { label: 'Paid and packing', cls: 'chip-progress' };
+  return { label: 'Confirmed', cls: 'chip-progress' };
+}
+---
+
+<Shell title="Orders — Vela" current="orders" customer={{ name: customer.name, email: customer.email }}>
+  <h1>Orders</h1>
+  {orders.length === 0 ? (
+    <p class="empty">No orders yet.</p>
+  ) : (
+    <ul class="order-list">
+      {orders.map((o) => {
+        const chip = chipFor(o);
+        return (
+          <li>
+            <a class="mono" href={`/account/orders/${o.number}`}>{o.number}</a>
+            <span>{formatDate(o.placed_at)}</span>
+            <span class="tnum">{money(o.total_minor)}</span>
+            <span class={`chip ${chip.cls}`}>{chip.label}</span>
+          </li>
+        );
+      })}
+    </ul>
+  )}
+</Shell>

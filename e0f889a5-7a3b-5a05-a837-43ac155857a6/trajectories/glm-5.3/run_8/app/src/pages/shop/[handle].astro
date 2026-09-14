@@ -1,0 +1,104 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import BuyBox from '@components/BuyBox.jsx';
+
+const { handle } = Astro.params;
+const product = await one(
+  `SELECT * FROM product WHERE handle = $1 AND kind <> 'protection'`, [handle]
+);
+if (!product) return Astro.redirect('/404');
+const variants = await q(
+  `SELECT v.id, v.sku, v.title, v.option_value, v.price_minor, v.inventory_policy,
+          COALESCE(il.available, 0) AS available, COALESCE(il.committed, 0) AS committed
+   FROM variant v LEFT JOIN inventory_level il ON il.variant_id = v.id
+   WHERE v.product_id = $1 ORDER BY v.position, v.id`, [product.id]
+);
+const blocks = await q('SELECT kind, payload FROM product_block WHERE product_id = $1 ORDER BY position', [product.id]);
+
+const url = Astro.url;
+let selected = variants.find((v) => v.sku === url.searchParams.get('variant')) || variants[0] || null;
+const badVariant = url.searchParams.get('variant') && !variants.some((v) => v.sku === url.searchParams.get('variant'));
+
+const supportNote = blocks.find((b) => b.kind === 'support_note')?.payload?.text
+  || (product.support_until ? `We no longer sell this. We will support it until ${new Date(product.support_until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` : '');
+
+const state = (() => {
+  if (product.status === 'discontinued') return 'discontinued';
+  if (!selected) return 'sold_out';
+  if (selected.inventory_policy === 'deny' && selected.available < 1) return 'sold_out';
+  return 'available';
+})();
+const onlyLeft = state === 'available' && selected && selected.available < 11 ? selected.available : null;
+
+const gallery = [0, 1, 2].map((i) => ({ i, label: i === 0 ? 'Front' : i === 1 ? 'Back' : 'Top' }));
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+---
+<App title={product.title}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/shop">Shop</a> / <span>{product.title}</span></nav>
+  <div class="product">
+    <section class="gallery" aria-label="Product views">
+      {gallery.map((g, idx) => (
+        <div class:list={['shot', { active: idx === 0 }]} data-shot={g.i} tabindex={idx === 0 ? '0' : '-1'} role="group" aria-label={`View: ${g.label}`}></div>
+      ))}
+    </section>
+    <section class="detail">
+      <h1>{product.title}</h1>
+      <p class="muted">{product.subtitle}</p>
+      <p class="price tnum">{selected ? fmt(selected.price_minor) : ''}</p>
+      {onlyLeft ? <p class="muted">Only {onlyLeft} left</p> : null}
+      {state === 'sold_out' ? <p><span class="chip chip-err">Sold out</span></p> : null}
+      {state === 'discontinued' ? <p class="notice">{supportNote}</p> : null}
+      {state === 'sold_out' ? <p class="muted small">Sold out means the button is off until stock returns.</p> : null}
+      <BuyBox client:load
+        handle={product.handle}
+        title={product.title}
+        variants={variants.map((v) => ({ sku: v.sku, title: v.title, option_value: v.option_value, price_minor: v.price_minor, available: v.available, inventory_policy: v.inventory_policy }))}
+        selectedSku={selected?.sku ?? ''}
+        state={state}
+        badVariant={!!badVariant}
+      />
+      <div class="blocks">
+        {blocks.filter((b) => b.kind === 'lede').map((b) => <p class="lede">{b.payload.text}</p>)}
+        {blocks.filter((b) => b.kind === 'spec_group').map((b) => (
+          <div>
+            <h2>{b.payload.title}</h2>
+            <table class="spec">
+              <tbody>
+                {b.payload.rows.map(([k, v]) => <tr><th scope="row">{k}</th><td class={/\d/.test(v) ? 'num mono' : ''}>{v}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        ))}
+        {blocks.filter((b) => b.kind === 'in_the_box').map((b) => (
+          <div>
+            <h2>In the box</h2>
+            <ul>{b.payload.items.map((i) => <li>{i}</li>)}</ul>
+          </div>
+        ))}
+        {blocks.filter((b) => b.kind === 'compatibility').map((b) => (
+          <div>
+            <h2>Compatibility</h2>
+            <p>Requires {b.payload.os}. Works with {b.payload.app}.</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+</App>
+<style>
+.crumbs { margin-bottom: calc(var(--unit) * 2); font-size: 0.875rem; }
+.product { display: grid; grid-template-columns: 1.1fr 1fr; gap: calc(var(--unit) * 5); }
+.gallery { display: grid; gap: var(--unit); }
+.shot {
+  border: var(--border) solid var(--line); border-radius: 0; aspect-ratio: 4 / 3;
+  background: linear-gradient(160deg, #e7e3da, #c9c3b6);
+}
+.shot[data-shot="1"] { background: linear-gradient(200deg, #ded9cf, #b9b2a4); }
+.shot[data-shot="2"] { background: linear-gradient(120deg, #e7e3da, #d1cabe); }
+.price { font-size: 1.5rem; font-weight: 700; }
+.lede { font-size: 1.125rem; }
+.blocks { margin-top: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 4); }
+.blocks h2 { font-size: 1rem; }
+@media (max-width: 64rem) { .product { grid-template-columns: 1fr; } }
+</style>

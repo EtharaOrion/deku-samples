@@ -1,0 +1,153 @@
+---
+import { LETTER } from '../server/data/letter.ts';
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>the table — Vela</title>
+      </head>
+  <body class="surface-dark letter-page">
+    <a class="skip-link" href="#letter">Skip to the letter</a>
+
+    <a class="wordmark" href="/" aria-label="Vela home">vela</a>
+
+    <div class="stage" aria-hidden="true" data-stage>
+            <div class="still" data-still style="background-image:url('/film/still.svg')"></div>
+      <div class="speckle" data-speckle></div>
+      <div class="darken" data-darken></div>
+      <div class="flat" data-flat></div>
+    </div>
+
+    <main id="letter" class="letter">
+      <h1 class="letter-title">{LETTER.title}</h1>
+      <p class="dateline">{LETTER.dateline}</p>
+      <div class="letter-flow" data-letter-flow>
+        {LETTER.paragraphs.map((p, i) => <p class="para" data-para-index={i}>{p}</p>)}
+        <p class="closing">{LETTER.closing}</p>
+      </div>
+      <div class="letter-driven" data-letter-driven aria-hidden="true">
+        {LETTER.paragraphs.map((p, i) => <p class="para para-driven" data-driven-index={i}>{p}</p>)}
+        <p class="closing">{LETTER.closing}</p>
+      </div>
+    </main>
+
+    <footer class="footer surface-dark">
+      <div class="footer-canvas-wrap">
+        <canvas class="footer-canvas" data-footer-canvas aria-hidden="true"></canvas>
+      </div>
+      <div class="footer-bottom">
+        <span class="footer-wordmark">vela</span>
+        <span class="footer-rights">All rights reserved</span>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="/shop">Shop</a>
+          <span>Support</span>
+          <span>Terms</span>
+          <span>Privacy</span>
+          <span>Jobs</span>
+          <span>Contact</span>
+        </nav>
+      </div>
+    </footer>
+
+    <script type="module" src="/scripts/letter.js" defer></script>
+  </body>
+</html>
+
+
+<style>
+  .letter-page {
+    background: var(--night);
+    color: var(--light-ink);
+    margin: 0;
+    position: relative;
+  }
+  .wordmark {
+    position: fixed; top: 0; left: var(--gutter); z-index: 40;
+    font-weight: 700; font-size: 40px; line-height: 80px; text-decoration: none;
+    color: var(--light-ink);
+    text-shadow: 0 1px 6px rgba(0 0 0 / 55%);
+  }
+  .stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+  .film-canvas, .still, .speckle, .darken, .flat { position: absolute; inset: 0; }
+  .film-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 900ms linear; }
+  .film-canvas.is-playing { opacity: 1; }
+  .still {
+    background-image: linear-gradient(160deg, #26221c 0%, #171411 45%, #0f0e0d 100%);
+    background-size: cover;
+    transition: opacity 900ms linear;
+  }
+  .still.is-hidden { opacity: 0; }
+  .speckle {
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .darken {
+    background: linear-gradient(to top, var(--night) 0%, rgba(16 18 22 / 0.2) 55%, transparent 100%);
+    transform-origin: bottom center;
+    position: absolute; left: 0; right: 0; bottom: 0; height: 160vh; top: auto;
+  }
+  .flat { background: var(--night); opacity: 0; }
+  .flat.is-drawn { opacity: 1; }
+
+  .letter {
+    position: relative; z-index: 20;
+    padding: calc(80px + 4rem) var(--gutter) 8rem;
+    max-width: none;
+  }
+  .letter-title {
+    font-size: var(--display-fs);
+    line-height: 1.1; letter-spacing: -0.01em; font-weight: 700;
+    margin: 0 0 calc(var(--unit) * 3);
+    text-shadow: 0 1px 8px rgba(0 0 0 / 60%);
+  }
+  .dateline { font-size: var(--body-fs); line-height: 1.1; margin: 0 0 2em; color: var(--light-ink-soft); text-shadow: 0 1px 6px rgba(0 0 0 / 55%); }
+  .letter-flow .para, .letter-flow .closing {
+    font-size: var(--body-fs); line-height: 1.1; margin: 1em 0;
+    max-width: 34ch; text-shadow: 0 1px 6px rgba(0 0 0 / 55%);
+  }
+  .closing { color: var(--accent); font-size: var(--body-fs); margin: 1em 0; }
+  .letter-driven { display: none; }
+
+  /* Below the tier the letter is a different page: half-width blocks that
+     alternate in a pattern following the argument, with the three paragraphs
+     about mass market electronics pulled to one side together. */
+  @media (max-width: 63.99rem) {
+    .letter-flow { display: grid; gap: 1em; }
+    .letter-flow .para { width: 50%; max-width: none; }
+    .letter-flow .para:nth-child(odd) { margin-left: 50%; }
+    /* The three consecutive paragraphs about mass market electronics, together. */
+    .letter-flow .para:nth-child(10),
+    .letter-flow .para:nth-child(11),
+    .letter-flow .para:nth-child(12) { margin-left: 0; }
+    .letter-flow .closing { width: 50%; margin-left: 50%; }
+  }
+
+  @media (min-width: 64rem) {
+    /* On a wide screen the letter is a narrow column standing beside the film
+       and its paragraphs do not fade at all. */
+    .letter { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); column-gap: 4rem; }
+    .letter-title, .dateline { grid-column: 1; }
+    .letter-flow { grid-column: 1; }
+    .letter-flow .para { max-width: 30ch; }
+  }
+
+  .footer { position: relative; z-index: 30; border-top: var(--border-w) solid var(--night-line); }
+  .footer-canvas-wrap { border-radius: 0; display: block; padding: 3rem 0; }
+  .footer-canvas { display: block; width: 100%; height: 180px; border-radius: 0; }
+  .footer-bottom {
+    display: flex; align-items: center; gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 3) var(--gutter);
+    border-top: var(--border-w) solid var(--night-line);
+    flex-wrap: wrap;
+  }
+  .footer-wordmark { font-weight: 700; font-size: 20px; }
+  .footer-rights { color: var(--light-ink-soft); letter-spacing: 0.02em; }
+  .footer-nav { margin-left: auto; display: flex; gap: calc(var(--unit) * 3); flex-wrap: wrap; }
+  .footer-nav a { text-decoration: none; }
+  .footer-nav span, .footer-nav a { font-size: 14px; line-height: 21px; }
+</style>

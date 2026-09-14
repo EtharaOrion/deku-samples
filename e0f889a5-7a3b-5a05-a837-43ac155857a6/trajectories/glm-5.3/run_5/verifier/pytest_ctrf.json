@@ -1,0 +1,305 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 28,
+            "passed": 17,
+            "failed": 11,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788709523.5161722,
+            "stop": 1788709530.7771146
+        },
+        "tests": [
+            {
+                "name": "test_storefront.py::test_health_route_and_reserved_directories_exist",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.16167350000250735,
+                "start": 1788709523.594208,
+                "stop": 1788709523.7777712,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "app_base = 'http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api'\nstore = <conftest.Store object at 0xffff9f834aa0>\n\n    def test_health_route_and_reserved_directories_exist(app_base, store):\n        response = httpx.get(f\"{app_base}/health\", timeout=30.0)\n        assert response.status_code == 200, describe(response)\n    \n        listing = httpx.get(f\"{app_base}/products\", timeout=30.0)\n        assert listing.status_code == 200, describe(listing)\n        body = payload_of(listing)\n        assert \"data\" in body, f\"a list response carries a data array: {describe(listing)}\"\n        assert \"next_cursor\" in body, f\"a list response carries next_cursor: {describe(listing)}\"\n        assert \"has_more\" in body, f\"a list response carries has_more: {describe(listing)}\"\n    \n        missing = httpx.get(f\"{app_base}/products/no-such-handle\", timeout=30.0)\n        assert missing.status_code in REFUSAL_STATUSES, describe(missing)\n        error = missing.json()\n>       assert \"request_id\" in error, (\n            f\"an error body carries request_id: {describe(missing)}\")\nE       AssertionError: an error body carries request_id: GET http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/products/no-such-handle -> 404 :: {\"error\":{\"code\":\"not_found\",\"message\":\"That page does not exist.\",\"request_id\":\"143bfab49c7a4d49\"}}\nE       assert 'request_id' in {'error': {'code': 'not_found', 'message': 'That page does not exist.', 'request_id': '143bfab49c7a4d49'}}\n\n/tests/test_storefront.py:134: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_catalogue_rows_exist_as_specified",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.05089824999959092,
+                "start": 1788709523.7779124,
+                "stop": 1788709523.8436017,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\n\n    def test_seeded_catalogue_rows_exist_as_specified(store):\n        expected_products = {\n            HANDLE_FLAGSHIP: (TITLE_A1, STATUS_ACTIVE, SUPPORT_UNTIL_FLAGSHIP),\n            HANDLE_COMPACT: (TITLE_CRICKET, STATUS_ACTIVE, None),\n            HANDLE_MOUNT: (TITLE_MOUNT, STATUS_DISCONTINUED, SUPPORT_UNTIL_MOUNT),\n            HANDLE_CASE: (TITLE_CASE, STATUS_ACTIVE, None),\n            HANDLE_CABLE: (TITLE_CABLE, STATUS_ACTIVE, None),\n        }\n        for handle, (title, status, support_until) in expected_products.items():\n            row = store.product(handle)\n            assert row is not None, f\"seeded product {handle} is absent from the store\"\n            assert row[\"title\"] == title, f\"{handle} title is {row['title']!r}\"\n            assert row[\"status\"] == status, f\"{handle} status is {row['status']!r}\"\n            if support_until is not None:\n                assert str(row[\"support_until\"]).startswith(support_until), (\n                    f\"{handle} support_until is {row['support_until']!r}\")\n    \n        expected_variants = {\n            SKU_A1_GRAPHITE: (PRICE_A1_MINOR, STOCK_A1_GRAPHITE),\n            SKU_A1_SAND: (PRICE_A1_MINOR, STOCK_A1_SAND),\n            SKU_A1_YELLOW: (PRICE_A1_MINOR, STOCK_A1_YELLOW),\n            SKU_CRICKET_GRAPHITE: (PRICE_CRICKET_MINOR, STOCK_CRICKET_GRAPHITE),\n            SKU_CRICKET_YELLOW: (PRICE_CRICKET_MINOR, STOCK_CRICKET_YELLOW),\n            SKU_MOUNT_CLAMP: (PRICE_MOUNT_MINOR, 0),\n            SKU_MOUNT_VESA: (PRICE_MOUNT_MINOR, 0),\n            SKU_CASE: (PRICE_CASE_MINOR, STOCK_CASE),\n            SKU_CABLE_1M: (PRICE_CABLE_1M_MINOR, STOCK_CABLE),\n            SKU_CABLE_2M: (PRICE_CABLE_2M_MINOR, STOCK_CABLE),\n        }\n        for sku, (price_minor, available) in expected_variants.items():\n            row = store.variant(sku)\n            assert row is not None, f\"seeded variant {sku} is absent from the store\"\n            assert int(row[\"price_minor\"]) == price_minor, (\n                f\"{sku} price_minor is {row['price_minor']!r}\")\n>           assert store.available(sku) == available, (\n                f\"{sku} available is {store.available(sku)}, expected {available}\")\nE           AssertionError: VELA-A1-GRAPHITE available is 3, expected 4\nE           assert 3 == 4\nE            +  where 3 = available('VELA-A1-GRAPHITE')\nE            +    where available = <conftest.Store object at 0xffff9f834aa0>.available\n\n/tests/test_storefront.py:177: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_devices_and_ownership_rows_exist_as_specified",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.04205795700545423,
+                "start": 1788709523.8437157,
+                "stop": 1788709523.9009626,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\n\n    def test_seeded_devices_and_ownership_rows_exist_as_specified(store):\n        assert store.customer(CUSTOMER_EMAIL) is not None, (\n            f\"{CUSTOMER_EMAIL} is not a seeded customer row\")\n        assert store.customer(CUSTOMER2_EMAIL) is not None, (\n            f\"{CUSTOMER2_EMAIL} is not a seeded customer row\")\n    \n        owned = store.device(SERIAL_OWNED_BY_CUSTOMER)\n        assert owned is not None, f\"{SERIAL_OWNED_BY_CUSTOMER} is not a seeded device\"\n        assert owned[\"status\"] == DEVICE_STATUS_REGISTERED, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} status is {owned['status']!r}\")\n        assert str(owned[\"firmware_version\"]) == FIRMWARE_CRICKET_MID, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} reports {owned['firmware_version']!r}\")\n        assert len(store.live_ownerships(SERIAL_OWNED_BY_CUSTOMER)) == 1, (\n            \"a registered device holds exactly one live ownership row\")\n    \n        other = store.device(SERIAL_OWNED_BY_CUSTOMER2)\n        assert other is not None, f\"{SERIAL_OWNED_BY_CUSTOMER2} is not a seeded device\"\n        assert len(store.live_ownerships(SERIAL_OWNED_BY_CUSTOMER2)) == 1, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER2} holds exactly one live ownership row\")\n    \n        unowned = store.device(SERIAL_UNOWNED)\n        assert unowned is not None, f\"{SERIAL_UNOWNED} is not a seeded device\"\n>       assert store.live_ownerships(SERIAL_UNOWNED) == [], (\n            f\"{SERIAL_UNOWNED} is seeded with no live owner\")\nE       AssertionError: VA2609KTMHX4 is seeded with no live owner\nE       assert [{'claimed_at...'id': 3, ...}] == []\nE         \nE         Left contains one more item: {'claimed_at': datetime.datetime(2026, 9, 6, 15, 31, 24, 664810, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), 'customer_id': 1, 'device_id': 3, 'id': 3, ...}\nE         Use -v to get more diff\n\n/tests/test_storefront.py:203: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_releases_and_firmware_rows_exist_as_specified",
+                "status": "passed",
+                "duration": 0.04486670800179127,
+                "start": 1788709523.901111,
+                "stop": 1788709523.9461432,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_seed_is_idempotent_no_duplicate_rows",
+                "status": "passed",
+                "duration": 0.06033733299773303,
+                "start": 1788709523.9462981,
+                "stop": 1788709524.0067825,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_guest_checkout_creates_order_with_pinned_totals",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.10285145800298778,
+                "start": 1788709524.0069284,
+                "stop": 1788709524.1276107,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ec9c530>\n\n    def test_guest_checkout_creates_order_with_pinned_totals(store, visitor):\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CASE), CUSTOMER_EMAIL)\n>       assert placed.status_code in SUCCESS_STATUSES, describe(placed)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:277: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_order_totals_reconcile_with_stored_lines",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.09635783199701109,
+                "start": 1788709524.1277378,
+                "stop": 1788709524.2390358,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ec9dc40>\n\n    def test_order_totals_reconcile_with_stored_lines(store, visitor):\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CABLE_2M), probe_email())\n>       assert placed.status_code in SUCCESS_STATUSES, describe(placed)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:296: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_invoice_exists_in_billing_platform_for_total",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.11621554199518869,
+                "start": 1788709524.2391448,
+                "stop": 1788709524.370635,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ec9c590>\npayments = <capabilities.KillBill object at 0xffff9ec9eb40>\n\n    def test_confirmed_order_invoice_exists_in_billing_platform_for_total(store, visitor,\n                                                                         payments):\n        email = probe_email()\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CASE), email)\n>       assert placed.status_code in SUCCESS_STATUSES, describe(placed)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:324: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_repeat_idempotency_key_creates_no_second_order_or_invoice",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.06980649999968591,
+                "start": 1788709524.3707626,
+                "stop": 1788709524.4538705,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ec4f3e0>\npayments = <capabilities.KillBill object at 0xffff9ec9eb40>\n\n    def test_repeat_idempotency_key_creates_no_second_order_or_invoice(store, visitor,\n                                                                       payments):\n        email = probe_email()\n        key = idempotency_key()\n        added = visitor.add_line(SKU_CABLE_1M)\n        assert added.status_code in SUCCESS_STATUSES, describe(added)\n        priced = visitor.set_delivery(email)\n        assert priced.status_code in SUCCESS_STATUSES, describe(priced)\n    \n        first = visitor.place_order(key=key)\n>       assert first.status_code in SUCCESS_STATUSES, describe(first)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:357: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_stock_commit_moves_available_and_committed_on_order",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.07968554200124345,
+                "start": 1788709524.4539888,
+                "stop": 1788709524.5482142,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ecc9c70>\n\n    def test_stock_commit_moves_available_and_committed_on_order(store, visitor):\n        before_available = store.available(SKU_CABLE_1M)\n        before_committed = store.committed(SKU_CABLE_1M)\n    \n        placed = buy(visitor, (SKU_CABLE_1M,), probe_email())\n>       assert placed.status_code in SUCCESS_STATUSES, describe(placed)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:388: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_cart_price_change_is_surfaced_and_order_refused",
+                "status": "passed",
+                "duration": 0.07476666599905002,
+                "start": 1788709524.5483394,
+                "stop": 1788709524.6232388,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_checkout_for_last_unit_allows_exactly_one",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.13329516699741362,
+                "start": 1788709524.623383,
+                "stop": 1788709524.7700877,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\n\n    def test_concurrent_checkout_for_last_unit_allows_exactly_one(store):\n        before = store.available(SKU_A1_YELLOW)\n        assert before == STOCK_A1_YELLOW, (\n            f\"{SKU_A1_YELLOW} must open with {STOCK_A1_YELLOW} available, found {before}\")\n    \n        shoppers = [Shopper(), Shopper()]\n        for shopper in shoppers:\n            added = shopper.add_line(SKU_A1_YELLOW)\n            assert added.status_code in SUCCESS_STATUSES, describe(added)\n            priced = shopper.set_delivery(probe_email())\n            assert priced.status_code in SUCCESS_STATUSES, describe(priced)\n    \n        with ThreadPoolExecutor(max_workers=2) as pool:\n            responses = list(pool.map(lambda s: s.place_order(), shoppers))\n    \n        won = [r for r in responses if r.status_code in SUCCESS_STATUSES]\n        lost = [r for r in responses if r.status_code in REFUSAL_STATUSES]\n>       assert len(won) == 1, (\n            \"exactly one simultaneous checkout for the last unit may succeed; got \"\n            + \" | \".join(describe(r) for r in responses))\nE       AssertionError: exactly one simultaneous checkout for the last unit may succeed; got POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden | POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 0 == 1\nE        +  where 0 = len([])\n\n/tests/test_storefront.py:444: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_email_delivered_to_buyer_only",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.09073445799731417,
+                "start": 1788709524.7702355,
+                "stop": 1788709524.8751104,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ed30590>\ninbox = <capabilities.HttpInbox object at 0xffff9ed33710>\n\n    def test_confirmed_order_email_delivered_to_buyer_only(store, visitor, inbox):\n        email = probe_email()\n        before_others = inbox.count(CUSTOMER2_EMAIL)\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE,), email)\n>       assert placed.status_code in SUCCESS_STATUSES, describe(placed)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/orders -> 403 :: Cross-site POST form submissions are forbidden\nE       assert 403 in (200, 201, 202)\nE        +  where 403 = <Response [403 Forbidden]>.status_code\n\n/tests/test_storefront.py:466: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_no_email_sent_for_cart_change_or_device_registration",
+                "status": "passed",
+                "duration": 0.5348184170034074,
+                "start": 1788709524.8752453,
+                "stop": 1788709525.4104984,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_device_registration_claims_unowned_serial_and_writes_one_ownership_row",
+                "status": "passed",
+                "duration": 0.5527719580022676,
+                "start": 1788709525.410917,
+                "stop": 1788709525.9638813,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_registering_serial_owned_by_another_account_denied_and_row_untouched",
+                "status": "passed",
+                "duration": 0.5006981250007811,
+                "start": 1788709525.964048,
+                "stop": 1788709526.4651463,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_device_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.5628035419977095,
+                "start": 1788709526.4655209,
+                "stop": 1788709527.0285368,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_order_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.09795174999817391,
+                "start": 1788709527.0287,
+                "stop": 1788709527.1268566,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unauthenticated_account_routes_denied_at_api",
+                "status": "passed",
+                "duration": 0.4478823760000523,
+                "start": 1788709527.1270134,
+                "stop": 1788709527.5751894,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unknown_and_malformed_serial_refused_before_lookup",
+                "status": "passed",
+                "duration": 0.5419254579974222,
+                "start": 1788709527.5754,
+                "stop": 1788709528.1175857,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_blocked_device_registration_refused",
+                "status": "passed",
+                "duration": 0.520067792996997,
+                "start": 1788709528.117801,
+                "stop": 1788709528.6382704,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_registration_of_one_serial_allows_exactly_one",
+                "status": "passed",
+                "duration": 0.5560405420001189,
+                "start": 1788709528.6385846,
+                "stop": 1788709529.1949015,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_release_archive_orders_by_build_descending_across_shared_date",
+                "status": "passed",
+                "duration": 0.05813278999630711,
+                "start": 1788709529.1951785,
+                "stop": 1788709529.2534862,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_firmware_manifest_entries_match_stored_rows",
+                "status": "passed",
+                "duration": 0.027471500001411187,
+                "start": 1788709529.2536402,
+                "stop": 1788709529.2812304,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_complete_records_reported_version_not_requested",
+                "status": "passed",
+                "duration": 0.4817304990028788,
+                "start": 1788709529.281361,
+                "stop": 1788709529.7634397,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_failure_leaves_device_firmware_unchanged",
+                "status": "passed",
+                "duration": 0.48466725099933683,
+                "start": 1788709529.7638018,
+                "stop": 1788709530.2486894,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0476150000031339,
+                "start": 1788709530.2488797,
+                "stop": 1788709530.3172078,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffff9f834aa0>\nvisitor = <conftest.Shopper object at 0xffff9ec9c0b0>\n\n    def test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched(\n            store, visitor):\n        serial = SERIAL_OWNED_BY_CUSTOMER\n        before_version = str(store.device(serial)[\"firmware_version\"])\n        before_sessions = len(store.flash_sessions(serial))\n    \n        response = visitor.start_flash(serial, FIRMWARE_CRICKET_OLDEST_BUILD)\n>       assert response.status_code in REFUSAL_STATUSES, describe(response)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__ebdmstd-app:4173/api/flash-sessions -> 201 :: {\"id\":3,\"device_id\":1,\"serial\":\"VC2609PVDA7Q\",\"state\":\"started\",\"target_build\":611,\"target_version\":\"6.11\",\"reported_version\":null,\"failure_reason\":null,\"started_at\":\"2026-09-06T15:45:30.293Z\",\"ended_at\":null}\nE       assert 201 in (400, 401, 403, 404, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\n\n/tests/test_storefront.py:793: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_model_mismatch_refused_and_no_session_row",
+                "status": "passed",
+                "duration": 0.45945749900420196,
+                "start": 1788709530.3173335,
+                "stop": 1788709530.7769208,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            }
+        ]
+    }
+}

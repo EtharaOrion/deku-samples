@@ -1,0 +1,70 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { ensureCart, cartPayload } from '../../lib/store.js';
+import { money } from '../../lib/view-helpers.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cart = token ? await ensureCart(token, null) : null;
+const payload = cart ? await cartPayload(cart) : null;
+if (!payload || payload.lines.length === 0) return Astro.redirect('/cart');
+if (!payload.email || !payload.shipping_address?.line1) return Astro.redirect('/checkout/where-it-goes');
+if (!payload.shipping_method) return Astro.redirect('/checkout/how-it-gets-there');
+
+const methodTitle = payload.shipping_method === 'express' ? 'Express' : 'Standard';
+const a = payload.shipping_address;
+---
+
+<Shell>
+  <ol class="steps" aria-label="Checkout steps">
+    <li><a href="/checkout/where-it-goes">Where it goes</a></li>
+    <li><a href="/checkout/how-it-gets-there">How it gets there</a></li>
+    <li aria-current="step">Payment</li>
+  </ol>
+
+  <div class="checkout-grid">
+    <form class="checkout-form" data-place-form data-expected-total={payload.total_minor}>
+      <h1 class="page-title">Payment</h1>
+      <p class="step-note">
+        This is an invoice against your email address. There is no card form because there is no card.
+      </p>
+
+      <section class="review">
+        <h2>Going to</h2>
+        <address class="address">
+          {a.name}<br />
+          {a.line1}{a.line2 ? `, ${a.line2}` : ''}<br />
+          {a.city}{a.region ? `, ${a.region}` : ''} {a.postal_code}<br />
+          {a.country}
+        </address>
+        <p>{payload.email}</p>
+        <p>Delivery: {methodTitle}.</p>
+      </section>
+
+      <p class="form-error" role="alert" data-form-error></p>
+      <div class="step-actions">
+        <a class="btn btn-quiet" href="/checkout/how-it-gets-there">Back</a>
+        <button class="btn btn-primary" type="submit" data-place-button>Place the order</button>
+      </div>
+    </form>
+
+    <aside class="cart-summary" aria-label="Summary">
+      <h2>Summary</h2>
+      {payload.lines.map((l) => (
+        <p class="sum-line"><span>{l.product_title} × {l.quantity}</span> <span class="money tnum">{money(l.line_total_minor)}</span></p>
+      ))}
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum" data-subtotal>{money(payload.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="money tnum">{money(payload.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="money tnum" data-tax>{money(payload.tax_minor)}</dd></div>
+        <div class="grand"><dt>Total</dt><dd class="money tnum" data-final-total>{money(payload.total_minor)}</dd></div>
+      </dl>
+    </aside>
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/checkout.js" data-place-step></script>
+
+<style is:global>
+  .review h2 { font-size: 1rem; margin-bottom: calc(var(--unit) * 2); }
+  .address { font-style: normal; line-height: 1.5; }
+</style>

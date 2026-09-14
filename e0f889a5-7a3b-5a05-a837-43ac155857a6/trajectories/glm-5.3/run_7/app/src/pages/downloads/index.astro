@@ -1,0 +1,115 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { q } from '../../lib/db.js';
+import { latestFirmwareForProduct } from '../../lib/store.js';
+import { money, bytes, dateLong } from '../../lib/view-helpers.js';
+
+const releases = await q('SELECT * FROM app_release ORDER BY build DESC');
+const newest = releases[0];
+const cricket = await q(`SELECT p.*, f.version AS fw_version, f.build AS fw_build, f.size_bytes AS fw_size, f.sha256 AS fw_sha
+                           FROM product p LEFT JOIN LATERAL (
+                             SELECT * FROM firmware fw WHERE fw.product_id = p.id AND fw.channel = 'general' ORDER BY fw.build DESC LIMIT 1
+                           ) f ON true WHERE p.handle = 'compact'`);
+const cricketFw = cricket[0];
+
+// A release note may close with an issue reference in brackets; it is set in
+// the monospace family at 0.9 of the body size.
+function noteParts(item) {
+  const m = String(item).match(/^(.*?)\s*\[([^\]]+)\]$/);
+  if (!m) return { text: String(item), ref: null };
+  return { text: m[1], ref: m[2] };
+}
+function noteText(item) { return noteParts(item).text + (noteParts(item).ref ? ' ' : ''); }
+function noteRef(item) { return noteParts(item).ref; }
+---
+
+<Shell>
+  <h1 class="page-title">Downloads</h1>
+
+  <section class="lede-block">
+    <p>Arranger requires macOS 13.0 or later. Download the app below.</p>
+    <div class="download-row">
+      <a class="btn btn-primary" href={`/downloads/file/${newest.artifact_name}`} download data-platform-control>
+        Download Arranger {newest.version}
+      </a>
+      <p class="meta">
+        <span data-platform-note>Arranger is a macOS application.</span>
+        <span class="mono version tnum">{newest.size_bytes.toLocaleString('en-US')} bytes</span>
+        <span class="mono digest">{newest.sha256}</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="lede-block">
+    <h2>Firmware</h2>
+    <div class="download-row">
+      <a class="btn btn-primary" href={`/downloads/file/vela-cricket-${cricketFw.fw_version}.bin`} download>
+        Download Vela Cricket Firmware {cricketFw.fw_version}
+      </a>
+      <p class="meta">
+        <a class="quiet-link" href="/doctor">Firmware install (web-based)</a>
+        <span class="warn">Only use this if Arranger cannot see your camera.</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="archive" aria-labelledby="archive-h">
+    <h2 id="archive-h">Every release</h2>
+    {releases.map((r, i) => (
+      <article class="release">
+        <div class="release-rule" aria-hidden="true"></div>
+        <details class="release-details" open={i === 0} id={`arranger-${r.version}`}>
+          <summary>
+            <span class="release-title">Arranger {r.version}</span>
+            <span class="release-date">Released on {dateLong(r.released_on)}</span>
+            <span class="release-toggle">Show notes</span>
+          </summary>
+          <div class="release-body">
+            <p class="release-desc">{r.description}</p>
+            <a class="btn btn-quiet" href={`/downloads/file/${r.artifact_name}`} download>Download {r.version}</a>
+            <p class="meta mono">
+              <span class="build tnum">Build {r.build}</span>
+              <span class="digest">{r.sha256}</span>
+              <span class="tnum">{r.size_bytes.toLocaleString('en-US')} bytes</span>
+            </p>
+            {Object.entries(r.notes).map(([group, items]) => (
+              items.length > 0 && (
+                <section class="note-group">
+                  <h3>{group}</h3>
+                  <ul>
+                    {items.map((item) => <li>{noteText(item)}{noteRef(item) && <code class="ref">{noteRef(item)}</code>}</li>)}
+                  </ul>
+                </section>
+              )
+            ))}
+            <p class="release-signoff">The Vela team.</p>
+          </div>
+        </details>
+      </article>
+    ))}
+  </section>
+</Shell>
+
+<script is:inline src="/scripts/downloads.js"></script>
+
+<style is:global>
+  .lede-block { margin-bottom: calc(var(--unit) * 8); display: grid; gap: calc(var(--unit) * 3); }
+  .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--unit) * 4); }
+  .meta { display: flex; flex-wrap: wrap; gap: calc(var(--unit) * 3); color: var(--muted-light); font-size: 13px; align-items: baseline; }
+  .quiet-link { color: var(--muted-light); text-decoration: underline; }
+  .warn { color: var(--muted-light); }
+  .archive { display: grid; gap: 0; }
+  .release-rule { border-top: 1px dashed var(--line-light); margin: calc(var(--unit) * 4) 0 calc(var(--unit) * 3); height: 0; }
+  .release details summary { display: flex; flex-wrap: wrap; gap: calc(var(--unit) * 3); align-items: baseline; cursor: pointer; list-style: none; }
+  .release details summary::-webkit-details-marker { display: none; }
+  .release-title { font-weight: 700; }
+  .release-date { color: var(--muted-light); font-size: 14px; }
+  .release-toggle { color: var(--muted-light); font-size: 13px; margin-left: auto; }
+  .release-body { padding: calc(var(--unit) * 4) 0 calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); }
+  .note-group h3 { font-size: 0.875rem; margin-bottom: var(--unit); }
+  .note-group ul { margin: 0; padding-left: 1.2rem; }
+  .note-group li { line-height: 1.6; }
+  .ref { font-family: var(--font-mono); font-weight: 400; font-size: 0.9em; color: var(--muted-light); }
+  .release-signoff { color: var(--muted-light); }
+</style>
+

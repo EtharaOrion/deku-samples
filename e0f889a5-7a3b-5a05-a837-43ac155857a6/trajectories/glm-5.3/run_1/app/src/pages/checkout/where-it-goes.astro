@@ -1,0 +1,160 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCustomer, cartToken, loadCart, cartView, db } from '../../lib/store.mjs';
+import { usd, SHIPPING_METHODS } from '../../../server/domain.mjs';
+
+const customer = await getCustomer(Astro.request);
+const d = await db();
+const cart = await loadCart(d, cartToken(Astro.request));
+const view = await cartView(d, cart);
+const addr = view.shipping_address || {};
+const count = view.lines.reduce((s, l) => s + l.quantity, 0);
+const email = view.email || customer?.customer?.email || '';
+if (!view.lines.length) return Astro.redirect('/cart');
+---
+<Shell title="Where it goes — Vela" current="checkout" customer={customer?.customer} cartCount={count}>
+  <nav class="steps" aria-label="Checkout steps">
+    <span class="step is-current">1 Where it goes</span>
+    <span class="step">2 How it gets there</span>
+    <span class="step">3 Payment</span>
+  </nav>
+  <h1>Where it goes</h1>
+
+  <div class="co-grid">
+    <form class="card form" method="post" action="/checkout/where-it-goes" data-step-form>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required value={email} autocomplete="email" />
+        <p class="hint">The order confirmation goes here.</p>
+      </div>
+      <label class="consent">
+        <input type="checkbox" name="marketing_consent" {view.marketing_consent ? 'checked' : ''} />
+        <span>Send me news about firmware and software. Unticked by default.</span>
+      </label>
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" required value={addr.name || ''} autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="line1">Address line 1</label>
+        <input id="line1" name="line1" required value={addr.line1 || ''} autocomplete="address-line1" />
+      </div>
+      <div class="field">
+        <label for="line2">Address line 2 <span class="opt">(optional)</span></label>
+        <input id="line2" name="line2" value={addr.line2 || ''} autocomplete="address-line2" />
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="city">City</label>
+          <input id="city" name="city" required value={addr.city || ''} autocomplete="address-level2" />
+        </div>
+        <div class="field">
+          <label for="region">Region</label>
+          <input id="region" name="region" required value={addr.region || ''} autocomplete="address-level1" />
+        </div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="postal_code">Postal code</label>
+          <input id="postal_code" name="postal_code" required value={addr.postal_code || ''} autocomplete="postal-code" />
+        </div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country" name="country" required autocomplete="country">
+            <option value="US" selected={String(addr.country || 'US') === 'US'}>United States</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="phone">Phone <span class="opt">(optional)</span></label>
+        <input id="phone" name="phone" type="tel" value={addr.phone || ''} autocomplete="tel" />
+      </div>
+      <p class="form-error" role="alert" data-form-error></p>
+      <button class="btn" type="submit">Continue to delivery</button>
+      <a class="btn btn-secondary" href="/cart">Back to cart</a>
+    </form>
+
+    <aside class="summary card" aria-label="Order summary">
+      <h2>Summary</h2>
+      <ul class="sum-lines">
+        {view.lines.map((l) => (
+          <li><span>{l.product_title} <span class="muted">× {l.quantity}</span></span><span class="money tnum">{usd(l.unit_price_minor * l.quantity)}</span></li>
+        ))}
+      </ul>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{usd(view.subtotal_minor)}</dd></div>
+        <div><dt>Estimated tax</dt><dd class="money tnum">{usd(view.tax_minor)}</dd></div>
+        <div class="grand"><dt>Estimated total</dt><dd class="money tnum">{usd(view.total_minor)}</dd></div>
+      </dl>
+      <p class="est-note">Estimated. We will show the exact amount once we know where it is going.</p>
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-step-form]');
+  const err = document.querySelector('[data-form-error]');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (err) err.textContent = '';
+      const fd = new FormData(form);
+      const payload = {
+        email: String(fd.get('email') || '').trim(),
+        marketing_consent: Boolean(fd.get('marketing_consent')),
+        shipping_address: {
+          name: String(fd.get('name') || '').trim(),
+          line1: String(fd.get('line1') || '').trim(),
+          line2: String(fd.get('line2') || '').trim(),
+          city: String(fd.get('city') || '').trim(),
+          region: String(fd.get('region') || '').trim(),
+          postal_code: String(fd.get('postal_code') || '').trim(),
+          country: String(fd.get('country') || '').trim(),
+          phone: String(fd.get('phone') || '').trim(),
+        },
+      };
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving'; }
+      const res = await fetch('/api/cart/delivery', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        // the delivery method is chosen on the next step; nothing is preselected here
+        body: JSON.stringify({ ...payload, shipping_method: null }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (!res || !res.ok) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Continue to delivery'; }
+        if (err) err.textContent = body?.error?.message || 'That did not work.';
+        return;
+      }
+      // preserve the entered values in the address bar history for the back control
+      window.location.href = '/checkout/how-it-gets-there';
+    });
+  }
+</script>
+
+<style>
+  .steps { display: flex; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 4); font-size: 14px; color: var(--ground-light-fg-muted); }
+  .step.is-current { color: var(--ground-light-fg); font-weight: 700; }
+  h1 { font-size: 26px; margin-bottom: calc(var(--unit) * 6); }
+  .co-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: calc(var(--unit) * 6); align-items: start; }
+  @media (max-width: 64rem) { .co-grid { grid-template-columns: 1fr; } }
+  .form { padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 4); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--unit) * 3); }
+  @media (max-width: 40rem) { .two { grid-template-columns: 1fr; } }
+  .consent { display: flex; gap: 8px; font-size: 14px; align-items: start; }
+  .consent input { accent-color: var(--ground-light-fg); margin-top: 2px; }
+  .opt { color: var(--ground-light-fg-muted); font-weight: 400; }
+  .form-error { color: var(--bad); font-size: 14px; min-height: 20px; }
+  .summary { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); }
+  .summary h2 { font-size: 18px; }
+  .sum-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+  .sum-lines li { display: flex; justify-content: space-between; gap: 8px; }
+  .muted { color: var(--ground-light-fg-muted); }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--ground-light-fg-muted); }
+  .totals dd { margin: 0; }
+  .totals .grand { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .est-note { font-size: 13px; color: var(--ground-light-fg-muted); }
+</style>

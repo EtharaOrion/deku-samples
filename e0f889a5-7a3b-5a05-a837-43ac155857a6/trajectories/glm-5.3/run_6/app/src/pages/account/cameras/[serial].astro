@@ -1,0 +1,118 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, formatShortDate } from '../../../lib/session.js';
+import { deviceForCustomer } from '../../../lib/devices.js';
+
+export const prerender = false;
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) {
+  return Astro.redirect(`/sign-in?next=${encodeURIComponent('/account/cameras')}`);
+}
+
+const { serial } = Astro.params;
+// Another customer's serial reads as not found, never forbidden.
+const device = await deviceForCustomer(customer.id, serial);
+---
+
+<Shell title={device ? device.model : 'Camera'} description="One camera.">
+  {
+    !device ? (
+      <div class="empty">
+        <h1 class="page-title">That page does not exist.</h1>
+        <p>This camera is not on your account. <a href="/account/cameras">See your cameras</a>.</p>
+      </div>
+    ) : (
+      <>
+        <h1 class="page-title">{device.nickname || device.model}</h1>
+        <p class="model">{device.model} · {device.variantTitle}</p>
+        <p class="mono serial">{device.serial}</p>
+
+        <div class="grid two">
+          <section class="card">
+            <h2 class="section-title">State</h2>
+            <dl class="state">
+              <div><dt>Firmware</dt><dd class="mono">{device.firmwareVersion || 'Never connected'}</dd></div>
+              <div><dt>Last heard</dt><dd>{device.firmwareReportedAt ? formatShortDate(device.firmwareReportedAt) : 'Not yet connected'}</dd></div>
+              <div><dt>Warranty</dt><dd>{device.warrantyUntil ? formatShortDate(device.warrantyUntil) : 'No date'}</dd></div>
+              <div><dt>Registered</dt><dd>{formatShortDate(device.claimedAt)}</dd></div>
+            </dl>
+            <p><a class="btn secondary" href="/doctor">Write firmware in the browser</a></p>
+          </section>
+
+          <section class="card">
+            <h2 class="section-title">This camera</h2>
+            <form class="rename" data-rename data-serial={device.serial}>
+              <div class="field">
+                <label for="nickname">Nickname</label>
+                <input id="nickname" name="nickname" type="text" value={device.nickname || ''} />
+              </div>
+              <button class="btn secondary" type="submit">Save the name</button>
+            </form>
+            <hr class="rule" />
+            <p class="hint">Two different actions:</p>
+            <div class="actions">
+              <button class="btn secondary" type="button" data-release data-serial={device.serial} data-mode="remove">
+                Remove from my account
+              </button>
+              <button class="btn quiet" type="button" data-release data-serial={device.serial} data-mode="hand-on">
+                Hand this camera to someone else
+              </button>
+            </div>
+            <p class="hint" id="release-hint">
+              Removing releases the camera without giving it to anyone. Handing it on releases it
+              for the next owner to register.
+            </p>
+          </section>
+        </div>
+      </>
+    )
+  }
+</Shell>
+
+<script>
+  const rename = document.querySelector('[data-rename]');
+  if (rename) {
+    rename.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const serial = rename.dataset.serial;
+      const nickname = new FormData(rename).get('nickname');
+      const res = await fetch(`/api/account/devices/${serial}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ nickname: nickname === '' ? null : nickname })
+      });
+      const data = await res.json();
+      if (!res.ok) { window.alert(data.error ? data.error.message : 'That did not work.'); return; }
+      window.location.reload();
+    });
+  }
+
+  document.querySelectorAll('[data-release]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const mode = button.dataset.mode;
+      const question = mode === 'remove'
+        ? 'Remove this camera from your account? It is not given to anyone.'
+        : 'Hand this camera to someone else? It is released so the next owner can register it.';
+      if (!window.confirm(question)) return;
+      const serial = button.dataset.serial;
+      const res = await fetch(`/api/account/devices/${serial}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (!res.ok) { window.alert(data.error ? data.error.message : 'That did not work.'); return; }
+      window.location.href = '/account/cameras';
+    });
+  });
+</script>
+
+<style>
+  .model { color: var(--ink-soft); }
+  .state { display: grid; gap: calc(var(--step) * 2); }
+  .state div { display: flex; gap: calc(var(--step) * 4); }
+  .state dt { color: var(--ink-soft); min-width: 8rem; }
+  .rule { border: 0; border-top: var(--border) solid var(--line); margin: calc(var(--step) * 4) 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: calc(var(--step) * 3); }
+</style>

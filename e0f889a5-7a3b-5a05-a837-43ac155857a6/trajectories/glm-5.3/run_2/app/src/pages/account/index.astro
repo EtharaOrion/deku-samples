@@ -1,0 +1,137 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { requirePageCustomer, signInRedirect } from '../../server/pageguard.ts';
+import { devicesForCustomer, deviceView } from '../../server/devices.ts';
+import { q } from '../../server/db/pool.ts';
+import { orderView } from '../../server/orders.ts';
+import { latestRelease } from '../../server/releases.ts';
+import { lastSeenReleaseBuild } from '../../server/auth.ts';
+import { money, shortDate, orderChip } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+
+const customer = await requirePageCustomer(Astro);
+if (!customer) return Astro.redirect(signInRedirect('/account'));
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+// Blocks fail independently: each is its own try.
+let cameras: any[] = [];
+let orders: any[] = [];
+let appBlock: any = null;
+let cameraError = false;
+let orderError = false;
+
+try {
+  const res = await devicesForCustomer(customer.id, 100, null);
+  cameras = await Promise.all(res.rows.map((d: any) => deviceView(d)));
+} catch { cameraError = true; }
+
+try {
+  const res = await q('SELECT * FROM order_row WHERE customer_id = $1 ORDER BY placed_at DESC NULLS LAST, id DESC LIMIT 2', [customer.id]);
+  orders = await Promise.all(res.rows.map((o: any) => orderView(o)));
+} catch { orderError = true; }
+
+try {
+  const latest = await latestRelease();
+  const lastSeen = await lastSeenReleaseBuild(customer.id);
+  appBlock = {
+    latest_version: latest?.version ?? null,
+    latest_build: latest ? Number(latest.build) : null,
+    last_seen_build: lastSeen,
+    newer: latest ? (lastSeen === null || Number(latest.build) > lastSeen) : false,
+  };
+} catch { appBlock = null; }
+---
+
+<Shell title="Account — Vela" active="account" customer={{ email: customer.email, name: customer.name }} cartCount={cartCount}>
+  <div class="page-head">
+    <h1>{customer.name}</h1>
+    <p class="lede">{customer.email}</p>
+  </div>
+
+  <section class="block" aria-labelledby="cameras-h">
+    <div class="block-head">
+      <h2 id="cameras-h">Cameras</h2>
+      <a class="btn" href="/account/cameras">All cameras</a>
+    </div>
+    {cameraError ? (
+      <p class="inline-error">Something went wrong at our end. Try again in a moment.</p>
+    ) : cameras.length === 0 ? (
+      <p class="muted">No cameras registered yet.</p>
+    ) : (
+      <ul class="camera-list">
+        {cameras.map((c: any) => (
+          <li class="card camera">
+            <a class="camera-link" href={`/account/cameras/${c.serial}`}>
+              <span class="camera-title">{c.nickname || c.model}</span>
+              <span class="mono camera-serial">{c.serial}</span>
+              <span class="camera-chips">
+                <span class={c.never_connected ? 'chip' : (c.update_available ? 'chip chip-low' : 'chip chip-ok')}>
+                  {c.never_connected ? 'Not yet connected' : (c.update_available ? `Update available (${c.latest_firmware_version})` : `Firmware ${c.firmware_version}`)}
+                </span>
+                {c.warranty_until ? <span class="chip">Warranty to {c.warranty_until}</span> : null}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="orders-h">
+    <div class="block-head">
+      <h2 id="orders-h">Recent orders</h2>
+      <a class="btn" href="/account/orders">All orders</a>
+    </div>
+    {orderError ? (
+      <p class="inline-error">Something went wrong at our end. Try again in a moment.</p>
+    ) : orders.length === 0 ? (
+      <p class="muted">No orders yet.</p>
+    ) : (
+      <ul class="order-list">
+        {orders.map((o: any) => (
+          <li class="card order">
+            <a class="order-link" href={`/account/orders/${o.number}`}>
+              <span class="mono order-number">{o.number}</span>
+              <span class="order-first">{o.lines[0]?.title_snapshot ?? 'Order'}{o.lines.length > 1 ? ` and ${o.lines.length - 1} more` : ''}</span>
+              <span class="num order-total">{money(o.total_minor)}</span>
+              <span class="chip">{orderChip(o)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-labelledby="app-h">
+    <div class="block-head"><h2 id="app-h">Software</h2></div>
+    {appBlock ? (
+      <p class="muted">
+        The current version of Arranger is <span class="mono">{appBlock.latest_version}</span> (build <span class="mono">{appBlock.latest_build}</span>).
+        {appBlock.newer ? ' It is newer than the one you last saw.' : ' You have already seen it.'}
+        <a href="/downloads">See the downloads</a>
+      </p>
+    ) : (
+      <p class="inline-error">Something went wrong at our end. Try again in a moment.</p>
+    )}
+  </section>
+</Shell>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .block { margin-bottom: calc(var(--unit) * 6); display: grid; gap: calc(var(--unit) * 2); }
+  .block-head { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  h2 { font-size: 19px; }
+  .muted { color: var(--ink-soft); margin: 0; }
+  .camera-list, .order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .camera, .order { padding: 0; }
+  .camera-link, .order-link { display: grid; gap: 2px; padding: calc(var(--unit) * 3); text-decoration: none; }
+  .camera-title { font-weight: 700; }
+  .camera-serial { color: var(--ink-soft); font-size: 14px; }
+  .camera-chips { display: flex; gap: calc(var(--unit) * 1); flex-wrap: wrap; }
+  .order-link { grid-template-columns: auto 1fr auto auto; gap: calc(var(--unit) * 3); align-items: baseline; }
+  .order-first { color: var(--ink-soft); }
+  .order-total { font-weight: 700; }
+</style>

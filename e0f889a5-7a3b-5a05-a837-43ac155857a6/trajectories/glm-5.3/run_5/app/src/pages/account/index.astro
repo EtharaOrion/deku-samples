@@ -1,0 +1,110 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { sessionCustomer } from '../../server/session.js';
+import { devicesForCustomer, toDeviceView } from '../../server/devices.js';
+import { q } from '../../server/db.js';
+import { listReleases } from '../../server/releases.js';
+import { dollars } from '../../server/money.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+if (!customer) return Astro.redirect('/sign-in?redirect=/account');
+
+const devices = (await devicesForCustomer(customer.id)).map(toDeviceView);
+const orders = await q<any>(
+  `SELECT o.*, (SELECT l.title_snapshot FROM order_line l WHERE l.order_id = o.id ORDER BY l.id ASC LIMIT 1) AS first_line,
+          (SELECT count(*)::int FROM order_line l WHERE l.order_id = o.id) AS line_count
+     FROM "order" o WHERE o.customer_id = $1 ORDER BY o.placed_at DESC, o.id DESC LIMIT 2`, [customer.id]);
+const releases = await listReleases();
+const latest = releases[0] ?? null;
+const lastSeen = Astro.cookies.get('vela_app_seen')?.value ?? null;
+const isNewer = latest && (!lastSeen || compareBuilds(latest.version, lastSeen) > 0);
+function compareBuilds(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0, y = pb[i] ?? 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+if (latest) Astro.cookies.set('vela_app_seen', latest.version, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 });
+---
+<PageShell title="Your account — Vela" heading="Overview" active="account" customer={{ name: customer.name, email: customer.email }}>
+  <div class="overview">
+    <section class="block">
+      <h2>Your cameras</h2>
+      {devices.length === 0 ? (
+        <p class="empty-note">No cameras registered yet.</p>
+      ) : (
+        <ul class="cameras">
+          {devices.map((d) => (
+            <li class="camera card">
+              <a class="camera__link" href={`/account/cameras/${d.serial}`}>
+                <span class="camera__model">{d.model}</span>
+                <span class="camera__serial serial">{d.serial}</span>
+                <span class="camera__chips">
+                  {d.update_available
+                    ? <span class="chip chip--progress">Update available</span>
+                    : (d.firmware_version
+                        ? <span class="chip chip--done">Up to date</span>
+                        : <span class="chip">Not yet connected</span>)}
+                  <span class="chip">Warranty {d.warranty_until ?? 'unknown'}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <a class="btn" href="/account/cameras">Register a camera</a>
+    </section>
+
+    <section class="block">
+      <h2>Recent orders</h2>
+      {orders.length === 0 ? (
+        <p class="empty-note">No orders yet.</p>
+      ) : (
+        <ul class="orders">
+          {orders.map((o) => (
+            <li class="order card">
+              <a href={`/account/orders/${o.number}`}>
+                <span class="serial order-number">{o.number}</span>
+                <span>{o.first_line}{o.line_count > 1 ? ` and ${o.line_count - 1} more` : ''}</span>
+                <span class="tnum">{dollars(Number(o.total_minor))}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <a class="btn" href="/account/orders">All orders</a>
+    </section>
+
+    <section class="block">
+      <h2>Software</h2>
+      {latest ? (
+        <dl>
+          <dt>Current application version</dt><dd class="mono">{latest.version}</dd>
+          <dt>Newer than the one you last saw</dt>
+          <dd>{isNewer ? 'Yes' : 'No'}</dd>
+        </dl>
+      ) : (
+        <p class="empty-note">No releases published yet.</p>
+      )}
+      <a class="btn" href="/downloads">Downloads</a>
+    </section>
+  </div>
+</PageShell>
+
+<style>
+  .overview { display: grid; gap: calc(var(--space) * 8); padding: 0 var(--gutter); }
+  .block { display: grid; gap: calc(var(--space) * 3); }
+  .block h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .cameras, .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 3); }
+  .camera__link, .order a { display: grid; gap: var(--space); padding: calc(var(--space) * 3); text-decoration: none; color: inherit; }
+  .camera__model, .order span:nth-child(2) { font-weight: 700; }
+  .camera__chips { display: flex; gap: var(--space); flex-wrap: wrap; }
+  .empty-note { color: var(--ink-on-light-muted); margin: 0; }
+  dl { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  dt { color: var(--ink-on-light-muted); }
+  dd { margin: 0; text-align: right; }
+  .order a { grid-template-columns: auto 1fr auto; gap: calc(var(--space) * 4); align-items: baseline; }
+</style>

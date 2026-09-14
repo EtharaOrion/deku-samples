@@ -1,0 +1,215 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { getCustomer, cartToken, loadCart, cartView, cartCount } from '../lib/store.mjs';
+import { usd } from '../../server/domain.mjs';
+
+const customer = await getCustomer(Astro.request);
+const token = cartToken(Astro.request);
+const d = await (await import('../lib/store.mjs')).db();
+const cart = await loadCart(d, token);
+const view = await cartView(d, cart);
+const count = view.lines.reduce((s, l) => s + l.quantity, 0);
+const rung = view.protection_rung;
+const hasMethod = Boolean(view.methodKnown);
+---
+<Shell title="Cart — Vela" current="cart" customer={customer?.customer} cartCount={count}>
+  <h1>Cart</h1>
+
+  {view.lines.length === 0 ? (
+    <div class="empty"><p>Your cart is empty.</p><p><a href="/shop">Go to the shop</a></p></div>
+  ) : (
+    <div class="cart-grid">
+      <section class="lines" aria-label="Cart lines">
+        {view.notices.length > 0 && (
+          <div class="notices" role="status">
+            {view.notices.map((n) => <p class="notice">{n.message}</p>)}
+          </div>
+        )}
+
+        {view.lines.map((l) => (
+          <div class="card line" data-line data-line-id={l.id} data-available={l.available ?? 0} data-unit-minor={l.unit_price_minor}>
+            <div class="thumb" aria-hidden="true"></div>
+            <div class="line-body">
+              <p class="title"><a href={`/shop/${l.handle}`}>{l.product_title}</a></p>
+              <p class="variant">{l.option_value}</p>
+              <p class="sku mono">{l.sku}</p>
+              <div class="row line-controls">
+                <span class="stepper">
+                  <button class="btn btn-secondary btn-sm" type="button" data-dec aria-label={`Decrease quantity of ${l.product_title}`}>−</button>
+                  <input class="qty tnum" data-qty-line inputmode="numeric" type="number" min="1" max="10" value={l.quantity} aria-label={`Quantity of ${l.product_title}`} />
+                  <button class="btn btn-secondary btn-sm" type="button" data-inc aria-label={`Increase quantity of ${l.product_title}`}>+</button>
+                </span>
+                <button class="btn btn-secondary btn-sm" type="button" data-remove>Remove</button>
+              </div>
+            </div>
+            <div class="line-money">
+              <p class="unit money tnum">{usd(l.unit_price_minor)} each</p>
+              <p class="line-total money tnum" data-line-total>{usd(l.unit_price_minor * l.quantity)}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <aside class="summary card" aria-label="Summary">
+        <h2>Summary</h2>
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd class="money tnum">{usd(view.subtotal_minor)}</dd></div>
+          <div><dt>Estimated delivery</dt><dd class="money tnum">{hasMethod ? usd(view.shipping_minor) : '—'}</dd></div>
+          <div><dt>Estimated tax</dt><dd class="money tnum">{usd(view.tax_minor)}</dd></div>
+          {view.protection_enabled && <div><dt>Shipment protection</dt><dd class="money tnum">{usd(view.protection_minor)}</dd></div>}
+          <div class="grand"><dt>Total</dt><dd class="money tnum">{usd(view.total_minor)}</dd></div>
+        </dl>
+        <p class="est-note">Estimated. We will show the exact amount once we know where it is going.</p>
+
+        <label class="protect">
+          <input type="checkbox" data-protection {view.protection_enabled ? 'checked' : ''} />
+          <span>Protect this shipment against loss, theft and damage for {rung ? usd(rung.minor) : ''}</span>
+        </label>
+
+        <a class="btn" href="/checkout/where-it-goes" data-checkout>Check out</a>
+        <p class="hint">Shipment protection is not taxed and does not add shipping weight.</p>
+      </aside>
+    </div>
+  )}
+</Shell>
+
+<script>
+  // Cart island: optimistic quantities, authoritative server, persistent notices.
+  const root = document.querySelector('.cart-grid');
+  const fmt = (m) => '$' + Math.floor(m / 100) + '.' + String(Math.abs(m % 100)).padStart(2, '0');
+  if (root) {
+    const clearPending = () => {
+      root.querySelectorAll('.totals dd[data-pending]').forEach((el) => el.removeAttribute('data-pending'));
+      root.querySelectorAll('.totals div.is-updating').forEach((el) => el.classList.remove('is-updating'));
+    };
+    const markPending = () => {
+      root.querySelectorAll('.totals dd').forEach((el) => el.setAttribute('data-pending', '1'));
+      root.querySelectorAll('.totals div').forEach((el) => el.classList.add('is-updating'));
+    };
+    const rerender = (cart) => {
+      const map = {
+        subtotal: cart.subtotal_minor,
+        tax: cart.tax_minor,
+        total: cart.total_minor,
+      };
+      const subs = root.querySelectorAll('.totals div');
+      if (subs[0] && subs[0].querySelector('dd')) subs[0].querySelector('dd').textContent = fmt(map.subtotal);
+      if (subs[2] && subs[2].querySelector('dd')) subs[2].querySelector('dd').textContent = fmt(map.tax);
+      const grand = root.querySelector('.grand dd');
+      if (grand) grand.textContent = fmt(map.total);
+      const rungLabel = root.querySelector('.protect span');
+      if (rungLabel && cart.protection_rung) {
+        rungLabel.textContent = `Protect this shipment against loss, theft and damage for ${fmt(cart.protection_rung.minor)}`;
+      }
+      const count = (cart.lines || []).reduce((s, l) => s + l.quantity, 0);
+      const badge = document.querySelector('[data-cart-badge]');
+      const link = document.querySelector('[data-cart-link]');
+      if (badge) badge.textContent = count > 99 ? '99+' : String(count);
+      if (link) link.setAttribute('aria-label', `Cart, ${count} item${count === 1 ? '' : 's'}`);
+      clearPending();
+    };
+
+    for (const line of Array.from(root.querySelectorAll('[data-line]'))) {
+      const input = line.querySelector('[data-qty-line]');
+      const totalEl = line.querySelector('[data-line-total]');
+      // Money is an integer count of minor units everywhere, including here.
+      const unit = Number(line.dataset.unitMinor || 0);
+
+      const send = async (quantity) => {
+        const res = await fetch(`/api/cart/lines/${line.dataset.lineId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ quantity }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          // the number reverts and the reason is stated
+          input.value = String(line.dataset.prevQty || 1);
+          totalEl.textContent = fmt(unit * Number(line.dataset.prevQty || 1));
+          clearPending();
+          const err = document.createElement('p');
+          err.className = 'notice';
+          err.dataset.kind = 'bad';
+          err.textContent = body?.error?.message || 'That did not work.';
+          line.appendChild(err);
+          setTimeout(() => err.remove(), 6000);
+          return;
+        }
+        rerender(body);
+      };
+
+      line.dataset.prevQty = input.value;
+      const setQty = (q) => {
+        const clamped = Math.min(10, Math.max(1, q));
+        line.dataset.prevQty = String(clamped);
+        input.value = String(clamped);
+        totalEl.textContent = fmt(unit * clamped);
+        markPending();
+        send(clamped);
+      };
+      line.querySelector('[data-dec]').addEventListener('click', () => setQty(Number(input.value) - 1));
+      line.querySelector('[data-inc]').addEventListener('click', () => setQty(Number(input.value) + 1));
+      input.addEventListener('change', () => setQty(Number(input.value || 1)));
+
+      const rm = line.querySelector('[data-remove]');
+      rm.addEventListener('click', async () => {
+        rm.disabled = true;
+        const res = await fetch(`/api/cart/lines/${line.dataset.lineId}`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else { rm.disabled = false; }
+      });
+
+    }
+
+    const prot = root.querySelector('[data-protection]');
+    if (prot) {
+      prot.addEventListener('change', async () => {
+        const res = await fetch('/api/cart/protection', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ enabled: prot.checked }),
+        });
+        if (res.ok) window.location.reload();
+        else { prot.checked = !prot.checked; }
+      });
+    }
+  }
+</script>
+
+<style>
+  h1 { font-size: 28px; margin-bottom: calc(var(--unit) * 6); }
+  .cart-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: calc(var(--unit) * 6); align-items: start; }
+  @media (max-width: 64rem) { .cart-grid { grid-template-columns: 1fr; } }
+  .lines { display: grid; gap: calc(var(--unit) * 3); }
+  .notices { display: grid; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 3); }
+  .line { display: grid; grid-template-columns: 72px 1fr auto; gap: calc(var(--unit) * 4); padding: calc(var(--unit) * 4); }
+  @media (max-width: 40rem) { .line { grid-template-columns: 1fr; } }
+  .thumb { width: 72px; height: 72px; border-radius: 0; background: linear-gradient(150deg, #e0dbce 0%, #c6bfae 100%); border: var(--border) solid var(--ground-light-line); }
+  .title a { color: inherit; text-decoration: none; border-bottom: var(--border) solid var(--ground-light-line); font-weight: 700; }
+  .variant, .sku { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .line-controls { margin-top: calc(var(--unit) * 3); }
+  .stepper { display: inline-flex; gap: 6px; align-items: center; }
+  .qty { width: 60px; text-align: center; padding: 6px; border: var(--border) solid var(--ground-light-line); border-radius: var(--radius); font: inherit; background: var(--ground-light-card); color: inherit; }
+  .line-money { text-align: right; display: grid; gap: 4px; align-content: start; }
+  .unit { color: var(--ground-light-fg-muted); font-size: 13px; }
+  .line-total { font-weight: 700; font-size: 17px; }
+  .summary { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); position: sticky; top: calc(var(--unit) * 4); }
+  .summary h2 { font-size: 18px; }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; gap: 12px; }
+  .totals dt { color: var(--ground-light-fg-muted); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .est-note { font-size: 13px; color: var(--ground-light-fg-muted); }
+  /* Totals show a pending state while the server is authoritative. */
+  .totals dd[data-pending="1"] { opacity: 0.55; }
+  .totals dd::after { content: ''; }
+  .totals div.is-updating dt::after {
+    content: ' (updating)';
+    font-size: 11px;
+    color: var(--busy);
+  }
+  .protect { display: flex; gap: 8px; align-items: start; font-size: 14px; line-height: 20px; }
+  .protect input { accent-color: var(--ground-light-fg); margin-top: 2px; }
+  .hint { font-size: 12px; color: var(--ground-light-fg-muted); }
+</style>

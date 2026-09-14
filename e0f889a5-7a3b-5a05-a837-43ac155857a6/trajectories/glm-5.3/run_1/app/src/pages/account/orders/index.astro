@@ -1,0 +1,48 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { getCustomer, ordersFor, fmtDate } from '../../../lib/store.mjs';
+import { usd } from '../../../../server/domain.mjs';
+
+const s = await getCustomer(Astro.request);
+if (!s || s.expired || !s.customer) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+const me = s.customer;
+const orders = await ordersFor(me.id, 100);
+
+const chipFor = (o) => {
+  if (o.status === 'cancelled') return 'Cancelled';
+  if (o.status === 'confirmed' && o.fulfilment_status === 'fulfilled') return 'Confirmed and fulfilled';
+  if (o.status === 'confirmed') return 'Confirmed, not yet sent';
+  return 'Placed, not yet confirmed';
+};
+---
+<Shell title="Orders — Vela" current="orders" customer={me}>
+  <h1>Orders</h1>
+  {orders.length === 0 ? (
+    <div class="empty"><p>No orders yet.</p><p><a href="/shop">Go to the shop</a></p></div>
+  ) : (
+    <ul class="order-list">
+      {orders.map((o) => (
+        <li>
+          <a class="order-row" href={`/account/orders/${o.number}`}>
+            <span class="mono num">{o.number}</span>
+            <span class="date">{fmtDate(o.placed_at || o.created_at)}</span>
+            <span class="first-line">{o.lines[0]?.title_snapshot}{o.lines.length > 1 ? ` and ${o.lines.length - 1} more` : ''}</span>
+            <span class="money tnum total">{usd(o.total_minor)}</span>
+            <span class="chip" data-state={o.status === 'confirmed' ? 'ok' : 'busy'}>{chipFor(o)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+</Shell>
+
+<style>
+  h1 { font-size: 28px; margin-bottom: calc(var(--unit) * 6); }
+  .order-list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .order-row { display: grid; grid-template-columns: 130px 150px 1fr auto auto; gap: calc(var(--unit) * 3); align-items: center; padding: calc(var(--unit) * 3) 0; border-bottom: var(--border) solid var(--ground-light-line); text-decoration: none; color: inherit; }
+  .order-row:hover .num { text-decoration: underline; }
+  .date { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .first-line { font-size: 14px; }
+  .total { font-weight: 700; }
+  @media (max-width: 50rem) { .order-row { grid-template-columns: 1fr auto; } .date, .first-line { display: none; } }
+</style>

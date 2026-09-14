@@ -1,0 +1,136 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { listProducts, variantsForProducts, availabilityOf } from '../../server/catalog.ts';
+import { money } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const { rows } = await listProducts(100, null);
+const variants = await variantsForProducts(rows.map((r: any) => r.id));
+
+type Card = {
+  handle: string; title: string; subtitle: string; kind: string; status: string;
+  support_until: string | null;
+  availability: any;
+  prices: number[]; totalAvailable: number;
+};
+
+const cards: Card[] = rows.map((row: any) => {
+  const list = variants.get(String(row.id)) || [];
+  const prices = list.map((v: any) => Number(v.price_minor));
+  const totalAvailable = list.reduce((s: number, v: any) => s + Number(v.available ?? 0), 0);
+  return {
+    handle: row.handle, title: row.title, subtitle: row.subtitle, kind: row.kind, status: row.status,
+    support_until: row.support_until ? new Date(row.support_until).toISOString().slice(0, 10) : null,
+    availability: availabilityOf(row, totalAvailable),
+    prices, totalAvailable,
+  };
+});
+
+const cameras = cards.filter((c) => c.kind === 'camera');
+const accessories = cards.filter((c) => c.kind !== 'camera');
+
+function priceLabel(c: Card) {
+  if (c.prices.length === 0) return '—';
+  const min = Math.min(...c.prices);
+  const uniq = new Set(c.prices);
+  return (uniq.size > 1 ? 'From ' : '') + money(min);
+}
+function chipFor(a: any) {
+  if (!a || a.state === 'available') return null;
+  if (a.state === 'discontinued') return { text: 'Discontinued', cls: 'chip' };
+  if (a.state === 'sold_out') return { text: 'Sold out', cls: 'chip chip-sold' };
+  return { text: a.label, cls: 'chip chip-low' };
+}
+---
+
+<Shell title="Shop — Vela" active="shop" cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Shop</h1>
+    <p class="lede">Two cameras, what goes with them and what keeps them going.</p>
+  </div>
+
+  {cards.length === 0 ? (
+    <div class="empty">
+      <p>Nothing is on the table right now.</p>
+      <a class="btn" href="/downloads">See the downloads</a>
+    </div>
+  ) : (
+    <>
+      <section aria-labelledby="cameras-h">
+        <h2 id="cameras-h" class="section-h">Cameras</h2>
+        <ul class="grid grid-cameras">
+          {cameras.map((c) => {
+            const chip = chipFor(c.availability);
+            return (
+              <li class="card product-card">
+                <a class="product-link" href={`/shop/${c.handle}`}>
+                  <span class="media" aria-hidden="true" data-media={c.handle}></span>
+                  <span class="card-body">
+                    <span class="card-title">{c.title}</span>
+                    <span class="card-sub">{c.subtitle}</span>
+                    <span class="card-price num">{priceLabel(c)}</span>
+                    {chip ? <span class={chip.cls}>{chip.text}</span> : null}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section aria-labelledby="accessories-h">
+        <h2 id="accessories-h" class="section-h">Accessories and parts</h2>
+        <ul class="grid grid-accessories">
+          {accessories.map((c) => {
+            const chip = chipFor(c.availability);
+            return (
+              <li class="card product-card">
+                <a class="product-link" href={`/shop/${c.handle}`}>
+                  <span class="media media-small" aria-hidden="true" data-media={c.handle}></span>
+                  <span class="card-body">
+                    <span class="card-title">{c.title}</span>
+                    <span class="card-sub">{c.subtitle}</span>
+                    <span class="card-price num">{priceLabel(c)}</span>
+                    {chip ? <span class={chip.cls}>{chip.text}</span> : null}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </>
+  )}
+</Shell>
+
+<style>
+  .page-head { display: grid; gap: calc(var(--unit) * 1); margin-bottom: calc(var(--unit) * 6); }
+  h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .section-h { font-size: 15px; letter-spacing: 0.02em; margin: calc(var(--unit) * 6) 0 calc(var(--unit) * 2); font-weight: 700; }
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 3); grid-template-columns: 1fr; }
+  .product-card { overflow: hidden; }
+  .product-link { display: grid; grid-template-rows: auto auto; text-decoration: none; height: 100%; }
+  .media {
+    display: block; aspect-ratio: 16 / 10; background: var(--paper);
+    background-size: cover; background-position: center; border-bottom: var(--border-w) solid var(--paper-line);
+  }
+  .media-small { aspect-ratio: 16 / 6; }
+  .media[data-media='flagship'] { background-image: url('/img/a1.svg'); }
+  .media[data-media='compact'] { background-image: url('/img/cricket.svg'); }
+  .media[data-media='mount'] { background-image: url('/img/mount.svg'); }
+  .media[data-media='case'] { background-image: url('/img/case.svg'); }
+  .media[data-media='cable'] { background-image: url('/img/cable.svg'); }
+  .card-body { display: grid; gap: calc(var(--unit) * 1); padding: calc(var(--unit) * 3); align-content: start; }
+  .card-title { font-weight: 700; font-size: 20px; }
+  .card-sub { color: var(--ink-soft); }
+  .card-price { font-weight: 700; }
+  .empty { display: grid; gap: calc(var(--unit) * 3); padding: calc(var(--unit) * 6) 0; }
+  @media (min-width: 40rem) {
+    .grid-cameras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-accessories { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+</style>

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="studio studio-home" x-data='palette({{ house | tojson }})'  x-init="load()">
+  <section class="palette" :class="{ 'is-open': open }">
+    <button class="palette-trigger" type="button" @click="openPalette()" aria-label="Open the command palette">
+      <span class="palette-hint">Type to search the house, or press Enter for the list</span>
+      <span class="palette-key">Ctrl K</span>
+    </button>
+
+    <div class="palette-panel" x-show="open" x-cloak role="dialog" aria-modal="true" aria-label="Command palette">
+      <input class="palette-input" type="text" x-ref="input" x-model="q"
+             placeholder="Search records or choose an action"
+             @keydown.escape="closePalette()"
+             @keydown.enter="runFirst()"
+             aria-label="Search records or choose an action">
+      <ul class="palette-list" role="listbox" aria-label="Results">
+        <template x-for="(opt, i) in filtered" :key="opt.key">
+          <li role="option" :aria-selected="i === cursor" :class="{ 'is-cursor': i === cursor }">
+            <button class="palette-opt" type="button" @click="choose(opt)" @mouseenter="cursor = i"
+                    @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)">
+              <span class="palette-opt-kind" x-text="opt.kindLabel"></span>
+              <span class="palette-opt-title" x-text="opt.title"></span>
+              <span class="palette-opt-meta" x-text="opt.meta"></span>
+            </button>
+          </li>
+        </template>
+        <li class="palette-empty" x-show="!filtered.length">Nothing in this house matches.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="studio-grid">
+    <h1 class="studio-heading">{{ house.name }} studio</h1>
+    <p class="studio-sub">Records, published and unlisted, one card each.</p>
+    <div class="cards" x-show="items.length">
+      <template x-for="it in items" :key="it.id">
+        <a class="card" :class="{ 'card--live': it.published }" :href="`/studio/items/${it.id}`">
+          <span class="card-title" x-text="it.title"></span>
+          <span class="card-slug" x-text="it.slug"></span>
+          <span class="card-kind" x-text="it.kind === 'work' ? 'WORK' : 'TALENT'"></span>
+          <span class="card-state" x-text="it.published ? 'LIVE' : 'UNLISTED'"></span>
+        </a>
+      </template>
+    </div>
+    <p class="empty-state" x-show="loaded && !items.length" x-cloak>No records yet. Create one from the palette.</p>
+  </section>
+  <button class="studio-signout" type="button" @click="signOut()">Sign out</button>
+</div>
+{% endblock %}

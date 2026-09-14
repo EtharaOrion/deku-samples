@@ -1,0 +1,210 @@
+---
+import PageShell from '../components/PageShell.astro';
+import { sessionCustomer, sessionCart } from '../server/session.js';
+import { dollars } from '../server/money.js';
+import { DELIVERY_METHODS } from '../server/catalogue.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+const { state: cart } = await sessionCart(Astro.cookies, customer);
+const lines = cart?.lines ?? [];
+const notices = cart?.notices ?? [];
+const rung = cart?.protection_rung ?? null;
+const shipping = cart?.shipping_minor ?? 0;
+---
+<PageShell title="Cart — Vela" heading="Cart" active="">
+  {lines.length === 0 ? (
+    <div class="empty">
+      <p>Your cart is empty.</p>
+      <a class="btn" href="/shop">Shop</a>
+    </div>
+  ) : (
+    <div class="cart">
+      <div class="lines">
+        {notices.length > 0 && (
+          <div class="notices">
+            {notices.map((n) => <p class="notice notice--error" data-notice>{n.message}</p>)}
+          </div>
+        )}
+        <ul class="list">
+          {lines.map((line) => (
+            <li class="cart-line card" data-line data-line-id={line.id}>
+              <img class="cart-line__thumb media" src={line.image} alt="" width="160" height="105" />
+              <div class="cart-line__info">
+                <p class="cart-line__title">{line.product_title}</p>
+                <p class="cart-line__variant">{line.option_value}</p>
+                <p class="cart-line__unit tnum">{dollars(line.unit_price_minor)} each</p>
+              </div>
+              <div class="cart-line__qty">
+                <div class="stepper" data-qty data-line-id={line.id} data-max={Math.min(10, line.available)}>
+                  <button type="button" class="btn" aria-label={`Decrease quantity of ${line.product_title}`} data-qty-decrease>−</button>
+                  <input class="tnum" type="number" min="1" max={Math.min(10, Math.max(1, line.available))} value={line.quantity} data-qty-input aria-label={`Quantity of ${line.product_title}`} />
+                  <button type="button" class="btn" aria-label={`Increase quantity of ${line.product_title}`} data-qty-increase>+</button>
+                </div>
+                <button type="button" class="btn btn--quiet" data-remove data-line-id={line.id}>Remove</button>
+              </div>
+              <p class="cart-line__total tnum" data-line-total>{dollars(line.line_total_minor)}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <aside class="summary card" aria-label="Order summary">
+        <h2>Summary</h2>
+        <dl class="tnum">
+          <dt>Subtotal</dt><dd data-subtotal>{dollars(cart?.subtotal_minor ?? 0)}</dd>
+          {rung && (
+            <>
+              <dt>Shipment protection</dt>
+              <dd data-protection>{cart?.protection.enabled ? dollars(rung.price_minor) : dollars(0)}</dd>
+            </>
+          )}
+          <dt>Estimated delivery</dt><dd data-shipping>{shipping > 0 ? dollars(shipping) : 'Free'}</dd>
+          <dt>Estimated tax</dt><dd data-tax>{dollars(cart?.tax_minor ?? 0)}</dd>
+          <dt data-total-dt>Total</dt><dd class="summary__total" data-total>{dollars(cart?.total_minor ?? 0)}</dd>
+        </dl>
+        <p class="field-hint">Estimated. We will show the exact amount once we know where it is going.</p>
+        {rung && (
+          <label class="protect">
+            <input type="checkbox" data-protection-toggle checked={cart?.protection.enabled ?? false} />
+            <span>Protect this shipment against loss, theft and damage for {dollars(rung.price_minor)}</span>
+          </label>
+        )}
+        <a class="btn btn--primary" href="/checkout/where-it-goes">Check out</a>
+        <p class="status" role="status" aria-live="polite" data-cart-status></p>
+      </aside>
+    </div>
+  )}
+</PageShell>
+
+<script>
+  const root = document.querySelector('.cart') as HTMLElement | null;
+  const status = document.querySelector('[data-cart-status]') as HTMLElement | null;
+
+  function readCartToken(): string {
+    const m = /(?:^|;\s*)vela_cart=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  async function call(path: string, init: RequestInit = {}): Promise<any> {
+    const res = await fetch(path, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', 'X-Cart-Token': readCartToken(), ...(init.headers as any) },
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+    return body;
+  }
+
+  function money(minor: number): string {
+    const n = Math.trunc(minor);
+    const whole = Math.floor(Math.abs(n) / 100);
+    const rest = Math.abs(n) % 100;
+    return `${n < 0 ? '-' : ''}$${whole}.${String(rest).padStart(2, '0')}`;
+  }
+
+  function render(cart: any) {
+    const set = (sel: string, value: string) => {
+      const el = document.querySelector(sel);
+      if (el) el.textContent = value;
+    };
+    set('[data-subtotal]', money(cart.subtotal_minor));
+    set('[data-tax]', money(cart.tax_minor));
+    set('[data-total]', money(cart.total_minor));
+    set('[data-shipping]', cart.shipping_minor > 0 ? money(cart.shipping_minor) : 'Free');
+    const protect = document.querySelector('[data-protection]');
+    if (protect) protect.textContent = money(cart.protection?.enabled ? (cart.protection_rung?.price_minor ?? 0) : 0);
+    (document.querySelectorAll('[data-line]') as NodeListOf<HTMLElement>).forEach((row) => {
+      const line = cart.lines.find((l: any) => String(l.id) === row.dataset.lineId);
+      if (!line) { row.remove(); return; }
+      const total = row.querySelector('[data-line-total]');
+      if (total) total.textContent = money(line.line_total_minor);
+      const input = row.querySelector('[data-qty-input]') as HTMLInputElement | null;
+      if (input && document.activeElement !== input) input.value = String(line.quantity);
+      row.classList.remove('is-pending');
+    });
+    if (cart.lines.length === 0) window.location.reload();
+  }
+
+  // Quantities are optimistic in the interface and authoritative on the server.
+  root?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const row = target.closest('[data-line]') as HTMLElement | null;
+    const stepper = target.closest('[data-qty]') as HTMLElement | null;
+    if (!row) return;
+    const input = row.querySelector('[data-qty-input]') as HTMLInputElement | null;
+    if (!input) return;
+
+    if (stepper?.querySelector('[data-qty-decrease]') === target || stepper?.contains(target) && target.matches('[data-qty-decrease]')) {
+      const next = Number(input.value) - 1;
+      if (next < 1) return;
+      input.value = String(next);
+      row.classList.add('is-pending');
+      try { render(await call(`/api/cart/lines/${row.dataset.lineId}`, { method: 'PATCH', body: JSON.stringify({ quantity: next }) })); }
+      catch (err) { input.value = String(Math.max(1, Number(input.value) + 1)); row.classList.remove('is-pending'); if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+      return;
+    }
+    if (target.matches('[data-qty-increase]')) {
+      const max = Number(stepper?.dataset.max ?? 10);
+      const next = Number(input.value) + 1;
+      if (next > max) { if (status) status.textContent = `We only have ${max} of this.`; return; }
+      input.value = String(next);
+      row.classList.add('is-pending');
+      try { render(await call(`/api/cart/lines/${row.dataset.lineId}`, { method: 'PATCH', body: JSON.stringify({ quantity: next }) })); }
+      catch (err) { input.value = String(Number(input.value) - 1); row.classList.remove('is-pending'); if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+      return;
+    }
+    if (target.matches('[data-remove]')) {
+      if (!window.confirm('Remove this from your cart?')) return;
+      row.classList.add('is-pending');
+      try { render(await call(`/api/cart/lines/${row.dataset.lineId}`, { method: 'DELETE' })); }
+      catch (err) { row.classList.remove('is-pending'); if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+    }
+  });
+
+  root?.addEventListener('change', async (event) => {
+    const toggle = event.target as HTMLInputElement;
+    if (!toggle.matches('[data-protection-toggle]')) return;
+    if (status) status.textContent = '';
+    try { render(await call('/api/cart/protection', { method: 'POST', body: JSON.stringify({ enabled: toggle.checked }) })); }
+    catch (err) { if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+  });
+
+  root?.addEventListener('change', async (event) => {
+    const input = event.target as HTMLInputElement;
+    if (!input.matches('[data-qty-input]')) return;
+    const row = input.closest('[data-line]') as HTMLElement | null;
+    if (!row) return;
+    const value = Math.trunc(Number(input.value || 1));
+    row.classList.add('is-pending');
+    try { render(await call(`/api/cart/lines/${row.dataset.lineId}`, { method: 'PATCH', body: JSON.stringify({ quantity: value }) })); }
+    catch (err) { row.classList.remove('is-pending'); if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.'; }
+  });
+</script>
+
+<style>
+  .cart { display: grid; gap: calc(var(--space) * 6); padding: 0 var(--gutter); align-items: start; }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 3); }
+  .notices { display: grid; gap: calc(var(--space) * 2); margin-bottom: calc(var(--space) * 3); }
+  .cart-line { display: grid; grid-template-columns: 96px 1fr auto auto; gap: calc(var(--space) * 4); align-items: center; padding: calc(var(--space) * 3); }
+  .cart-line__thumb { width: 96px; height: auto; display: block; }
+  .cart-line__title { font-weight: 700; margin: 0; }
+  .cart-line__variant, .cart-line__unit { color: var(--ink-on-light-muted); margin: 0; font-size: 14px; line-height: 21px; }
+  .cart-line__qty { display: grid; gap: var(--space); justify-items: start; }
+  .stepper { display: flex; gap: var(--space); align-items: center; }
+  .stepper input { width: 4rem; text-align: center; padding: calc(var(--space) * 2); }
+  .cart-line__total { font-weight: 700; margin: 0; min-width: 6ch; text-align: right; }
+  .cart-line.is-pending { opacity: 0.6; transition: opacity var(--transition-ms) linear; }
+  .summary { position: sticky; top: calc(var(--header-h) + var(--space) * 4); padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .summary h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .summary dl { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .summary dt { color: var(--ink-on-light-muted); }
+  .summary dd { margin: 0; text-align: right; }
+  .summary__total { font-weight: 700; }
+  .protect { display: flex; gap: calc(var(--space) * 2); font-weight: 400; align-items: flex-start; }
+  .protect input { width: auto; margin-top: calc(var(--space) * 1); }
+  .status { min-height: 24px; margin: 0; }
+  .empty { padding: calc(var(--space) * 12) var(--gutter); display: grid; gap: calc(var(--space) * 4); justify-items: start; }
+  @media (min-width: 64rem) {
+    .cart { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  }
+</style>

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="route--talents" id="roster" data-roster
+         aria-label="Talent roster">
+
+  <div class="filter" id="disciplineFilter" role="group" aria-label="Filter by discipline">
+    {% for d in disciplines %}
+    <button type="button" data-discipline="{{ d }}" aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            data-cursor="{{ d | upper }}">
+      <span class="filter-marker" aria-hidden="true"></span>{{ d | upper }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="roster" data-roster-stage>
+    {% for t in talents %}
+    <article class="roster-slide{% if loop.first %} is-active{% endif %}" data-slide
+             data-discipline="{{ t.discipline }}"
+             {% if loop.first %}aria-current="true"{% endif %}>
+      {%- if loop.first -%}
+      <h1 class="roster-name"><span class="roster-name-inner">{{ t.title }}</span></h1>
+      {%- else -%}
+      <h2 class="roster-name"><span class="roster-name-inner">{{ t.title }}</span></h2>
+      {%- endif -%}
+      <p class="roster-discipline">{{ t.discipline | upper }}</p>
+      {% if t.poster %}
+      <a class="roster-portrait" href="/talents/{{ t.slug }}" data-cursor="{{ t.title }}" data-reveal
+         aria-label="{{ t.title }}, {{ t.discipline }}">
+        <span class="tile-inner">
+          <img class="tile-img" src="{{ t.poster.url }}" alt="{{ t.poster.alt }}"
+               width="{{ t.poster.width }}" height="{{ t.poster.height }}" decoding="async">
+        </span>
+      </a>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+
+  {% if not talents %}
+  <p class="empty">No one is showing yet. The roster is between names.</p>
+  {% endif %}
+</section>
+
+{% if talents %}
+<div class="counter counter--roster" id="rosterCounter" data-roster-counter aria-live="polite">
+  <span class="counter-value">01 / {{ '%02d' % talents|length }}</span>
+</div>
+{% endif %}
+{% endblock %}

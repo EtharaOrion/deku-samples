@@ -1,0 +1,24 @@
+
+---
+import App from '@layouts/App.astro';
+import CheckoutPay from '@components/CheckoutPay.jsx';
+import { currentCart } from '@lib/session.js';
+const { request } = Astro;
+const { state } = await currentCart(request);
+const ready = !!(state && state.shipping_address && state.shipping_method);
+---
+<App title="Payment">
+  <CheckoutPay client:load
+    ready={ready}
+    cart={{
+      lines: (state?.lines || []).map((l) => ({ title: l.product_title, variant_title: l.variant_title, quantity: l.quantity, line_total_minor: l.quantity * l.current_price_minor })),
+      subtotal_minor: state?.subtotal_minor ?? 0,
+      shipping_minor: state?.shipping_minor ?? 0,
+      tax_minor: state?.tax_minor ?? null,
+      total_minor: state?.total_minor ?? null,
+      shipping_method: state?.shipping_method ?? null,
+      protection_minor: state?.protection?.enabled && state?.protection?.rung ? state.protection.rung.price_minor : 0,
+      email: state?.email ?? null,
+    }}
+  />
+</App>

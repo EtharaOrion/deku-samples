@@ -1,0 +1,92 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { query, one } from '../../lib/db.js';
+import { serializeDevice, latestFirmware } from '../../lib/devices.js';
+import { serializeOrder } from '../../lib/orders.js';
+import { latestRelease } from '../../lib/releases.js';
+import { money, formatDate } from '../../lib/format.js';
+
+const customer = Astro.locals.customer;
+if (!customer) return Astro.redirect(`/sign-in?next=/account`);
+
+const [cameras, orders, release] = await Promise.all([
+  query(
+    `SELECT d.*, p.title AS product_title, p.handle AS product_handle, v.option_value,
+            o.customer_id AS owner_customer_id, o.claimed_at
+     FROM device_ownership o
+     JOIN device d ON d.id = o.device_id
+     JOIN product p ON p.id = d.product_id
+     JOIN variant v ON v.id = d.variant_id
+     WHERE o.released_at IS NULL AND o.customer_id = $1
+     ORDER BY o.id DESC LIMIT 2`,
+    [customer.id]
+  ),
+  query(`SELECT * FROM "order" WHERE customer_id = $1 ORDER BY id DESC LIMIT 2`, [customer.id]),
+  latestRelease(),
+]);
+
+const latestByProduct = new Map();
+for (const row of cameras.rows) {
+  if (!latestByProduct.has(row.product_id)) {
+    latestByProduct.set(row.product_id, await latestFirmware(row.product_id));
+  }
+}
+
+const seen = customer.last_seen_release_build ?? null;
+const newerAvailable = release && (!seen || release.build > seen);
+---
+
+<Shell title="Your account — Vela" current="account" customer={{ name: customer.name, email: customer.email }}>
+  <h1>Overview</h1>
+
+  <section class="account-block" data-block="cameras">
+    <h2><a href="/account/cameras">Cameras</a></h2>
+    {cameras.rows.length === 0 ? (
+      <p class="empty">No cameras registered yet.</p>
+    ) : (
+      <ul class="camera-list">
+        {cameras.rows.map((d) => {
+          const fw = latestByProduct.get(d.product_id);
+          const s = serializeDevice(d, { latestFw: fw });
+          return (
+            <li class="camera-card">
+              <span class="camera-model">{s.model}</span>
+              {s.nickname && <span class="camera-nickname">{s.nickname}</span>}
+              <code class="mono camera-serial">{s.serial}</code>
+              <span class={`chip ${s.firmware_state === 'behind' ? 'chip-progress' : ''}`}>{s.firmware_label}</span>
+              <span class="chip">{s.warranty_until ? `Warranty to ${formatDate(s.warranty_until)}` : 'No warranty date'}</span>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </section>
+
+  <section class="account-block" data-block="orders">
+    <h2><a href="/account/orders">Orders</a></h2>
+    {orders.rows.length === 0 ? (
+      <p class="empty">No orders yet.</p>
+    ) : (
+      <ul class="order-list">
+        {orders.rows.map((o) => (
+          <li>
+            <a href={`/account/orders/${o.number}`} class="mono">{o.number}</a>
+            <span>{formatDate(o.placed_at)}</span>
+            <span class="tnum">{money(o.total_minor)}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="account-block" data-block="software">
+    <h2>Software</h2>
+    <p>
+      The current application version is Arranger {release.version}.
+      {newerAvailable
+        ? ` It is newer than the one you last saw.`
+        : ` You have already seen this version.`}
+    </p>
+    <a class="btn" href="/downloads">Downloads</a>
+  </section>
+</Shell>

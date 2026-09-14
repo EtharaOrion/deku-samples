@@ -1,0 +1,106 @@
+{# Base document. The frame is rendered once per document; alpine keeps it alive
+   across navigations by swapping only the well's innerHTML. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23060403'/%3E%3Cellipse cx='8' cy='8' rx='6' ry='3.4' fill='none' stroke='%23e9eae4' stroke-width='1.2'/%3E%3C/svg%3E">
+<title>{% block title %}Cirrus{% endblock %}</title>
+<meta name="description" content="A production house for picture and its makers.">
+{% block meta %}{% endblock %}
+<meta property="og:title" content="{{ self.title()|striptags }}">
+<meta property="og:description" content="A production house for picture and its makers.">
+<meta property="og:image" content="{{ public_url }}/static/media/share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/static/fonts/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/css/cirrus.css">
+<script defer src="/static/js/cirrus.js"></script>
+<script defer src="/static/js/alpine.min.js"></script>
+</head>
+<body data-route="{% block route %}index{% endblock %}" class="route-{{ self.route() }}">
+<a class="skip" href="#well">Skip to content</a>
+<div class="frame" x-data="frame" :class="{'is-leaving': leaving, 'overlay-open': contactOpen}"
+     @navigate.window="onNavigate($event.detail)" @keydown.escape.window="closeContact()">
+
+  <header class="wordmark-wrap" >
+    <a class="wordmark no-cursor" href="/" aria-label="Cirrus, home" data-nav>cirrus</a>
+  </header>
+
+  <nav class="topnav" aria-label="Main">
+    <a class="navlink navlink-works {{ 'is-active' if route_name == 'works' }}" href="/works" data-nav
+       ><span class="split" data-split aria-label="Works"></span></a>
+    <span class="navgroup">
+      <a class="navlink navlink-talents {{ 'is-active' if route_name == 'talents' }}" href="/talents" data-nav
+         ><span class="split" data-split aria-label="Talents"></span></a>
+      <button class="navlink navlink-contact" type="button" data-mail
+              ><span class="split" data-split aria-label="Contact"></span></button>
+      <a class="navlink navlink-about {{ 'is-active' if route_name == 'about' }}" href="/about" data-nav
+         ><span class="split" data-split aria-label="About"></span></a>
+    </span>
+  </nav>
+
+  <div class="centre-mark" aria-hidden="true">
+    {% block centre_mark %}{% include 'marks/entry.svg' %}{% endblock %}
+  </div>
+
+  <a class="corner-credit" href="https://aube.studio" target="_blank" rel="noopener"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg viewBox="0 0 60 16" width="60" height="16" aria-hidden="true" focusable="false">
+      <path d="M0 15V1h7.2c3.2 0 5.4 1.7 5.4 4.6 0 2.9-2.2 4.6-5.4 4.6H3.1V15H0zm3.1-7.5h3.9c1.5 0 2.4-.9 2.4-2s-.9-2-2.4-2H3.1v4z"/>
+      <path d="M16 15V1h8.5v2.7h-5.4v3h4.8v2.6h-4.8v3.1h5.4V15H16z"/>
+      <path d="M27.4 15 32.6 1h3.3L41 15h-3.3l-1-3.1h-5.4l-1 3.1h-2.9zm4.9-5.6h3.8l-1.9-5.7-1.9 5.7z"/>
+      <path d="M47.9 15V1h5.9c3.5 0 5.9 2.2 5.9 5.4v3.2c0 3.2-2.4 5.4-5.9 5.4h-5.9zm3.1-2.7h2.7c1.8 0 2.9-1.1 2.9-2.8V6.5c0-1.7-1.1-2.8-2.9-2.8H51v8.6z"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="arrow arrow-rest" viewBox="0 0 7 7" aria-hidden="true"><path d="M1 6 6 1M2.2 1H6v3.8" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      <svg class="arrow arrow-arrive" viewBox="0 0 7 7" aria-hidden="true"><path d="M1 6 6 1M2.2 1H6v3.8" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+    </span>
+  </a>
+
+  <div class="cursor" x-ref="cursor" aria-hidden="true">
+    <span class="cursor-square"></span>
+    <span class="cursor-label" x-text="cursorLabel"></span>
+  </div>
+
+  <footer class="footer" data-footer>
+    <div class="footer-scrim" aria-hidden="true"></div>
+    <div class="footer-cols">
+      <div class="footer-col footer-col-premises">
+        <span>9 PASSAGE BELLEVUE</span><span>PARIS</span>
+      </div>
+      <div class="footer-col footer-col-premises2"><span>11</span></div>
+      <div class="footer-col footer-col-tagline">
+        <span>FOR PICTURE</span><span>AND ITS MAKERS</span>
+      </div>
+      <div class="footer-col footer-col-mail">
+        <span>WORK WITH US</span>
+        <a href="mailto:prod@example.com" aria-label="prod@example.com"
+           ><span class="split" data-split data-text="PROD@EXAMPLE.COM" aria-hidden="true"></span></a>
+      </div>
+      <div class="footer-col footer-col-social">
+        <span>INSTAGRAM</span><span>LINKEDIN</span>
+      </div>
+    </div>
+  </footer>
+
+  <div class="contact-overlay" :class="{'is-open': contactOpen}" role="dialog" aria-modal="true"
+       aria-label="Contact" x-cloak @click.self="closeContact()">
+    <div class="contact-inner">
+      <span class="contact-item contact-kicker" style="--i:0">CONTACT</span>
+      <a class="contact-item contact-mail" href="mailto:prod@example.com"
+         style="--i:1" aria-label="prod@example.com"
+         ><span class="split" data-split data-text="PROD@EXAMPLE.COM" aria-hidden="true"></span></a>
+      <span class="contact-item contact-note" style="--i:2">NO FORM. WRITE TO US.</span>
+      <button class="contact-item contact-close" type="button" @click="closeContact()"
+              x-ref="contactClose" style="--i:3">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<main class="well" id="well" x-ref="well">
+{% block well %}{% endblock %}
+</main>
+</body>
+</html>

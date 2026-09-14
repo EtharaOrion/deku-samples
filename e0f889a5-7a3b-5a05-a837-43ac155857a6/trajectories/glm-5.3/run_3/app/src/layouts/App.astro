@@ -1,0 +1,155 @@
+---
+import '../styles/global.css';
+const { title = 'Vela', active = '' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} — Vela</title>
+</head>
+<body class="surface-light">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="shell">
+    <rail-sidebar data-active={active}></rail-sidebar>
+    <div class="shell-main">
+      <header class="topbar">
+        <a class="wordmark" href="/">vela</a>
+        <cart-control></cart-control>
+      </header>
+      <main id="main" class="content">
+        <slot />
+      </main>
+    </div>
+  </div>
+  <script>
+    class RailSidebar extends HTMLElement {
+      connectedCallback() {
+        const active = this.dataset.active || '';
+        const customer = JSON.parse(localStorage.getItem('vela_customer') || 'null');
+        const links = [
+          ['/shop', 'Shop', 'shop'],
+          ['/downloads', 'Downloads', 'downloads'],
+          ['/doctor', 'Firmware installer', 'doctor'],
+          ...(customer ? [['/account', 'Overview', 'account'], ['/account/orders', 'Orders', 'orders'], ['/account/cameras', 'Cameras', 'cameras']] : [])
+        ];
+        this.innerHTML = `
+          <button class="rail-jump" type="button" aria-expanded="false" aria-controls="rail-nav">Menu</button>
+          <nav id="rail-nav" class="rail-nav" aria-label="Main">
+            ${links.map(([href, label, key]) => `
+              <a href="${href}" class="rail-link ${active === key ? 'is-active' : ''}" ${active === key ? 'aria-current="page"' : ''}>
+                <span class="rail-marker" aria-hidden="true"></span>${label}
+              </a>`).join('')}
+            <div class="rail-spacer"></div>
+            ${customer
+              ? `<a href="/account" class="rail-link rail-account"><span class="rail-marker" aria-hidden="true"></span>${customer.name}</a>
+                 <button class="rail-link rail-signout" type="button">Sign out</button>`
+              : `<a href="/sign-in" class="rail-link ${active === 'signin' ? 'is-active' : ''}"><span class="rail-marker" aria-hidden="true"></span>Sign in</a>`}
+          </nav>`;
+        const jump = this.querySelector('.rail-jump');
+        if (jump) {
+          jump.addEventListener('click', () => {
+            const nav = this.querySelector('.rail-nav');
+            const open = nav.classList.toggle('open');
+            jump.textContent = open ? 'Close menu' : 'Menu';
+            jump.setAttribute('aria-expanded', String(open));
+          });
+        }
+        const signout = this.querySelector('.rail-signout');
+        if (signout) signout.addEventListener('click', async () => {
+          const token = localStorage.getItem('vela_token');
+          if (token) { try { await fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {} }
+          localStorage.removeItem('vela_token');
+          localStorage.removeItem('vela_customer');
+          window.location.href = '/';
+        });
+      }
+    }
+    customElements.define('rail-sidebar', RailSidebar);
+
+    class CartControl extends HTMLElement {
+      connectedCallback() {
+        this.render();
+        document.addEventListener('vela:cart', () => this.render());
+        this.addEventListener('click', () => { window.location.href = '/cart'; });
+      }
+      render() {
+        const n = Number(localStorage.getItem('vela_cart_count') || 0);
+        const label = n === 0 ? 'Cart, empty' : `Cart, ${n} ${n === 1 ? 'item' : 'items'}`;
+        this.innerHTML = `
+          <button class="cart-btn" type="button" aria-label="${label}">
+            <span aria-hidden="true">Cart</span>
+            ${n > 0 ? `<span class="cart-badge tnum" aria-hidden="true">${n > 99 ? '99+' : n}</span>` : ''}
+          </button>`;
+        this.setAttribute('aria-label', label);
+      }
+    }
+    customElements.define('cart-control', CartControl);
+
+    // Refresh the count on load.
+    (async () => {
+      try {
+        const t = localStorage.getItem('vela_cart_token');
+        if (!t) return;
+        const r = await fetch('/api/cart', { headers: { 'x-cart-token': t } });
+        if (!r.ok) return;
+        const d = await r.json();
+        const n = (d.lines || []).reduce((s, l) => s + l.quantity, 0);
+        localStorage.setItem('vela_cart_count', String(n));
+        document.dispatchEvent(new CustomEvent('vela:cart'));
+      } catch {}
+    })();
+  </script>
+</body>
+</html>
+<style>
+  .shell { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  :global(rail-sidebar) {
+    position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
+    border-right: 1px solid var(--surface-ink-2); padding: calc(var(--unit) * 5) calc(var(--unit) * 3);
+    background: var(--surface-bg);
+  }
+  :global(.rail-nav) { display: flex; flex-direction: column; gap: calc(var(--unit) * 1); }
+  :global(.rail-link) {
+    display: flex; align-items: center; gap: calc(var(--unit) * 2);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 2); border-radius: var(--radius);
+    text-decoration: none; font-size: 0.9375rem; background: none; border: 0; cursor: pointer; text-align: left; width: 100%;
+  }
+  :global(.rail-link:hover) { background: var(--ground-light-2); }
+  :global(.rail-link.is-active) { font-weight: 700; }
+  :global(.rail-link.is-active .rail-marker),
+  :global(.rail-marker) { width: 8px; height: 8px; border-radius: 50%; border: 1px solid currentColor; flex: none; }
+  :global(.rail-link.is-active .rail-marker) { background: currentColor; }
+  :global(.rail-marker:empty) { width: 8px; height: 8px; }
+  :global(.rail-spacer) { height: calc(var(--unit) * 6); }
+  :global(.rail-jump) { display: none; }
+  .shell-main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: var(--header-h); display: flex; align-items: center; justify-content: space-between;
+    padding: 0 var(--gutter); border-bottom: 1px solid var(--surface-ink-2);
+    position: sticky; top: 0; background: var(--surface-bg); z-index: 20;
+  }
+  .wordmark { font-size: 2.5rem; line-height: 1; font-weight: 700; letter-spacing: -0.02em; text-decoration: none; }
+  :global(.cart-btn) {
+    display: inline-flex; align-items: center; gap: calc(var(--unit) * 2);
+    border: 1px solid var(--surface-ink); background: transparent; color: var(--surface-ink);
+    border-radius: var(--radius); padding: calc(var(--unit) * 2) calc(var(--unit) * 3); cursor: pointer;
+  }
+  :global(.cart-badge) {
+    background: var(--ink-light); color: var(--ground-light); border-radius: calc(var(--radius) * 2);
+    font-size: 0.75rem; padding: 0 0.375rem; font-variant-numeric: tabular-nums;
+  }
+  .content { padding: calc(var(--unit) * 6) var(--gutter) calc(var(--unit) * 10); max-width: 72rem; width: 100%; margin: 0 auto; }
+  @media (max-width: 63.99rem) {
+    .shell { grid-template-columns: 1fr; }
+    :global(rail-sidebar) { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--surface-ink-2); padding: calc(var(--unit) * 2) var(--gutter); }
+    :global(.rail-nav) { display: none; }
+    :global(.rail-nav.open) { display: flex; }
+    :global(.rail-nav.open) { display: flex; }
+    :global(.rail-jump) {
+      display: inline-flex; background: none; border: 1px solid var(--surface-ink); border-radius: var(--radius);
+      padding: calc(var(--unit) * 2) calc(var(--unit) * 3); cursor: pointer; font-size: 0.9375rem; width: fit-content;
+    }
+  }
+</style>

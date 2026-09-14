@@ -1,0 +1,33 @@
+---
+import App from '@layouts/App.astro';
+import { q } from '@server/db/index.js';
+import { currentCustomer } from '@lib/session.js';
+import CameraGrid from '@components/CameraGrid.jsx';
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) return Astro.redirect(`/sign-in?redirect=${encodeURIComponent('/account/cameras')}`);
+
+const devices = await q(
+  `SELECT d.serial, d.nickname, d.firmware_version, d.firmware_reported_at, d.warranty_until,
+          p.title AS model, v.title AS variant_title,
+          (SELECT f.version FROM firmware f WHERE f.product_id = d.product_id AND f.channel='general' ORDER BY f.build DESC LIMIT 1) AS latest_firmware
+   FROM device_ownership o
+   JOIN device d ON d.id = o.device_id
+   JOIN product p ON p.id = d.product_id
+   JOIN variant v ON v.id = d.variant_id
+   WHERE o.customer_id = $1 AND o.released_at IS NULL
+   ORDER BY o.id DESC`,
+  [customer.id]
+);
+const date = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
+---
+<App title="Cameras">
+  <h1>Cameras</h1>
+  <CameraGrid client:load prefill={Astro.url.searchParams.get("register") || ""}
+    initial={devices.map((d) => ({
+      serial: d.serial, nickname: d.nickname, model: d.model, variant_title: d.variant_title,
+      firmware_version: d.firmware_version, latest_firmware: d.latest_firmware,
+      warranty_until: d.warranty_until ? date(d.warranty_until) : null,
+    }))}
+  />
+</App>

@@ -1,0 +1,65 @@
+
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import DownloadButton from '@components/DownloadButton.jsx';
+
+const version = Astro.params.version;
+const releases = await q('SELECT * FROM app_release ORDER BY build DESC');
+const current = releases.find((r) => r.version === version);
+if (!current) return Astro.redirect('/404');
+const fmtBytes = (b) => `${Number(b).toLocaleString('en-US')} bytes`;
+const GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+const renderNote = (n) => String(n).replace(/#(\d+)/g, '<span class="ref">#$1</span>');
+const date = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+---
+<App title={`Arranger ${current.version}`}>
+  <nav class="crumbs"><a href="/downloads">Downloads</a> / <span>Arranger {current.version}</span></nav>
+  <h1>Arranger {current.version}</h1>
+  <p class="muted">Released on {date(current.released_on)}. Build <span class="mono tnum">{current.build}</span>.</p>
+  <p class="dl-row">
+    <DownloadButton client:load label={`Download Arranger ${current.version}`} artifact={current.artifact_name} version={current.version} />
+    <span class="muted small tnum">{fmtBytes(current.size_bytes)}</span>
+    <span class="muted small mono digest">{current.sha256}</span>
+  </p>
+  {current.description ? <p>{current.description}</p> : null}
+  {GROUPS.map((g) => current.notes && current.notes[g] && current.notes[g].length ? (
+    <div class="note-group">
+      <h2>{g}</h2>
+      <ul>{current.notes[g].map((n) => <li set:html={renderNote(n)} />)}</ul>
+    </div>
+  ) : null)}
+  <p class="muted small">The Vela team.</p>
+
+  <div class="release-sep"></div>
+  <h2>Every release</h2>
+  {releases.filter((r) => r.version !== current.version).map((r) => (
+    <details class="release">
+      <summary>
+        <span class="tri" aria-hidden="true">▸</span>
+        <span>Arranger {r.version}</span>
+        <span class="muted small">Released on {date(r.released_on)}</span>
+      </summary>
+      <div class="release-body">
+        <p class="dl-row">
+          <DownloadButton client:load label={`Download Arranger ${r.version}`} artifact={r.artifact_name} version={r.version} />
+          <span class="muted small tnum">{fmtBytes(r.size_bytes)}</span>
+          <span class="muted small mono digest">{r.sha256}</span>
+        </p>
+        {GROUPS.map((g) => r.notes && r.notes[g] && r.notes[g].length ? (
+          <div class="note-group"><h3>{g}</h3><ul>{r.notes[g].map((n) => <li set:html={renderNote(n)} />)}</ul></div>
+        ) : null)}
+        <p class="muted small">The Vela team.</p>
+      </div>
+    </details>
+  ))}
+</App>
+<style>
+.dl-row { display: flex; gap: calc(var(--unit) * 2); align-items: center; flex-wrap: wrap; }
+.digest { overflow-wrap: anywhere; }
+.note-group h2 { font-size: 1rem; }
+.note-group ul { margin: var(--unit) 0; padding-left: 1.25rem; }
+.ref { font-size: 0.9em; font-family: var(--mono); }
+.release-body { padding: calc(var(--unit) * 2) 0 calc(var(--unit) * 2) calc(var(--unit) * 3); }
+.crumbs { margin-bottom: calc(var(--unit) * 2); font-size: 0.875rem; }
+</style>

@@ -1,0 +1,51 @@
+---
+import PageShell from '../../../components/PageShell.astro';
+import { sessionCustomer } from '../../../server/session.js';
+import { q } from '../../../server/db.js';
+import { toOrderView } from '../../../server/orders.js';
+import { dollars } from '../../../server/money.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+if (!customer) return Astro.redirect('/sign-in?redirect=/account/orders');
+const orders = await q<any>(
+  `SELECT o.*, (SELECT l.title_snapshot FROM order_line l WHERE l.order_id = o.id ORDER BY l.id ASC LIMIT 1) AS first_line,
+          (SELECT count(*)::int FROM order_line l WHERE l.order_id = o.id) AS line_count
+     FROM "order" o WHERE o.customer_id = $1 ORDER BY o.placed_at DESC, o.id DESC`, [customer.id]);
+---
+<PageShell title="Your orders — Vela" heading="Orders" active="orders" customer={{ name: customer.name, email: customer.email }}>
+  <div class="orders-page">
+    {orders.length === 0 ? (
+      <p class="empty-note">No orders yet.</p>
+    ) : (
+      <ul class="orders">
+        {orders.map((o) => (
+          <li class="order card">
+            <a href={`/account/orders/${o.number}`}>
+              <span class="serial order-number">{o.number}</span>
+              <span class="date tnum">{new Date(o.placed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              <span class="first">{o.first_line}{o.line_count > 1 ? ` and ${o.line_count - 1} more` : ''}</span>
+              <span class="total tnum">{dollars(Number(o.total_minor))}</span>
+              <span class="chip chip--done">{toOrderView(o, []).status_chip}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</PageShell>
+
+<style>
+  .orders-page { padding: 0 var(--gutter); }
+  .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 3); }
+  .order a {
+    display: grid; grid-template-columns: auto auto 1fr auto auto; gap: calc(var(--space) * 4);
+    align-items: baseline; padding: calc(var(--space) * 3); text-decoration: none; color: inherit;
+  }
+  .date { color: var(--ink-on-light-muted); }
+  .total { font-weight: 700; }
+  .empty-note { color: var(--ink-on-light-muted); }
+  @media (max-width: 63.99rem) {
+    .order a { grid-template-columns: 1fr auto; }
+    .date, .first { grid-column: 1 / -1; }
+  }
+</style>

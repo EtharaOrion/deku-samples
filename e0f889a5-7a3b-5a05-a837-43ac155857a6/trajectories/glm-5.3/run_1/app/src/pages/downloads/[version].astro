@@ -1,0 +1,97 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCustomer, cartCount, releasesList, releaseByVersion } from '../../lib/store.mjs';
+import { fmtBytes } from '../../lib/store.mjs';
+
+const customer = await getCustomer(Astro.request);
+const count = await cartCount(Astro.request);
+const version = String(Astro.params.version || '');
+const current = await releaseByVersion(version);
+if (!current) return Astro.redirect('/downloads');
+const releases = await releasesList();
+
+function notes(r) {
+  const raw = Array.isArray(r.notes) ? r.notes : [];
+  const order = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+  return order.map((g) => ({ group: g, items: (raw.find((x) => x.group === g)?.items) || [] })).filter((g) => g.items.length);
+}
+function dateFmt(v) {
+  const s = v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+}
+---
+<Shell title={`Arranger ${current.version} — Vela`} current="downloads" customer={customer?.customer} cartCount={count}>
+  <nav class="crumb"><a href="/downloads">Downloads</a> / <span>Arranger {current.version}</span></nav>
+
+  <article class="card block">
+    <header class="r-head">
+      <h1>Arranger {current.version}</h1>
+      <p class="r-date">Released on {dateFmt(current.released_on)}</p>
+      <a class="btn" href={`/download/arranger/${current.artifact_name}`}>Download Arranger {current.version}</a>
+      <p class="meta"><span class="size tnum">Build <span class="mono">{current.build}</span> · {fmtBytes(current.size_bytes)}</span><br /><span class="digest mono">{current.sha256}</span></p>
+    </header>
+    <p>{current.description}</p>
+    {notes(current).map((g) => (
+      <div class="note-group">
+        <h2>{g.group}</h2>
+        <ul>{g.items.map((it) => <li>{it}</li>)}</ul>
+      </div>
+    ))}
+    <p class="signoff">The Vela team.</p>
+  </article>
+
+  <section class="archive">
+    <h2>Other releases</h2>
+    {releases.filter((r) => r.version !== current.version).map((r) => (
+      <article class="release">
+        <div class="rule" aria-hidden="true"></div>
+        <details>
+          <summary>
+            <span class="r-title">Arranger {r.version}</span>
+            <span class="r-date">Released on {dateFmt(r.released_on)}</span>
+            <span class="r-ctl"><a class="btn btn-secondary btn-sm" href={`/download/arranger/${r.artifact_name}`}>Download</a></span>
+          </summary>
+          <div class="r-body">
+            <p>{r.description}</p>
+            {notes(r).map((g) => (
+              <div class="note-group">
+                <h3>{g.group}</h3>
+                <ul>{g.items.map((it) => <li>{it}</li>)}</ul>
+              </div>
+            ))}
+            <p class="signoff">The Vela team.</p>
+            <p class="meta-row">
+              <span class="size tnum">Build <span class="mono">{r.build}</span> · {fmtBytes(r.size_bytes)}</span>
+              <span class="digest mono">{r.sha256}</span>
+            </p>
+          </div>
+        </details>
+      </article>
+    ))}
+  </section>
+</Shell>
+
+<style>
+  .crumb { font-size: 14px; color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 4); }
+  h1 { font-size: 28px; }
+  .block { padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 3); margin-bottom: calc(var(--unit) * 6); }
+  .r-head { display: grid; gap: calc(var(--unit) * 2); justify-items: start; }
+  .r-date { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .meta { font-size: 13px; color: var(--ground-light-fg-muted); }
+  .digest { font-size: 11px; word-break: break-all; }
+  .note-group h2, .note-group h3 { font-size: 14px; color: var(--ground-light-fg-muted); font-weight: 700; }
+  .note-group ul { margin: calc(var(--unit) * 1) 0 0; padding-left: 18px; line-height: 26px; }
+  .signoff { color: var(--ground-light-fg-muted); }
+  .archive h2 { font-size: 20px; margin-bottom: calc(var(--unit) * 4); }
+  .rule { border-top: var(--border) solid var(--ground-light-line); position: relative; height: 1px; margin: 0 0 calc(var(--unit) * 3); }
+  .rule::after { content: ''; position: absolute; left: 0; right: 0; top: -4px; height: 9px; border-top: 1px dashed var(--ground-light-line); }
+  summary { display: flex; align-items: center; gap: calc(var(--unit) * 4); flex-wrap: wrap; cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '+'; font-weight: 700; width: 1em; }
+  details[open] summary::before { content: '−'; }
+  .r-title { font-weight: 700; font-size: 17px; }
+  .r-ctl { margin-left: auto; }
+  .r-body { padding: calc(var(--unit) * 4) 0 0 1.4em; display: grid; gap: calc(var(--unit) * 3); max-width: 60ch; }
+  .meta-row { display: grid; gap: 4px; font-size: 13px; color: var(--ground-light-fg-muted); }
+</style>

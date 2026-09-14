@@ -1,0 +1,113 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCustomer, devicesFor, ordersFor, appNewest } from '../../lib/store.mjs';
+import { usd } from '../../../server/domain.mjs';
+import { fmtDate } from '../../lib/store.mjs';
+
+const s = await getCustomer(Astro.request);
+if (!s || s.expired || !s.customer) {
+  const next = encodeURIComponent(Astro.url.pathname);
+  return Astro.redirect(`/sign-in?next=${next}`);
+}
+const me = s.customer;
+const [cameras, orders, newest] = await Promise.all([devicesFor(me.id), ordersFor(me.id, 2), appNewest()]);
+const lastSeenBuild = Number(Astro.cookies.get('vela_app_build')?.value || 0) || null;
+---
+<Shell title="Account — Vela" current="account" customer={me}>
+  <h1>{me.name}</h1>
+  <p class="lede mono">{me.email}</p>
+
+  <section class="block" aria-label="Your cameras">
+    <div class="row between">
+      <h2>Cameras</h2>
+      <a class="btn btn-secondary btn-sm" href="/account/cameras">All cameras</a>
+    </div>
+    {cameras.length === 0 ? (
+      <div class="empty"><p>No cameras registered yet.</p><p><a href="/account/cameras">Register one</a></p></div>
+    ) : (
+      <ul class="cam-grid">
+        {cameras.map((c) => (
+          <li class="card cam">
+            <a class="cam-link" href={`/account/cameras/${c.serial}`}>
+              <span class="model">{c.model}</span>
+              <span class="nick">{c.nickname || c.variant_title}</span>
+              <span class="serial mono">{c.serial}</span>
+            </a>
+            <div class="chips">
+              {c.never_connected ? <span class="chip" data-state="busy">Not yet connected</span>
+                : c.update_available ? <span class="chip" data-kind="accent">Update available</span>
+                : <span class="chip" data-state="ok">Firmware {c.firmware_version}</span>}
+              {c.warranty_until ? (
+                new Date(String(c.warranty_until)) > new Date()
+                  ? <span class="chip">Warranty to {c.warranty_until}</span>
+                  : <span class="chip">Warranty ended {c.warranty_until}</span>
+              ) : <span class="chip">No warranty date</span>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-label="Recent orders">
+    <div class="row between">
+      <h2>Orders</h2>
+      <a class="btn btn-secondary btn-sm" href="/account/orders">All orders</a>
+    </div>
+    {orders.length === 0 ? (
+      <div class="empty"><p>No orders yet.</p><p><a href="/shop">Go to the shop</a></p></div>
+    ) : (
+      <ul class="order-list">
+        {orders.map((o) => (
+          <li>
+            <a class="order-row" href={`/account/orders/${o.number}`}>
+              <span class="mono num">{o.number}</span>
+              <span class="date">{fmtDate(o.placed_at || o.created_at)}</span>
+              <span class="first-line">{o.lines[0]?.title_snapshot}{o.lines.length > 1 ? ` and ${o.lines.length - 1} more` : ''}</span>
+              <span class="money tnum total">{usd(o.total_minor)}</span>
+              <span class="chip" data-state={o.status === 'confirmed' ? 'ok' : 'busy'}>
+                {o.status === 'confirmed' && o.fulfilment_status === 'fulfilled' ? 'Confirmed and fulfilled'
+                  : o.status === 'confirmed' ? 'Confirmed, not yet sent' : o.status}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-label="Software">
+    <h2>Software</h2>
+    <p>Current application version: <span class="mono">{newest?.version}</span> (build <span class="mono tnum">{newest?.build}</span>).</p>
+    <p>
+      {lastSeenBuild === null
+        ? 'This is the first time this account has seen the software list.'
+        : Number(newest?.build) > lastSeenBuild
+          ? `Newer than the version you last saw (${lastSeenBuild}).`
+          : 'You have already seen this version.'}
+    </p>
+    <p><a href="/downloads">Go to downloads</a></p>
+  </section>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; }
+  .lede { color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .block { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 5); margin-bottom: calc(var(--unit) * 6); display: grid; gap: calc(var(--unit) * 4); }
+  .row.between { justify-content: space-between; }
+  h2 { font-size: 20px; }
+  .cam-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: calc(var(--unit) * 4); }
+  .cam { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .cam-link { display: grid; gap: 4px; text-decoration: none; color: inherit; }
+  .model { font-weight: 700; }
+  .nick { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .serial { font-size: 13px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .order-list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .order-row { display: grid; grid-template-columns: 130px 150px 1fr auto auto; gap: calc(var(--unit) * 3); align-items: center; padding: calc(var(--unit) * 3) 0; border-bottom: var(--border) solid var(--ground-light-line); text-decoration: none; color: inherit; }
+  .order-row:hover .num { text-decoration: underline; }
+  .date { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .first-line { font-size: 14px; }
+  .total { font-weight: 700; }
+  @media (max-width: 50rem) { .order-row { grid-template-columns: 1fr auto; } .date, .first-line { display: none; } }
+</style>

@@ -1,0 +1,134 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { getCustomer, devicesFor } from '../../../lib/store.mjs';
+
+const s = await getCustomer(Astro.request);
+if (!s || s.expired || !s.customer) {
+  return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+}
+const me = s.customer;
+const cameras = await devicesFor(me.id);
+---
+<Shell title="Cameras — Vela" current="cameras" customer={me}>
+  <h1>Cameras</h1>
+
+  <form class="register card" data-register>
+    <div class="field grow">
+      <label for="serial">Register a camera</label>
+      <input id="serial" name="serial" data-serial-input class="mono" placeholder="VA2609KTMHX4" autocomplete="off"
+             spellcheck="false" maxlength="17" aria-describedby="serial-help" />
+      <p class="hint" id="serial-help">Twelve characters, as engraved on the underside.</p>
+    </div>
+    <button class="btn" type="submit" data-register-submit disabled>Add to my account</button>
+    <p class="form-note" role="status" data-register-note aria-live="polite"></p>
+  </form>
+
+  {cameras.length === 0 ? (
+    <div class="empty"><p>No cameras registered yet.</p></div>
+  ) : (
+    <ul class="cam-grid" data-cam-list>
+      {cameras.map((c) => (
+        <li class="card cam" data-cam={c.serial}>
+          <a class="cam-link" href={`/account/cameras/${c.serial}`}>
+            <span class="model">{c.model}</span>
+            <span class="nick" data-nick>{c.nickname || c.variant_title}</span>
+            <span class="serial mono">{c.serial}</span>
+          </a>
+          <div class="chips">
+            {c.never_connected ? <span class="chip" data-state="busy">Not yet connected</span>
+              : c.update_available ? <span class="chip" data-kind="accent">Update available</span>
+              : <span class="chip" data-state="ok">Firmware {c.firmware_version}</span>}
+            {c.warranty_until ? (
+              new Date(String(c.warranty_until)) > new Date()
+                ? <span class="chip">Warranty to {c.warranty_until}</span>
+                : <span class="chip">Warranty ended {c.warranty_until}</span>
+            ) : <span class="chip">No warranty date</span>}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+</Shell>
+
+<script>
+  // Register row island: shape first, then lookup. Errors never name the other owner.
+  const form = document.querySelector('[data-register]');
+  const input = document.querySelector('[data-serial-input]');
+  const note = document.querySelector('[data-register-note]');
+  const submit = document.querySelector('[data-register-submit]');
+  const SERIAL = /^(VA|VC)\d{2}(?!00)[0-9]{2}[2-9A-HJ-NP-Z]{6}$/;
+
+  if (form && input) {
+    const check = () => {
+      const raw = (input.value || '').replace(/\s+/g, '').toUpperCase();
+      const ok = SERIAL.test(raw);
+      submit.disabled = !ok;
+      if (!raw) { note.textContent = ''; input.setAttribute('aria-invalid', 'false'); return; }
+      if (!ok) { note.textContent = 'A serial is twelve characters, for example VA2609KTMHX4.'; input.setAttribute('aria-invalid', 'true'); }
+      else { note.textContent = ''; input.setAttribute('aria-invalid', 'false'); }
+    };
+    input.addEventListener('input', check);
+    check();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const serial = (input.value || '').replace(/\s+/g, '').toUpperCase();
+      if (!SERIAL.test(serial)) return;
+      submit.disabled = true;
+      submit.textContent = 'Checking';
+      note.textContent = '';
+      const res = await fetch('/api/account/devices', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serial }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      submit.disabled = false;
+      submit.textContent = 'Add to my account';
+      if (!res || !res.ok) {
+        note.textContent = body?.error?.message || 'That did not work.';
+        note.dataset.kind = 'bad';
+        return;
+      }
+      input.value = '';
+      check();
+      // add the card without a reload
+      const list = document.querySelector('[data-cam-list]');
+      const empty = document.querySelector('.empty');
+      if (empty) empty.remove();
+      if (list) {
+        const li = document.createElement('li');
+        li.className = 'card cam';
+        li.dataset.cam = body.serial;
+        const chips = [];
+        chips.push('<span class="chip" data-state="busy">Not yet connected</span>');
+        chips.push('<span class="chip">No warranty date</span>');
+        li.innerHTML = `<a class="cam-link" href="/account/cameras/${body.serial}">
+            <span class="model">${body.model}</span>
+            <span class="nick" data-nick>${body.variant_title || ''}</span>
+            <span class="serial mono">${body.serial}</span>
+          </a><div class="chips">${chips.join('')}</div>`;
+        list.prepend(li);
+      }
+      note.textContent = `Added ${body.serial} to your account.`;
+      note.dataset.kind = 'ok';
+      setTimeout(() => { note.textContent = ''; }, 6000);
+    });
+  }
+</script>
+
+<style>
+  h1 { font-size: 28px; margin-bottom: calc(var(--unit) * 6); }
+  .register { padding: calc(var(--unit) * 4); display: flex; gap: calc(var(--unit) * 3); align-items: end; flex-wrap: wrap; margin-bottom: calc(var(--unit) * 6); }
+  .grow { flex: 1 1 260px; }
+  .form-note { flex-basis: 100%; min-height: 20px; font-size: 14px; color: var(--ground-light-fg-muted); }
+  .form-note[data-kind="bad"] { color: var(--bad); }
+  .form-note[data-kind="ok"] { color: var(--ok-ink); }
+  .cam-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: calc(var(--unit) * 4); }
+  .cam { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .cam-link { display: grid; gap: 4px; text-decoration: none; color: inherit; }
+  .model { font-weight: 700; }
+  .nick { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .serial { font-size: 13px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+</style>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-studio" data-route="studio" x-data='palette({{ studio_items|tojson }})'>
+  <h1 class="visually-hidden">Studio</h1>
+  <p class="studio-house">{{ studio_house.name }} STUDIO</p>
+  <section class="palette" aria-label="Command palette">
+    <input class="palette-input" type="text" placeholder="TYPE A NAME, A SLUG, OR AN ACTION"
+           x-model="query" x-ref="input" @keydown.arrow-down.prevent="move(1)"
+           @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="run(results[active])"
+           aria-label="Command palette" role="combobox" :aria-expanded="results.length > 0">
+    <ul class="palette-results" role="listbox">
+      <template x-for="(r, i) in results" :key="r.key">
+        <li :class="{ 'is-active': i === active }">
+          <button class="palette-item" type="button" role="option" @click="run(r)" @mousemove="active = i"
+                  :aria-selected="i === active ? 'true' : 'false'">
+            <span class="palette-kind" x-text="r.kindLabel"></span>
+            <span class="palette-title" x-text="r.title"></span>
+            <span class="palette-slug" x-text="r.slug"></span>
+            <span class="palette-state" x-text="r.state"></span>
+          </button>
+        </li>
+      </template>
+      <li class="palette-empty" x-show="results.length === 0">Nothing in {{ studio_house.name }} matches that.</li>
+    </ul>
+    <p class="palette-hint">ENTER OPENS · ARROWS MOVE · ESC LEAVES</p>
+  </section>
+  <section class="record-grid" aria-label="Records">
+    <h2 class="section-heading">RECORDS</h2>
+    <template x-for="item in ordered(items)" :key="item.id">
+      <a class="record-card" :href="'/studio/items/' + item.id">
+        <span class="record-kind" x-text="item.kind.toUpperCase()"></span>
+        <span class="record-title" x-text="item.title"></span>
+        <span class="record-slug" x-text="item.slug"></span>
+        <span class="record-state" x-text="item.published ? 'LIVE' : 'UNLISTED'"></span>
+        <span class="record-meta" x-text="recordMeta(item)"></span>
+      </a>
+    </template>
+    <p class="empty-state" x-show="items.length === 0">No records in this house yet. Add one from the palette.</p>
+  </section>
+  <p class="studio-foot">SIGNED IN AS {{ studio_account.email|upper }} · <button class="link-button" type="button" @click="signout()">SIGN OUT</button></p>
+</main>
+{% endblock %}

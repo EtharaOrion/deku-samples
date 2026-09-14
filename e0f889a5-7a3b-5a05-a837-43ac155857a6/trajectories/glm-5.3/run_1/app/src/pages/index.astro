@@ -1,0 +1,413 @@
+---
+import '../styles/global.css';
+import { LETTER, FOOTER_LINKS } from '../../data/content.mjs';
+const p = LETTER.paragraphs;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>the table — Vela</title>
+    <meta name="description" content="A letter from the workshop table." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2317150f'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4551e'/%3E%3C/svg%3E" />
+  </head>
+  <body class="letter-page">
+    <a class="skip-link" href="#letter">Skip to the letter</a>
+
+    <div class="stage" data-stage aria-hidden="true">
+      <div class="film-layer">
+        {/* the film is generated footage of the table: scenery, never information */}
+        <canvas class="film" data-film width="640" height="360" tabindex="-1"></canvas>
+        <div class="film-still" data-still></div>
+      </div>
+      <div class="speckle"></div>
+      <div class="darken" data-darken></div>
+    </div>
+
+    <header class="letter-header">
+      <a class="wordmark" href="/"><span class="dot" aria-hidden="true"></span>vela</a>
+    </header>
+
+    <article class="letter" id="letter">
+      <h1 class="letter-title font-display">{LETTER.title}</h1>
+      <p class="dateline mono">{LETTER.dateline}</p>
+
+      {/* The letter exists twice in the document. The flow copy is what the
+          markup carries and what a reader with no scripting receives, in order.
+          The driven copy is inert and hidden from assistive technology; it is
+          present in the markup too, so the narrow layout never depends on
+          scripting to be readable. */}
+      <div class="letter-flow" data-flow>
+        {p.map((t, i) => <p class="letter-body font-display" data-para={i}>{t}</p>)}
+      </div>
+
+      <div class="letter-driven" aria-hidden="true" data-driven>
+        {p.map((t, i) => <p class="letter-body font-display" data-para={i}>{t}</p>)}
+      </div>
+
+      <p class="letter-body letter-closing font-display" data-closing>{LETTER.closing}</p>
+    </article>
+
+    <footer class="letter-footer">
+      <canvas class="field-canvas" data-field width="1200" height="220" aria-hidden="true"></canvas>
+      <div class="footer-bottom">
+        <span class="wordmark"><span class="dot" aria-hidden="true"></span>vela</span>
+        <span class="rights">All rights reserved</span>
+        <nav class="footer-links" aria-label="Footer">
+          {FOOTER_LINKS.map((l) => (l.href ? <a href={l.href}>{l.label}</a> : <span class="plain">{l.label}</span>))}
+        </nav>
+      </div>
+    </footer>
+
+    <script is:inline>
+      (function () {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var stage = document.querySelector('[data-stage]');
+        var darken = document.querySelector('[data-darken]');
+        var still = document.querySelector('[data-still]');
+        var film = document.querySelector('[data-film]');
+        var driven = document.querySelector('[data-driven]');
+        var drivenParas = driven ? Array.from(driven.querySelectorAll('[data-para]')) : [];
+
+        // The driven copy is already in the markup. Scripting only drives its
+        // opacity, so a reader with no scripting still reads every paragraph.
+        if (drivenParas.length) {
+          for (var i = 0; i < drivenParas.length; i++) drivenParas[i].style.opacity = '1';
+        }
+
+        // darkening: a pure function of scroll position. Never removed.
+        function paint() {
+          var doc = document.documentElement;
+          var max = Math.max(1, doc.scrollHeight - window.innerHeight);
+          var t = Math.min(1, Math.max(0, window.scrollY / max));
+          if (darken) darken.style.opacity = String(t);
+          if (drivenParas.length && window.innerWidth < 64 * 16) {
+            var vh = window.innerHeight;
+            for (var i = 0; i < drivenParas.length; i++) {
+              var el = drivenParas[i];
+              var r = el.getBoundingClientRect();
+              var mid = (r.top + r.bottom) / 2;
+              var vis = 1 - Math.min(1, Math.max(0, (Math.abs(mid - vh * 0.55) - vh * 0.18) / (vh * 0.42)));
+              el.style.opacity = String(Math.max(0, Math.min(1, vis)));
+            }
+          }
+        }
+        var ticking = false;
+        window.addEventListener('scroll', function () {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(function () { ticking = false; paint(); });
+        }, { passive: true });
+        window.addEventListener('resize', paint);
+        paint();
+
+        function gradientStill() {
+          if (still) {
+            still.style.background = 'linear-gradient(160deg, #2a2620 0%, #4a4238 42%, #6a5c4a 58%, #241f18 100%)';
+            still.dataset.kind = 'gradient';
+          }
+        }
+        gradientStill();
+
+        // The film: generated footage of the workshop table. It never plays under
+        // reduced motion or on a metered connection, and the still frame stays.
+        var filmCtx = null;
+        try { filmCtx = film ? film.getContext('2d') : null; } catch (e) { filmCtx = null; }
+        var footage = false;
+        function drawFilm(t) {
+          if (!filmCtx) return;
+          var w = film.width, h = film.height;
+          var g = filmCtx.createLinearGradient(0, 0, w * 0.6, h);
+          g.addColorStop(0, '#2b2620');
+          g.addColorStop(0.45, '#4a4238');
+          g.addColorStop(0.6, '#6d5f4c');
+          g.addColorStop(1, '#231e17');
+          filmCtx.fillStyle = g;
+          filmCtx.fillRect(0, 0, w, h);
+          // slow light moving across the table
+          var x = (Math.sin(t / 9000) * 0.5 + 0.5) * w;
+          var lg = filmCtx.createRadialGradient(x, h * 0.35, 10, x, h * 0.35, w * 0.5);
+          lg.addColorStop(0, 'rgba(226,210,180,0.20)');
+          lg.addColorStop(1, 'rgba(226,210,180,0)');
+          filmCtx.fillStyle = lg;
+          filmCtx.fillRect(0, 0, w, h);
+          // tools on the bench, held in place, breathing only a little
+          filmCtx.fillStyle = 'rgba(20,18,14,0.55)';
+          filmCtx.fillRect(w * 0.12, h * 0.62, w * 0.10, h * 0.045);
+          filmCtx.fillRect(w * 0.30, h * 0.58, w * 0.06, h * 0.035);
+          filmCtx.fillRect(w * 0.58, h * 0.66, w * 0.16, h * 0.04);
+          filmCtx.fillStyle = 'rgba(214,200,172,0.10)';
+          filmCtx.fillRect(w * 0.44, h * 0.52, w * 0.04, h * 0.03);
+        }
+        var filmRaf = null;
+        function startFilm() {
+          if (footage || !filmCtx) return;
+          footage = true;
+          if (still) still.style.opacity = '0';
+          var loop = function (t) {
+            if (document.hidden) { filmRaf = null; return; }
+            drawFilm(t);
+            filmRaf = requestAnimationFrame(loop);
+          };
+          filmRaf = requestAnimationFrame(loop);
+        }
+        function stopFilm() {
+          if (filmRaf) cancelAnimationFrame(filmRaf);
+          filmRaf = null;
+        }
+        if (reduce) { /* the still frame stays and that is a complete rendering */ }
+        else if (navigator.connection && (navigator.connection.saveData || /2g/.test(navigator.connection.effectiveType || ''))) {
+          /* metered: no footage */
+        } else {
+          requestAnimationFrame(function () { startFilm(); });
+        }
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) stopFilm();
+          else if (footage && !reduce) startFilm();
+        });
+        if ('IntersectionObserver' in window && stage) {
+          new IntersectionObserver(function (es) {
+            for (var i = 0; i < es.length; i++) {
+              if (es[i].isIntersecting) { if (footage && !document.hidden && !reduce) startFilm(); }
+              else stopFilm();
+            }
+          }).observe(stage);
+        }
+      })();
+    </script>
+
+    <script is:inline>
+      (function () {
+        var canvas = document.querySelector('[data-field]');
+        if (!canvas) return;
+        var ctx = null;
+        try { ctx = canvas.getContext('2d'); } catch (e) { ctx = null; }
+        if (!ctx) return;
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var dots = [], pointer = null, running = false, rafId = null;
+
+        function build() {
+          var w = canvas.clientWidth || 1200, h = canvas.clientHeight || 220;
+          var dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(w * dpr);
+          canvas.height = Math.floor(h * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          dots = [];
+          var gap = 11;
+          var cols = Math.floor(w / gap), rows = Math.floor(h / gap);
+          var word = 'vela';
+          var cell = 5;
+          var startCol = Math.floor((cols - word.length * 11) / 2);
+          var startRow = Math.max(1, Math.floor(rows / 2) - 3);
+          var inWord = new Set();
+          var glyphs = {
+            v: ['01010','10001','10001','10001','10001'],
+            e: ['11111','10000','11110','10000','11111'],
+            l: ['10000','10000','10000','10000','11111'],
+            a: ['01110','10001','11111','10001','10001'],
+          };
+          for (var ci = 0; ci < word.length; ci++) {
+            var g = glyphs[word[ci]];
+            for (var gy = 0; gy < g.length; gy++) {
+              for (var gx = 0; gx < g[gy].length; gx++) {
+                if (g[gy][gx] === '1') {
+                  inWord.add((startCol + ci * 11 + gx) + ',' + (startRow + gy));
+                }
+              }
+            }
+          }
+          for (var r = 0; r < rows; r++) {
+            for (var c = 0; c < cols; c++) {
+              dots.push({ x: gap / 2 + c * gap, y: gap / 2 + r * gap, rest: inWord.has(c + ',' + r) ? 0.02 : 0.15, v: 0 });
+            }
+          }
+        }
+        function frame() {
+          var any = false;
+          var w = canvas.clientWidth, h = canvas.clientHeight;
+          ctx.clearRect(0, 0, w, h);
+          for (var i = 0; i < dots.length; i++) {
+            var d = dots[i];
+            if (pointer) {
+              var dx = d.x - pointer.x, dy = d.y - pointer.y;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              var near = Math.max(0, 1 - dist / 90);
+              if (near > d.v) d.v = near;
+            }
+            if (d.v > d.rest) {
+              d.v = reduce ? d.rest : Math.max(d.rest, d.v - 0.016);
+              any = true;
+            }
+            var a = d.rest + d.v * 0.84;
+            ctx.fillStyle = 'rgba(244,241,236,' + Math.min(0.92, a).toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, 1.15, 0, 6.2832);
+            ctx.fill();
+          }
+          if (any || pointer) { rafId = requestAnimationFrame(frame); running = true; }
+          else { running = false; }
+        }
+        function kick() {
+          if (!running) { running = true; rafId = requestAnimationFrame(frame); }
+        }
+        build();
+        window.addEventListener('resize', build);
+        canvas.addEventListener('pointermove', function (e) {
+          var r = canvas.getBoundingClientRect();
+          pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
+          kick();
+        });
+        canvas.addEventListener('pointerleave', function () { pointer = null; kick(); });
+        canvas.addEventListener('pointerdown', function (e) {
+          var r = canvas.getBoundingClientRect();
+          pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
+          kick();
+        });
+        canvas.addEventListener('pointerup', function () { pointer = null; kick(); });
+        if ('IntersectionObserver' in window) {
+          new IntersectionObserver(function (es) {
+            for (var i = 0; i < es.length; i++) {
+              if (es[i].isIntersecting) kick();
+              else if (rafId) { cancelAnimationFrame(rafId); running = false; }
+            }
+          }).observe(canvas);
+        }
+        kick();
+      })();
+    </script>
+  </body>
+</html>
+
+<style>
+  .letter-page {
+    background: var(--ground-dark);
+    color: var(--ground-dark-fg);
+    overflow-x: hidden;
+  }
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--ground-dark);
+    border-radius: var(--radius-0);
+  }
+  .film-layer { position: absolute; inset: 0; }
+  .film, .film-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+  .film { pointer-events: none; opacity: 0.92; }
+  .film-still {
+    background: linear-gradient(160deg, #2a2620 0%, #4a4238 42%, #6a5c4a 58%, #241f18 100%);
+    transition: opacity 120ms linear;
+  }
+  .speckle {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+  }
+  .darken {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, var(--ground-dark) 0%, color-mix(in srgb, var(--ground-dark) 82%, transparent) 45%, transparent 100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .letter-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--gutter);
+    z-index: 4;
+    background: linear-gradient(to bottom, rgba(23,21,15,0.55), transparent);
+  }
+  .letter-header .wordmark { font-size: 20px; color: var(--ground-dark-fg); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+  .letter-header .wordmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ground-light-fg); }
+
+  .letter {
+    position: relative;
+    z-index: 2;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: calc(var(--header-h) + 4rem) var(--gutter) 6rem;
+  }
+  .letter-title {
+    font-size: var(--display-fs);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    text-align: center;
+  }
+  @media (min-width: 88rem) {
+    .letter { margin-left: 12vw; margin-right: auto; }
+    .letter-title { text-align: left; }
+  }
+  .dateline {
+    text-align: center;
+    color: var(--ground-dark-fg-muted);
+    margin: calc(var(--unit) * 4) 0 calc(var(--unit) * 10);
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  @media (min-width: 88rem) { .dateline { text-align: left; } }
+  .letter-body {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    font-weight: 400;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 0 24px rgba(0,0,0,0.25);
+  }
+  @media (min-width: 64rem) { .letter-body { letter-spacing: 0.02em; } }
+  .letter-flow { display: block; }
+  .letter-flow .letter-body { margin: 1em 0; }
+  .letter-driven { display: none; }
+
+  /* Below 64rem the letter becomes a different page: half-width alternating blocks. */
+  @media (max-width: 63.99rem) {
+    .letter { padding-left: var(--gutter); padding-right: var(--gutter); }
+    .letter-flow { display: none; }
+    .letter-driven { display: block; }
+    .letter-driven .letter-body {
+      width: 50%;
+      margin: 3.5em 0;
+    }
+    .letter-driven .letter-body:nth-child(odd) { margin-left: 0; }
+    .letter-driven .letter-body:nth-child(even) { margin-left: 50%; }
+    /* the three consecutive paragraphs on mass market electronics sit together */
+    .letter-driven .letter-body[data-para="8"],
+    .letter-driven .letter-body[data-para="9"],
+    .letter-driven .letter-body[data-para="10"] { margin-left: 50%; }
+  }
+  .letter-closing {
+    margin-top: 4em;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  @media (min-width: 88rem) { .letter-closing { text-align: left; } }
+
+  .letter-footer {
+    position: relative;
+    z-index: 2;
+    background: var(--ground-dark);
+    border-top: var(--border) solid var(--ground-dark-line);
+    border-radius: 0;
+    padding: 3rem var(--gutter) 1.5rem;
+  }
+  .field-canvas { display: block; width: 100%; height: 220px; border-radius: 0; touch-action: pan-y; }
+  .footer-bottom {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 4);
+    flex-wrap: wrap;
+    border-top: var(--border) solid var(--ground-dark-line);
+    padding-top: calc(var(--unit) * 4);
+    margin-top: calc(var(--unit) * 4);
+  }
+  .footer-bottom .wordmark { font-weight: 700; color: var(--ground-dark-fg); display: inline-flex; align-items: center; gap: 8px; }
+  .footer-bottom .wordmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .rights { color: var(--ground-dark-fg-muted); font-size: var(--footer-secondary-fs); letter-spacing: 0.02em; }
+  .footer-links { margin-left: auto; display: flex; gap: calc(var(--unit) * 4); flex-wrap: wrap; }
+  .footer-links a { font-size: var(--footer-link-fs); line-height: 21px; color: var(--ground-dark-fg); text-decoration: none; border-bottom: var(--border) solid var(--ground-dark-line); }
+  .footer-links a:hover { border-bottom-color: var(--ground-dark-fg); }
+  .footer-links .plain { font-size: var(--footer-link-fs); line-height: 21px; color: var(--ground-dark-fg-muted); }
+</style>

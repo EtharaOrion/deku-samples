@@ -1,0 +1,328 @@
+---
+import '../styles/global.css';
+import '../styles/letter.css';
+
+export const prerender = false;
+
+const paragraphs = [
+  'We build two cameras. That is the whole of the plan and it has been the plan for six years.',
+  'The first one is called the A1. It is the size of a paperback and it makes a sound like a door closing softly. We had the sensor cut three times before it was right.',
+  'The second is the Cricket. It fits in a coat pocket, it starts before you have raised it, and it is the camera most of us actually carry.',
+  'We are eleven people in a workshop above a bakery in Helsinki. Nine of us build. Two of us answer the mail.',
+  'Every camera is milled from a single billet. It takes forty minutes a body. We do it this way because a seam is a place where water thinks.',
+  'We do not sell through shops. We tried it in the second year and we learned that a shop needs a camera that changes every autumn. Ours does not.',
+  'The software is free and it always will be. It is called Arranger. It reads a card, it keeps your film, and it writes new firmware to the camera on your desk.',
+  'When something breaks you write to us and one of those two people answers. If it is our fault we fix it whether or not the warranty has run out.',
+  'A camera should outlive the order that bought it. Ours are registered to a person, not to a purchase, and you can hand one on when you are finished with it.',
+  'This is not a protest against the way most electronics are made. It is only a description of the way we make ours.',
+  'We think about the mass market often, because the mass market is where a small company learns what people actually do with a camera.',
+  'It taught us that people do not read manuals. It taught us that a battery that dies at forty percent is worse than a battery that dies at zero.',
+  'It taught us that the camera people reach for is the one that is already in their hand, and that the best camera is the one that is already switched on.',
+  'So we made the Cricket small enough to be in the hand already, and we made it switch on before you have finished raising it.',
+  'We will keep making both of them for as long as the workshop above the bakery stands and the bakery keeps the floor warm.',
+  'If you have read this far, thank you. Take your time looking around. The cameras will still be here.'
+];
+
+// The blocks alternate between the left and right halves in a pattern that
+// follows the argument: the three paragraphs about the mass market sit
+// together on one side.
+const sides = [
+  'left','right','left','right','left','right','left','right',
+  'left','right','left','left','left','right','left','right'
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>the table · Vela</title>
+    <meta name="description" content="A letter from the workshop table." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="letter-body">
+    <a class="skip-link" href="#letter">Skip to the letter</a>
+
+    <div class="stage" aria-hidden="true" data-stage>
+      <canvas class="film" data-film></canvas>
+      <img class="still" data-still src="/film-still.jpg" alt="" loading="eager" decoding="async" />
+      <div class="speckle" data-speckle></div>
+      <div class="dim" data-dim></div>
+      <div class="flat" data-flat></div>
+    </div>
+
+    <header class="letter-mark">
+      <a href="/">vela</a>
+    </header>
+
+    <article class="letter" id="letter">
+      <h1 class="letter-title">the table</h1>
+      <p class="dateline mono">June 1, 2026</p>
+      <div class="letter-flow" data-flow>
+        {paragraphs.map((text, index) => <p data-paragraph={index}>{text}</p>)}
+        <p class="closing">See you soon.</p>
+      </div>
+      <div class="letter-driven" data-driven aria-hidden="true">
+        {paragraphs.map((text, index) => (
+          <p data-driven-paragraph={index} data-side={sides[index]}>{text}</p>
+        ))}
+        <p class="closing" data-driven-paragraph="closing">See you soon.</p>
+      </div>
+    </article>
+
+    <footer class="letter-footer">
+      <div class="footer-canvas-wrap">
+        <canvas class="footer-canvas" data-footer-canvas aria-hidden="true"></canvas>
+      </div>
+      <div class="footer-bottom">
+        <span class="wordmark">vela</span>
+        <span class="rights">All rights reserved</span>
+        <ul class="footer-links">
+          <li><a href="/shop">Shop</a></li>
+          <li><span>Support</span></li>
+          <li><span>Terms</span></li>
+          <li><span>Privacy</span></li>
+          <li><span>Jobs</span></li>
+          <li><span>Contact</span></li>
+        </ul>
+      </div>
+    </footer>
+
+    <script>
+      // The letter page carries two behaviours: the scroll driver that darkens
+      // the film in exact proportion to the reader's position, and the field of
+      // dots in the footer. Both are scenery. Neither carries information.
+      (() => {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const stage = document.querySelector('[data-stage]');
+        const dim = document.querySelector('[data-dim]');
+        const flat = document.querySelector('[data-flat]');
+        const film = document.querySelector('[data-film]');
+        const still = document.querySelector('[data-still]');
+        const speckle = document.querySelector('[data-speckle]');
+        const driven = document.querySelector('[data-driven]');
+        const flow = document.querySelector('[data-flow]');
+
+        // --- the darkening is a pure function of scroll position ---
+        let ticking = false;
+        const paint = () => {
+          const scroll = window.scrollY;
+          const max = Math.max(1, document.body.scrollHeight - window.innerHeight);
+          const p = Math.min(1, Math.max(0, scroll / max));
+          if (dim) dim.style.opacity = String(p);
+          if (flat) flat.style.opacity = p > 0.985 ? String((p - 0.985) / 0.015) : '0';
+          if (driven && window.matchMedia('(max-width: 63.999rem)').matches) {
+            const blocks = driven.querySelectorAll('[data-driven-paragraph]');
+            const vh = window.innerHeight;
+            blocks.forEach((block) => {
+              const rect = block.getBoundingClientRect();
+              const centre = rect.top + rect.height / 2;
+              const distance = Math.abs(centre - vh * 0.5) / (vh * 0.9);
+              const opacity = Math.max(0, Math.min(1, 1 - distance));
+              block.style.opacity = String(opacity);
+            });
+          }
+          ticking = false;
+        };
+        const onScroll = () => {
+          if (!ticking) { ticking = true; requestAnimationFrame(paint); }
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll, { passive: true });
+        paint();
+
+        // The driven layer only exists where it is used. Wide screens read a
+        // narrow column beside the film and nothing fades.
+        if (driven) {
+          const sync = () => {
+            const narrow = window.matchMedia('(max-width: 63.999rem)').matches;
+            driven.hidden = !narrow;
+            if (flow) flow.classList.toggle('is-hidden-inert', narrow);
+            paint();
+          };
+          window.addEventListener('resize', sync, { passive: true });
+          sync();
+        }
+
+        // --- the film: inert, silent, and it never starts under reduced motion
+        //     or on a metered connection ---
+        let filmRunning = false;
+        let frame = 0;
+        let ctx = null;
+        const startFilm = () => {
+          if (filmRunning || reduced || !film) return;
+          if (navigator.connection && navigator.connection.saveData) return;
+          ctx = film.getContext('2d');
+          if (!ctx) return;
+          film.width = Math.min(1280, window.innerWidth);
+          film.height = Math.ceil((film.width * 11) / 16);
+          filmRunning = true;
+          if (still) still.classList.add('has-film');
+          const draw = () => {
+            if (!filmRunning) return;
+            if (document.hidden || !stageInView()) { requestAnimationFrame(draw); return; }
+            frame += 1;
+            const w = film.width, h = film.height;
+            const t = frame / 90;
+            const gradient = ctx.createLinearGradient(0, 0, w, h);
+            gradient.addColorStop(0, `hsl(${28 + Math.sin(t) * 6} 26% ${11 + Math.sin(t * 1.3) * 2}%)`);
+            gradient.addColorStop(0.55, `hsl(${24 + Math.cos(t * 0.8) * 5} 22% ${9 + Math.cos(t) * 2}%)`);
+            gradient.addColorStop(1, 'hsl(20 18% 6%)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, w, h);
+            // the pool of lamp light drifts slowly
+            const cx = w * (0.34 + Math.sin(t * 0.4) * 0.04);
+            const cy = h * (0.3 + Math.cos(t * 0.31) * 0.03);
+            const lamp = ctx.createRadialGradient(cx, cy, 10, cx, cy, w * 0.5);
+            lamp.addColorStop(0, 'rgba(214, 160, 96, 0.22)');
+            lamp.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = lamp;
+            ctx.fillRect(0, 0, w, h);
+            if (speckle) speckle.style.opacity = '0.05';
+            requestAnimationFrame(draw);
+          };
+          requestAnimationFrame(draw);
+        };
+
+        const stageInView = () => {
+          if (!stage) return true;
+          const rect = stage.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        };
+
+        // The still frame must paint before the film ever starts.
+        if (still && still.complete) {
+          setTimeout(startFilm, 250);
+        } else if (still) {
+          still.addEventListener('load', () => setTimeout(startFilm, 250));
+          still.addEventListener('error', () => { if (stage) stage.classList.add('still-failed'); });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+          // The film pauses when the document is hidden; the canvas loop already
+          // checks document.hidden, and nothing else moves.
+        });
+
+        // --- the footer field of dots ---
+        const canvas = document.querySelector('[data-footer-canvas]');
+        if (canvas) {
+          const wrap = canvas.parentElement;
+          const c2 = canvas.getContext('2d');
+          if (!c2) {
+            // No drawing context: the bottom row alone renders and nothing is lost.
+            if (wrap) wrap.hidden = true;
+          } else {
+            const dots = [];
+            const gap = 14;
+            let width = 0, height = 0, dpr = Math.min(2, window.devicePixelRatio || 1);
+            let pointer = null;
+            let running = false;
+
+            // The company name is drawn by the gaps between the dots.
+            const name = 'vela';
+            const build = () => {
+              const rect = wrap.getBoundingClientRect();
+              width = Math.max(320, Math.floor(rect.width));
+              height = 200;
+              canvas.width = width * dpr;
+              canvas.height = height * dpr;
+              canvas.style.width = width + 'px';
+              canvas.style.height = height + 'px';
+              c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+              dots.length = 0;
+              const off = document.createElement('canvas');
+              off.width = width; off.height = height;
+              const o = off.getContext('2d');
+              o.fillStyle = '#fff';
+              o.font = `700 ${Math.min(150, Math.floor(width / 4.2))}px system-ui, sans-serif`;
+              o.textAlign = 'center';
+              o.textBaseline = 'middle';
+              o.fillText(name, width / 2, height / 2);
+              const data = o.getImageData(0, 0, width, height).data;
+              const cols = Math.floor(width / gap);
+              const rows = Math.floor(height / gap);
+              const cells = new Uint8Array(cols * rows);
+              let lit = 0;
+              for (let cy = 0; cy < rows; cy++) {
+                for (let cx = 0; cx < cols; cx++) {
+                  const px = Math.floor(cx * gap + gap / 2);
+                  const py = Math.floor(cy * gap + gap / 2);
+                  const i = (py * width + px) * 4 + 3;
+                  if (data[i] > 128) { cells[cy * cols + cx] = 1; lit++; }
+                }
+              }
+              // Dots exist where the letter is NOT: the gaps carry the name.
+              for (let cy = 0; cy < rows; cy++) {
+                for (let cx = 0; cx < cols; cx++) {
+                  if (cells[cy * cols + cx]) continue;
+                  dots.push({ x: cx * gap + gap / 2, y: cy * gap + gap / 2, energy: 0 });
+                }
+              }
+              void lit;
+            };
+
+            const rest = () => 'rgba(58, 55, 46, 1)';
+
+            const drawField = () => {
+              c2.clearRect(0, 0, width, height);
+              let any = false;
+              for (const dot of dots) {
+                let e = dot.energy;
+                if (pointer) {
+                  const dx = dot.x - pointer.x, dy = dot.y - pointer.y;
+                  const d2 = dx * dx + dy * dy;
+                  const within = 90 * 90;
+                  if (d2 < within) {
+                    e = Math.max(e, 1 - Math.sqrt(d2) / 90);
+                  }
+                }
+                if (e > 0.001) any = true;
+                const shade = Math.round(58 + e * 160);
+                c2.fillStyle = e > 0.001 ? `rgba(${shade}, ${shade - 6}, ${shade - 14}, 1)` : rest();
+                c2.fillRect(dot.x - 1, dot.y - 1, 2, 2);
+                // Dots near the pointer brighten and fall off with distance,
+                // then decay back over about a second.
+                dot.energy = reduced ? 0 : Math.max(0, dot.energy - 0.016);
+              }
+              return any;
+            };
+
+            const loop = () => {
+              const any = drawField();
+              const inView = wrap.getBoundingClientRect().bottom > 0 && wrap.getBoundingClientRect().top < window.innerHeight;
+              if (any && pointer && inView) { running = true; requestAnimationFrame(loop); }
+              else { running = false; }
+            };
+
+            const wake = () => { if (!running) { running = true; requestAnimationFrame(loop); } };
+
+            build();
+            drawField();
+
+            const move = (event) => {
+              const rect = canvas.getBoundingClientRect();
+              const p = event.touches ? event.touches[0] : event;
+              pointer = { x: p.clientX - rect.left, y: p.clientY - rect.top };
+              wake();
+            };
+            const leave = () => { pointer = null; wake(); };
+
+            canvas.addEventListener('pointermove', move);
+            canvas.addEventListener('pointerleave', leave);
+            canvas.addEventListener('pointerdown', move);
+            canvas.addEventListener('touchstart', (e) => { move(e); }, { passive: true });
+            canvas.addEventListener('touchmove', (e) => { move(e); }, { passive: true });
+            window.addEventListener('resize', build, { passive: true });
+            // Never run while the canvas is off screen.
+            const observer = new IntersectionObserver((entries) => {
+              if (entries.some((entry) => entry.isIntersecting)) wake();
+            });
+            observer.observe(wrap);
+          }
+        }
+      })();
+    </script>
+
+  </body>
+</html>

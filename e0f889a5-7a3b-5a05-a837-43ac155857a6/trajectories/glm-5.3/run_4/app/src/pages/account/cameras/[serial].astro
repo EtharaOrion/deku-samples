@@ -1,0 +1,80 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { deviceWithOwner, latestFirmware, serializeDevice, firmwareForProduct } from '../../../lib/devices.js';
+import { formatDate } from '../../../lib/format.js';
+
+const customer = Astro.locals.customer;
+if (!customer) return Astro.redirect(`/sign-in?next=/account/cameras`);
+
+const { serial } = Astro.params;
+const device = await deviceWithOwner(serial);
+
+// Another customer's camera reads as not found, never forbidden.
+if (!device || !device.owner_customer_id || device.owner_customer_id !== customer.id) {
+  return Astro.rewrite('/404');
+}
+
+const latestFw = await latestFirmware(device.product_id);
+const s = serializeDevice(device, { latestFw });
+const images = await firmwareForProduct(device.product_id);
+const generalImages = images.filter((f) => f.channel === 'general');
+---
+
+<Shell title={`${s.model} — Vela`} current="cameras" customer={{ name: customer.name, email: customer.email }}>
+  <nav class="breadcrumb"><a href="/account/cameras">Cameras</a> / <span class="mono">{s.serial}</span></nav>
+
+  <h1>{s.nickname || s.model}</h1>
+  <p class="card-subtitle">{s.model}</p>
+  <p><code class="mono">{s.serial}</code></p>
+
+  <dl class="camera-facts">
+    <div><dt>Firmware</dt><dd><span class={`chip ${s.firmware_state === 'behind' ? 'chip-progress' : ''}`}>{s.firmware_label}</span></dd></div>
+    <div><dt>Latest available</dt><dd class="mono">{s.latest_firmware_version || 'None'}</dd></div>
+    <div><dt>Warranty</dt><dd>{s.warranty_until ? `Until ${formatDate(s.warranty_until)}` : 'No warranty date'}</dd></div>
+  </dl>
+
+  {s.update_available && (
+    <p class="notice notice-progress">
+      Firmware {s.latest_firmware_version} is available. <a href="/doctor">Install it in the browser</a> or use Arranger.
+    </p>
+  )}
+
+  <section>
+    <h2>Images for this camera</h2>
+    <ul class="summary-lines">
+      {generalImages.map((f) => (
+        <li><span>Version {f.version} (build {f.build})</span><span class="mono">{f.min_firmware ? `needs ${f.min_firmware}` : 'no minimum'}</span></li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="camera-actions">
+    <h2>Actions</h2>
+    <form data-rename-form class="inline-form">
+      <label for="nickname">Nickname</label>
+      <input id="nickname" name="nickname" value={s.nickname || ''} maxlength="60" />
+      <button class="btn" type="submit">Save nickname</button>
+      <p class="feedback" data-rename-feedback role="status"></p>
+    </form>
+
+    <form data-remove-form>
+      <button class="btn" type="submit" data-confirm="Remove this camera from my account? This releases it without giving it to anyone.">
+        Remove from my account
+      </button>
+      <p class="field-help">Removing releases the camera without giving it to anyone.</p>
+    </form>
+
+    <form data-handover-form>
+      <button class="btn" type="submit" data-confirm="Hand this camera to someone else? They can register it once you have.">
+        Hand this camera to someone else
+      </button>
+      <p class="field-help">Handing it over releases it so the next owner can register it.</p>
+    </form>
+    <p class="feedback" data-action-feedback role="status"></p>
+  </section>
+</Shell>
+
+<script>
+  import { mountCameraActions } from '../../../components/camera-actions.js';
+  mountCameraActions(document.querySelector('[data-rename-form]'), document.querySelector('[data-remove-form]'), document.querySelector('[data-handover-form]'), document.querySelector('[data-action-feedback]'), document.querySelector('[data-rename-feedback]'), { serial: Astro.props.serial });
+</script>

@@ -1,0 +1,39 @@
+<article class="talent-detail">
+  <header class="talent-head">
+    <h1 class="roster-name talent-name">{{ talent.title }}</h1>
+    <p class="roster-discipline talent-discipline">{{ talent.discipline|upper if talent.discipline else '' }}</p>
+  </header>
+  <div class="talent-reel">
+    {% set reel = (media|selectattr('role','equalto','reel')|list)[:1] %}
+    {% set portrait = (media|selectattr('role','equalto','poster')|list)[:1] %}
+    {% if reel %}
+    <div class="reel-wrap" style="aspect-ratio:{{ reel[0].width }}/{{ reel[0].height }}">
+      <img class="reel-still" src="/api/media/{{ portrait[0].id if portrait else reel[0].id }}" alt="{{ reel[0].alt }}" decoding="async">
+      <canvas class="reel-canvas" width="640" height="360" data-seed="{{ reel[0].seed }}" aria-hidden="true"></canvas>
+      <button type="button" class="reel-play" data-reel-play>PLAY REEL</button>
+    </div>
+    {% elif portrait %}
+    <div class="reel-wrap" style="aspect-ratio:{{ portrait[0].width }}/{{ portrait[0].height }}">
+      <img class="reel-still" src="/api/media/{{ portrait[0].id }}" alt="{{ portrait[0].alt }}" decoding="async">
+    </div>
+    {% endif %}
+  </div>
+  <section class="talent-selected" aria-label="Selected work">
+    <h2 class="label-col selected-head">SELECTED WORK</h2>
+    {% for w in selected %}
+    <article class="entry-row entry-{{ w.variant or 'left' }}">
+      {% set poster = (selected_media.get(w.id) or [None])[0] %}
+      <a class="tile-link tile-{{ w.variant }}" href="/works/{{ w.slug }}">
+        <span class="tile-box" style="aspect-ratio:{{ (poster.width if poster else 598) }}/{{ (poster.height if poster else 320) }}">
+          {% if poster %}
+          <img class="tile-still" src="/api/media/{{ poster.id }}" width="{{ poster.width }}" height="{{ poster.height }}" alt="{{ poster.alt }}" loading="lazy" decoding="async">
+          {% endif %}
+        </span>
+      </a>
+      {% with ordinal = w.ordinal, title = w.title %}{% include 'partials/_caption.html' %}{% endwith %}
+    </article>
+    {% else %}
+    <p class="empty-state">No published work credits this talent yet.</p>
+    {% endfor %}
+  </section>
+</article>

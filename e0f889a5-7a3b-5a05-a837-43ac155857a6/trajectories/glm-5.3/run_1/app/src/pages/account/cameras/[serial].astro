@@ -1,0 +1,118 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { getCustomer, devicesFor, firmwareForProduct } from '../../../lib/store.mjs';
+import { usd } from '../../../../server/domain.mjs';
+
+const s = await getCustomer(Astro.request);
+if (!s || s.expired || !s.customer) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+const me = s.customer;
+const serial = String(Astro.params.serial || '').toUpperCase();
+const mine = (await devicesFor(me.id)).find((c) => c.serial.toUpperCase() === serial);
+// Another customer's serial reads as not found, never forbidden.
+if (!mine) return new Response('That page does not exist.', { status: 404 });
+const firmware = await firmwareForProduct(mine.product_id);
+const newest = firmware.find((f) => f.channel === 'general');
+---
+<Shell title={`${mine.model} ${mine.serial} — Vela`} current="cameras" customer={me}>
+  <nav class="crumb"><a href="/account/cameras">Cameras</a> / <span>{mine.serial}</span></nav>
+
+  <div class="head">
+    <div>
+      <h1>{mine.model}</h1>
+      <p class="serial mono">{mine.serial}</p>
+    </div>
+    <div class="chips">
+      {mine.never_connected ? <span class="chip" data-state="busy">Not yet connected</span>
+        : mine.update_available ? <span class="chip" data-kind="accent">Update available</span>
+        : <span class="chip" data-state="ok">Firmware {mine.firmware_version}</span>}
+      <span class="chip">{mine.warranty_until ? `Warranty to ${mine.warranty_until}` : 'No warranty date'}</span>
+    </div>
+  </div>
+
+  <section class="card block">
+    <h2>Nickname</h2>
+    <form class="row" data-nickname data-serial={mine.serial}>
+      <label class="field grow">
+        <span>A name only you see</span>
+        <input data-nick-input value={mine.nickname || ''} maxlength="80" />
+      </label>
+      <button class="btn btn-secondary" type="submit">Save name</button>
+      <p class="form-note" role="status" data-nick-note></p>
+    </form>
+  </section>
+
+  <section class="card block">
+    <h2>Firmware</h2>
+    <p>Running <span class="mono">{mine.firmware_version || 'no version reported'}</span>.
+      {mine.never_connected ? 'This camera has never been heard from.' : mine.update_available ? `Version ${newest.version} is available.` : 'This is the current version.'}
+    </p>
+    <table class="data">
+      <thead><tr><th>Version</th><th>Build</th><th>Channel</th><th>Minimum firmware</th><th>Minimum app</th></tr></thead>
+      <tbody>
+        {firmware.map((f) => (
+          <tr><td class="mono">{f.version}</td><td class="mono tnum">{f.build}</td><td>{f.channel}</td><td class="mono">{f.min_firmware || '—'}</td><td class="mono">{f.min_app_version}</td></tr>
+        ))}
+      </tbody>
+    </table>
+    {mine.update_available && <p><a href="/doctor">Install with the browser installer</a></p>}
+  </section>
+
+  <section class="card block">
+    <h2>Ownership</h2>
+    <div class="row">
+      <form data-release data-serial={mine.serial} class="inline">
+        <button class="btn btn-secondary" type="submit" data-confirm="Remove this camera from your account? This releases it and gives it to nobody.">Remove from my account</button>
+      </form>
+    </div>
+    <p class="hint">Removing releases the camera without giving it to anyone. It is what you do when you sell it to a stranger.</p>
+    <div class="row">
+      <form data-handover data-serial={mine.serial} class="inline">
+        <button class="btn btn-secondary" type="submit" data-confirm="Hand this camera to someone else? The next person can register it themselves.">Hand this camera to someone else</button>
+      </form>
+    </div>
+    <p class="hint">Handing it over also releases your claim, and the camera is free for whoever has it in hand.</p>
+  </section>
+</Shell>
+
+<script>
+  const nickForm = document.querySelector('[data-nickname]');
+  const nickNote = document.querySelector('[data-nick-note]');
+  if (nickForm) {
+    nickForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = nickForm.querySelector('[data-nick-input]');
+      const res = await fetch(`/api/account/devices/${nickForm.dataset.serial}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nickname: input.value }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (nickNote) nickNote.textContent = res && res.ok ? 'Saved.' : (body?.error?.message || 'That did not work.');
+    });
+  }
+  for (const form of Array.from(document.querySelectorAll('[data-release],[data-handover]'))) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button');
+      if (!window.confirm(btn.dataset.confirm || 'Are you sure?')) return;
+      const res = await fetch(`/api/account/devices/${form.dataset.serial}`, { method: 'DELETE' }).catch(() => null);
+      if (res && res.ok) window.location.href = '/account/cameras';
+      else if (btn) btn.textContent = 'That did not work.';
+    });
+  }
+</script>
+
+<style>
+  .crumb { font-size: 14px; color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 4); }
+  .head { display: flex; justify-content: space-between; gap: calc(var(--unit) * 4); align-items: start; flex-wrap: wrap; margin-bottom: calc(var(--unit) * 6); }
+  h1 { font-size: 28px; }
+  .serial { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .block { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); margin-bottom: calc(var(--unit) * 4); }
+  .block h2 { font-size: 17px; }
+  .row { display: flex; gap: calc(var(--unit) * 3); align-items: end; flex-wrap: wrap; }
+  .grow { flex: 1 1 240px; }
+  .form-note { flex-basis: 100%; min-height: 20px; font-size: 14px; color: var(--ground-light-fg-muted); }
+  .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+  .inline { display: inline; }
+</style>

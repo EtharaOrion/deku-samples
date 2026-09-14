@@ -1,0 +1,64 @@
+---
+import PageShell from '../components/PageShell.astro';
+const redirectTo = Astro.url.searchParams.get('redirect') ?? '/account';
+---
+<PageShell title="Create an account — Vela" heading="Create an account">
+  <div class="auth">
+    <form method="post" data-signup-form data-redirect-to={redirectTo}>
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" required autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" />
+        <p class="field-hint">At least eight characters.</p>
+      </div>
+      <button class="btn btn--primary" type="submit">Create account</button>
+      <p class="status" role="status" aria-live="polite" data-auth-status></p>
+      <p class="field-hint">Already have one? <a href="/sign-in">Sign in</a>.</p>
+    </form>
+  </div>
+</PageShell>
+
+<script>
+  const form = document.querySelector('[data-signup-form]') as HTMLFormElement | null;
+  const status = document.querySelector('[data-auth-status]') as HTMLElement | null;
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    if (button) button.disabled = true;
+    if (status) status.textContent = 'Creating your account.';
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(data.get('name') ?? ''),
+          email: String(data.get('email') ?? ''),
+          password: String(data.get('password') ?? ''),
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      // The session cookie arrives with this response; the script cannot set HttpOnly.
+      const to = form.dataset.redirectTo || '/account';
+      window.location.href = to.startsWith('/') ? to : '/account';
+    } catch (err) {
+      if (button) button.disabled = false;
+      if (status) status.textContent = err instanceof Error ? err.message : 'That did not work.';
+    }
+  });
+</script>
+
+<style>
+  .auth { padding: 0 var(--gutter); max-width: 30rem; }
+  .auth form { display: grid; gap: calc(var(--space) * 4); }
+  .field { display: grid; gap: var(--space); }
+  .status { min-height: 24px; margin: 0; }
+</style>

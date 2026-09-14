@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block route %}
+<section class="auth studio-edit" x-data="editRecord({{ item.id }})" x-init="init()">
+  <header class="edit-head">
+    <p class="edit-kicker">{{ item.kind|upper }}{% if not item.published %} · HELD{% endif %}</p>
+    <h1 class="auth-title">{{ item.title }}</h1>
+    <p class="edit-slug">/{{ 'works' if item.kind == 'work' else 'talents' }}/{{ item.slug }}</p>
+  </header>
+
+  <form class="studio-form" @submit.prevent="save">
+    <label class="field"><span class="field-label">Title</span>
+      <input type="text" x-model="title" required></label>
+    <label class="field"><span class="field-label">Change the slug</span>
+      <input type="text" x-model="newSlug" placeholder="{{ item.slug }}">
+      <span class="field-note">The old address keeps redirecting forever.</span></label>
+    {% if item.kind == 'talent' %}
+    <fieldset class="field"><legend class="field-label">Discipline</legend>
+      <div class="choices">{% for d in ['director','photographer','stylist'] %}
+        <label class="choice"><input type="radio" value="{{ d }}" x-model="discipline"><span>{{ d|upper }}</span></label>
+      {% endfor %}</div></fieldset>
+    {% else %}
+    <fieldset class="field"><legend class="field-label">Variant</legend>
+      <div class="choices">{% for v in ['left','centre','right'] %}
+        <label class="choice"><input type="radio" value="{{ v }}" x-model="variant"><span>{{ v|upper }}</span></label>
+      {% endfor %}</div></fieldset>
+    {% endif %}
+    <p class="form-error" x-show="error" x-text="error" role="alert"></p>
+    <div class="form-actions">
+      <button type="submit" class="btn">Save</button>
+      <a class="btn-ghost" href="/studio">Back to the palette</a>
+    </div>
+  </form>
+
+  <section class="edit-block">
+    <h2 class="studio-h">Media</h2>
+    <ul class="media-list">
+      {% for m in media %}
+      <li class="media-row">
+        <span class="m-role">{{ m.role|upper }}</span>
+        <span class="m-alt">{{ m.alt }}</span>
+        <span class="m-dim">{{ m.width }}×{{ m.height }}</span>
+      </li>
+      {% else %}<li class="empty-state">No media yet.</li>{% endfor %}
+    </ul>
+    <form class="studio-form media-form" @submit.prevent="addMedia">
+      <p class="studio-h">Attach media</p>
+      <label class="field"><span class="field-label">Role</span>
+        <select x-model="mRole"><option>poster</option><option>reel</option><option>gallery</option></select></label>
+      <label class="field"><span class="field-label">Alt, the written alternative</span>
+        <input type="text" x-model="mAlt" placeholder="What the still shows"></label>
+      <label class="field"><span class="field-label">Width and height</span>
+        <span class="dim-pair"><input type="number" x-model="mWidth" min="40" max="4096">
+        <input type="number" x-model="mHeight" min="40" max="4096"></span></label>
+      <label class="field"><span class="field-label">Seed, optional</span>
+        <input type="number" x-model="mSeed" placeholder="left empty, one is chosen"></label>
+      <p class="form-error" x-show="mError" x-text="mError" role="alert"></p>
+      <div class="form-actions"><button type="submit" class="btn">Attach</button></div>
+    </form>
+  </section>
+
+  {% if item.kind == 'work' %}
+  <section class="edit-block">
+    <h2 class="studio-h">Credits</h2>
+    <ul class="credit-list">
+      {% for c in credits %}
+      <li class="credit-row"><span class="c-role">{{ c.role }}</span><span class="c-name">{{ c.name }}</span>
+        {% if c.talent_slug %}<a class="c-link" href="/talents/{{ c.talent_slug }}">Talent</a>{% endif %}</li>
+      {% else %}<li class="empty-state">No credits yet.</li>{% endfor %}
+    </ul>
+    <form class="studio-form" @submit.prevent="addCredit">
+      <p class="studio-h">Add a credit</p>
+      <label class="field"><span class="field-label">Role</span><input type="text" x-model="cRole" placeholder="Director"></label>
+      <label class="field"><span class="field-label">Name</span><input type="text" x-model="cName"></label>
+      <label class="field"><span class="field-label">Talent, optional</span>
+        <select x-model="cTalent"><option value="">None</option>
+          <template x-for="t in talents" :key="t.id"><option :value="t.id" x-text="t.title" :selected="cTalent===t.id"></option></template>
+        </select></label>
+      <p class="form-error" x-show="cError" x-text="cError" role="alert"></p>
+      <div class="form-actions"><button type="submit" class="btn">Add credit</button></div>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="edit-block edit-publish">
+    <h2 class="studio-h">Publication</h2>
+    <p class="edit-state">This record is <span x-text="published ? 'published' : 'held, unlisted'"></span>.</p>
+    <div class="form-actions">
+      <button type="button" class="btn" x-show="!published" @click="publish(true)" :disabled="busy">Publish</button>
+      <button type="button" class="btn" x-show="published" @click="publish(false)" :disabled="busy">Unlist</button>
+      <button type="button" class="btn-ghost" x-show="!published" @click="mint" :disabled="busy">Mint a preview token</button>
+    </div>
+    <p class="studio-note" x-show="notice" x-text="notice" role="status"></p>
+  </section>
+</section>
+{% endblock %}

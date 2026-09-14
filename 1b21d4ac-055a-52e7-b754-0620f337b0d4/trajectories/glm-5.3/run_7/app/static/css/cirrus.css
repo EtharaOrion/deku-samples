@@ -1,0 +1,534 @@
+/* Cirrus — two warm colours, a serif and a grotesque, restraint under motion. */
+
+:root {
+  --color-dark: #060403;
+  --color-light: #e9eae4;
+  --fontM: 24px;
+  --fontS: 12px;
+  --fontXS: 10px;
+  --fontXXS: 8px;
+  --ease-slow: cubic-bezier(.2, .65, .47, .96);
+  --ease-hold: cubic-bezier(.83, .12, .35, .96);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, "Segoe UI", sans-serif;
+  font-size: 12px; font-weight: 500; line-height: 14.4px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--color-dark);
+  background: var(--color-light);
+  -webkit-font-smoothing: antialiased;
+}
+
+body[data-route="entry"] { color: var(--color-light); }
+
+img { display: block; max-width: none; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input, select, textarea { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+h1, h2, p, ol, ul, li, figure, fieldset { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+fieldset { border: 0; min-width: 0; }
+svg { display: block; }
+[x-cloak] { display: none !important; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ------------------------------------------------ font faces (swap, variable) */
+
+/* The two faces are named, not shipped: the display role falls to the reader's
+   own variable serif, the interface role to its grotesque.  Both stacks keep the
+   roles distinguishable at every weight from 100 to 500. */
+
+
+.display, .roster-name, .work-title, .talent-name, .caption-title, .opening-line,
+.nf-line, .entry-count, .lockup .lk-big, .about-para, .about-long, .af-line, .af-name,
+.neighbour-title, .auth-title, .pub-title {
+  font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+}
+
+/* ------------------------------------------------------------------- focus */
+
+:focus { outline: none; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 3px;
+}
+body[data-route="entry"] a:focus-visible, body[data-route="entry"] button:focus-visible,
+body[data-route="entry"] input:focus-visible {
+  outline-color: var(--color-light);
+}
+.skip {
+  position: fixed; top: 8px; left: 8px; z-index: 60; padding: 8px 12px;
+  background: var(--color-light); color: var(--color-dark);
+  transform: translateY(-160%); transition: transform 0.45s var(--ease-hold);
+}
+.skip:focus-visible { transform: translateY(0); }
+
+/* ------------------------------------------------------------------ frame */
+
+.frame { position: fixed; inset: 0; z-index: 10; pointer-events: none; transition: opacity 0.4s; }
+.frame > * { pointer-events: auto; }
+
+.wordmark {
+  position: absolute; left: 40px; top: 40px; z-index: 11;
+  font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 27px; font-weight: 400; line-height: 18.9px; letter-spacing: 0.02em;
+  text-transform: lowercase;
+  mix-blend-mode: difference; color: #000000;
+  transition: opacity 0.2s ease-out;
+}
+.topnav {
+  position: absolute; top: 40px; right: 40px; z-index: 12;
+  display: flex; gap: 40px; align-items: baseline;
+  transition: opacity 0.4s;
+}
+.topnav a, .topnav .navmail {
+  transition: opacity 0.2s ease-out; opacity: 1; padding: 2px 0; background: none;
+}
+.topnav a.active { opacity: 0.5; }
+.topnav a:hover, .topnav .navmail:hover, .frame a:hover { opacity: 0.5; }
+
+.split-ch { display: inline-block; transform: translateY(12px); opacity: 0;
+  transition: transform 0.45s var(--ease-hold), opacity 0.3s; }
+.arrived .split-ch { transform: translateY(0); opacity: 1; }
+.split-ch:nth-child(1) { transition-delay: 0s; }
+.split-ch:nth-child(2) { transition-delay: .015s; }
+.split-ch:nth-child(3) { transition-delay: .03s; }
+.split-ch:nth-child(4) { transition-delay: .045s; }
+.split-ch:nth-child(5) { transition-delay: .06s; }
+.split-ch:nth-child(6) { transition-delay: .075s; }
+.split-ch:nth-child(7) { transition-delay: .09s; }
+.split-ch:nth-child(8) { transition-delay: .105s; }
+.split-ch:nth-child(n+9) { transition-delay: .12s; }
+
+/* the centre mark slot: below the frame, above content */
+.mark { position: absolute; z-index: 8; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; color: var(--color-dark); }
+body[data-route="entry"] .mark { color: var(--color-light); }
+.mark-svg { position: absolute; top: 438px; left: 50%; display: none; }
+body[data-route="entry"] .mark-entry { display: block; transform: translateX(-50%) translateX(-10.5px); }
+body[data-route="works"] .mark-works, body[data-route="work"] .mark-works { display: block; transform: translateX(-50%) translateX(-7px); }
+body[data-route="talents"] .mark-talents, body[data-route="talent"] .mark-talents { display: block; transform: translateX(-50%) translateX(-9px); }
+body[data-route="about"] .mark-about { display: block; transform: translateX(-50%) translateX(-13.5px); }
+body[data-route="notfound"] .mark-entry, body[data-route="preview"] .mark-entry { display: block; transform: translateX(-50%) translateX(-10.5px); }
+body[data-route="studio"] .mark-talents, body[data-route="studio-login"] .mark-talents,
+body[data-route="studio-new"] .mark-talents, body[data-route="studio-item"] .mark-talents { display: block; transform: translateX(-50%) translateX(-9px); }
+
+.credit {
+  position: absolute; right: 40px; bottom: 16px; z-index: 11;
+  display: flex; align-items: center; gap: 8px;
+  mix-blend-mode: difference; color: #000000;
+  transition: opacity 0.2s ease-out;
+}
+.credit-arrows { position: relative; width: 8px; height: 24px; display: block; }
+.credit .arrow { position: absolute; left: 0; transition: transform 0.45s var(--ease-hold), opacity 0.3s; }
+.credit .a-rest { top: 0; opacity: 1; }
+.credit .a-arrive { top: 16px; opacity: 0; transform: translate(-8px, 16px); }
+.credit:hover .a-rest { transform: translate(8px, -16px); opacity: 0; }
+.credit:hover .a-arrive { transform: translate(0, 0); opacity: 1; }
+
+/* ------------------------------------------------------------------- well */
+
+.well { position: relative; z-index: 1; min-height: 100vh; transition: opacity 0.4s; }
+.is-leaving, .is-leaving .topnav, .is-leaving .mark { opacity: 0; }
+.is-leaving { pointer-events: none; }
+.veil { position: fixed; inset: 0; z-index: 20; background: var(--color-light);
+  opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+body[data-route="entry"] .veil { background: var(--color-dark); }
+
+/* ----------------------------------------------------------------- cursor */
+
+.cursor { position: fixed; top: 0; left: 0; z-index: 50; pointer-events: none;
+  transform: translate(-999px, -999px); opacity: 0;
+  transition: opacity 300ms ease; display: flex; align-items: flex-start; gap: 8px; }
+.cursor.visible { opacity: 1; }
+.cursor-square { width: 8px; height: 8px; background: #ffffff; mix-blend-mode: difference; }
+.cursor-label { padding-top: 1px; font-size: 10px; line-height: 12px; letter-spacing: 0.08em;
+  color: #ffffff; mix-blend-mode: difference; white-space: nowrap; }
+.cursor.hidden { display: none; }
+@media (pointer: coarse) { .cursor { display: none; } }
+
+/* ------------------------------------------------------------------ footer */
+
+.footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+  padding: 40px 40px 40px 0; pointer-events: none; transition: opacity 0.4s;
+  transform: translateY(60px); opacity: 0; }
+.footer.arrived { transform: translateY(0); opacity: 1; }
+.footer-scrim {
+  position: absolute; inset: -60% -25% 0 -25%; transform: scale(1.5);
+  background: linear-gradient(0deg, #313236 -1.82%, #31323684 43.56%, #eaebe500);
+  pointer-events: none;
+}
+.footer-cols { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 40px; padding-left: 40px; }
+.fc { display: flex; flex-direction: column; gap: 6px; }
+.fc-label { font-size: 10px; font-weight: 400; line-height: 19px; letter-spacing: 0.08em; }
+.fc-line { font-size: 12px; font-weight: 500; line-height: 14.4px; }
+.fc .mail { transition: opacity 0.2s ease-out; }
+.fc .mail:hover { opacity: 0.5; }
+.fc-num { text-align: right; }
+.fc-social { text-align: right; }
+
+/* ------------------------------------------------------------ counter well */
+
+.counterwell { position: fixed; z-index: 10; left: 40px; bottom: 16px;
+  display: flex; gap: 6px; align-items: baseline;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.counterwell.visible { opacity: 1; }
+.counter-label { font-size: 10px; letter-spacing: 0.08em; opacity: 0.6; }
+.counter-value { font-size: 12px; }
+
+/* ----------------------------------------------------------------- overlay */
+
+.overlay { position: fixed; inset: 0; z-index: 30; background: var(--color-light);
+  display: flex; align-items: center; justify-content: center; }
+.overlay-panel { position: relative; text-align: center; }
+.overlay-line { font-size: 12px; line-height: 14.4px; margin: 0 0 10px; }
+.overlay-line .mail { border-bottom: 1px solid currentColor; padding-bottom: 2px;
+  transition: opacity 0.2s ease-out; }
+.overlay-close { position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+  letter-spacing: 0.08em; transition: opacity 0.2s ease-out; }
+.overlay-close:hover { opacity: 0.5; }
+
+/* ------------------------------------------------------------------ entry */
+
+.entry { position: relative; height: 100vh; height: 100svh; overflow: hidden;
+  background: var(--color-dark); color: var(--color-light); }
+.entry-veil { position: absolute; inset: 0; background: var(--color-dark);
+  z-index: 6; transition: opacity 0.4s; }
+.entry-veil.gone { opacity: 0; pointer-events: none; }
+.entry-counter {
+  position: absolute; z-index: 7; left: 50%; top: 438px;
+  font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 58px; font-weight: 300; line-height: 40.6px;
+  transform: translateX(-50%);
+}
+.entry-cluster { position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s; }
+.entry-cluster.ready { opacity: 1; }
+.cluster-still { position: absolute; display: block; overflow: hidden;
+  transition: opacity 0.2s ease-out; }
+.cluster-still:hover, .cluster-still:focus-visible { opacity: 0.5; }
+.cluster-img { width: 100%; height: auto; }
+.cluster-caption { position: absolute; left: 0; bottom: 100%; margin-bottom: 10px;
+  font-size: 10px; letter-spacing: 0.08em; white-space: nowrap; opacity: 0;
+  transition: opacity 0.2s ease-out; }
+.cluster-still:focus-visible .cluster-caption { opacity: 1; }
+
+/* ------------------------------------------------------------------ works */
+
+.works { padding-bottom: 40vh; }
+.works-opening { height: 100vh; display: flex; align-items: flex-end;
+  padding: 0 40px 20vh; }
+.opening-line {
+  width: 100%; font-size: 56px; font-weight: 300; line-height: 61.6px;
+  text-transform: none; letter-spacing: 0;
+  filter: blur(10px); transition: filter 0.8s var(--ease-slow);
+}
+.opening-line.sharp { filter: blur(0); }
+.works-list { display: flex; flex-direction: column; gap: 44vh; padding: 0 40px; }
+.work-entry { position: relative; }
+.work-entry.variant-left { width: 598px; }
+.work-entry.variant-right { width: 300px; margin-left: auto; }
+.work-entry.variant-centre { width: 1006px; margin: 0 auto; }
+.work-link { display: block; transition: opacity 0.2s ease-out; }
+.work-still { width: 100%; height: auto; transform: scale(1.015); filter: saturate(0);
+  transition: filter 0.8s var(--ease-slow); }
+.work-entry.variant-left .work-still { aspect-ratio: 1.87; object-fit: cover; }
+.work-entry.variant-right .work-still { aspect-ratio: 1.0; object-fit: cover; }
+.work-entry.variant-centre .work-still { aspect-ratio: 1.63; object-fit: cover; }
+.work-link:hover .work-still, .work-link:focus-visible .work-still { filter: saturate(1); }
+
+.reveal { display: block; position: relative; overflow: hidden;
+  clip-path: inset(100% 0% 0%); transform: translateX(-123px); }
+.reveal.revealed { clip-path: inset(0% 0% 0%); transform: translateX(0); }
+
+.caption-row { display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding-top: 12px; }
+.caption-mark { width: 4px; height: 4px; background: var(--color-dark); align-self: center; }
+.caption-ordinal { font-size: 19px; font-weight: 500; line-height: 17.1px; }
+.caption-title { margin-left: auto; font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 24px; font-weight: 300; line-height: 25.2px; text-transform: none; text-align: right; }
+
+/* ------------------------------------------------------------- work detail */
+
+.work { padding: 120px 40px 40vh; }
+.work-head { margin-bottom: 40px; }
+.work-ordinal { font-size: 19px; font-weight: 500; line-height: 17.1px; margin-bottom: 16px; }
+.work-title { font-size: 56px; font-weight: 300; line-height: 61.6px; text-transform: none; }
+.work-credits { display: flex; flex-wrap: wrap; gap: 12px 40px; margin-bottom: 48px; }
+.credit-line { display: flex; gap: 12px; }
+.credit-role { opacity: 0.6; }
+.credit-name { transition: opacity 0.2s ease-out; }
+.credit-name:hover { opacity: 0.5; }
+.work-reel { position: relative; width: 100%; margin-bottom: 20vh; }
+.reel-canvas, .reel-still { width: 100%; height: auto; }
+.reel-still { position: relative; }
+.reel-canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 0.3s; }
+.reel-canvas.playing { opacity: 1; }
+.reel-play { margin-top: 12px; border: 1px solid var(--color-dark); padding: 6px 12px; }
+.work-stills { display: flex; flex-direction: column; gap: 20vh; }
+.work-still-li { display: block; }
+.work-still.variant-left { width: 598px; }
+.work-still.variant-centre { width: 1006px; margin: 0 auto; }
+.work-still.variant-right { width: 300px; margin-left: auto; }
+.work-still img { width: 100%; height: auto; }
+.work-neighbours { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 20vh; }
+.neighbour { display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s ease-out; }
+.neighbour:hover { opacity: 0.5; }
+.neighbour.next { text-align: right; align-items: flex-end; }
+.neighbour-label { font-size: 10px; letter-spacing: 0.08em; opacity: 0.6; }
+.neighbour-title { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 27px; font-weight: 400; line-height: 18.9px; text-transform: none; }
+.neighbour-ord { font-size: 12px; opacity: 0.6; }
+
+/* ------------------------------------------------------------------ roster */
+
+.talents { position: relative; height: 100vh; height: 100svh; overflow: hidden; }
+.roster-filter { position: absolute; left: 54px; top: 443px; z-index: 5;
+  display: flex; flex-direction: column; gap: 8px; }
+.filter-btn { position: relative; text-align: left; padding-left: 14px;
+  opacity: 0.5; transition: opacity 0.2s ease-out; }
+.filter-btn:hover { opacity: 0.75; }
+.filter-btn.active { opacity: 1; }
+.filter-btn.active::before { content: ""; position: absolute; left: -14px; top: 50%;
+  width: 4px; height: 4px; margin-top: -2px; background: var(--color-dark); }
+.roster-set { position: absolute; inset: 0; transition: transform 0.8s var(--ease-slow); }
+.roster-entry { position: absolute; inset: 0; display: grid; justify-items: center;
+  align-content: start; padding-top: 120px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.roster-entry.current { opacity: 1; pointer-events: auto; }
+.roster-name { font-size: 125px; font-weight: 300; line-height: 137.5px;
+  text-transform: none; text-align: center; }
+.roster-name a { transition: opacity 0.2s ease-out; display: inline-block; }
+.roster-name a:hover { opacity: 0.5; }
+.roster-discipline { margin-top: 24px; }
+.roster-portrait { margin-top: 66px; width: 246px; display: block; }
+.roster-portrait img { width: 100%; height: auto; }
+.roster-open { position: absolute; left: 50%; transform: translateX(-50%); bottom: 48px;
+  border-bottom: 1px solid var(--color-dark); padding-bottom: 3px;
+  transition: opacity 0.2s ease-out; }
+.roster-open:hover { opacity: 0.5; }
+
+/* ---------------------------------------------------------- talent detail */
+
+.talent { padding: 120px 40px 40vh; }
+.talent-head { text-align: center; margin-bottom: 8vh; }
+.talent-discipline { margin-bottom: 24px; }
+.talent-name { font-size: 125px; font-weight: 300; line-height: 137.5px; text-transform: none; }
+.talent-reel { width: 100%; margin-bottom: 16vh; position: relative; }
+.talent-portrait { width: 246px; margin: 0 auto 16vh; }
+.talent-portrait img { width: 100%; height: auto; }
+.talent-work-label { margin-bottom: 32px; }
+.talent-work .works-list { padding: 0; gap: 20vh; }
+
+/* ------------------------------------------------------------------- about */
+
+.about { padding: 100vh 40px 30vh; }
+.about-figure { position: relative; text-align: center; margin-bottom: 90vh; }
+.about-figure-grid { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.af-line, .af-name { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 36px; font-weight: 100; line-height: 34.56px; }
+.about-figure-mark { position: absolute; right: 0; top: 50%; margin-top: -11px; color: var(--color-dark); }
+.about-body { max-width: 720px; margin: 0 auto; }
+.about-para { display: flex; flex-direction: column; gap: 4px; }
+.ap-line { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 18px; font-weight: 300; line-height: 21.6px; text-transform: none; }
+.about-long { margin-top: 22vh; font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 18px; font-weight: 300; line-height: 21.6px; text-transform: none; }
+.about-lockup { margin-top: 30vh; text-align: center; position: relative; }
+.lockup-row { display: flex; align-items: baseline; justify-content: center; gap: 12px;
+  position: relative; }
+.lk-big { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 58px; font-weight: 400; line-height: 40.6px; }
+.lk-mid { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 24.75px; font-weight: 100; line-height: 23.76px; }
+.lk-sup { display: inline-flex; margin-left: 8px; transform: translateY(-16px); }
+
+/* ----------------------------------------------------------------- studio */
+
+.auth { max-width: 560px; margin: 0 auto; padding: 20vh 40px 30vh; }
+.auth-title { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 40px; font-weight: 200; line-height: 48px; text-transform: none; margin-bottom: 16px; }
+.auth-note { margin-bottom: 32px; opacity: 0.6; }
+.studio-form { display: flex; flex-direction: column; gap: 20px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 10px; letter-spacing: 0.08em; opacity: 0.6; }
+.field input, .field select { background: transparent; border: 0; border-bottom: 1px solid var(--color-dark);
+  padding: 8px 0; font-size: 12px; }
+.choices { display: flex; gap: 16px; flex-wrap: wrap; }
+.choice { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.choice input { accent-color: var(--color-dark); }
+.form-actions { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
+.btn { border: 1px solid var(--color-dark); padding: 10px 18px; letter-spacing: 0.04em;
+  transition: opacity 0.2s ease-out; }
+.btn:hover { opacity: 0.5; }
+.btn[disabled] { opacity: 0.4; cursor: default; }
+.btn-ghost { opacity: 0.6; transition: opacity 0.2s ease-out; }
+.btn-ghost:hover { opacity: 1; }
+.btn-mini { border: 1px solid var(--color-dark); padding: 2px 8px; font-size: 10px;
+  letter-spacing: 0.08em; transition: opacity 0.2s ease-out; }
+.btn-mini:hover { opacity: 0.5; }
+.form-error { border-left: 2px solid var(--color-dark); padding-left: 10px; }
+.form-note { opacity: 0.6; }
+.dim-pair { display: flex; gap: 8px; }
+.dim-pair input { width: 50%; }
+
+.studio { padding: 16vh 40px 20vh; min-height: 100vh; }
+.palette-input { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--color-dark);
+  font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif; font-size: 27px;
+  font-weight: 400; text-transform: none; letter-spacing: 0; padding: 8px 0; }
+.palette-input:focus { outline: none; border-bottom-color: var(--color-dark); }
+.palette { max-width: 900px; margin: 0 auto; }
+.palette-results { margin-top: 24px; display: flex; flex-direction: column; gap: 4px; }
+.palette-action { text-align: left; padding: 8px 0; border-bottom: 1px solid rgba(6, 4, 3, 0.12);
+  transition: opacity 0.2s ease-out; }
+.palette-action:hover { opacity: 0.5; }
+.palette-row { display: flex; align-items: baseline; gap: 16px;
+  border-bottom: 1px solid rgba(6, 4, 3, 0.12); }
+.palette-open { flex: 1; display: flex; gap: 16px; align-items: baseline; text-align: left;
+  padding: 8px 0; transition: opacity 0.2s ease-out; }
+.palette-open:hover { opacity: 0.5; }
+.pr-title { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif; font-size: 18px;
+  font-weight: 300; text-transform: none; }
+.pr-slug, .pr-kind { opacity: 0.6; }
+.pr-state { margin-left: auto; opacity: 0.6; }
+.palette-row.live .pr-state { opacity: 1; }
+.palette-act { font-size: 10px; letter-spacing: 0.08em; border: 1px solid var(--color-dark);
+  padding: 3px 8px; transition: opacity 0.2s ease-out; }
+.palette-act:hover { opacity: 0.5; }
+.palette-cards { margin-top: 48px; }
+.studio-h { font-size: 10px; letter-spacing: 0.08em; opacity: 0.6; margin-bottom: 16px; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(6, 4, 3, 0.2);
+  padding: 14px; transition: opacity 0.2s ease-out; }
+.card:hover { opacity: 0.5; }
+.card-title { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif; font-size: 18px;
+  font-weight: 300; text-transform: none; }
+.card-slug, .card-kind { opacity: 0.6; }
+.card-state { margin-top: auto; }
+.card.live .card-state::before { content: ""; }
+.reorder-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 24px; }
+.reorder-row { display: flex; gap: 16px; align-items: baseline; border-bottom: 1px solid rgba(6, 4, 3, 0.12);
+  padding: 8px 0; }
+.rr-pos { width: 28px; opacity: 0.6; }
+.rr-title { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif; font-size: 18px;
+  font-weight: 300; text-transform: none; }
+.rr-state { opacity: 0.6; }
+.rr-btns { margin-left: auto; display: flex; gap: 8px; }
+.studio-signout { margin-top: 40px; text-align: center; }
+.studio-note { margin-top: 16px; opacity: 0.6; text-align: center; }
+.edit-head { margin-bottom: 40px; }
+.edit-kicker { opacity: 0.6; margin-bottom: 12px; }
+.edit-slug { opacity: 0.6; }
+.edit-block { margin-top: 56px; }
+.media-list, .credit-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+.media-row, .credit-row { display: flex; gap: 16px; border-bottom: 1px solid rgba(6, 4, 3, 0.12);
+  padding: 6px 0; }
+.m-role, .c-role { width: 80px; opacity: 0.6; }
+.m-alt { flex: 1; text-transform: none; }
+.m-dim { opacity: 0.6; }
+.c-name { flex: 1; text-transform: none; }
+.edit-state { margin-bottom: 16px; }
+.pub-kicker { opacity: 0.6; margin-bottom: 12px; }
+.pub-line { margin: 16px 0; text-transform: none; }
+.pub-link { border-bottom: 1px solid var(--color-dark); transition: opacity 0.2s ease-out; }
+.pub-link:hover { opacity: 0.5; }
+.pub-ord, .pub-disc { font-weight: 500; }
+
+/* --------------------------------------------------------------- not found */
+
+.notfound { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.nf-line { font-family: "Cirrus Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", Times, serif;
+  font-size: 56px; font-weight: 300; line-height: 61.6px; text-transform: none;
+  text-align: center; }
+
+/* --------------------------------------------------------------- preview */
+
+.preview-banner { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%);
+  z-index: 15; border: 1px solid var(--color-dark); padding: 8px 14px; letter-spacing: 0.08em; }
+
+/* ------------------------------------------------------------ empty states */
+
+.empty-state { text-transform: none; font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, "Segoe UI", sans-serif;
+  font-size: 12px; padding: 24px 0; opacity: 0.7; }
+
+/* ------------------------------------------------------------- scrolling */
+
+body.scrolling { /* one class on the root while a smoothed scroll is in flight */ }
+html:not(.native-scroll) body { /* the well is transformed by the scroll driver */ }
+
+/* the display face speaks in sentences; the interface face speaks in capitals.
+   The exceptions inside the display face are content authored in capitals. */
+.opening-line, .work-title, .talent-name, .roster-name, .caption-title, .nf-line,
+.neighbour-title, .pr-title, .card-title, .rr-title, .auth-title, .ap-line,
+.about-long, .m-alt, .c-name, .pub-line, .empty-state, .entry-counter,
+.cluster-caption { text-transform: none; }
+.af-line, .af-name, .lk-big, .lk-mid, .overlay-line { text-transform: uppercase; }
+
+/* ------------------------------------------------------------ the breakpoint
+   Below 768px, or under 500px of height, the roster stops being one screen and
+   becomes a scroll, the frame retracts to give the work its height, and every
+   hover-only affordance gains its touch equivalent. */
+@media (max-width: 767px), (max-height: 499px) {
+  .works-opening { padding: 0 24px 14vh; }
+  .opening-line { font-size: 36px; line-height: 34.56px; }
+  .works-list { padding: 0 24px; gap: 24vh; }
+  .work-entry.variant-left, .work-entry.variant-centre, .work-entry.variant-right {
+    width: 100%; margin: 0; }
+  .work-still { filter: saturate(1); }         /* colour is not behind a hover */
+  .caption-title { font-size: 18px; }
+  .work { padding: 96px 24px 30vh; }
+  .work-title { font-size: 36px; line-height: 34.56px; }
+  .work-neighbours { grid-template-columns: 1fr; }
+  .talents { height: auto; min-height: 100vh; overflow: visible; }
+  .roster-set { position: static; }
+  .roster-entry { position: relative; inset: auto; min-height: 100vh; padding-top: 22vh;
+    opacity: 1; pointer-events: auto; display: none; }
+  .roster-entry.current { display: grid; }
+  .roster-name, .talent-name { font-size: 56px; line-height: 61.6px; }
+  .roster-filter { position: static; flex-direction: row; flex-wrap: wrap;
+    padding: 96px 24px 0; gap: 16px; }
+  .filter-btn { padding-left: 0; }
+  .filter-btn.active::before { display: none; }
+  .roster-open { position: static; transform: none; margin-top: 24px; }
+  .talent { padding: 96px 24px 30vh; }
+  .talent-work .works-list { padding: 0; }
+  .about { padding: 20vh 24px 20vh; }
+  .af-line, .af-name { font-size: 19px; line-height: 21.6px; }
+  .ap-line { width: 100%; }                   /* the authored breaks drop away */
+  .lk-big { font-size: 24.75px; line-height: 23.76px; }
+  .lk-mid { font-size: 12px; }
+  .lk-sup { transform: translateY(-8px); }
+  .about-figure-mark { position: static; margin: 16px auto 0; }
+  .cluster-caption { opacity: 1; position: static; display: block; margin: 6px 0 0; }
+  .cluster-still { opacity: 1 !important; }
+  .frame.retracted .wordmark, .frame.retracted .topnav { transform: translateY(-64px);
+    transition: transform 0.45s var(--ease-hold); }
+  .credit .arrow { transition: none; }
+  .footer { padding-right: 24px; }
+  .footer-cols { grid-template-columns: 1fr 1fr; gap: 24px; padding-left: 24px; }
+  .auth, .studio { padding-left: 24px; padding-right: 24px; }
+}
+
+/* --------------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01s !important; }
+  .opening-line { filter: blur(0); }
+  .reveal { clip-path: inset(0 0 0 0); transform: none; }
+  .cursor { display: none; }
+  .about-figure, .about-body, .about-long { filter: none !important; }
+  .work-still { filter: saturate(1); }
+  .work-link:hover .work-still { filter: saturate(1); transition-duration: 0.01s; }
+  .roster-set, .roster-entry { transition-duration: 0.01s; }
+  .split-ch { transform: none; opacity: 1; }
+}

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block route %}studio-item{% endblock %}
+{% block title %}Cirrus - Studio - {{ item.title }}{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block centre_mark %}{% include 'marks/works.svg' %}{% endblock %}
+{% block well %}
+<div class="studio-edit" x-data='studioItem({{ item|tojson }}, {{ media|tojson }}, {{ credits|tojson }})'>
+  <div class="studio-edit-head">
+    <h1 class="studio-heading" x-text="title"></h1>
+    <p class="studio-note">
+      <span x-text="kind.toUpperCase()"></span> ·
+      <span x-text="published ? 'LIVE' : 'HELD'"></span>
+      <template x-if="published_at"><span> · PUBLISHED <span x-text="published_at"></span></span></template>
+    </p>
+  </div>
+
+  <form class="studio-form" onsubmit="return false" @submit.prevent="save">
+    <label class="field">
+      <span class="field-label">TITLE</span>
+      <input class="field-input" type="text" x-model="title" required>
+    </label>
+    <label class="field">
+      <span class="field-label">SLUG</span>
+      <input class="field-input" type="text" x-model="slug" required>
+      <span class="field-hint">Changing the slug leaves the old address redirecting forever.</span>
+    </label>
+    <label class="field" x-show="kind === 'talent'">
+      <span class="field-label">DISCIPLINE</span>
+      <select class="field-input" x-model="discipline">
+        <option value="director">director</option>
+        <option value="photographer">photographer</option>
+        <option value="stylist">stylist</option>
+      </select>
+    </label>
+    <label class="field" x-show="kind === 'work'">
+      <span class="field-label">VARIANT</span>
+      <select class="field-input" x-model="variant">
+        <option value="left">left</option>
+        <option value="right">right</option>
+        <option value="centre">centre</option>
+      </select>
+    </label>
+    <label class="field field-checkbox">
+      <input type="checkbox" x-model="publishedWanted" @change="publishToggle()">
+      <span class="field-label">PUBLISHED</span>
+    </label>
+    <p class="form-error" x-show="error" x-text="error" role="alert"></p>
+    <p class="form-note" x-show="note" x-text="note"></p>
+    <div class="form-actions">
+      <button class="studio-btn" type="submit" :disabled="busy">SAVE</button>
+      <button class="studio-btn studio-btn-ghost" type="button" @click="mintPreview()" :disabled="busy">MINT PREVIEW TOKEN</button>
+      <a class="studio-btn studio-btn-ghost" :href="previewHref" x-show="previewHref" target="_blank" rel="noopener">OPEN PREVIEW</a>
+      <a class="studio-btn studio-btn-ghost" href="/studio">BACK TO PALETTE</a>
+    </div>
+  </form>
+
+  <section class="studio-section">
+    <h2 class="studio-sub">MEDIA</h2>
+    <p class="studio-note">Media is generated from a seed. Nothing is uploaded.</p>
+    <ul class="media-rows">
+      <template x-for="m in media" :key="m.id">
+        <li class="media-row">
+          <span class="media-role" x-text="m.role.toUpperCase()"></span>
+          <span class="media-size" x-text="m.width + '×' + m.height"></span>
+          <span class="media-alt" x-text="m.alt"></span>
+          <img class="media-thumb" :src="'/api/media/' + m.id" alt="" aria-hidden="true" loading="lazy">
+        </li>
+      </template>
+      <li class="media-row media-empty" x-show="media.length === 0"><span>No media attached.</span></li>
+    </ul>
+    <form class="studio-form studio-form-inline" onsubmit="return false" @submit.prevent="addMedia">
+      <label class="field"><span class="field-label">ROLE</span>
+        <select class="field-input" x-model="newMedia.role">
+          <option value="poster">poster</option><option value="reel">reel</option><option value="gallery">gallery</option>
+        </select></label>
+      <label class="field"><span class="field-label">WIDTH</span>
+        <input class="field-input" type="number" x-model.number="newMedia.width" min="8" max="2400"></label>
+      <label class="field"><span class="field-label">HEIGHT</span>
+        <input class="field-input" type="number" x-model.number="newMedia.height" min="8" max="2400"></label>
+      <label class="field"><span class="field-label">ALT</span>
+        <input class="field-input" type="text" x-model="newMedia.alt" required></label>
+      <button class="studio-btn" type="submit" :disabled="busy">ATTACH</button>
+    </form>
+  </section>
+
+  {% if item.kind == 'work' %}
+  <section class="studio-section">
+    <h2 class="studio-sub">CREDITS</h2>
+    <ul class="credit-rows">
+      <template x-for="c in credits" :key="c.id">
+        <li class="credit-row">
+          <span class="credit-role" x-text="c.role"></span>
+          <span class="credit-name" x-text="c.name"></span>
+          <span class="credit-talent" x-show="c.talent_title" x-text="c.talent_title ? '↳ ' + c.talent_title : ''"></span>
+        </li>
+      </template>
+      <li class="credit-row credit-empty" x-show="credits.length === 0"><span>No credits yet.</span></li>
+    </ul>
+    <form class="studio-form studio-form-inline" onsubmit="return false" @submit.prevent="addCredit">
+      <label class="field"><span class="field-label">ROLE</span>
+        <input class="field-input" type="text" x-model="newCredit.role" required></label>
+      <label class="field"><span class="field-label">NAME</span>
+        <input class="field-input" type="text" x-model="newCredit.name" required></label>
+      <label class="field"><span class="field-label">TALENT (OPTIONAL)</span>
+        <select class="field-input" x-model="newCredit.talent_id">
+          <option value="">— none —</option>
+          <template x-for="t in talents" :key="t.id"><option :value="t.id" x-text="t.title"></option></template>
+        </select></label>
+      <button class="studio-btn" type="submit" :disabled="busy">ADD CREDIT</button>
+    </form>
+  </section>
+  <section class="studio-section">
+    <h2 class="studio-sub">ORDER</h2>
+    <p class="studio-note">The ordinal follows stored order. Move with the arrows.</p>
+    <ul class="order-rows">
+      <template x-for="(w, i) in workOrder" :key="w.id">
+        <li class="order-row">
+          <span class="order-pos" x-text="String(i + 1).padStart(3, '0')"></span>
+          <span class="order-title" x-text="w.title"></span>
+          <button class="studio-btn studio-btn-mini" type="button" @click="moveWork(i, -1)" :disabled="i === 0">↑</button>
+          <button class="studio-btn studio-btn-mini" type="button" @click="moveWork(i, 1)" :disabled="i === workOrder.length - 1">↓</button>
+        </li>
+      </template>
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

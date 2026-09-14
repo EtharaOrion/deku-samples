@@ -1,0 +1,485 @@
+/* Vela design system.
+   Two faces: one grotesque for the product, one system monospace for
+   identifiers. Two weights, no italic, tabular numerals wherever figures
+   stack. Two grounds, each surface declaring which it is. One accent, one
+   colour each for wrong, in progress and finished. Motion is mechanical. */
+
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: none;
+}
+
+@font-face {
+  font-family: 'Vela Grotesk';
+  src: url('/fonts/inter-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Fluid type: 12vw and 3.75vw below 64rem, pinned above it so they land on
+     48.932px and 20.9709px at 1440px. */
+  --display-fs: 12vw;
+  --body-fs: 3.75vw;
+
+  --font-display: 'Vela Grotesk', system-ui, sans-serif;
+  --font-fallback: system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Grounds and inks. Nothing states black or white directly: one declaration
+     of --ground and --ink inverts a surface. */
+  --ground: #f4f1ec;
+  --ground-raised: #fbf9f6;
+  --ink: #16150f;
+  --ink-soft: #57544a;
+  --line: #d8d3c8;
+
+  /* Dark ground, used by the letter and its footer. */
+  --ground-dark: #100f0b;
+  --ink-dark: #f2efe8;
+  --ink-dark-soft: #b6b1a4;
+  --line-dark: #3a372e;
+
+  /* One accent: saturated and warm, at most once per screen, never behind
+     text. */
+  --accent: #d6491f;
+
+  /* Three further meanings, used nowhere else. */
+  --wrong: #b3261e;
+  --progress: #8a6d1f;
+  --finished: #1f6b3a;
+
+  --radius: 0.5rem;
+  --border: 1px;
+  --elevation: 0px 2px 4px rgba(0, 0, 0, 0.05);
+  --step: 0.25rem;
+  --gutter: 20px;
+  --header-h: 80px;
+  --rail-w: 216px;
+}
+
+@media (min-width: 64rem) {
+  :root {
+    /* Any smooth function through (1440px, 48.932px) and (1440px, 20.9709px).
+       48.932 / 1440 = 0.033981; 20.9709 / 1440 = 0.0145631. */
+    --display-fs: calc(0.033981 * 100vw);
+    --body-fs: calc(0.0145631 * 100vw);
+  }
+}
+
+@media (min-width: 1550px) {
+  :root {
+    --display-fs: 52.67px;
+    --body-fs: 22.57px;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-display), var(--font-fallback);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  font-style: normal;
+  color: var(--ink);
+  background: var(--ground);
+  -webkit-text-size-adjust: 100%;
+}
+
+@supports (font-size-adjust: none) {
+  html { font-size-adjust: none; }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-display), var(--font-fallback);
+}
+
+/* Fallback metric overrides so the swap does not move the letter. */
+@font-face {
+  font-family: 'VelaFallback';
+  src: local('Arial'), local('Helvetica'), local('Segoe UI');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 104%;
+}
+
+:root {
+  --font-fallback: 'VelaFallback', system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+
+a { color: inherit; }
+
+/* Focus is a 2px solid ring in the surface's own foreground token, offset 2px,
+   at the element's own radius. Never removed, never the accent. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-ligatures: none;
+}
+
+/* Tabular numerals wherever figures stack. */
+.tnum,
+table.num, table.num td, table.num th,
+.price, .figure {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.skip-link {
+  position: absolute;
+  left: calc(var(--gutter) * -1);
+  top: 0;
+  transform: translateY(-100%);
+  background: var(--ground-raised);
+  color: var(--ink);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  border: var(--border) solid var(--line);
+  z-index: 60;
+}
+
+.skip-link:focus {
+  left: var(--gutter);
+  top: 0.5rem;
+  transform: none;
+}
+
+/* --- shell ------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--step) * 3);
+  padding: 0 var(--gutter);
+  background: var(--ground);
+  border-bottom: var(--border) solid var(--line);
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: lowercase;
+}
+
+.shell-bar .spacer { flex: 1; }
+
+.cart-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--step);
+  text-decoration: none;
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  padding: calc(var(--step) * 2) calc(var(--step) * 3);
+  background: var(--ground-raised);
+  box-shadow: var(--elevation);
+}
+
+.cart-control .count {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  min-width: 1.5rem;
+  text-align: center;
+  border-radius: calc(var(--radius) / 2);
+  padding: 0 calc(var(--step) * 1);
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--step);
+  border: var(--border) solid var(--line);
+  background: var(--ground-raised);
+  border-radius: var(--radius);
+  padding: calc(var(--step) * 2) calc(var(--step) * 3);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rail {
+  border-bottom: var(--border) solid var(--line);
+  background: var(--ground);
+  padding: calc(var(--step) * 2) var(--gutter);
+}
+
+.rail ul { display: flex; flex-wrap: wrap; gap: calc(var(--step) * 2); }
+
+.rail a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--step);
+  text-decoration: none;
+  padding: calc(var(--step) * 1) calc(var(--step) * 2);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+}
+
+.rail a .marker { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: transparent; }
+
+.rail a[aria-current='page'] {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.rail a[aria-current='page'] .marker { background: var(--ink); }
+
+.content {
+  padding: calc(var(--step) * 6) var(--gutter) calc(var(--step) * 10);
+  max-width: 72rem;
+}
+
+@media (min-width: 64rem) {
+  .shell { grid-template-columns: var(--rail-w) 1fr; }
+  .shell-bar { grid-column: 2; }
+  .rail-toggle, .shell .rail.collapse-only { display: none; }
+  .rail {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    border-bottom: 0;
+    border-right: var(--border) solid var(--line);
+    padding: calc(var(--step) * 8) calc(var(--step) * 4);
+  }
+  .rail ul { flex-direction: column; gap: var(--step); }
+  .content { grid-column: 2; }
+}
+
+@media (max-width: 63.999rem) {
+  .rail:not(.is-open) { display: none; }
+  .rail.is-open { display: block; }
+}
+
+/* --- shared pieces ----------------------------------------------------- */
+
+.page-title {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: calc(var(--step) * 4);
+}
+
+.section-title {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 700;
+  margin-bottom: calc(var(--step) * 2);
+}
+
+.card {
+  background: var(--ground-raised);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--elevation);
+  padding: calc(var(--step) * 4);
+}
+
+.grid {
+  display: grid;
+  gap: calc(var(--step) * 4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 40rem) {
+  .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 64rem) {
+  .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--step) * 1);
+  border: var(--border) solid var(--line);
+  border-radius: 999px;
+  padding: calc(var(--step) * 1) calc(var(--step) * 2);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: var(--ground);
+}
+
+.chip.is-wrong { color: var(--wrong); border-color: var(--wrong); }
+.chip.is-progress { color: var(--progress); border-color: var(--progress); }
+.chip.is-finished { color: var(--finished); border-color: var(--finished); }
+.chip.is-neutral { color: var(--ink-soft); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--step) * 2);
+  border: var(--border) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--ground);
+  padding: calc(var(--step) * 3) calc(var(--step) * 4);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn.secondary {
+  background: var(--ground-raised);
+  color: var(--ink);
+  border-color: var(--line);
+  font-weight: 400;
+}
+
+.btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-soft);
+  font-weight: 400;
+  padding: calc(var(--step) * 2);
+}
+
+.btn[disabled] {
+  cursor: not-allowed;
+  background: var(--ground);
+  color: var(--ink-soft);
+  border-color: var(--line);
+}
+
+.field { display: grid; gap: calc(var(--step) * 2); margin-bottom: calc(var(--step) * 4); }
+
+.field label { font-size: 0.875rem; color: var(--ink-soft); }
+
+.field input, .field select, .field textarea {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: calc(var(--step) * 3);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ground-raised);
+  color: var(--ink);
+}
+
+.field .hint { font-size: 0.8125rem; color: var(--ink-soft); }
+.field .err { font-size: 0.8125rem; color: var(--wrong); }
+
+.notice {
+  border: var(--border) solid var(--line);
+  border-left: 3px solid var(--progress);
+  background: var(--ground-raised);
+  border-radius: var(--radius);
+  padding: calc(var(--step) * 3) calc(var(--step) * 4);
+  margin-bottom: calc(var(--step) * 4);
+}
+
+.notice.wrong { border-left-color: var(--wrong); }
+.notice.finished { border-left-color: var(--finished); }
+
+.notice strong { display: block; margin-bottom: var(--step); }
+
+.empty {
+  border: var(--border) dashed var(--line);
+  border-radius: var(--radius);
+  padding: calc(var(--step) * 8) calc(var(--step) * 4);
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.skeleton {
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--line), var(--ground-raised), var(--line));
+  min-height: 1rem;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+table.data th, table.data td {
+  text-align: left;
+  padding: calc(var(--step) * 2) calc(var(--step) * 3);
+  border-bottom: var(--border) solid var(--line);
+  vertical-align: top;
+}
+
+table.data th {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+table.data td.num, table.data th.num { text-align: right; }
+
+dl.totals { display: grid; gap: calc(var(--step) * 2); }
+dl.totals div { display: flex; justify-content: space-between; gap: var(--step) * 4; }
+dl.totals dt { color: var(--ink-soft); }
+dl.totals dd { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+dl.totals .grand { font-weight: 700; border-top: var(--border) solid var(--line); padding-top: calc(var(--step) * 2); }
+
+/* Every transition moves at one speed and is short and linear. */
+:root { --speed: 120ms; }
+a, button, input, .card, .chip, .notice { transition: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  a, button, input, .card, .chip, .notice {
+    transition: background-color var(--speed) linear, color var(--speed) linear,
+      border-color var(--speed) linear, box-shadow var(--speed) linear;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.loading-shell {
+  min-height: 40vh;
+  display: grid;
+  gap: calc(var(--step) * 4);
+  align-content: start;
+}

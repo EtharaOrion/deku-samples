@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block well %}
+<script>window.__item = {{ item_json|safe }}; window.__talents = {{ talents|tojson|safe }};</script>
+<div class="studio studio-edit" x-data="editForm(window.__item, window.__talents || [])" x-cloak>
+  <header class="edit-head">
+    <p class="label-col">{{ item.kind|upper }} / <span x-text="item.slug"></span></p>
+    <h1 class="page-title" x-text="item.title"></h1>
+    <p class="page-note">
+      <span x-text="item.published ? 'LIVE since ' + (item.published_at || '') : 'UNLISTED'"></span>
+    </p>
+  </header>
+
+  <div class="edit-columns">
+    <section class="edit-col">
+      <h2 class="label-col">RECORD</h2>
+      <form class="studio-form" @submit.prevent="saveRecord" novalidate>
+        <label class="field">
+          <span class="label-col">TITLE</span>
+          <input type="text" x-model="form.title">
+        </label>
+        <label class="field">
+          <span class="label-col">SLUG</span>
+          <input type="text" x-model="form.slug">
+          <span class="field-hint">Changing the slug leaves the old address redirecting forever.</span>
+        </label>
+        {% if item.kind == 'talent' %}
+        <fieldset class="field fieldset">
+          <legend class="label-col">DISCIPLINE</legend>
+          <div class="choice-row">
+            {% for d in ['director','photographer','stylist'] %}
+            <label class="choice"><input type="radio" name="discipline" value="{{ d }}" x-model="form.discipline"> <span>{{ d|upper }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% else %}
+        <fieldset class="field fieldset">
+          <legend class="label-col">VARIANT</legend>
+          <div class="choice-row">
+            {% for v in ['left','right','centre'] %}
+            <label class="choice"><input type="radio" name="variant" value="{{ v }}" x-model="form.variant"> <span>{{ v|upper }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+        <p class="form-error" x-show="error" x-text="error" role="alert"></p>
+        <div class="form-row">
+          <button class="btn" type="submit" :disabled="busy">SAVE</button>
+        </div>
+      </form>
+
+      <h2 class="label-col">PUBLISHING</h2>
+      <div class="publish-box">
+        <p class="page-note">Publishing a record whose poster has no written alternative is refused.</p>
+        <div class="form-row">
+          <button class="btn" type="button" @click="publish(true)" :disabled="busy || item.published" x-show="!item.published">PUBLISH</button>
+          <button class="btn btn-quiet" type="button" @click="publish(false)" :disabled="busy || !item.published" x-show="item.published">UNLIST</button>
+        </div>
+      </div>
+
+      <h2 class="label-col">PREVIEW</h2>
+      <div class="publish-box">
+        <p class="page-note">A preview token is good for fifteen minutes and shows this record through the published route's own components.</p>
+        <div class="form-row">
+          <button class="btn" type="button" @click="mintPreview()" :disabled="busy">MINT PREVIEW TOKEN</button>
+        </div>
+        <p class="preview-link" x-show="previewUrl"><a :href="previewUrl" x-text="previewUrl" target="_blank" rel="noopener"></a></p>
+      </div>
+    </section>
+
+    <section class="edit-col">
+      <h2 class="label-col">MEDIA</h2>
+      <form class="studio-form" @submit.prevent="addMedia" novalidate>
+        <label class="field">
+          <span class="label-col">ROLE</span>
+          <select x-model="media.role">
+            <option value="poster">POSTER</option>
+            <option value="reel">REEL</option>
+            <option value="gallery">GALLERY</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label-col">WIDTH</span>
+          <input type="number" min="8" max="2400" x-model.number="media.width">
+        </label>
+        <label class="field">
+          <span class="label-col">HEIGHT</span>
+          <input type="number" min="8" max="2400" x-model.number="media.height">
+        </label>
+        <label class="field">
+          <span class="label-col">SEED (OPTIONAL)</span>
+          <input type="text" x-model="media.seed">
+        </label>
+        <label class="field">
+          <span class="label-col">WRITTEN ALTERNATIVE</span>
+          <input type="text" x-model="media.alt">
+        </label>
+        <p class="form-error" x-show="mediaError" x-text="mediaError" role="alert"></p>
+        <div class="form-row">
+          <button class="btn" type="submit" :disabled="busyMedia">ATTACH MEDIA</button>
+        </div>
+      </form>
+      <ul class="media-list">
+        <template x-for="m in item.media" :key="m.id">
+          <li class="media-row">
+            <img class="media-thumb" :src="m.url" :alt="m.alt" width="40" height="40">
+            <span class="card-meta" x-text="m.role.toUpperCase() + ' ' + m.width + 'x' + m.height"></span>
+            <span class="card-meta" x-text="m.alt"></span>
+          </li>
+        </template>
+      </ul>
+
+      {% if item.kind == 'work' %}
+      <h2 class="label-col">CREDITS</h2>
+      <form class="studio-form" @submit.prevent="addCredit" novalidate>
+        <label class="field">
+          <span class="label-col">ROLE</span>
+          <input type="text" x-model="credit.role" placeholder="Director">
+        </label>
+        <label class="field">
+          <span class="label-col">NAME</span>
+          <input type="text" x-model="credit.name">
+        </label>
+        <label class="field">
+          <span class="label-col">REPRESENTED TALENT (OPTIONAL)</span>
+          <select x-model="credit.talent_id">
+            <option value="">NONE</option>
+            <template x-for="t in talents" :key="t.id">
+              <option :value="t.id" x-text="t.title" :selected="credit.talent_id === t.id"></option>
+            </template>
+          </select>
+        </label>
+        <p class="form-error" x-show="creditError" x-text="creditError" role="alert"></p>
+        <div class="form-row">
+          <button class="btn" type="submit" :disabled="busyCredit">ADD CREDIT</button>
+        </div>
+      </form>
+      <ul class="media-list">
+        <template x-for="c in item.credits" :key="c.id">
+          <li class="media-row"><span class="card-meta" x-text="c.role + ' — ' + c.name"></span></li>
+        </template>
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+
+  <p class="studio-foot">
+    <a class="btn btn-quiet" href="/studio">BACK TO THE PALETTE</a>
+    <button type="button" class="btn btn-quiet" @click="signOut()">SIGN OUT</button>
+  </p>
+</div>
+{% endblock %}

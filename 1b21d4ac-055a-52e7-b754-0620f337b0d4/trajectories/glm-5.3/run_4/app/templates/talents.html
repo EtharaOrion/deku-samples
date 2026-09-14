@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="roster" aria-label="Roster"
+         x-data='roster({{ {'entries': talents, 'disciplines': discipline_set} | tojson }})'
+         @keydown.arrow-right.window="advance(1)" @keydown.arrow-left.window="advance(-1)"
+         tabindex="-1">
+  <div class="roster-filter" role="group" aria-label="Filter the roster by discipline">
+    {% for d in discipline_set %}
+    <button class="filter-control" type="button" data-discipline="{{ d }}" id="filter-{{ d }}"
+            :aria-pressed="String(active === '{{ d }}')" :class="active === '{{ d }}' ? 'is-active' : ''"
+            @click="choose('{{ d }}')">{{ d }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="roster-stage">
+    {% for t in talents %}
+    <article class="roster-entry" data-entry data-discipline="{{ t.discipline }}"
+             data-index="{{ loop.index0 }}" :class="isCurrent({{ loop.index0 }}) ? 'is-current' : ''"
+             :style="`--name-shift: ${nameShift({{ loop.index0 }})}px`">
+      <h2 class="roster-name"><a class="roster-link" href="/talents/{{ t.slug }}"
+           data-cursor-label="{{ t.title }}">{{ t.title }}</a></h2>
+      <p class="roster-discipline">{{ t.discipline }}</p>
+      {% if t.portrait %}
+      <div class="reveal media-holder roster-portrait"
+           style="--w: {{ t.portrait.width }}px; --h: {{ t.portrait.height }}px;">
+        <img class="still" src="/api/media/{{ t.portrait.id }}" width="{{ t.portrait.width }}"
+             height="{{ t.portrait.height }}" alt="{{ t.portrait.alt }}" decoding="async">
+      </div>
+      {% endif %}
+    </article>
+    {% else %}
+    <p class="roster-empty">There is no published talent on the roster yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="roster-counter" aria-hidden="true">
+    <span x-text="positionLabel"></span>
+  </div>
+</section>
+{% endblock %}

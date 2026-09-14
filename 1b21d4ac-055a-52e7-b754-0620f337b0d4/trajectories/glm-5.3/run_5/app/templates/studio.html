@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio - Cirrus</title>
+<meta name="description" content="A production house for picture and its makers.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preload" href="/static/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/site.css">
+<script defer src="/static/site.js"></script>
+<script defer src="/static/alpine.min.js"></script>
+</head>
+<body class="is-studio" data-route="studio"
+      x-data='studioPalette({{ items|tojson }})' x-init="init()">
+<main class="studio" id="well">
+  <a class="skip" href="#well">Skip to content</a>
+  <div class="frame frame--studio">
+    <a class="wordmark" href="/" aria-label="Cirrus, home">Cirrus</a>
+    <nav class="topnav" aria-label="Main">
+      <a class="topnav__works" href="/works">WORKS</a>
+      <span class="topnav__group">
+        <a href="/talents">TALENTS</a>
+        <a href="mailto:{{ contact }}">CONTACT</a>
+        <a href="/about">ABOUT</a>
+      </span>
+    </nav>
+  </div>
+
+  <div class="studio__bar">
+    <p class="studio__house">{{ account.house_slug|upper }}</p>
+    <p class="studio__who">{{ account.email }}</p>
+    <button class="btn btn--quiet" type="button" @click="signout">SIGN OUT</button>
+  </div>
+
+  <section class="palette" aria-label="Command palette">
+    <div class="palette__box" role="combobox" aria-expanded="true" aria-haspopup="listbox"
+         aria-label="Search the house records">
+      <input class="palette__input" type="text" x-model="query" x-ref="query"
+             placeholder="TYPE A TITLE, A SLUG, OR AN ACTION"
+             @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="choose()" aria-controls="palette-list"
+             aria-activedescendant="palette-opt-0">
+      <ul class="palette__list" id="palette-list" role="listbox" aria-label="Records and actions">
+        {% raw %}{% endraw %}
+        <template x-for="(option, i) in results" :key="option.key">
+          <li class="palette__opt" role="option" tabindex="-1" :id="'palette-opt-'+i"
+              :aria-selected="i===cursor" :class="i===cursor && 'is-cursor'"
+              @click="choose(i)" @mousemove="cursor=i">
+            <span class="palette__kind" x-text="option.kindLabel"></span>
+            <span class="palette__title" x-text="option.title"></span>
+            <span class="palette__meta" x-text="option.meta"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </section>
+
+  <section class="studio__grid" aria-label="Records">
+    <h2 class="studio__gridlabel">RECORDS</h2>
+    <p class="empty" x-show="!results.length && !items.length">No records yet. Use New talent or New work above.</p>
+    <div class="cards">
+      <template x-for="item in items" :key="item.id">
+        <a class="card" :href="'/studio/items/'+item.id">
+          <span class="card__kind" x-text="item.kind"></span>
+          <span class="card__title" x-text="item.title"></span>
+          <span class="card__slug" x-text="item.slug"></span>
+          <span class="card__state" x-text="item.published ? 'LIVE' : 'UNLISTED'"
+                :class="item.published ? 'is-live' : ''"></span>
+        </a>
+      </template>
+    </div>
+  </section>
+</main>
+</body>
+</html>

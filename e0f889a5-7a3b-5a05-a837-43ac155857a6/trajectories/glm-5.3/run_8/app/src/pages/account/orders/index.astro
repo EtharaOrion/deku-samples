@@ -1,0 +1,46 @@
+---
+import App from '@layouts/App.astro';
+import { q } from '@server/db/index.js';
+import { currentCustomer } from '@lib/session.js';
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) return Astro.redirect(`/sign-in?redirect=${encodeURIComponent('/account/orders')}`);
+
+const orders = await q('SELECT * FROM orders WHERE customer_id = $1 ORDER BY id DESC', [customer.id]);
+const linesByOrder = new Map();
+for (const o of orders) {
+  const lines = await q('SELECT title_snapshot FROM order_line WHERE order_id = $1 ORDER BY id', [o.id]);
+  linesByOrder.set(o.id, lines);
+}
+const lineSummary = (o) => {
+  const lines = linesByOrder.get(o.id) || [];
+  if (!lines.length) return '—';
+  const more = lines.length - 1;
+  return more > 0 ? `${lines[0].title_snapshot} and ${more} more` : lines[0].title_snapshot;
+};
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+const date = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+const chip = (o) => {
+  let s = o.status === 'confirmed' ? 'Confirmed' : o.status === 'cancelled' ? 'Cancelled' : 'Pending';
+  if (o.payment_status === 'invoiced') s += ', invoiced';
+  if (o.fulfilment_status === 'fulfilled') s += ' and delivered';
+  return s;
+};
+---
+<App title="Orders">
+  <h1>Orders</h1>
+  {orders.length === 0 ? <p class="empty card">No orders yet.</p> : <ul class="order-rows">
+      {orders.map((o) => <li class="card">
+          <a class="mono" href={`/account/orders/${o.number}`}>{o.number}</a>
+          <div class="muted small">{date(o.placed_at)}</div>
+          <div>{lineSummary(o)}</div>
+          <div class="tnum">{fmt(o.total_minor)}</div>
+          <span class="chip">{chip(o)}</span>
+        </li>)}
+    </ul>}
+</App>
+<style>
+.order-rows { list-style: none; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+.order-rows li { display: grid; grid-template-columns: 10rem 1fr auto auto; gap: calc(var(--unit) * 2); align-items: center; }
+@media (max-width: 48rem) { .order-rows li { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,47 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { q } from '../../../lib/db.js';
+import { guard } from '../../../lib/guard.js';
+import { money, dateLong } from '../../../lib/view-helpers.js';
+
+const { customer, expired, next, bearer } = await guard(Astro.request);
+if (!customer) {
+  return Astro.redirect('/sign-in?next=' + encodeURIComponent(next) + (expired ? '&expired=1' : ''));
+}
+
+const orders = await q('SELECT * FROM "order" WHERE customer_id = $1 ORDER BY id DESC', [customer.id]);
+const rows = [];
+for (const o of orders) {
+  const first = await q('SELECT title_snapshot FROM order_line WHERE order_id = $1 ORDER BY id LIMIT 1', [o.id]);
+  const count = await q('SELECT count(*)::int AS n FROM order_line WHERE order_id = $1', [o.id]);
+  rows.push({ order: o, firstTitle: first.length ? first[0].title_snapshot : '', lineCount: count.length ? count[0].n : 0 });
+}
+---
+
+<Shell>
+  <h1 class="page-title">Orders</h1>
+  {rows.length === 0 ? (
+    <div class="empty"><p>No orders yet.</p><p><a href="/shop">Go to the shop</a></p></div>
+  ) : (
+    <table class="table">
+      <thead><tr><th>Order</th><th>Date</th><th>First line</th><th class="num">Total</th><th>State</th></tr></thead>
+      <tbody>
+        {rows.map(({ order, firstTitle, lineCount }) => (
+          <tr>
+            <td><a class="mono" href={`/account/orders/${order.number}`}>{order.number}</a></td>
+            <td>{dateLong(order.placed_at || order.created_at)}</td>
+            <td>{firstTitle}{lineCount > 1 ? ` and ${lineCount - 1} more` : ''}</td>
+            <td class="num money tnum">{money(order.total_minor)}</td>
+            <td><span class={`chip ${order.status === 'confirmed' ? 'chip-finished' : 'chip-progress'}`}>
+              {order.status === 'confirmed' ? 'Confirmed and invoiced' : 'Pending'}
+            </span></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</Shell>
+
+<style is:global>
+  .table { margin-top: calc(var(--unit) * 4); }
+</style>

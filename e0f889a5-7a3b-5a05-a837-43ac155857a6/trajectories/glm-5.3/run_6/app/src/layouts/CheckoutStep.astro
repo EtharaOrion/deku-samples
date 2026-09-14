@@ -1,0 +1,70 @@
+---
+import Shell from './Shell.astro';
+import { cartForPage } from '../lib/session.js';
+import { formatUsd } from '../lib/money.js';
+
+export const prerender = false;
+
+const { cartView } = await cartForPage(Astro.request);
+const steps = [
+  { href: '/checkout/where-it-goes', label: 'Where it goes', n: 1 },
+  { href: '/checkout/how-it-gets-there', label: 'How it gets there', n: 2 },
+  { href: '/checkout/payment', label: 'Payment', n: 3 }
+];
+const current = Number(Astro.props.step || 1);
+---
+
+<Shell title={Astro.props.heading || 'Checkout'} description={Astro.props.heading || 'Checkout'}>
+  <h1 class="page-title">{Astro.props.heading || 'Checkout'}</h1>
+  <ol class="steps">
+    {steps.map((step) => (
+      <li class={step.n === current ? 'is-current' : ''} aria-current={step.n === current ? 'step' : undefined}>
+        <span class="step-n tnum">{step.n}</span>
+        <span>{step.label}</span>
+      </li>
+    ))}
+  </ol>
+
+  <div class="checkout-layout">
+    <section class="card">
+      <h2 class="section-title">{Astro.props.heading || 'Checkout'}</h2>
+      <slot name="form" />
+    </section>
+
+    <aside class="card" aria-label="Order summary">
+      <h2 class="section-title">Summary</h2>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="tnum">{formatUsd(cartView.subtotal_minor)}</dd></div>
+        <div>
+          <dt>Estimated delivery</dt>
+          <dd class="tnum">{cartView.shipping_minor === null ? 'Estimated' : formatUsd(cartView.shipping_minor)}</dd>
+        </div>
+        <div>
+          <dt>Estimated tax</dt>
+          <dd class="tnum">{cartView.tax_minor === null ? 'Estimated' : formatUsd(cartView.tax_minor)}</dd>
+        </div>
+        <div class="grand">
+          <dt>Total</dt>
+          <dd class="tnum">{cartView.total_minor === null ? 'Estimated' : formatUsd(cartView.total_minor)}</dd>
+        </div>
+      </dl>
+      <p class="hint">
+        Estimated. We will show the exact amount once we know where it is going.
+      </p>
+    </aside>
+  </div>
+</Shell>
+
+<style>
+  .steps { display: flex; gap: calc(var(--step) * 4); margin-bottom: calc(var(--step) * 6); flex-wrap: wrap; }
+  .steps li { display: flex; align-items: center; gap: var(--step); color: var(--ink-soft); }
+  .steps li.is-current { color: var(--ink); font-weight: 700; }
+  .step-n {
+    display: inline-grid; place-items: center;
+    width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    border: var(--border) solid var(--line);
+  }
+  .steps li.is-current .step-n { border-color: var(--ink); }
+  .checkout-layout { display: grid; gap: calc(var(--step) * 4); }
+  @media (min-width: 64rem) { .checkout-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+</style>

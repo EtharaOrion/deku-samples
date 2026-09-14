@@ -1,0 +1,139 @@
+---
+import PageShell from '../../../components/PageShell.astro';
+import { sessionCustomer } from '../../../server/session.js';
+import { devicesForCustomer, toDeviceView, groupSerial } from '../../../server/devices.js';
+import { latestFirmware } from '../../../server/releases.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+if (!customer) return Astro.redirect('/sign-in?redirect=/account/cameras');
+const devices = (await devicesForCustomer(customer.id)).map(toDeviceView);
+---
+<PageShell title="Your cameras — Vela" heading="Cameras" active="cameras" customer={{ name: customer.name, email: customer.email }}>
+  <div class="cameras-page">
+    <form class="register" data-register-form>
+      <div class="field">
+        <label for="serial">Register a camera</label>
+        <input id="serial" name="serial" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+               placeholder="VC 2609 ABCDEF" data-serial-input maxlength="18" />
+        <p class="field-hint" data-serial-hint>Twelve characters, from the underside of the camera.</p>
+      </div>
+      <button class="btn" type="submit" data-register-button>Register</button>
+      <p class="status" role="status" aria-live="polite" data-register-status></p>
+    </form>
+
+    <div class="grid" data-camera-grid>
+      {devices.length === 0 ? (
+        <p class="empty-note" data-cameras-empty>No cameras registered yet.</p>
+      ) : (
+        devices.map((d) => (
+          <article class="camera card" data-camera-card data-serial={d.serial}>
+            <h2>
+              <a href={`/account/cameras/${d.serial}`}>{d.nickname ?? d.model}</a>
+            </h2>
+            <p class="model">{d.model} · {d.variant_title}</p>
+            <p class="serial serial-display" data-serial-display>{groupSerial(d.serial)}</p>
+            <p class="chips">
+              {d.update_available
+                ? <span class="chip chip--progress">Update available</span>
+                : (d.firmware_version ? <span class="chip chip--done">Up to date</span> : <span class="chip">Not yet connected</span>)}
+              <span class="chip">{d.warranty_until ? `Warranty to ${d.warranty_until}` : 'Warranty unknown'}</span>
+            </p>
+          </article>
+        ))
+      )}
+    </div>
+  </div>
+</PageShell>
+
+<script>
+  const form = document.querySelector('[data-register-form]') as HTMLFormElement | null;
+  const input = form?.querySelector('[data-serial-input]') as HTMLInputElement | null;
+  const hint = form?.querySelector('[data-serial-hint]') as HTMLElement | null;
+  const status = form?.querySelector('[data-register-status]') as HTMLElement | null;
+  const grid = document.querySelector('[data-camera-grid]') as HTMLElement | null;
+
+  const SHAPE = /^(VA|VC)\d{2}(0[1-9]|[1-4]\d|5[0-3])[2-9A-HJ-NP-Z]{6}$/;
+
+  function token(): string | null {
+    const m = /(?:^|;\s*)vela_token=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  // Grouped as it is typed, stored unformatted.
+  function groupSerial(raw: string): string {
+    const s = raw.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12);
+    return [s.slice(0, 2), s.slice(2, 4), s.slice(4, 6), s.slice(6, 12)].filter(Boolean).join(' ');
+  }
+
+  input?.addEventListener('input', () => {
+    const raw = input.value;
+    const folded = raw.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12);
+    const caretWasAtEnd = input.selectionStart === input.value.length;
+    input.value = groupSerial(raw);
+    if (caretWasAtEnd) input.setSelectionRange(input.value.length, input.value.length);
+    // Validated for shape instantly and then looked up.
+    if (!hint) return;
+    if (folded.length === 0) { hint.textContent = 'Twelve characters, from the underside of the camera.'; }
+    else if (folded.length < 12) { hint.textContent = `${folded.length} of 12 characters.`; }
+    else if (!SHAPE.test(folded)) { hint.textContent = 'That serial number does not look right. Check the underside of the camera.'; }
+    else { hint.textContent = 'That looks right.'; }
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!input || !status) return;
+    const serial = input.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+    if (!SHAPE.test(serial)) {
+      status.textContent = 'That serial number does not look right. Check the underside of the camera.';
+      return;
+    }
+    status.textContent = 'Checking.';
+    try {
+      const res = await fetch('/api/account/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}) },
+        body: JSON.stringify({ serial }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      // Success adds the card and raises a brief confirmation that fades on its own.
+      const empty = grid?.querySelector('[data-cameras-empty]');
+      if (empty) empty.remove();
+      const card = document.createElement('article');
+      card.className = 'camera card is-new';
+      card.dataset.serial = body.serial;
+      const chip = body.update_available
+        ? '<span class="chip chip--progress">Update available</span>'
+        : (body.firmware_version ? '<span class="chip chip--done">Up to date</span>' : '<span class="chip">Not yet connected</span>');
+      card.innerHTML = `<h2><a href="/account/cameras/${body.serial}">${body.model}</a></h2>
+        <p class="model">${body.model} · ${body.variant_title}</p>
+        <p class="serial serial-display">${groupSerial(body.serial)}</p>
+        <p class="chips">${chip}<span class="chip">${body.warranty_until ? `Warranty to ${body.warranty_until}` : 'Warranty unknown'}</span></p>`;
+      grid?.appendChild(card);
+      input.value = '';
+      if (hint) hint.textContent = 'Twelve characters, from the underside of the camera.';
+      status.textContent = `${body.model} added to your account.`;
+      window.setTimeout(() => { if (status) status.textContent = ''; }, 4000);
+      window.setTimeout(() => card.classList.remove('is-new'), 1200);
+    } catch (err) {
+      status.textContent = err instanceof Error ? err.message : 'That did not work.';
+    }
+  });
+</script>
+
+<style>
+  .cameras-page { display: grid; gap: calc(var(--space) * 6); padding: 0 var(--gutter); }
+  .register { display: grid; gap: calc(var(--space) * 2); max-width: 32rem; border: 0; padding: 0; margin: 0; }
+  .register input { font-family: var(--font-mono); letter-spacing: 0.06em; }
+  .status { min-height: 24px; margin: 0; }
+  .grid { display: grid; gap: calc(var(--space) * 4); grid-template-columns: 1fr; }
+  .camera { padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 2); }
+  .camera h2 { margin: 0; font-size: 20px; line-height: 28px; }
+  .camera h2 a { text-decoration: none; color: inherit; }
+  .camera .model { color: var(--ink-on-light-muted); margin: 0; }
+  .camera .chips { display: flex; gap: var(--space); flex-wrap: wrap; margin: calc(var(--space) * 2) 0 0; }
+  .serial-display { font-family: var(--font-mono); letter-spacing: 0.08em; }
+  .empty-note { color: var(--ink-on-light-muted); }
+  .camera.is-new { outline: 2px solid var(--finished); outline-offset: 2px; }
+  @media (min-width: 64rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>

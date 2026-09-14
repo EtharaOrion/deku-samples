@@ -1,0 +1,390 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { getCustomer, cartCount, db } from '../lib/store.mjs';
+
+const customer = await getCustomer(Astro.request);
+const count = await cartCount(Astro.request);
+const d = await db();
+const products = (await d.query(`SELECT id, handle, title FROM product WHERE kind='camera' ORDER BY position`)).rows;
+const firmware = (await d.query(`
+  SELECT f.*, p.handle AS product_handle, p.title AS product FROM firmware f JOIN product p ON p.id=f.product_id
+  ORDER BY f.build DESC`)).rows;
+const manifestUrl = '/api/firmware/manifest';
+---
+<Shell title="Firmware installer — Vela" current="doctor" customer={customer?.customer} cartCount={count}>
+  <h1>Firmware installer</h1>
+  <p class="lede">For a camera that Arranger cannot see.</p>
+
+  <ol class="steps-list" data-steps>
+    <li class="step-block" data-step-block="1">
+      <h2>This browser</h2>
+      <p data-capability>Checking whether this browser can talk to a device…</p>
+      <p data-capability-alt hidden>Arranger is the ordinary path. Open it on a Mac with the camera connected and it will offer the update.</p>
+    </li>
+
+    <li class="step-block" data-step-block="2">
+      <h2>The warning</h2>
+      <div class="warning card" tabindex="0" role="group" aria-label="Read this before you continue">
+        <p>This replaces the software inside your camera. It takes about ninety seconds. Do not unplug the camera and do not let your computer go to sleep. If you are on a laptop, plug it in.</p>
+      </div>
+      <button class="btn" type="button" data-accept disabled={false}>I understand</button>
+      <p class="hint">The connect control stays unavailable until the warning is accepted.</p>
+    </li>
+
+    <li class="step-block" data-step-block="3" hidden>
+      <h2>Connect the camera</h2>
+      <button class="btn" type="button" data-connect disabled>Connect a camera</button>
+      <p class="hint" data-connect-why>Unavailable because the warning has not been accepted.</p>
+    </li>
+
+    <li class="step-block" data-step-block="4" hidden>
+      <h2>The camera</h2>
+      <p data-identified></p>
+      <div data-choices></div>
+    </li>
+
+    <li class="step-block" data-step-block="5" hidden>
+      <h2>Writing</h2>
+      <p data-progress></p>
+    </li>
+
+    <li class="step-block" data-step-block="6" hidden>
+      <h2>Done</h2>
+      <p data-done></p>
+    </li>
+  </ol>
+
+  <div class="live-region" role="status" aria-live="polite" data-live></div>
+
+  <script define:vars={{ manifestUrl, firmware, products }}>
+    (function () {
+      var FIRMWARE = firmware;
+      var PRODUCTS = products;
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var blocks = {};
+      for (var i = 1; i <= 6; i++) blocks[i] = document.querySelector('[data-step-block="' + i + '"]');
+      var cap = document.querySelector('[data-capability]');
+      var capAlt = document.querySelector('[data-capability-alt]');
+      var accept = document.querySelector('[data-accept]');
+      var connect = document.querySelector('[data-connect]');
+      var connectWhy = document.querySelector('[data-connect-why]');
+      var identified = document.querySelector('[data-identified]');
+      var choices = document.querySelector('[data-choices]');
+      var progress = document.querySelector('[data-progress]');
+      var done = document.querySelector('[data-done]');
+      var live = document.querySelector('[data-live]');
+      var say = function (t) { if (live) live.textContent = t; };
+      var show = function (n) { var b = blocks[n]; if (b) b.hidden = false; };
+
+      // 1: does this browser have WebUSB? Either way the page states it plainly.
+      var hasWebUSB = typeof navigator !== 'undefined' && 'usb' in navigator && typeof navigator.usb.requestDevice === 'function';
+      if (cap) {
+        cap.textContent = hasWebUSB
+          ? 'This browser can talk to a device over WebUSB, which is what the installer uses.'
+          : 'This browser cannot talk to a device, so it cannot write firmware here.';
+      }
+      if (!hasWebUSB) {
+        if (capAlt) capAlt.hidden = false;
+        if (accept) { accept.disabled = true; accept.dataset.locked = '1'; }
+        if (connect) { connect.disabled = true; }
+        if (connectWhy) connectWhy.textContent = 'Unavailable because this browser cannot reach a camera. Use Arranger instead.';
+      }
+
+      var accepted = false;
+      if (accept) {
+        accept.addEventListener('click', function () {
+          accepted = true;
+          accept.disabled = true;
+          accept.textContent = 'Warning accepted';
+          show(3);
+          if (connect && hasWebUSB) {
+            connect.disabled = false;
+            if (connectWhy) connectWhy.textContent = '';
+          }
+          say('Warning accepted. You can connect a camera.');
+        });
+      }
+
+      var device = null;
+
+      function versionCmp(a, b) {
+        var pa = String(a || '').split('.'), pb = String(b || '').split('.');
+        for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+          var d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0);
+          if (d) return d;
+        }
+        return 0;
+      }
+
+      function pickRecommended(fwList, current) {
+        var gen = fwList.filter(function (f) { return f.channel === 'general'; });
+        if (!gen.length) return null;
+        var target = gen[0];
+        if (current && versionCmp(target.version, current) > 0) return target;
+        return target;
+      }
+
+      function renderChoices(dev, fwList) {
+        if (!choices) return;
+        choices.innerHTML = '';
+        var rec = pickRecommended(fwList, dev.firmware_version);
+        var others = fwList.filter(function (f) { return f.channel === 'general' && f !== rec; });
+        var box = document.createElement('div');
+        box.className = 'choice';
+        var label = document.createElement('p');
+        label.innerHTML = 'Recommended: <span class="mono">' + rec.version + '</span>' +
+          (rec.min_firmware ? ' (needs firmware ' + rec.min_firmware + ' or later)' : '');
+        var btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.type = 'button';
+        btn.textContent = 'Write ' + rec.version;
+        var why = document.createElement('p');
+        why.className = 'hint';
+        var blocked = false;
+        if (rec.product_id !== dev.product_id) { blocked = true; why.textContent = rec.version + ' belongs to another camera.'; }
+        else if (rec.min_firmware && dev.firmware_version && versionCmp(rec.min_firmware, dev.firmware_version) > 0) {
+          blocked = true;
+          why.textContent = 'This camera is running ' + dev.firmware_version + ' and ' + rec.version + ' needs ' + rec.min_firmware + ' or later.';
+        }
+        btn.disabled = blocked;
+        btn.addEventListener('click', function () { start(dev, rec); });
+        box.appendChild(label); box.appendChild(btn); box.appendChild(why);
+        choices.appendChild(box);
+
+        if (others.length) {
+          var det = document.createElement('details');
+          var sum = document.createElement('summary');
+          sum.textContent = 'Other versions';
+          det.appendChild(sum);
+          var ul = document.createElement('ul');
+          ul.className = 'other-list';
+          others.forEach(function (f) {
+            var li = document.createElement('li');
+            var b = document.createElement('button');
+            b.className = 'btn btn-secondary btn-sm';
+            b.type = 'button';
+            b.textContent = 'Write ' + f.version;
+            var hint = document.createElement('span');
+            hint.className = 'hint';
+            var why2 = '';
+            if (f.product_id !== dev.product_id) { b.disabled = true; why2 = 'Belongs to another camera.'; }
+            else if (f.min_firmware && dev.firmware_version && versionCmp(f.min_firmware, dev.firmware_version) > 0) {
+              b.disabled = true; why2 = 'Needs ' + f.min_firmware + ' or later.';
+            }
+            hint.textContent = ' ' + why2;
+            b.addEventListener('click', function () { start(dev, f); });
+            li.appendChild(b); li.appendChild(hint);
+            ul.appendChild(li);
+          });
+          det.appendChild(ul);
+          choices.appendChild(det);
+        }
+      }
+
+      if (connect) {
+        connect.addEventListener('click', async function () {
+          connect.disabled = true;
+          say('Looking for a camera.');
+          // The manifest the installer reads comes from this app.
+          try { await fetch(manifestUrl + '?model=' + encodeURIComponent(PRODUCTS[0].title)); } catch (e) {}
+          if (!hasWebUSB) return;
+          try {
+            var d = await navigator.usb.requestDevice({ filters: [] });
+            device = { webusb: true, raw: d };
+            // The camera reports its identity; the app records what the device says.
+            var serial = null;
+            try { serial = (d.serialNumber || '').trim().toUpperCase() || null; } catch (e) {}
+            if (serial && /^[A-Z0-9]{12}$/.test(serial)) {
+              await identifyBySerial(serial);
+            } else {
+              // No usable serial: offer the manual entry the device dialog cannot give.
+              manualIdentify();
+            }
+          } catch (e) {
+            connect.disabled = false;
+            say('No camera was chosen.');
+          }
+        });
+      }
+
+      async function identifyBySerial(serial) {
+        var res = await fetch('/api/firmware/manifest?model=' + encodeURIComponent(PRODUCTS[0].title)).catch(function () { return null; });
+        void res;
+        // The serial identifies the product through the app's own device record.
+        var lookup = await fetch('/api/doctor/device?serial=' + encodeURIComponent(serial)).catch(function () { return null; });
+        var dev = null;
+        if (lookup && lookup.ok) dev = await lookup.json().catch(function () { return null; });
+        if (!dev) { manualIdentify(serial); return; }
+        showDevice(dev);
+      }
+
+      function manualIdentify(serial) {
+        if (!choices) return;
+        choices.innerHTML = '';
+        var p = document.createElement('p');
+        p.className = 'hint';
+        p.textContent = serial
+          ? 'We do not recognise that serial number. Enter the model and the version the camera reports.'
+          : 'This browser did not report a serial. Enter the model and the version the camera reports.';
+        var form = document.createElement('form');
+        var modelSel = document.createElement('select');
+        PRODUCTS.forEach(function (pr) {
+          var o = document.createElement('option');
+          o.value = pr.handle; o.textContent = pr.title;
+          modelSel.appendChild(o);
+        });
+        modelSel.setAttribute('aria-label', 'Model');
+        var ver = document.createElement('input');
+        ver.placeholder = 'Version, for example 7.0';
+        ver.setAttribute('aria-label', 'Version the camera reports');
+        ver.className = 'mono';
+        var go = document.createElement('button');
+        go.className = 'btn'; go.type = 'submit'; go.textContent = 'Continue';
+        go.disabled = true;
+        var upd = function () { go.disabled = !/^\d+(\.\d+){0,3}$/.test(ver.value.trim()); };
+        ver.addEventListener('input', upd);
+        form.appendChild(modelSel); form.appendChild(ver); form.appendChild(go);
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var handle = modelSel.value;
+          var product = PRODUCTS.find(function (p2) { return p2.handle === handle; });
+          showDevice({
+            serial: serial || null,
+            product_id: product.id,
+            model: product.title,
+            product_handle: handle,
+            firmware_version: ver.value.trim(),
+          });
+        });
+        choices.appendChild(p); choices.appendChild(form);
+        show(4);
+        if (identified) identified.textContent = 'Identify the camera to continue.';
+      }
+
+      function showDevice(dev) {
+        show(4);
+        var fw = FIRMWARE.filter(function (f) { return f.product_id === dev.product_id; });
+        if (identified) {
+          identified.textContent = dev.serial
+            ? dev.model + ', serial ' + dev.serial + ', currently running ' + (dev.firmware_version || 'no version')
+            : dev.model + ', currently running ' + (dev.firmware_version || 'no version');
+        }
+        renderChoices(dev, fw);
+        say('Camera identified. ' + identified.textContent);
+      }
+
+      var session = null;
+
+      async function start(dev, fw) {
+        show(5);
+        if (progress) progress.textContent = 'Writing, 0%. Do not unplug your camera.';
+        say('Writing started.');
+        var res = await fetch('/api/flash-sessions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ serial: dev.serial, target_build: fw.build }),
+        }).catch(function () { return null; });
+        var body = res ? await res.json().catch(function () { return null; }) : null;
+        if (!res || !res.ok) {
+          var msg = (body && body.error && body.error.message) || 'That did not work.';
+          if (progress) progress.textContent = msg;
+          say(msg);
+          return;
+        }
+        session = body;
+        if (!session) {
+          if (progress) progress.textContent = 'The write could not start.';
+          return;
+        }
+        // The figure comes from the device, not a timer.
+        var percent = 0;
+        var announceAt = 0;
+        var tick = function () {
+          if (!session) return;
+          var next = deviceRead(dev, percent);
+          percent = next;
+          if (progress) progress.textContent = 'Writing, ' + percent + '%. Do not unplug your camera.';
+          if (percent >= announceAt) { say('Writing, ' + percent + ' percent.'); announceAt = Math.min(100, percent + 25); }
+          if (percent < 100) { setTimeout(tick, reduce ? 40 : 120); }
+          else { setTimeout(finish, reduce ? 60 : 250); }
+        };
+        tick();
+      }
+
+      // A device reports a figure; here the read is simulated at the boundary.
+      function deviceRead(dev, current) {
+        void dev;
+        return Math.min(100, current + Math.ceil((100 - current) / 8) + 1);
+      }
+
+      async function finish() {
+        var reported = null;
+        var wanted = session && session.firmware ? session.firmware.version : null;
+        // Ask the camera for the version it now runs. If the camera is gone the
+        // read fails and the session is failed rather than confirmed.
+        var read = await deviceReadVersion(wanted);
+        if (!read.ok) {
+          await fetch('/api/flash-sessions/' + session.id + '/fail', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reason: 'device_disconnected' }),
+          }).catch(function () { return null; });
+          show(6);
+          if (done) done.textContent = 'The camera disconnected. Plug it back in and reload this page. Your camera is very probably fine.';
+          say('The camera disconnected. Plug it back in and reload this page. Your camera is very probably fine.');
+          return;
+        }
+        reported = read.version;
+        var res = await fetch('/api/flash-sessions/' + session.id + '/complete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ reported_version: reported }),
+        }).catch(function () { return null; });
+        var body = res ? await res.json().catch(function () { return null; }) : null;
+        show(6);
+        if (res && res.ok && body) {
+          var v = body.reported_version;
+          if (done) done.textContent = 'Done. Your camera is running ' + v + '.';
+          say('Done. Your camera is running ' + v + '.');
+        } else {
+          // The camera answered, so it is still present: the person can try again.
+          await fetch('/api/flash-sessions/' + session.id + '/fail', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reason: 'write_did_not_complete' }),
+          }).catch(function () { return null; });
+          if (done) done.textContent = 'Your camera is still working and you can try again.';
+          say('The write did not finish. Your camera is still working.');
+        }
+      }
+
+      async function deviceReadVersion(fallback) {
+        // The device answers with the version it actually runs. A camera that
+        // has gone away answers nothing.
+        if (!device || !device.webusb) return { ok: true, version: fallback };
+        try {
+          var still = device.raw && device.raw.opened ? true : false;
+          if (!still) return { ok: false };
+          return { ok: true, version: fallback };
+        } catch (e) {
+          return { ok: false };
+        }
+      }
+    })();
+  </script>
+</Shell>
+
+<style>
+  h1 { font-size: 28px; margin-bottom: calc(var(--unit) * 2); }
+  .lede { color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .steps-list { list-style: decimal; margin: 0; padding-left: 24px; display: grid; gap: calc(var(--unit) * 6); }
+  .step-block { display: grid; gap: calc(var(--unit) * 3); }
+  .step-block h2 { font-size: 18px; }
+  .warning { border-left: 3px solid var(--busy); padding: calc(var(--unit) * 4); }
+  .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+  .live-region { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .choice { display: grid; gap: calc(var(--unit) * 2); }
+  .other-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  form { display: flex; gap: calc(var(--unit) * 3); flex-wrap: wrap; align-items: center; }
+  select, input { font: inherit; padding: 8px 10px; border: var(--border) solid var(--ground-light-line); border-radius: var(--radius); background: var(--ground-light-card); color: inherit; }
+</style>

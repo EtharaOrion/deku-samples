@@ -1,0 +1,278 @@
+---
+import Base from '../layouts/Base.astro';
+import { LETTER } from '../server/letter.js';
+
+// The three consecutive paragraphs about mass market electronics sit together.
+const massStart = LETTER.body.findIndex((p) => p.startsWith('Mass market'));
+const sideFor = (i: number) => {
+  if (i >= massStart && i < massStart + 3) return 'right';
+  return i % 2 === 0 ? 'left' : 'right';
+};
+---
+<Base bare title="the table — Vela">
+  <div class="letter-page" data-letter>
+    <a class="skip-link" href="#letter">Skip to the letter</a>
+
+    <div class="stage" aria-hidden="true" data-stage>
+      <div class="stage__under"></div>
+      <video class="stage__film" data-film muted playsinline preload="none" tabindex="-1"></video>
+      <div class="stage__still" data-still></div>
+      <canvas class="stage__speckle" data-speckle></canvas>
+      <div class="stage__darken" data-darken></div>
+      <div class="stage__flat" data-flat></div>
+    </div>
+
+    <header class="wordmark-bar">
+      <a class="wordmark" href="/">Vela</a>
+    </header>
+
+    <article class="letter" id="letter">
+      <h1 class="letter__title">{LETTER.title}</h1>
+      <p class="letter__dateline">{LETTER.dateline}</p>
+
+      <div class="letter__flow">
+        {LETTER.body.map((paragraph, i) => (
+          <p class:list={['letter__p', `letter__p--${sideFor(i)}`]} data-paragraph={i}>{paragraph}</p>
+        ))}
+        <p class="letter__closing">{LETTER.closing}</p>
+      </div>
+
+      <div class="letter__driven" aria-hidden="true" data-driven>
+        {LETTER.body.map((paragraph, i) => (
+          <p class:list={['letter__p', `letter__p--${sideFor(i)}`]} data-driven-paragraph={i}>{paragraph}</p>
+        ))}
+        <p class="letter__closing">{LETTER.closing}</p>
+      </div>
+    </article>
+
+    <footer class="footer" data-footer>
+      <div class="footer__canvas-wrap">
+        <canvas class="footer__canvas" data-footer-canvas aria-hidden="true"></canvas>
+      </div>
+      <div class="footer__bottom">
+        <span class="footer__wordmark">Vela</span>
+        <span class="footer__rights">All rights reserved</span>
+        <nav class="footer__nav" aria-label="Footer">
+          <a href="/shop">Shop</a>
+          <span>Support</span><span>Terms</span><span>Privacy</span><span>Jobs</span><span>Contact</span>
+        </nav>
+      </div>
+    </footer>
+  </div>
+</Base>
+
+<script>
+  // The scroll driver: the front page darkens in exact proportion to the reader's scroll.
+  const page = document.querySelector('[data-letter]') as HTMLElement | null;
+  const stage = page?.querySelector('[data-stage]') as HTMLElement | null;
+  const darken = page?.querySelector('[data-darken]') as HTMLElement | null;
+  const flat = page?.querySelector('[data-flat]') as HTMLElement | null;
+  const still = page?.querySelector('[data-still]') as HTMLElement | null;
+  const film = page?.querySelector('[data-film]') as HTMLVideoElement | null;
+  const driven = page?.querySelector('[data-driven]') as HTMLElement | null;
+  const flow = page?.querySelector('.letter__flow') as HTMLElement | null;
+  const footer = page?.querySelector('[data-footer]') as HTMLElement | null;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const wide = window.matchMedia('(min-width: 64rem)');
+
+  function paint() {
+    if (!stage || !darken || !flat || !footer) return;
+    const rect = stage.getBoundingClientRect();
+    const total = Math.max(1, rect.height - window.innerHeight);
+    const passed = Math.min(Math.max(-rect.top, 0), total);
+    const progress = passed / total;
+    // A pure function of scroll position: stop halfway and it stays halfway.
+    darken.style.opacity = String(progress);
+    const footerRect = footer.getBoundingClientRect();
+    const footerIntoView = Math.min(Math.max(1 - footerRect.top / window.innerHeight, 0), 1);
+    flat.style.opacity = String(Math.min(1, footerIntoView * 1.6));
+    if (driven && flow) {
+      const paragraphs = driven.querySelectorAll('[data-driven-paragraph]');
+      const sources = flow.querySelectorAll('[data-paragraph]');
+      paragraphs.forEach((p, i) => {
+        const source = sources[i] as HTMLElement | undefined;
+        if (!source) return;
+        const r = source.getBoundingClientRect();
+        const mid = r.top + r.height / 2;
+        const t = Math.min(Math.max((window.innerHeight - mid) / (window.innerHeight * 0.75), 0), 1);
+        (p as HTMLElement).style.opacity = String(t);
+      });
+    }
+  }
+
+  // The driven layer is laid over the flow copy so both share one geometry.
+  function position() {
+    if (!driven || !flow) return;
+    const pairs: Array<[HTMLElement, HTMLElement]> = [];
+    const sources = Array.from(flow.querySelectorAll('[data-paragraph]')) as HTMLElement[];
+    const mirrors = Array.from(driven.querySelectorAll('[data-driven-paragraph]')) as HTMLElement[];
+    sources.forEach((source, i) => { if (mirrors[i]) pairs.push([mirrors[i], source]); });
+    const closing = driven.querySelector('.letter__closing') as HTMLElement | null;
+    const closingSource = flow.querySelector('.letter__closing') as HTMLElement | null;
+    if (closing && closingSource) pairs.push([closing, closingSource]);
+    for (const [mirror, source] of pairs) {
+      mirror.style.position = 'absolute';
+      mirror.style.left = `${source.offsetLeft}px`;
+      mirror.style.top = `${source.offsetTop}px`;
+      mirror.style.width = `${source.offsetWidth}px`;
+    }
+  }
+
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { paint(); ticking = false; });
+  }
+
+  function startFilm() {
+    if (!film || !still) return;
+    if (reduced.matches) return; // refuses to start under reduced motion
+    const nav = navigator as Navigator & { connection?: { saveData?: boolean; type?: string } };
+    if (nav.connection && (nav.connection.saveData || /metered|cellular/i.test(nav.connection.type ?? ''))) return;
+    const rect = stage?.getBoundingClientRect();
+    if (rect && (rect.bottom < 0 || rect.top > window.innerHeight)) return; // off screen
+    if (film.readyState >= 2) { void film.play().catch(() => {}); return; }
+    // The film plays over a still frame that has already painted.
+    const painted = () => {
+      film?.removeEventListener('canplay', painted);
+      requestAnimationFrame(() => {
+        if (document.hidden) return;
+        void film?.play().then(() => still?.classList.add('is-gone')).catch(() => {});
+      });
+    };
+    film.addEventListener('canplay', painted);
+    film.src = '/assets/table-film.webm';
+  }
+
+  function stopFilm() {
+    if (!film) return;
+    film.pause();
+  }
+
+  const observer = new ResizeObserver(() => { position(); paint(); });
+
+  if (page && stage) {
+    // Scripting is present: the driven layer may take over below the wide tier.
+    document.documentElement.classList.add('js-driving');
+    observer.observe(stage);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', () => { position(); paint(); });
+    document.addEventListener('visibilitychange', () => { document.hidden ? stopFilm() : startFilm(); });
+    if (still) still.classList.add('is-painted');
+    position();
+    paint();
+    startFilm();
+  }
+</script>
+
+<script>
+  import { initFooterField, initSpeckle } from '../scripts/footer-field.js';
+  initFooterField(document);
+  initSpeckle(document);
+</script>
+
+<style>
+  .letter-page { position: relative; min-height: 100vh; }
+
+  /* The stage layers, lowest to highest. Nothing may introduce another. */
+  .stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+  .stage__under { position: absolute; inset: 0; background: var(--ground-dark); }
+  .stage__film { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+  .stage__still {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(120% 80% at 20% 10%, hsl(28 14% 22%) 0%, transparent 60%),
+      radial-gradient(100% 70% at 80% 30%, hsl(32 12% 16%) 0%, transparent 55%),
+      linear-gradient(160deg, hsl(30 10% 14%) 0%, hsl(26 8% 9%) 100%);
+    transition: opacity 400ms linear;
+    pointer-events: none;
+  }
+  .stage__still.is-gone { opacity: 0; }
+  .stage__speckle { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.06; pointer-events: none; }
+  .stage__darken {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, hsl(30 10% 6% / 0.98) 0%, hsl(30 10% 6% / 0.72) 45%, hsl(30 10% 6% / 0.1) 100%);
+    opacity: 0; pointer-events: none;
+  }
+  .stage__flat { position: absolute; inset: 0; background: var(--ground-dark); opacity: 0; pointer-events: none; }
+
+  .wordmark-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+    display: flex; align-items: center; padding: 0 var(--gutter);
+    z-index: 5;
+  }
+  .wordmark { font-size: 40px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink-on-dark); text-decoration: none; }
+
+  .letter { position: relative; z-index: 2; padding: calc(var(--header-h) + 4rem) var(--gutter) 8rem; }
+  .letter__title {
+    font-size: var(--display-fs);
+    line-height: 0.95;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 calc(var(--space) * 4);
+    color: var(--ink-on-dark);
+    text-shadow: 0 1px 2px hsl(30 10% 6% / 0.4);
+  }
+  .letter__dateline {
+    font-size: 14px; line-height: 21px; letter-spacing: 0.02em;
+    color: var(--ink-on-dark-muted); margin: 0 0 calc(var(--space) * 10);
+  }
+  .letter__flow, .letter__driven { position: relative; }
+  .letter__driven { position: absolute; inset: 0; display: none; }
+  .letter__p {
+    font-size: var(--body-fs);
+    line-height: 1.1;
+    letter-spacing: var(--letter-track);
+    margin: 1em 0;
+    max-width: 34ch;
+    color: var(--ink-on-dark);
+    text-shadow: 0 1px 2px hsl(30 10% 6% / 0.45);
+  }
+  .letter__closing {
+    font-size: var(--body-fs); line-height: 1.1; margin: 1em 0;
+    color: var(--accent);
+    text-shadow: 0 1px 2px hsl(30 10% 6% / 0.45);
+  }
+
+  /* On a wide screen the letter is a narrow column beside the film. */
+  @media (min-width: 64rem) {
+    .letter { max-width: 62rem; padding-left: 12vw; }
+    .letter__p, .letter__closing { max-width: 34ch; }
+  }
+
+  /* Below that the letter becomes a different page: half width blocks. */
+  @media (max-width: 63.99rem) {
+    .letter__p { width: 50%; margin-left: 0; margin-right: auto; }
+    .letter__p--right { margin-left: auto; margin-right: 0; }
+    .letter__p--left { margin-left: 0; }
+    .letter__title, .letter__dateline { text-align: left; }
+    :global(.js-driving) .letter__driven { visibility: visible; }
+  }
+  @media (min-width: 64rem) {
+    /* Wide screen: paragraphs do not fade at all, only the picture changes. */
+    :global(.js-driving) .letter__flow .letter__p,
+    :global(.js-driving) .letter__flow .letter__closing { color: inherit; text-shadow: 0 1px 2px hsl(30 10% 6% / 0.45); }
+  }
+
+  .footer { position: relative; z-index: 3; background: var(--ground-dark); padding: 0 var(--gutter) calc(var(--space) * 4); }
+  .footer__canvas-wrap { width: 100%; height: 220px; }
+  .footer__canvas { width: 100%; height: 100%; display: block; border-radius: 0; }
+  .footer__bottom {
+    display: flex; align-items: baseline; gap: calc(var(--space) * 3);
+    border-top: var(--border-w) solid var(--ink-on-dark-muted);
+    padding-top: calc(var(--space) * 3);
+    flex-wrap: wrap;
+  }
+  .footer__wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink-on-dark); }
+  .footer__rights { font-size: 14px; line-height: 21px; color: var(--ink-on-dark-muted); }
+  .footer__nav { margin-left: auto; display: flex; gap: calc(var(--space) * 3); flex-wrap: wrap; font-size: 14px; line-height: 21px; }
+  .footer__nav a { color: var(--ink-on-dark); text-decoration: underline; text-underline-offset: 2px; }
+  .footer__nav span { color: var(--ink-on-dark-muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage__still { transition: none; }
+    .stage__film { display: none; }
+  }
+</style>

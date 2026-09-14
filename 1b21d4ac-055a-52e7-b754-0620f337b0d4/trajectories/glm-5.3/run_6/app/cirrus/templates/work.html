@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% from '_tiles.html' import tile, caption %}
+{% block content %}
+<article class="work-detail" x-data="workDetail()">
+  <header class="work-head">
+    <h1 class="work-title">{{ work.title }}</h1>
+    <p class="work-ordinal">{{ work.ordinal }}</p>
+  </header>
+
+  {% if preview %}<div class="preview-banner" role="status">PREVIEW - NOT PUBLISHED</div>{% endif %}
+
+  <div class="work-credits">
+    <h2 class="work-credits-label">Credits</h2>
+    <ul class="credit-list">
+      {% for c in work.credits %}
+      <li class="credit-row">
+        <span class="credit-role">{{ c.role }}</span>
+        {% if c.talent and c.talent.slug %}
+        <a class="credit-name" href="/talents/{{ c.talent.slug }}">{{ c.name }}</a>
+        {% else %}
+        <span class="credit-name">{{ c.name }}</span>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="credit-row"><span class="credit-role">Credits</span><span class="credit-name">To be added</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% set reel = work.media | selectattr('role', 'equalto', 'reel') | list %}
+  {% if reel %}
+  <div class="work-reel">
+    {{ tile(reel[0], 'centre', class_name='tile--full', play=True, alt_override='Reel: ' ~ work.title) }}
+  </div>
+  {% endif %}
+
+  {% set gallery = work.media | selectattr('role', 'equalto', 'gallery') | list %}
+  <div class="work-sequence">
+    {% for m in gallery %}
+    {% if m.width >= 900 %}{% set v = 'centre' %}{% elif m.width <= 360 %}{% set v = 'right' %}{% else %}{% set v = 'left' %}{% endif %}
+    <div class="work-seq-row work-seq-row--{{ v }}">
+      {{ tile(m, v, class_name='tile--full') }}
+    </div>
+    {% endfor %}
+  </div>
+
+  <nav class="work-neighbours" aria-label="Neighbouring work">
+    {% if work.neighbours.previous %}
+    <a class="work-neighbour work-neighbour--prev" href="/works/{{ work.neighbours.previous.slug }}" data-cursor="{{ work.neighbours.previous.title }}">
+      <span class="work-neighbour-label">Previous</span>
+      <span class="work-neighbour-title">{{ work.neighbours.previous.title }}</span>
+      <span class="work-neighbour-ordinal">{{ work.neighbours.previous.ordinal }}</span>
+    </a>
+    {% endif %}
+    {% if work.neighbours.next %}
+    <a class="work-neighbour work-neighbour--next" href="/works/{{ work.neighbours.next.slug }}" data-cursor="{{ work.neighbours.next.title }}">
+      <span class="work-neighbour-label">Next</span>
+      <span class="work-neighbour-title">{{ work.neighbours.next.title }}</span>
+      <span class="work-neighbour-ordinal">{{ work.neighbours.next.ordinal }}</span>
+    </a>
+    {% endif %}
+  </nav>
+</article>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-talents" data-route="talents"
+      x-data='roster({{ talents|tojson }}, {{ disciplines|tojson }})'>
+  <h1 class="visually-hidden">Talents</h1>
+  <div class="roster-filter" role="group" aria-label="Filter by discipline">
+    {% for d in disciplines %}
+    <button class="filter-item" type="button"
+            :class="{ 'is-active': active === '{{ d }}' }"
+            :aria-pressed="active === '{{ d }}' ? 'true' : 'false'"
+            @click="choose('{{ d }}')">{{ d|upper }}</button>
+    {% endfor %}
+  </div>
+  <div class="roster-stage" @keydown.arrow-right.prevent="advance(1)" @keydown.arrow-left.prevent="advance(-1)" tabindex="0"
+       aria-live="polite" aria-atomic="true" x-ref="stage">
+    <template x-for="(t, i) in filtered" :key="t.id">
+      <section class="roster-entry" :class="{ 'is-current': i === index }" :aria-hidden="i !== index">
+        <h2 class="roster-name" :style="{ fontSize: fitted + 'px' }"><a class="roster-link" :href="'/talents/' + t.slug" x-text="t.title"></a></h2>
+        <p class="roster-discipline" x-text="t.discipline.toUpperCase()"></p>
+        <div class="roster-portrait" data-reveal>
+          <img :src="t.poster ? t.poster.url : ''" :width="t.poster ? t.poster.width : 246" :height="t.poster ? t.poster.height : 328"
+               :alt="t.poster ? t.poster.alt : t.title">
+        </div>
+      </section>
+    </template>
+    <p class="empty-state" x-show="filtered.length === 0">No talent is published in this discipline yet.</p>
+  </div>
+  <p class="roster-hint">ARROW KEYS MOVE THROUGH THE SET</p>
+</main>
+{% endblock %}

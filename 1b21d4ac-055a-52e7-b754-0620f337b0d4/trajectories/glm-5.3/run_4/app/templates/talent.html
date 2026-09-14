@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+{% set t = talent if talent is defined else (item if item is defined else None) %}
+<article class="talent-detail">
+  <header class="talent-head">
+    <h1 class="roster-name talent-name">{{ t.title }}</h1>
+    <p class="roster-discipline talent-discipline">{{ t.discipline }}</p>
+  </header>
+  {% if preview is defined and preview %}
+  <p class="preview-note">Preview - not published</p>
+  {% endif %}
+  {% set reel = t.media | selectattr('role', 'equalto', 'reel') | list %}
+  {% if reel %}
+  <div class="reel-holder media-holder reveal" style="--w: {{ reel[0].width }}px; --h: {{ reel[0].height }}px;"
+       data-reel="{{ reel[0].id }}">
+    <img class="still" src="/api/media/{{ reel[0].id }}" width="{{ reel[0].width }}"
+         height="{{ reel[0].height }}" alt="{{ reel[0].alt }}" decoding="async">
+  </div>
+  {% endif %}
+  <section class="talent-selected">
+    <h2 class="talent-selected-heading">Selected work</h2>
+    {% if t.selected_work %}
+    <ol class="works-list works-list-talent">
+      {% for w in t.selected_work %}
+      {% set poster = w.media | selectattr('role', 'equalto', 'poster') | list %}
+      <li class="work-entry variant-{{ w.variant }}">
+        <a class="work-link" href="/works/{{ w.slug }}" data-cursor-label="{{ w.title }}">
+          {% if poster %}
+          <span class="reveal media-holder" style="--w: {{ poster[0].width }}px; --h: {{ poster[0].height }}px;">
+            <img class="still colour-return" src="/api/media/{{ poster[0].id }}"
+                 width="{{ poster[0].width }}" height="{{ poster[0].height }}"
+                 alt="{{ poster[0].alt }}" loading="lazy" decoding="async">
+          </span>
+          {% endif %}
+          <span class="caption-row">
+            <span class="caption-square" aria-hidden="true"></span>
+            <span class="caption-ordinal">{{ w.ordinal }}</span>
+            <span class="caption-title">{{ w.title }}</span>
+          </span>
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="talent-empty">No published work carries a credit for {{ t.title }} yet.</p>
+    {% endif %}
+    <p class="talent-contact">Reach {{ t.title }} through the house:
+      <a class="talent-mail" href="mailto:{{ house.contact_email }}"
+         aria-label="{{ house.contact_email }}">{{ house.contact_email }}</a></p>
+  </section>
+</article>
+{% endblock %}

@@ -1,0 +1,1 @@
+import"./hoisted.DQ0KOJQm.js";document.querySelectorAll("[data-dl-stop]").forEach(o=>{o.addEventListener("click",a=>a.stopPropagation())});const t=document.querySelector("[data-platform-note]"),e=navigator.platform&&!/Mac/i.test(navigator.platform);t&&e&&(t.hidden=!1);

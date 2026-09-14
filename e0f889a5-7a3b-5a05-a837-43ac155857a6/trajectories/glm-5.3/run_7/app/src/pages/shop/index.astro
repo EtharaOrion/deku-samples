@@ -1,0 +1,108 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { listProducts } from '../../lib/store.js';
+import { q } from '../../lib/db.js';
+import { variantAvailability } from '../../lib/store.js';
+import { money } from '../../lib/view-helpers.js';
+
+const products = await listProducts({ includeProtection: false });
+const cards = [];
+for (const p of products) {
+  const variants = await q(
+    `SELECT v.*, il.available FROM variant v LEFT JOIN inventory_level il ON il.variant_id = v.id
+      WHERE v.product_id = $1 ORDER BY v.position, v.id`,
+    [p.id]
+  );
+  const withState = variants.map((v) => ({ ...v, availability: variantAvailability(v, p).state, available: Number(v.available ?? 0) }));
+  const anyAvailable = withState.some((v) => v.availability === 'available');
+  const prices = withState.map((v) => Number(v.price_minor));
+  const differs = new Set(prices).size > 1;
+  cards.push({
+    ...p,
+    variants: withState,
+    anyAvailable,
+    minPrice: prices.length ? Math.min(...prices) : 0,
+    differs,
+  });
+}
+const cameras = cards.filter((c) => c.kind === 'camera');
+const accessories = cards.filter((c) => c.kind !== 'camera');
+---
+
+<Shell>
+  <h1 class="page-title">Shop</h1>
+  <p class="section-note">Two cameras and what goes with them, sold directly.</p>
+
+  {cards.length === 0 && (
+    <div class="empty">
+      <p>Nothing is on the table right now.</p>
+      <p><a href="/downloads">Go to downloads</a></p>
+    </div>
+  )}
+
+  {cameras.length > 0 && (
+    <section aria-labelledby="cameras-h">
+      <h2 id="cameras-h" class="section-h">Cameras</h2>
+      <div class="grid grid-cards grid-cameras">
+        {cameras.map((p) => (
+          <a class="card card-product card-camera" href={`/shop/${p.handle}`}>
+            <div class="card-media media-camera" data-media={p.handle} aria-hidden="true"></div>
+            <div class="card-body">
+              <h3>{p.title}</h3>
+              <p class="sub">{p.subtitle}</p>
+              <p class="price money tnum">
+                {p.differs ? `From ${money(p.minPrice)}` : money(p.minPrice)}
+              </p>
+              {!p.anyAvailable && p.status === 'discontinued' && (
+                <p class="chip chip-muted">Discontinued</p>
+              )}
+              {!p.anyAvailable && p.status === 'active' && (
+                <p class="chip chip-error">Sold out</p>
+              )}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {accessories.length > 0 && (
+    <section aria-labelledby="accessories-h">
+      <h2 id="accessories-h" class="section-h">Accessories and spares</h2>
+      <div class="grid grid-dense">
+        {accessories.map((p) => (
+          <a class="card card-product card-accessory" href={`/shop/${p.handle}`}>
+            <div class="card-media media-accessory" data-media={p.handle} aria-hidden="true"></div>
+            <div class="card-body">
+              <h3>{p.title}</h3>
+              <p class="sub">{p.subtitle}</p>
+              <p class="price money tnum">
+                {p.differs ? `From ${money(p.minPrice)}` : money(p.minPrice)}
+              </p>
+              {!p.anyAvailable && p.status === 'discontinued' && <p class="chip chip-muted">Discontinued</p>}
+              {!p.anyAvailable && p.status === 'active' && <p class="chip chip-error">Sold out</p>}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+</Shell>
+
+<style is:global>
+  .section-h { font-size: 1.125rem; margin: calc(var(--unit) * 8) 0 calc(var(--unit) * 4); }
+  .section-note { color: var(--muted-light); margin-bottom: calc(var(--unit) * 4); }
+  .grid-cameras { grid-template-columns: 1fr; }
+  @media (min-width: 64rem) { .grid-cameras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .grid-dense { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; }
+  @media (min-width: 40rem) { .grid-dense { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 64rem) { .grid-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .card-product { display: flex; flex-direction: column; text-decoration: none; overflow: hidden; }
+  .card-product h3 { font-size: 1.0625rem; }
+  .card-body { display: flex; flex-direction: column; gap: calc(var(--unit) * 1.5); padding: calc(var(--unit) * 3); }
+  .card-media { border-radius: 0; border-bottom: var(--border) solid var(--line-light); }
+  .media-camera { min-height: 200px; background: linear-gradient(160deg, #d9cfbe 0%, #b9ab95 55%, #8d7f6c 100%); }
+  .media-accessory { min-height: 110px; background: linear-gradient(160deg, #ded6c8 0%, #c4b9a6 60%, #a2947f 100%); }
+  .sub { color: var(--muted-light); font-size: 14px; line-height: 20px; }
+  .price { font-variant-numeric: tabular-nums; }
+</style>

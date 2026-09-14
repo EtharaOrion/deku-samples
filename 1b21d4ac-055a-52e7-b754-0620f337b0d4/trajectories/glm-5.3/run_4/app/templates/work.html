@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+{% set item = work if work is defined else (item if item is defined else None) %}
+{% if item %}
+<article class="work-detail">
+  <header class="work-head">
+    <h1 class="work-title">{{ item.title }}</h1>
+    <p class="work-ordinal">{{ item.ordinal }}</p>
+    <p class="work-discipline">{{ item.discipline or '' }}</p>
+  </header>
+  {% if preview is defined and preview %}
+  <p class="preview-note">Preview - not published</p>
+  {% endif %}
+  {% if item.credits %}
+  <ul class="credits">
+    {% for c in item.credits %}
+    <li class="credit">
+      <span class="credit-role">{{ c.role }}</span>
+      {% if c.talent_slug %}
+      <a class="credit-name" href="/talents/{{ c.talent_slug }}">{{ c.name }}</a>
+      {% else %}
+      <span class="credit-name">{{ c.name }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% set reel = item.media | selectattr('role', 'equalto', 'reel') | list %}
+  {% set gallery = item.media | selectattr('role', 'equalto', 'gallery') | list %}
+  {% if reel %}
+  <div class="reel-holder media-holder full-bleed reveal"
+       style="--w: {{ reel[0].width }}px; --h: {{ reel[0].height }}px;"
+       data-reel="{{ reel[0].id }}">
+    <img class="still" src="/api/media/{{ reel[0].id }}" width="{{ reel[0].width }}"
+         height="{{ reel[0].height }}" alt="{{ reel[0].alt }}" decoding="async">
+  </div>
+  {% endif %}
+  <div class="work-sequence">
+    {% for m in gallery %}
+    <div class="work-entry variant-{{ ['left','right','centre'][loop.index0 % 3] }} reveal media-holder"
+         style="--w: {{ m.width }}px; --h: {{ m.height }}px;">
+      <img class="still colour-return" src="/api/media/{{ m.id }}" width="{{ m.width }}"
+           height="{{ m.height }}" alt="{{ m.alt }}" loading="lazy" decoding="async">
+    </div>
+    {% endfor %}
+  </div>
+  <nav class="work-neighbours" aria-label="Neighbouring works">
+    {% if item.previous %}
+    <a class="neighbour neighbour-prev" href="/works/{{ item.previous.slug }}"
+       data-cursor-label="{{ item.previous.title }}">
+      <span class="neighbour-ordinal">{{ item.previous.ordinal if item.previous.ordinal else '' }}</span>
+      <span class="neighbour-title">{{ item.previous.title }}</span>
+    </a>
+    {% endif %}
+    {% if item.next %}
+    <a class="neighbour neighbour-next" href="/works/{{ item.next.slug }}"
+       data-cursor-label="{{ item.next.title }}">
+      <span class="neighbour-ordinal">{{ item.next.ordinal if item.next.ordinal else '' }}</span>
+      <span class="neighbour-title">{{ item.next.title }}</span>
+    </a>
+    {% endif %}
+  </nav>
+</article>
+{% endif %}
+{% endblock %}

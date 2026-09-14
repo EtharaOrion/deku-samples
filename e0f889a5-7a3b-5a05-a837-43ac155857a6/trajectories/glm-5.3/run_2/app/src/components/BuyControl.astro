@@ -1,0 +1,214 @@
+---
+import { money } from '../server/format.ts';
+
+export interface Props {
+  product: any;
+  selectedSku: string;
+  discontinued: boolean;
+  supportUntil?: string | null;
+  supportNote?: any;
+}
+
+const { product, selectedSku, discontinued, supportNote } = Astro.props as Props;
+const selected = product.variants.find((v: any) => v.sku === selectedSku) ?? product.variants[0];
+const supportText = supportNote?.text
+  ? supportNote.text
+  : (product.support_until
+      ? `We no longer sell this. We will support it until ${new Date(product.support_until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}.`
+      : '');
+
+const payload = product.variants.map((v: any) => ({
+  sku: v.sku,
+  option_value: v.option_value,
+  price_minor: v.price_minor,
+  available: v.available,
+  state: v.availability.state,
+  label: v.availability.label,
+  buyable: v.availability.buyable,
+}));
+---
+
+<div class="buy" data-buy-surface data-variants={JSON.stringify(payload)} data-initial-sku={selected.sku}>
+  <form class="buy-form" data-buy-form>
+    {product.variants.length > 1 ? (
+      <fieldset class="options">
+        <legend>{product.kind === 'camera' ? 'Finish' : 'Option'}</legend>
+        <div class="option-radios" role="radiogroup" aria-label="Option">
+          {product.variants.map((v: any) => (
+            <label class:list={['option', { 'is-checked': v.sku === selected.sku }]} data-option={v.sku}>
+              <input type="radio" name="variant" value={v.sku} checked={v.sku === selected.sku} data-variant-radio />
+              <span class="option-label">
+                <span>{v.option_value}</span>
+                <span class="num option-price" data-option-price={v.sku}>{money(v.price_minor)}</span>
+              </span>
+              {v.availability.state === 'sold_out' ? <span class="option-state">Sold out</span> : null}
+              {v.availability.state === 'low' ? <span class="option-state" data-option-note={v.sku}>{v.availability.label}</span> : null}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    ) : (
+      <p class="single-option" data-single-option>
+        {selected.option_value} · <span class="num">{money(selected.price_minor)}</span>
+        {selected.availability.state === 'low' ? <span class="option-state">{selected.availability.label}</span> : null}
+      </p>
+    )}
+
+    <div class="qty" data-qty>
+      <span class="qty-label" id="qty-label">Quantity</span>
+      <div class="stepper" role="group" aria-labelledby="qty-label">
+        <button type="button" class="btn stepper-btn" data-qty-dec aria-label="Decrease quantity">−</button>
+        <output class="qty-value num" data-qty-value aria-live="polite">1</output>
+        <button type="button" class="btn stepper-btn" data-qty-inc aria-label="Increase quantity">+</button>
+      </div>
+      <span class="qty-max" data-qty-max>Up to {Math.min(10, Math.max(1, selected.available))}</span>
+    </div>
+
+    <div class="buy-actions">
+      {discontinued ? (
+        <>
+          <button type="button" class="btn btn-primary" disabled aria-disabled="true">Sold out</button>
+          {supportText ? <p class="support-copy">{supportText}</p> : null}
+        </>
+      ) : selected.availability.state === 'sold_out' ? (
+        <button type="button" class="btn btn-primary" disabled aria-disabled="true">Sold out</button>
+      ) : (
+        <button type="submit" class="btn btn-primary" data-add-to-cart>Add to cart</button>
+      )}
+      <p class="buy-state" role="status" data-buy-state></p>
+      <p class="buy-error inline-error" data-buy-error hidden></p>
+      <a class="cart-link" href="/cart" data-cart-link hidden>Go to the cart</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  const surface = document.querySelector('[data-buy-surface]') as HTMLElement | null;
+  if (surface) {
+    const variants: any[] = JSON.parse(surface.dataset.variants || '[]');
+    const initial = surface.dataset.initialSku || variants[0]?.sku;
+    const stateEl = surface.querySelector('[data-buy-state]') as HTMLElement;
+    const errorEl = surface.querySelector('[data-buy-error]') as HTMLElement;
+    const cartLink = surface.querySelector('[data-cart-link]') as HTMLElement;
+    const qtyValue = surface.querySelector('[data-qty-value]') as HTMLElement;
+    const qtyMaxEl = surface.querySelector('[data-qty-max]') as HTMLElement;
+    const inc = surface.querySelector('[data-qty-inc]') as HTMLButtonElement;
+    const dec = surface.querySelector('[data-qty-dec]') as HTMLButtonElement;
+    const submit = surface.querySelector('[data-add-to-cart]') as HTMLButtonElement | null;
+    const form = surface.querySelector('form') as HTMLFormElement;
+    let sku = initial;
+    let quantity = 1;
+
+    const find = (s: string) => variants.find((v) => v.sku === s);
+
+    function refresh() {
+      const v = find(sku);
+      if (!v) return;
+      const max = Math.min(10, Math.max(1, v.available));
+      if (quantity > max) quantity = max;
+      qtyValue.textContent = String(quantity);
+      qtyMaxEl.textContent = `Up to ${max}`;
+      if (submit) {
+        if (!v.buyable) { submit.disabled = true; submit.textContent = 'Sold out'; }
+        else { submit.disabled = false; submit.textContent = 'Add to cart'; }
+      }
+      surface.querySelectorAll('[data-variant-radio]').forEach((r) => {
+        const el = r as HTMLInputElement;
+        const on = el.value === sku;
+        el.checked = on;
+        el.closest('label')?.classList.toggle('is-checked', on);
+      });
+    }
+
+    surface.querySelectorAll('[data-variant-radio]').forEach((r) => {
+      r.addEventListener('change', () => {
+        sku = (r as HTMLInputElement).value;
+        quantity = 1;
+        // Choosing an option replaces history so the back control leaves the product page.
+        const url = new URL(window.location.href);
+        url.searchParams.set('variant', sku);
+        window.history.replaceState(null, '', url.toString());
+        refresh();
+      });
+    });
+
+    inc?.addEventListener('click', () => { quantity = Math.min(10, quantity + 1); refresh(); });
+    dec?.addEventListener('click', () => { quantity = Math.max(1, quantity - 1); refresh(); });
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = find(sku);
+      if (!v || !v.buyable) return;
+      errorEl.hidden = true; errorEl.textContent = '';
+      stateEl.textContent = 'Adding';
+      submit!.disabled = true;
+      try {
+        const res = await fetch('/api/cart/lines', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku, quantity }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          errorEl.hidden = false;
+          errorEl.textContent = body?.error?.message || 'That did not work.';
+          stateEl.textContent = '';
+        } else {
+          stateEl.textContent = 'Added to the cart.';
+          cartLink.hidden = false;
+          const total = (body.lines || []).reduce((s: number, l: any) => s + l.quantity, 0);
+          const bar = document.querySelector('.bar-cart') as HTMLElement | null;
+          if (bar) bar.setAttribute('aria-label', `Cart, ${total} item${total === 1 ? '' : 's'}`);
+          const badge = document.querySelector('.count-badge');
+          if (badge) badge.textContent = total > 99 ? '99+' : String(total);
+          else if (bar && total > 0) {
+            const span = document.createElement('span');
+            span.className = 'count-badge num';
+            span.textContent = total > 99 ? '99+' : String(total);
+            bar.appendChild(span);
+          }
+        }
+      } catch {
+        errorEl.hidden = false;
+        errorEl.textContent = 'That did not work. Check the connection and try again.';
+        stateEl.textContent = '';
+      } finally {
+        submit!.disabled = false;
+        refresh();
+      }
+    });
+
+    refresh();
+  }
+</script>
+
+<style>
+  .buy { display: grid; gap: calc(var(--unit) * 3); }
+  .buy-form { display: grid; gap: calc(var(--unit) * 3); }
+  fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  legend { font-size: 14px; color: var(--ink-soft); padding: 0; }
+  .option-radios { display: grid; gap: calc(var(--unit) * 1); }
+  .option {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: calc(var(--unit) * 2);
+    border: var(--border-w) solid var(--paper-line); border-radius: var(--radius);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3); cursor: pointer;
+  }
+  .option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .option:has(input:checked) { border-color: var(--ink); }
+  .option:focus-within { outline: 2px solid currentColor; outline-offset: 2px; }
+  .option-label { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  .option-price { font-weight: 700; }
+  .option-state { color: var(--ink-soft); font-size: 13px; }
+  .single-option { margin: 0; color: var(--ink-soft); }
+  .qty { display: grid; gap: calc(var(--unit) * 1); align-content: start; }
+  .qty-label { font-size: 14px; color: var(--ink-soft); }
+  .stepper { display: inline-flex; align-items: center; gap: calc(var(--unit) * 1); }
+  .stepper-btn { min-width: 40px; justify-content: center; padding: calc(var(--unit) * 1) 0; }
+  .qty-value { min-width: 48px; text-align: center; font-size: 18px; }
+  .qty-max { font-size: 13px; color: var(--ink-soft); }
+  .buy-actions { display: grid; gap: calc(var(--unit) * 2); justify-items: start; }
+  .support-copy { color: var(--ink-soft); margin: 0; }
+  .buy-state { margin: 0; color: var(--ink-soft); }
+  .buy-error { margin: 0; }
+  .cart-link { text-decoration: underline; }
+</style>

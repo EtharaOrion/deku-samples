@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block route %}
+<section class="studio" x-data="palette()" x-init="init()">
+  <div class="palette">
+    <label class="palette-field">
+      <span class="sr-only">Search the studio</span>
+      <input class="palette-input" type="text" x-model="q" placeholder="Type a record, an action…" @keydown.escape.stop="q=''">
+    </label>
+    <div class="palette-results" role="listbox" aria-label="Studio records and actions">
+      <button type="button" class="palette-action" role="option"
+              @click="go('/studio/talents/new')">New talent</button>
+      <button type="button" class="palette-action" role="option"
+              @click="go('/studio/works/new')">New work</button>
+      <button type="button" class="palette-action" role="option"
+              @click="reorder = !reorder">Reorder index</button>
+      <template x-for="it in filtered" :key="it.id">
+        <div class="palette-row" role="option" :class="{live: it.published}">
+          <button type="button" class="palette-open" @click="go('/studio/items/'+it.id)">
+            <span class="pr-title" x-text="it.title"></span>
+            <span class="pr-slug" x-text="it.slug"></span>
+            <span class="pr-kind" x-text="it.kind"></span>
+            <span class="pr-state" x-text="it.published ? 'live' : 'held'"></span>
+          </button>
+          <button type="button" class="palette-act" x-show="!it.published" @click="mint(it)"
+                  data-cur="MINT PREVIEW">Preview</button>
+        </div>
+      </template>
+      <p class="empty-state" x-show="!filtered.length && !q">No records yet. Create the first one above.</p>
+      <p class="empty-state" x-show="!filtered.length && q">Nothing here carries that name.</p>
+    </div>
+    <div class="palette-cards" x-show="reorder === false">
+      <h2 class="studio-h">Records</h2>
+      <div class="card-grid">
+        <template x-for="it in items" :key="it.id">
+          <a class="card" :href="'/studio/items/'+it.id" :class="{live: it.published}">
+            <span class="card-title" x-text="it.title"></span>
+            <span class="card-slug" x-text="it.slug"></span>
+            <span class="card-kind" x-text="it.kind"></span>
+            <span class="card-state" x-text="it.published ? 'Live' : 'Held'"></span>
+          </a>
+        </template>
+      </div>
+    </div>
+    <div class="palette-reorder" x-show="reorder" x-cloak>
+      <h2 class="studio-h">Works, in order</h2>
+      <ol class="reorder-list">
+        <template x-for="w in worksOrder" :key="w.id">
+          <li class="reorder-row" :class="{live: w.published}">
+            <span class="rr-pos" x-text="w.pos"></span>
+            <span class="rr-title" x-text="w.title"></span>
+            <span class="rr-state" x-text="w.published ? 'live' : 'held'"></span>
+            <span class="rr-btns">
+              <button type="button" class="btn-mini" @click="move(w,-1)" :disabled="w.pos===1">Up</button>
+              <button type="button" class="btn-mini" @click="move(w,1)" :disabled="w.pos===worksOrder.length">Down</button>
+            </span>
+          </li>
+        </template>
+      </ol>
+      <div class="form-actions"><button type="button" class="btn" @click="saveOrder" :disabled="saving">Save order</button></div>
+    </div>
+  </div>
+  <p class="studio-signout"><button type="button" class="btn-ghost" @click="signout">Sign out</button></p>
+  <p class="studio-note" x-show="notice" x-text="notice" role="status"></p>
+</section>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block route %}
+<article class="work" x-data="detailRoute()">
+  <header class="work-head">
+    <p class="work-ordinal">{{ '%03d' % work.ordinal if work.ordinal else '—' }}</p>
+    <h1 class="work-title">{{ work.title }}</h1>
+  </header>
+  {% if credits %}
+  <ul class="work-credits">
+    {% for c in credits %}
+    <li class="credit-line">
+      <span class="credit-role">{{ c.role }}</span>
+      {% if c.talent_slug %}<a class="credit-name" href="/talents/{{ c.talent_slug }}" data-cur="{{ c.name|upper }}">{{ c.name }}</a>
+      {% else %}<span class="credit-name">{{ c.name }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% set reel = media.reel %}
+  {% if reel %}
+  <figure class="work-reel" data-reel-seed="{{ reel.seed }}" data-reel-src="/api/media/{{ reel.id }}">
+    <canvas class="reel-canvas" width="{{ reel.width }}" height="{{ reel.height }}" aria-hidden="true"></canvas>
+    <img class="reel-still" src="/api/media/{{ media.poster.id if media.poster else reel.id }}"
+         alt="{{ reel.alt }}" width="{{ reel.width }}" height="{{ reel.height }}">
+    <button type="button" class="reel-play" data-cur="PLAY FILM" hidden>Play film</button>
+  </figure>
+  {% endif %}
+  <ol class="work-stills">
+    {% for m in media.gallery %}
+    <li class="work-still variant-{{ ['left','centre','right'][loop.index0 % 3] }}">
+      <span class="reveal">
+        <img src="/api/media/{{ m.id }}" alt="{{ m.alt }}" width="{{ m.width }}" height="{{ m.height }}" loading="lazy" decoding="async">
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+  {% if not preview %}
+  <nav class="work-neighbours" aria-label="Neighbouring work">
+    {% if nxt %}<a class="neighbour next" href="/works/{{ nxt.slug }}" data-cur="NEXT FILM">
+      <span class="neighbour-label">Next</span><span class="neighbour-title">{{ nxt.title }}</span><span class="neighbour-ord">{{ '%03d' % nxt.ordinal }}</span></a>{% endif %}
+    {% if prev %}<a class="neighbour prev" href="/works/{{ prev.slug }}" data-cur="PREVIOUS FILM">
+      <span class="neighbour-label">Previous</span><span class="neighbour-title">{{ prev.title }}</span><span class="neighbour-ord">{{ '%03d' % prev.ordinal }}</span></a>{% endif %}
+  </nav>
+  {% else %}
+  {% include 'preview_banner.html' %}
+  {% endif %}
+</article>
+{% endblock %}

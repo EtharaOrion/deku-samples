@@ -1,0 +1,149 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, formatShortDate } from '../../../lib/session.js';
+import { readOrder } from '../../../lib/orders.js';
+import { formatUsd } from '../../../lib/money.js';
+
+export const prerender = false;
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) {
+  return Astro.redirect(`/sign-in?next=${encodeURIComponent('/account/orders')}`);
+}
+
+const { number } = Astro.params;
+let order = null;
+let missing = false;
+try {
+  order = await readOrder(number, { customerId: customer.id });
+} catch (err) {
+  missing = true;
+}
+
+const address = order?.shipping_address || {};
+const methodLabel = order?.shipping_method === 'express' ? 'Express' : 'Standard';
+const serialsBySku = new Map();
+for (const serial of order?.serials || []) {
+  if (!serialsBySku.has(serial.sku)) serialsBySku.set(serial.sku, []);
+  serialsBySku.get(serial.sku).push(serial);
+}
+---
+
+<Shell title={order ? `Order ${order.number}` : 'Order'} description="One order.">
+  {
+    missing ? (
+      <div class="empty">
+        <h1 class="page-title">That page does not exist.</h1>
+        <p>This order is not on your account. <a href="/account/orders">See your orders</a>.</p>
+      </div>
+    ) : (
+      <>
+        <h1 class="page-title">Order <span class="mono">{order.number}</span></h1>
+        <p class="hint">
+          Placed {formatShortDate(order.placed_at)} · <span class="chip is-neutral">{order.state_chip}</span>
+        </p>
+
+        <section class="card">
+          <h2 class="section-title">Lines as they were bought</h2>
+          <table class="data num">
+            <thead>
+              <tr><th scope="col">Item</th><th scope="col" class="num">Each</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Total</th></tr>
+            </thead>
+            <tbody>
+              {order.lines.map((line) => (
+                <tr>
+                  <td>
+                    {line.title}
+                    {line.product_kind === 'camera' && <span class="hint"> · <span class="mono">{line.sku}</span></span>}
+                  </td>
+                  <td class="num tnum">{formatUsd(line.unit_price_minor)}</td>
+                  <td class="num tnum">{line.quantity}</td>
+                  <td class="num tnum">{formatUsd(line.total_minor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <dl class="totals">
+            <div><dt>Subtotal</dt><dd class="tnum">{formatUsd(order.subtotal_minor)}</dd></div>
+            <div><dt>Delivery</dt><dd class="tnum">{formatUsd(order.shipping_minor)}</dd></div>
+            <div><dt>Tax</dt><dd class="tnum">{formatUsd(order.tax_minor)}</dd></div>
+            <div class="grand"><dt>Total</dt><dd class="tnum">{formatUsd(order.total_minor)}</dd></div>
+          </dl>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">Serial numbers on this order</h2>
+          <p class="hint">This is the only place to find them without the camera in hand.</p>
+          {
+            order.serials.length === 0 ? (
+              <p>No cameras on this order.</p>
+            ) : (
+              <ul class="serial-rows">
+                {order.serials.map((serial) => (
+                  <li>
+                    <span class="mono">{serial.serial}</span>
+                    <span class="hint">{serial.model}</span>
+                    {serial.registered_to_customer_id ? (
+                      <span class="chip is-finished">Registered</span>
+                    ) : (
+                      <form class="inline-register" method="post" action={`/api/account/devices`} data-inline-register data-serial={serial.serial}>
+                        <input type="hidden" name="serial" value={serial.serial} />
+                        <button class="btn secondary" type="button" data-register-one data-serial={serial.serial}>
+                          Register this camera
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">Address as captured</h2>
+          <address>
+            {address.name}<br />
+            {address.line1}{address.line2 ? <><br />{address.line2}</> : ''}<br />
+            {address.city}{address.region ? `, ${address.region}` : ''} {address.postalCode}<br />
+            {address.country}
+          </address>
+          <p class="hint">{methodLabel} delivery. Invoiced for {order.killbill_invoice_amount} USD.</p>
+        </section>
+      </>
+    )
+  }
+</Shell>
+
+<script>
+  // One click registers an unregistered serial to this account.
+  document.querySelectorAll('[data-register-one]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const serial = button.dataset.serial;
+      button.disabled = true;
+      try {
+        const res = await fetch('/api/account/devices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ serial })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ? data.error.message : 'That did not work.');
+        const holder = button.closest('.inline-register');
+        const chip = document.createElement('span');
+        chip.className = 'chip is-finished';
+        chip.textContent = 'Registered';
+        holder.replaceWith(chip);
+      } catch (err) {
+        button.disabled = false;
+        window.alert(err.message);
+      }
+    });
+  });
+</script>
+
+<style>
+  .serial-rows { display: grid; gap: calc(var(--step) * 3); }
+  .serial-rows li { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--step) * 3); border-bottom: var(--border) solid var(--line); padding-bottom: calc(var(--step) * 2); }
+</style>

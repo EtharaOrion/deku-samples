@@ -1,0 +1,49 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { listDevicesForCustomer } from '../../../lib/devices.js';
+import { formatDate } from '../../../lib/format.js';
+
+const customer = Astro.locals.customer;
+if (!customer) return Astro.redirect('/sign-in?next=/account/cameras');
+
+const page = await listDevicesForCustomer(customer.id, 100, null);
+const devices = page.data;
+---
+
+<Shell title="Cameras — Vela" current="cameras" customer={{ name: customer.name, email: customer.email }}>
+  <h1>Cameras</h1>
+
+  <div data-register-root class="register-row">
+    <form data-register-form>
+      <label for="serial">Register a camera</label>
+      <input id="serial" name="serial" class="mono" placeholder="VC2609PVDA7Q" autocomplete="off"
+        maxlength="17" data-serial-input aria-describedby="serial-help" />
+      <p id="serial-help" class="field-help">Twelve characters, engraved on the underside.</p>
+      <button class="btn btn-primary" type="submit">Register</button>
+      <p class="feedback" data-register-feedback role="status" aria-live="polite"></p>
+    </form>
+  </div>
+
+  {devices.length === 0 ? (
+    <p class="empty">No cameras registered yet.</p>
+  ) : (
+    <ul class="grid grid-cards camera-grid">
+      {devices.map((d) => (
+        <li class="card camera-card" data-camera-card data-serial={d.serial}>
+          <a href={`/account/cameras/${d.serial}`} class="camera-link">
+            <h3>{d.nickname || d.model}</h3>
+            <p class="card-subtitle">{d.model}</p>
+            <code class="mono camera-serial">{d.serial}</code>
+          </a>
+          <span class={`chip ${d.firmware_state === 'behind' ? 'chip-progress' : ''}`}>{d.firmware_label}</span>
+          <span class="chip">{d.warranty_until ? `Warranty to ${formatDate(d.warranty_until)}` : 'No warranty date'}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  <script>
+    import { mountRegister } from '../../../components/register.js';
+    mountRegister(document.querySelector('[data-register-root]'));
+  </script>
+</Shell>

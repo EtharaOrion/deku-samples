@@ -1,0 +1,28 @@
+---
+export interface Props {
+  product: any;
+  dense?: boolean;
+}
+const { product, dense = false } = Astro.props;
+const prices = product.variants.map((v) => v.price_minor);
+const samePrice = new Set(prices).size === 1;
+const lowest = Math.min(...prices);
+
+function chipClass(state) {
+  return { low: 'chip-progress', sold_out: 'chip-wrong', discontinued: 'chip-wrong' }[state] || '';
+}
+---
+
+<a class={`card ${dense ? 'card-dense' : ''}`} href={`/shop/${product.handle}`}>
+  <div class="card-media" aria-hidden="true" data-kind={product.kind}></div>
+  <div class="card-body">
+    <h3>{product.title}</h3>
+    <p class="card-subtitle">{product.subtitle}</p>
+    <p class="price tnum">
+      {samePrice ? `$${(lowest / 100).toFixed(2)}` : `From $${(lowest / 100).toFixed(2)}`}
+    </p>
+    {product.availability.state !== 'available' && (
+      <span class={`chip ${chipClass(product.availability.state)}`}>{product.availability.label}</span>
+    )}
+  </div>
+</a>

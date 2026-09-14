@@ -1,0 +1,80 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { q } from '../../../lib/db.js';
+import { guard } from '../../../lib/guard.js';
+import { deviceBySerial, liveOwnerOf, latestFirmwareForProduct, compareVersions, firmwareForProduct } from '../../../lib/store.js';
+import { dateLong } from '../../../lib/view-helpers.js';
+
+const { customer, expired, next } = await guard(Astro.request);
+if (!customer) return Astro.redirect('/sign-in?next=' + encodeURIComponent(next) + (expired ? '&expired=1' : ''));
+
+const { serial } = Astro.params;
+const device = await deviceBySerial(serial || '');
+// Another customer's camera reads as not found, never forbidden.
+let mine = false;
+if (device) {
+  const owner = await liveOwnerOf(device.id);
+  mine = !!(owner && owner.customer_id === customer.id);
+}
+if (!device || !mine) return Astro.render404();
+
+const fw = await latestFirmwareForProduct(device.product_id);
+const behind = !!(fw && device.firmware_version && compareVersions(fw.version, device.firmware_version) > 0);
+const allFw = await firmwareForProduct(device.product_id);
+const warrantyGone = device.warranty_until ? new Date(device.warranty_until + 'T00:00:00Z') < new Date() : false;
+---
+
+<Shell>
+  <nav class="crumbs"><a href="/account/cameras">Cameras</a> / <span class="mono">{device.serial}</span></nav>
+
+  <div class="camera-grid">
+    <section>
+      <h1 class="page-title">{device.product_title}</h1>
+      <p class="muted">{device.variant_title}</p>
+      <p class="mono serial big">{device.serial}</p>
+      <p class="chips">
+        {behind && <span class="chip chip-progress">Update available</span>}
+        {!device.firmware_version && <span class="chip chip-muted">Not yet connected</span>}
+        {device.firmware_version && !behind && <span class="chip chip-finished">Up to date</span>}
+        <span class="chip chip-muted">{warrantyGone ? 'Warranty ended' : 'In warranty'}{device.warranty_until ? ` until ${dateLong(device.warranty_until)}` : ''}</span>
+      </p>
+      <p>Running firmware <span class="mono version">{device.firmware_version || 'unknown'}</span>.</p>
+      {fw && <p>Latest for this model is <span class="mono version">{fw.version}</span>.</p>}
+      <p><a href="/doctor">Update with the browser installer</a></p>
+    </section>
+
+    <aside class="camera-side">
+      <h2>Nickname</h2>
+      <form data-nickname-form data-serial={device.serial}>
+        <label class="field">
+          <span>Name this camera</span>
+          <input name="nickname" value={device.nickname || ''} maxlength="60" />
+        </label>
+        <button class="btn btn-quiet" type="submit">Save the name</button>
+        <p class="form-error" role="status" data-nickname-note></p>
+      </form>
+
+      <h2>Ownership</h2>
+      <p class="muted small">
+        Removing releases the camera without giving it to anyone. Handing it on is a different thing: the new owner registers it themselves.
+      </p>
+      <button class="btn btn-danger" type="button" data-release data-serial={device.serial}>Remove from my account</button>
+      <p class="muted small">Hand this camera to someone else: release it here, then the new owner registers the serial.</p>
+    </aside>
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/cameras.js"></script>
+
+<style is:global>
+  .crumbs { color: var(--muted-light); font-size: 14px; margin-bottom: calc(var(--unit) * 4); }
+  .muted { color: var(--muted-light); }
+  .small { font-size: 13px; }
+  .big { font-size: 1.125rem; }
+  .camera-grid { display: grid; gap: calc(var(--unit) * 6); grid-template-columns: 1fr; margin-top: calc(var(--unit) * 4); }
+  @media (min-width: 64rem) { .camera-grid { grid-template-columns: 1.4fr 1fr; } }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--unit); margin: calc(var(--unit) * 3) 0; }
+  .camera-side { display: grid; gap: calc(var(--unit) * 3); align-self: start; }
+  .camera-side h2 { font-size: 1rem; }
+  .form-error { min-height: 1.4rem; color: var(--muted-light); font-size: 13px; }
+</style>

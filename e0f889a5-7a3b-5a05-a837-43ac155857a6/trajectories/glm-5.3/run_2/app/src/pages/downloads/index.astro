@@ -1,0 +1,160 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { listReleases, orderedNotes } from '../../server/releases.ts';
+import { money, bytesExact } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+import { productByHandle } from '../../server/catalog.ts';
+import { firmwareForProduct } from '../../server/flash.ts';
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const { rows: releases } = await listReleases(200, null);
+const newest = releases[0] ?? null;
+const expandedVersion = Astro.url.pathname.split('/')[2] || '';
+
+const cricket = await productByHandle('compact');
+const cricketFirmware = cricket ? await firmwareForProduct(cricket.id) : [];
+const latestFirmware = cricketFirmware.filter((f: any) => f.channel === 'general')[0] ?? cricketFirmware[0] ?? null;
+
+function notesOf(row: any) {
+  const parsed = typeof row.notes === 'string' ? JSON.parse(row.notes) : row.notes;
+  return orderedNotes(parsed);
+}
+function link(row: any) {
+  return `/downloads/${row.artifact_name.replace('arranger-', 'arranger/').replace('.dmg', '.dmg')}`;
+}
+---
+
+<Shell title="Downloads — Vela" active="downloads" cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Downloads</h1>
+  </div>
+
+  <section class="card app-block" aria-labelledby="app-h">
+    <h2 id="app-h">Arranger</h2>
+    <p class="app-req">Arranger requires macOS 13.0 or later. Download the app below.</p>
+    <div class="download-row">
+      <a class="btn btn-primary" href="/download/arranger/{newest?.artifact_name ?? ''}" data-platform-download>Download Arranger {newest?.version ?? ''}</a>
+      <p class="app-note" data-platform-note hidden>Arranger is a macOS application.</p>
+      <span class="meta">
+        <span class="num">{newest ? bytesExact(Number(newest.size_bytes)) : ''}</span>
+        <span class="mono digest">{newest?.sha256 ?? ''}</span>
+      </span>
+    </div>
+  </section>
+
+  <section class="card firmware-block" aria-labelledby="fw-h">
+    <h2 id="fw-h">Vela Cricket firmware</h2>
+    <div class="download-row">
+      <a class="btn btn-primary" href="/download/firmware/{latestFirmware ? `cricket-${latestFirmware.version}.bin` : ''}">Download Vela Cricket Firmware {latestFirmware?.version ?? ''}</a>
+      <span class="meta">
+        <span class="num">{latestFirmware ? bytesExact(Number(latestFirmware.size_bytes)) : ''}</span>
+        <span class="mono digest">{latestFirmware?.sha256 ?? ''}</span>
+      </span>
+    </div>
+    <p class="alt-path">
+      Firmware install (web-based).
+      <span class="alt-warning">Only use this if Arranger cannot see your camera.</span>
+      <a href="/doctor">Open the web installer</a>
+    </p>
+  </section>
+
+  <section aria-labelledby="archive-h" class="archive">
+    <h2 id="archive-h">Every release</h2>
+    {releases.map((row: any, i: number) => {
+      const open = expandedVersion === row.version || (!expandedVersion && i === 0);
+      const groups = notesOf(row);
+      return (
+        <article class="release">
+          <div class="release-bar" aria-hidden="true"></div>
+          <details class="release-details" open={open} data-version={row.version}>
+            <summary>
+              <span class="release-title">Arranger <span class="mono">{row.version}</span></span>
+              <span class="release-date">Released on {new Date(row.released_on).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}</span>
+              <span class="release-build num">build <span class="mono">{row.build}</span></span>
+              <a class="btn release-dl" href="/download/arranger/{row.artifact_name}" data-dl-stop>Download</a>
+            </summary>
+            <div class="release-body">
+              <p class="release-desc">{row.description}</p>
+              <dl class="release-meta">
+                <div><dt>Size</dt><dd class="num">{bytesExact(Number(row.size_bytes))}</dd></div>
+                <div><dt>Artifact</dt><dd class="mono">{row.artifact_name}</dd></div>
+                <div><dt>Digest</dt><dd class="mono digest">{row.sha256}</dd></div>
+              </dl>
+              <div class="note-groups">
+                {groups.map((g: any) => (
+                  <section class="note-group">
+                    <h3>{g.title}</h3>
+                    <ul>
+                      {g.items.map((item: string) => (
+                        <li set:html={item.replace(/\[(#\d+)\]/g, '<span class="mono issue">$1</span>')} />
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+              <p class="release-signoff">The Vela team.</p>
+              <p class="release-permalink"><a href={`/downloads/${row.version}`}>This release has its own address</a></p>
+            </div>
+          </details>
+        </article>
+      );
+    })}
+  </section>
+</Shell>
+
+<script>
+  // A download control inside a summary must not toggle the disclosure.
+  document.querySelectorAll('[data-dl-stop]').forEach((a) => {
+    a.addEventListener('click', (e) => e.stopPropagation());
+  });
+  // The primary control adapts to the reader's platform but never hides or disables.
+  const note = document.querySelector('[data-platform-note]') as HTMLElement | null;
+  const notMac = navigator.platform && !/Mac/i.test(navigator.platform);
+  if (note && notMac) note.hidden = false;
+</script>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .card { padding: calc(var(--unit) * 4); }
+  .app-block, .firmware-block { display: grid; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 4); }
+  h2 { font-size: 19px; }
+  .app-req { margin: 0; }
+  .download-row { display: flex; gap: calc(var(--unit) * 3); align-items: baseline; flex-wrap: wrap; }
+  .meta { display: grid; gap: 2px; color: var(--ink-soft); font-size: 13px; }
+  .digest { word-break: break-all; max-width: 46ch; }
+  .alt-path { margin: 0; color: var(--ink-soft); display: grid; gap: calc(var(--unit) * 1); }
+  .alt-warning { display: block; }
+  .alt-path a { text-decoration: underline; }
+  .archive { display: grid; gap: 0; margin-top: calc(var(--unit) * 4); }
+  .release { position: relative; }
+  .release-bar {
+    height: 1px; margin: calc(var(--unit) * 4) 0;
+    background: linear-gradient(to right, var(--paper-line) 0 4px, transparent 4px 8px);
+    background-size: 8px 1px; background-repeat: repeat-x;
+  }
+  .release-details summary {
+    display: grid; grid-template-columns: 1fr auto auto auto; gap: calc(var(--unit) * 3); align-items: center;
+    cursor: pointer; list-style: none; padding: calc(var(--unit) * 2) 0;
+  }
+  .release-details summary::-webkit-details-marker { display: none; }
+  .release-details summary::before { content: '▸'; color: var(--ink-soft); }
+  .release-details[open] summary::before { content: '▾'; }
+  .release-title { font-weight: 700; }
+  .release-date, .release-build { color: var(--ink-soft); font-size: 14px; }
+  .release-body { display: grid; gap: calc(var(--unit) * 3); padding: calc(var(--unit) * 2) 0 calc(var(--unit) * 4) calc(var(--unit) * 4); border-left: var(--border-w) solid var(--paper-line); margin-left: calc(var(--unit) * 1); }
+  .release-desc { margin: 0; }
+  .release-meta { display: grid; gap: calc(var(--unit) * 1); margin: 0; font-size: 14px; }
+  .release-meta > div { display: flex; gap: calc(var(--unit) * 2); }
+  .release-meta dt { color: var(--ink-soft); width: 72px; }
+  .release-meta dd { margin: 0; }
+  .note-groups { display: grid; gap: calc(var(--unit) * 3); }
+  .note-group h3 { font-size: 15px; margin-bottom: calc(var(--unit) * 1); }
+  .note-group ul { margin: 0; padding-left: 1.2rem; display: grid; gap: calc(var(--unit) * 1); }
+  .issue { font-size: 0.9em; color: var(--ink-soft); }
+  .release-signoff, .release-permalink { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  @media (max-width: 48rem) {
+    .release-details summary { grid-template-columns: 1fr; gap: calc(var(--unit) * 1); }
+  }
+</style>

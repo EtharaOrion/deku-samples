@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="description" content="A production house for picture and its makers.">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="A production house for picture and its makers.">
+<meta property="og:image" content="{{ request.url_root.rstrip('/') }}/share-image.png">
+<meta name="twitter:card" content="summary_large_image">
+{% if route in ('preview','notfound') %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<link rel="preload" href="/static/fonts/display.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="/static/fonts/interface.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 41 18'%3E%3Cellipse cx='20.5' cy='9' rx='19.75' ry='8.25' fill='none' stroke='%23e9eae4' stroke-width='1.5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/app.css?v={{ ASSET_VERSION }}">
+<script defer src="/static/app.js?v={{ ASSET_VERSION }}"></script>
+<script defer src="/static/vendor/alpine.min.js?v=3"></script>
+</head>
+<body data-route="{{ route }}"
+      class="route-{{ route }} ground-{% if route == 'home' %}dark{% else %}light{% endif %}"
+      x-data='site({{ {'route': route, 'house': house} | tojson }})'
+      @keydown.escape.window="contactOpen=false">
+<a class="skip-link" href="#well">Skip to content</a>
+
+<!-- the fixed frame: it never remounts and it never scrolls -->
+<div class="frame" :class="{'is-leaving': leaving}">
+  <a class="wordmark no-cursor" href="/" aria-label="Cirrus, home">cirrus</a>
+
+  <nav class="nav" aria-label="Main">
+    <a class="nav-link nav-link-centre split-label" href="/works" data-nav-link>works</a>
+    <span class="nav-group">
+      <a class="nav-link split-label" href="/talents" data-nav-link>talents</a>
+      <a class="nav-link split-label" href="mailto:{{ house.contact_email }}" data-nav-link
+         aria-label="Contact">{{ house.contact_email }}</a>
+      <a class="nav-link split-label" href="/about" data-nav-link>about</a>
+    </span>
+  </nav>
+
+  <div class="centre-mark" aria-hidden="true">
+    {% include "marks.html" %}
+  </div>
+
+  <a class="corner-credit" href="https://aube.studio" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg viewBox="0 0 60 16" width="60" height="16" fill="currentColor" aria-hidden="true">
+      <path d="M0 16V0h4v12h6v4H0z"/><path d="M13 16V0h10v4h-6v3h5v4h-5v5h-4z"/>
+      <path d="M25 16 30 0l5 16h-4l-1-3h-4l-.6 3H25z"/>
+      <path d="M36 16V0h7a5 5 0 0 1 5 5v6a5 5 0 0 1-5 5h-7zm4-4h3a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3v8z"/>
+    </svg>
+    <span class="credit-arrows" aria-hidden="true">
+      <svg class="arrow arrow-rest" viewBox="0 0 7 7" width="8" height="8" fill="currentColor"><path d="M0 0h7L0 7z"/></svg>
+      <svg class="arrow arrow-arrived" viewBox="0 0 7 7" width="8" height="8" fill="currentColor"><path d="M0 0h7L0 7z"/></svg>
+    </span>
+  </a>
+
+  <div class="cursor-pair" :class="{'is-on': cursorOn && !coarse}" aria-hidden="true">
+    <span class="cursor-square"></span>
+    <span class="cursor-label" x-text="cursorLabel"></span>
+  </div>
+
+  <div class="counter-well" :class="{'is-on': counterOn}" aria-hidden="true">
+    <span class="counter-figure" x-text="counterValue"></span>
+    <span class="counter-mark" x-text="counterMark"></span>
+  </div>
+</div>
+
+<!-- the scrolling well -->
+<main class="well" id="well">
+  {% block content %}{% endblock %}
+  {% include "footer.html" %}
+</main>
+
+<!-- the contact overlay -->
+<div class="contact-overlay" x-show="contactOpen" x-cloak role="dialog" aria-modal="true" aria-label="Contact">
+  <div class="contact-inner">
+    <p class="contact-line">For picture</p>
+    <p class="contact-line">and its makers</p>
+    <a class="contact-address" :href="`mailto:${house.contact_email}`">{{ house.contact_email }}</a>
+    <button class="contact-close" type="button" @click="closeContact()">Close</button>
+  </div>
+</div>
+
+<div class="route-veil" aria-hidden="true" :class="{'is-on': leaving}"></div>
+</body>
+</html>

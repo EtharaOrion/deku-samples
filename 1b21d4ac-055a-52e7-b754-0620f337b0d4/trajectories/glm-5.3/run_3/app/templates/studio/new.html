@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block well %}
+<script>window.__talents = {{ talents|tojson|safe }};</script>
+<div class="studio studio-new" x-data="newForm('{{ kind }}')">
+  <h1 class="page-title">New {{ 'talent' if kind == 'talent' else 'work' }}</h1>
+  <p class="page-note">A record is created unlisted. Publishing is a separate, deliberate step.</p>
+
+  <form class="studio-form" @submit.prevent="submit" novalidate>
+    <label class="field">
+      <span class="label-col">TITLE</span>
+      <input type="text" x-model="title" required>
+    </label>
+    <label class="field">
+      <span class="label-col">SLUG (LEAVE EMPTY TO TAKE THE TITLE)</span>
+      <input type="text" x-model="slug" placeholder="lowercase-kebab">
+    </label>
+    {% if kind == 'talent' %}
+    <fieldset class="field fieldset">
+      <legend class="label-col">DISCIPLINE</legend>
+      <div class="choice-row">
+        {% for d in ['director','photographer','stylist'] %}
+        <label class="choice"><input type="radio" name="discipline" value="{{ d }}" x-model="discipline"> <span>{{ d|upper }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+    <fieldset class="field fieldset">
+      <legend class="label-col">VARIANT</legend>
+      <div class="choice-row">
+        {% for v in ['left','right','centre'] %}
+        <label class="choice"><input type="radio" name="variant" value="{{ v }}" x-model="variant"> <span>{{ v|upper }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endif %}
+    <p class="form-error" x-show="error" x-text="error" role="alert"></p>
+    <div class="form-row">
+      <button class="btn" type="submit" :disabled="busy">CREATE {{ 'TALENT' if kind == 'talent' else 'WORK' }}</button>
+      <a class="btn btn-quiet" href="/studio">BACK TO THE PALETTE</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

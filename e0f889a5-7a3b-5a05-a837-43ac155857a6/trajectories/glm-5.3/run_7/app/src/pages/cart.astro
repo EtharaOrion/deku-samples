@@ -1,0 +1,103 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { ensureCart, cartPayload } from '../lib/store.js';
+import { money } from '../lib/view-helpers.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cart = token ? await ensureCart(token, null) : null;
+const payload = cart ? await cartPayload(cart) : null;
+const estimated = !(payload && payload.shipping_method);
+---
+
+<Shell>
+  <h1 class="page-title">Cart</h1>
+
+  {!payload || payload.lines.length === 0 ? (
+    <div class="empty">
+      <p>Your cart is empty.</p>
+      <p><a href="/shop">Go to the shop</a></p>
+    </div>
+  ) : (
+    <div class="cart-grid">
+      <div class="cart-lines" id="cart-lines">
+        {payload.notices.length > 0 && (
+          <div class="notices" role="status">
+            {payload.notices.map((n) => <p class="notice notice-persistent">{n.message}</p>)}
+          </div>
+        )}
+        {payload.lines.map((l) => (
+          <div class="card cart-line" data-line={l.id} data-sku={l.sku}>
+            <div class="line-thumb" aria-hidden="true"></div>
+            <div class="line-info">
+              <h2 class="line-title">{l.product_title}</h2>
+              <p class="line-sub">{l.option_value}</p>
+              <p class="line-sku mono">{l.sku}</p>
+            </div>
+            <div class="line-price tnum money" data-unit>{money(l.current_price_minor)}</div>
+            <div class="line-qty">
+              <span class="stepper">
+                <button type="button" class="btn btn-quiet" data-qty="-" aria-label={`Decrease quantity of ${l.product_title}`}>−</button>
+                <input data-qty-input type="number" min="0" max={Math.min(10, l.available || 10)} value={l.quantity} inputmode="numeric" aria-label={`Quantity of ${l.product_title}`} />
+                <button type="button" class="btn btn-quiet" data-qty="+" aria-label={`Increase quantity of ${l.product_title}`}>+</button>
+              </span>
+              <button type="button" class="link-remove" data-remove aria-label={`Remove ${l.product_title}`}>Remove</button>
+            </div>
+            <div class="line-total tnum money" data-total>{money(l.line_total_minor)}</div>
+          </div>
+        ))}
+      </div>
+
+      <aside class="cart-summary" aria-label="Summary">
+        <h2>Summary</h2>
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd class="money tnum" data-subtotal>{money(payload.subtotal_minor)}</dd></div>
+          <div><dt>{estimated ? 'Estimated delivery' : 'Delivery'}</dt><dd class="money tnum" data-shipping>{money(payload.shipping_minor)}</dd></div>
+          <div><dt>{estimated ? 'Estimated tax' : 'Tax'}</dt><dd class="money tnum" data-tax>{money(payload.tax_minor)}</dd></div>
+          <div class="grand"><dt>Total</dt><dd class="money tnum" data-total-minor={payload.total_minor}>{money(payload.total_minor)}</dd></div>
+        </dl>
+        <p class="estimate-note">
+          {estimated ? 'Estimated. We will show the exact amount once we know where it is going.' : 'Exact for this address and method.'}
+        </p>
+
+        <label class="protect">
+          <input type="checkbox" data-protection {payload.protection_enabled ? 'checked' : ''} />
+          <span>
+            Protect this shipment against loss, theft and damage for
+            <span class="money tnum">{money(payload.protection_rung ? ({'VELA-PROTECT-1':98,'VELA-PROTECT-2':298,'VELA-PROTECT-3':598,'VELA-PROTECT-4':1198})[payload.protection_rung] || 0 : 0)}</span>
+          </span>
+        </label>
+
+        <a class="btn btn-primary" href="/checkout/where-it-goes">Check out</a>
+      </aside>
+    </div>
+  )}
+</Shell>
+
+<script is:inline src="/scripts/cart.js"></script>
+
+<style is:global>
+  .cart-grid { display: grid; gap: calc(var(--unit) * 6); grid-template-columns: 1fr; }
+  @media (min-width: 64rem) { .cart-grid { grid-template-columns: 1.6fr 1fr; } }
+  .notices { display: grid; gap: var(--unit); margin-bottom: calc(var(--unit) * 4); }
+  .notice-persistent { border-left-color: var(--progress); }
+  .cart-line { display: grid; grid-template-columns: 4rem 1fr auto auto; gap: calc(var(--unit) * 3); align-items: center; padding: calc(var(--unit) * 3); }
+  .line-thumb { width: 4rem; height: 3.2rem; border-radius: 0; background: linear-gradient(150deg, #cfc4b1, #8d7f6c); }
+  .line-title { font-size: 1rem; }
+  .line-sub, .line-sku { color: var(--muted-light); font-size: 13px; }
+  .line-qty { display: flex; flex-direction: column; gap: var(--unit); align-items: flex-end; }
+  .stepper { display: flex; gap: var(--unit); align-items: center; }
+  .stepper input { width: 3.4rem; text-align: center; font-variant-numeric: tabular-nums; padding: calc(var(--unit) * 1.5); }
+  .stepper .btn { padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2.5); }
+  .link-remove { background: none; border: 0; padding: 0; color: var(--muted-light); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; }
+  .line-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .line-price { font-variant-numeric: tabular-nums; color: var(--muted-light); }
+  .cart-summary { border: var(--border) solid var(--line-light); border-radius: var(--radius); padding: calc(var(--unit) * 4); box-shadow: var(--shadow); align-self: start; display: grid; gap: calc(var(--unit) * 3); }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; gap: var(--unit); }
+  .totals dt { color: var(--muted-light); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border) solid var(--line-light); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .estimate-note { color: var(--muted-light); font-size: 13px; }
+  .protect { display: flex; gap: calc(var(--unit) * 2); align-items: flex-start; font-size: 14px; }
+  .is-pending { opacity: 0.55; }
+</style>

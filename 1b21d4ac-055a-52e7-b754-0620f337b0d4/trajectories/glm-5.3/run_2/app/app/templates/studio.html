@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block route %}studio{% endblock %}
+{% block title %}Cirrus - Studio{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block centre_mark %}{% include 'marks/works.svg' %}{% endblock %}
+{% block well %}
+<div class="studio" x-data='studioPalette({{ items|tojson }})' x-init="init()">
+  <div class="studio-top">
+    <p class="studio-kicker">STUDIO</p>
+    <p class="studio-house">{{ house_name|upper }}</p>
+    <button class="studio-btn studio-signout" type="button" @click="signout()">SIGN OUT</button>
+  </div>
+
+  <div class="palette" :class="{open: paletteOpen}" @keydown.escape.window="closePalette()">
+    <button class="palette-trigger" type="button" @click="openPalette()"
+            aria-label="Open the command palette">
+      <span class="palette-trigger-label">COMMAND PALETTE</span>
+      <span class="palette-trigger-hint">TYPE TO SEARCH RECORDS AND ACTIONS</span>
+    </button>
+    <div class="palette-panel" x-show="paletteOpen" x-cloak role="dialog" aria-label="Command palette">
+      <label class="palette-field">
+        <span class="field-label">SEARCH</span>
+        <input class="palette-input" type="text" x-ref="paletteInput" x-model="q"
+               placeholder="SEARCH RECORDS OR ACTIONS" @input="q = $event.target.value"
+               aria-label="Search records and actions" autocomplete="off">
+      </label>
+      <ul class="palette-list" role="listbox">
+        <template x-for="(opt, i) in results" :key="opt.key">
+          <li class="palette-option" role="option" :class="{selected: i === cursor}"
+              @click="choose(opt)" @mousemove="cursor = i">
+            <span class="palette-opt-kind" x-text="opt.kindLabel"></span>
+            <span class="palette-opt-title" x-text="opt.title"></span>
+            <span class="palette-opt-meta" x-text="opt.meta"></span>
+          </li>
+        </template>
+        <li class="palette-empty" x-show="results.length === 0">Nothing in this house matches that.</li>
+      </ul>
+      <p class="palette-foot">ARROWS TO MOVE, ENTER TO OPEN, ESC TO CLOSE</p>
+    </div>
+  </div>
+
+  <section class="studio-grid" aria-label="Records">
+    <h2 class="studio-sub">RECORDS</h2>
+    <ul class="record-grid">
+      <template x-for="it in items" :key="it.id">
+        <li class="record-card">
+          <a class="record-link" :href="'/studio/items/' + it.id">
+            <span class="record-title" x-text="it.title"></span>
+            <span class="record-slug" x-text="it.slug"></span>
+            <span class="record-meta">
+              <span class="record-kind" x-text="it.kind.toUpperCase()"></span>
+              <span class="record-state" :class="it.published ? 'is-live' : 'is-held'"
+                    x-text="it.published ? 'LIVE' : 'HELD'"></span>
+            </span>
+          </a>
+        </li>
+      </template>
+      <li class="record-card record-empty" x-show="items.length === 0">
+        <span>No records yet. Use the palette to add the first one.</span>
+      </li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

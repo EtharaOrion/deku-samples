@@ -1,0 +1,144 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { currentCustomer } from '../../lib/session.js';
+import { listDevicesForCustomer } from '../../lib/devices.js';
+import { listOrdersForCustomer } from '../../lib/orders.js';
+import { getRelease } from '../../lib/firmware.js';
+import { formatShortDate } from '../../lib/session.js';
+import { formatUsd } from '../../lib/money.js';
+
+export const prerender = false;
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) {
+  const next = encodeURIComponent('/account');
+  return Astro.redirect(`/sign-in?next=${next}`);
+}
+
+// Blocks on the overview fail independently: a failed camera list never blanks
+// the orders beside it.
+let devices = [];
+let devicesFailed = false;
+try {
+  devices = (await listDevicesForCustomer(customer.id, { pageSize: 100 })).data;
+} catch (err) {
+  devicesFailed = true;
+}
+
+let orders = [];
+let ordersFailed = false;
+try {
+  orders = (await listOrdersForCustomer(customer.id, { pageSize: 2 })).data;
+} catch (err) {
+  ordersFailed = true;
+}
+
+let latestRelease = null;
+let releaseFailed = false;
+try {
+  latestRelease = await getRelease('2.0.0');
+} catch (err) {
+  releaseFailed = true;
+}
+
+const lastSeenVersion = '1.4.3';
+const appIsNewer = latestRelease && latestRelease.version !== lastSeenVersion;
+---
+
+<Shell title="Your account" description="Cameras, orders, software.">
+  <h1 class="page-title">Your account</h1>
+  <p class="hint">Signed in as <span class="mono">{customer.email}</span>.</p>
+
+  <section class="overview-block" aria-labelledby="cameras-heading">
+    <h2 class="section-title" id="cameras-heading">Cameras</h2>
+    {
+      devicesFailed ? (
+        <div class="notice wrong">
+          <p>Something went wrong at our end. The cameras did not load.</p>
+          <p><a href="/account/cameras">Try the cameras page</a></p>
+        </div>
+      ) : devices.length === 0 ? (
+        <div class="empty">
+          <p>No cameras registered yet.</p>
+          <p><a href="/account/cameras">Register one</a></p>
+        </div>
+      ) : (
+        <ul class="grid two">
+          {devices.map((device) => (
+            <li class="card camera-card">
+              <h3><a href={`/account/cameras/${device.serial}`}>{device.nickname || device.model}</a></h3>
+              <p class="mono">{device.serial}</p>
+              <p class="chips">
+                <span class={`chip ${device.update_available ? 'is-progress' : 'is-finished'}`}>
+                  {device.never_connected
+                    ? 'Not yet connected'
+                    : device.update_available
+                      ? `Update available (${device.latest_firmware})`
+                      : `Up to date (${device.firmware_version})`}
+                </span>
+                <span class="chip is-neutral">
+                  {device.warranty_until
+                    ? new Date(device.warranty_until) > new Date()
+                      ? `Warranty to ${formatShortDate(device.warranty_until)}`
+                      : `Warranty ended ${formatShortDate(device.warranty_until)}`
+                    : 'No warranty date'}
+                </span>
+              </p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+
+  <section class="overview-block" aria-labelledby="orders-heading">
+    <h2 class="section-title" id="orders-heading">Recent orders</h2>
+    {
+      ordersFailed ? (
+        <div class="notice wrong"><p>Something went wrong at our end. The orders did not load.</p></div>
+      ) : orders.length === 0 ? (
+        <div class="empty">
+          <p>No orders yet.</p>
+          <p><a href="/shop">Browse the shop</a></p>
+        </div>
+      ) : (
+        <ul class="order-rows">
+          {orders.map((order) => (
+            <li class="card order-row">
+              <a href={`/account/orders/${order.number}`} class="mono">{order.number}</a>
+              <span>{formatShortDate(order.placed_at)}</span>
+              <span>{order.first_line_title}{order.line_count > 1 ? ` and ${order.line_count - 1} more` : ''}</span>
+              <span class="tnum">{formatUsd(order.total_minor)}</span>
+              <span class="chip is-neutral">{order.state_chip}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <p><a href="/account/orders">All orders</a></p>
+  </section>
+
+  <section class="overview-block" aria-labelledby="software-heading">
+    <h2 class="section-title" id="software-heading">Software</h2>
+    {
+      releaseFailed ? (
+        <div class="notice wrong"><p>Something went wrong at our end. The software did not load.</p></div>
+      ) : (
+        <div class="card">
+          <p>
+            The current application is Arranger <strong>{latestRelease.version}</strong>
+            {appIsNewer ? `, which is newer than the ${lastSeenVersion} this account last saw.` : '.'}
+          </p>
+          <p><a class="btn secondary" href="/downloads">Go to the downloads page</a></p>
+        </div>
+      )
+    }
+  </section>
+</Shell>
+
+<style>
+  .overview-block { margin-bottom: calc(var(--step) * 8); }
+  .order-rows { display: grid; gap: calc(var(--step) * 3); }
+  .order-row { display: grid; gap: calc(var(--step) * 2); grid-template-columns: auto 1fr auto; align-items: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--step); }
+</style>

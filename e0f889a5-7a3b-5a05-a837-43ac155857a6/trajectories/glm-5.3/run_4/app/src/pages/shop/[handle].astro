@@ -1,0 +1,113 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { productByHandle, productBlocks, serializeProduct } from '../../lib/products.js';
+
+const { handle } = Astro.params;
+const raw = await productByHandle(handle, { includeProtection: false });
+if (!raw) return Astro.redirect('/shop');
+const blocks = await productBlocks(raw.id);
+const product = serializeProduct({ ...raw, blocks });
+
+const requestedVariant = Astro.url.searchParams.get('variant');
+const validVariant = product.variants.find((v) => v.sku === requestedVariant);
+const selected =
+  validVariant ||
+  product.variants.find((v) => v.availability.state !== 'sold_out') ||
+  product.variants[0];
+
+// A parameter naming a variant that does not exist renders the default and
+// drops the parameter without comment.
+if (requestedVariant && !validVariant) {
+  const clean = new URL(Astro.url);
+  clean.searchParams.delete('variant');
+  return Astro.redirect(clean.pathname + (clean.search || ''), 302);
+}
+
+const supportNote = (product.blocks || []).find((b) => b.kind === 'support_note');
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00Z');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+---
+
+<Shell title={`${product.title} — Vela`} current="shop">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/shop">Shop</a> / <span>{product.title}</span></nav>
+
+  <div class="product-layout">
+    <div class="product-gallery">
+      <div class="gallery-main card-media" data-kind={product.kind} aria-hidden="true"></div>
+    </div>
+
+    <div class="product-buy">
+      <h1>{product.title}</h1>
+      <p class="card-subtitle">{product.subtitle}</p>
+      <p class="price tnum" data-price>{`$${(selected.price_minor / 100).toFixed(2)}`}</p>
+
+      <div
+        data-buy-root
+        data-product-handle={product.handle}
+        data-variants={JSON.stringify(
+          product.variants.map((v) => ({
+            sku: v.sku,
+            option: v.option_value,
+            price_minor: v.price_minor,
+            available: v.available,
+            state: v.availability.state,
+            label: v.availability.label,
+            disabled: v.availability.disabled,
+          }))
+        )}
+        data-selected={selected.sku}
+      ></div>
+
+      {supportNote && (
+        <p class="support-note">
+          We no longer sell this. We will support it until {formatDate(supportNote.payload.until)}.
+        </p>
+      )}
+    </div>
+  </div>
+
+  <div class="product-blocks">
+    {(product.blocks || []).map((b) => (
+      <section class="block-group" data-kind={b.kind}>
+        {b.kind === 'lede' && <p class="lede">{b.payload.text}</p>}
+        {b.kind === 'spec_group' && (
+          <fragment>
+            <h2>{b.payload.heading}</h2>
+            <table class="specs">
+              <tbody>
+                {b.payload.rows.map(([k, v]) => (
+                  <tr><th scope="row">{k}</th><td class="tnum">{v}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </fragment>
+        )}
+        {b.kind === 'in_the_box' && (
+          <fragment>
+            <h2>In the box</h2>
+            <ul>{b.payload.items.map((i) => <li>{i}</li>)}</ul>
+          </fragment>
+        )}
+        {b.kind === 'compatibility' && (
+          <fragment>
+            <h2>Compatibility</h2>
+            <ul>
+              {b.payload.os && <li>Requires {b.payload.os}.</li>}
+              {b.payload.app && <li>Works with Arranger {b.payload.app} and later.</li>}
+              {!b.payload.os && !b.payload.app && <li>No software required.</li>}
+            </ul>
+          </fragment>
+        )}
+      </section>
+    ))}
+  </div>
+
+  <script>
+    import { mountBuy } from '../../components/buy.js';
+    mountBuy(document.querySelector('[data-buy-root]'));
+  </script>
+</Shell>

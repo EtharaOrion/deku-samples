@@ -1,0 +1,36 @@
+
+---
+import App from '@layouts/App.astro';
+import CartView from '@components/CartView.jsx';
+import { currentCart } from '@lib/session.js';
+
+const { request } = Astro;
+const { state } = await currentCart(request);
+
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+
+function serialize(state) {
+  if (!state) return { lines: [], notices: [], subtotal_minor: 0, tax_minor: null, shipping_minor: 0, total_minor: 0, protection: { enabled: false, rung: null }, shipping_method: null, email: null, estimated: true };
+  return {
+    lines: state.lines.map((l) => ({
+      id: l.id, sku: l.sku, handle: l.handle, title: l.product_title,
+      variant_title: l.variant_title, quantity: l.quantity,
+      unit_price_minor: l.unit_price_minor, current_price_minor: l.current_price_minor,
+      line_total_minor: l.quantity * l.current_price_minor, available: l.available,
+    })),
+    notices: state.notices,
+    subtotal_minor: state.subtotal_minor,
+    protection: state.protection,
+    shipping_minor: state.shipping_minor,
+    shipping_method: state.shipping_method,
+    tax_minor: state.tax_minor,
+    total_minor: state.total_minor,
+    email: state.email,
+    estimated: !state.shipping_address,
+  };
+}
+const initialCart = serialize(state);
+---
+<App title="Cart">
+  <CartView client:load initialCart={initialCart} />
+</App>

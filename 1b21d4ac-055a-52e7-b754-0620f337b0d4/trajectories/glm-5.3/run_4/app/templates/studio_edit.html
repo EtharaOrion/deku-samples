@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-narrow studio-edit">
+  <h1 class="form-heading">{{ item.title }}</h1>
+  <p class="form-note">
+    {{ item.kind }} · {{ item.slug }} ·
+    <span class="record-live {% if item.published %}is-live{% endif %}">
+      {%- if item.published %}live{% if ordinal %} at {{ ordinal }}{% endif %}{% else %}unlisted{% endif -%}
+    </span>
+  </p>
+
+  <form class="studio-form" x-data='editForm({{ {'item': item, 'ordinal': ordinal} | tojson }})'
+        @submit.prevent="save()">
+    <label class="field">
+      <span class="field-label">Title</span>
+      <input class="field-input" type="text" name="title" x-model="title">
+    </label>
+    <label class="field">
+      <span class="field-label">Slug</span>
+      <input class="field-input" type="text" name="slug" x-model="slug">
+      <span class="field-hint">Changing the slug leaves the old address redirecting forever.</span>
+    </label>
+    {% if item.kind == 'talent' %}
+    <fieldset class="field fieldset">
+      <legend class="field-label">Discipline</legend>
+      <div class="field-choice">
+        <label class="choice"><input type="radio" name="discipline" value="director" x-model="discipline"> director</label>
+        <label class="choice"><input type="radio" name="discipline" value="photographer" x-model="discipline"> photographer</label>
+        <label class="choice"><input type="radio" name="discipline" value="stylist" x-model="discipline"> stylist</label>
+      </div>
+    </fieldset>
+    {% else %}
+    <fieldset class="field fieldset">
+      <legend class="field-label">Variant</legend>
+      <div class="field-choice">
+        <label class="choice"><input type="radio" name="variant" value="left" x-model="variant"> left</label>
+        <label class="choice"><input type="radio" name="variant" value="right" x-model="variant"> right</label>
+        <label class="choice"><input type="radio" name="variant" value="centre" x-model="variant"> centre</label>
+      </div>
+    </fieldset>
+    {% endif %}
+    <p class="form-error" x-text="error" x-show="error" x-cloak></p>
+    <p class="form-ok" x-text="ok" x-show="ok" x-cloak></p>
+    <div class="form-row">
+      <button class="form-button" type="submit" :disabled="busy">Save</button>
+    </div>
+  </form>
+
+  <div class="studio-block mediaForm" x-data="mediaForm({ itemId: {{ item.id }} })">
+    <h2 class="block-heading">Media</h2>
+    <form class="studio-form" @submit.prevent="add()">
+      <div class="form-row">
+        <label class="field field-inline">
+          <span class="field-label">Role</span>
+          <select class="field-input" x-model="role">
+            <option value="poster">poster</option>
+            <option value="reel">reel</option>
+            <option value="gallery">gallery</option>
+          </select>
+        </label>
+        <label class="field field-inline">
+          <span class="field-label">Seed</span>
+          <input class="field-input" type="text" x-model="seed">
+        </label>
+        <label class="field field-inline field-number">
+          <span class="field-label">Width</span>
+          <input class="field-input" type="number" x-model.number="width" min="1" max="4096">
+        </label>
+        <label class="field field-inline field-number">
+          <span class="field-label">Height</span>
+          <input class="field-input" type="number" x-model.number="height" min="1" max="4096">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">Alt</span>
+        <input class="field-input" type="text" x-model="alt" required>
+      </label>
+      <p class="form-error" x-text="error" x-show="error" x-cloak></p>
+      <button class="form-button" type="submit" :disabled="busy">Attach</button>
+    </form>
+    <ul class="media-list">
+      <template x-for="m in media" :key="m.id">
+        <li class="media-row">
+          <span class="media-role" x-text="m.role"></span>
+          <span class="media-dims" x-text="`${m.width} × ${m.height}`"></span>
+          <span class="media-alt" x-text="m.alt"></span>
+          <a class="record-link" :href="`/api/media/${m.id}`">See</a>
+        </li>
+      </template>
+      <li class="media-empty" x-show="!media.length">No media attached yet.</li>
+    </ul>
+  </div>
+
+  {% if item.kind == 'work' %}
+  <div class="studio-block creditsForm" x-data="creditsForm({ itemId: {{ item.id }}, talents: {{ talents | default([]) | tojson }} })">
+    <h2 class="block-heading">Credits</h2>
+    <form class="studio-form" @submit.prevent="add()">
+      <div class="form-row">
+        <label class="field field-inline">
+          <span class="field-label">Role</span>
+          <input class="field-input" type="text" x-model="role" placeholder="Director">
+        </label>
+        <label class="field field-inline">
+          <span class="field-label">Name</span>
+          <input class="field-input" type="text" x-model="name" placeholder="Rives">
+        </label>
+        <label class="field field-inline">
+          <span class="field-label">Talent</span>
+          <select class="field-input" x-model="talent">
+            <option value="">none</option>
+            <template x-for="t in talents" :key="t.id">
+              <option :value="String(t.id)" x-text="t.title"></option>
+            </template>
+          </select>
+        </label>
+      </div>
+      <p class="form-error" x-text="error" x-show="error" x-cloak></p>
+      <button class="form-button" type="submit" :disabled="busy">Add credit</button>
+    </form>
+    <ul class="media-list">
+      <template x-for="c in credits" :key="c.id">
+        <li class="media-row">
+          <span class="media-role" x-text="c.role"></span>
+          <span class="media-alt" x-text="c.name"></span>
+        </li>
+      </template>
+      <li class="media-empty" x-show="!credits.length">No credits yet.</li>
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="studio-block studio-publish publishForm" x-data="publishForm({ itemId: {{ item.id }}, published: {{ 'true' if item.published else 'false' }} })">
+    <h2 class="block-heading">Publication</h2>
+    <p class="form-error" x-text="error" x-show="error" x-cloak></p>
+    <div class="form-row">
+      <button class="form-button form-button-quiet" type="button" @click="mint()">Mint a preview token</button>
+      <button class="form-button" type="button" @click="setPublished(true)" x-show="!published">Publish</button>
+      <button class="form-button" type="button" @click="setPublished(false)" x-show="published" x-cloak>Unlist</button>
+      <a class="form-button form-button-quiet" :href="previewHref" x-show="previewHref" x-cloak
+         :aria-label="`Open the preview of {{ item.title }}`">Open the preview</a>
+    </div>
+    <p class="field-hint" x-show="previewHint" x-text="previewHint" x-cloak></p>
+  </div>
+
+  <p class="form-aside"><a href="/studio">Back to the palette</a></p>
+</section>
+{% endblock %}

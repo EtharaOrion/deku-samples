@@ -1,0 +1,117 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCustomer, cartToken, loadCart, cartView, db } from '../../lib/store.mjs';
+import { usd, SHIPPING_METHODS } from '../../../server/domain.mjs';
+
+const customer = await getCustomer(Astro.request);
+const d = await db();
+const cart = await loadCart(d, cartToken(Astro.request));
+const view = await cartView(d, cart);
+const count = view.lines.reduce((s, l) => s + l.quantity, 0);
+if (!view.lines.length) return Astro.redirect('/cart');
+if (!view.shipping_address || !view.email) return Astro.redirect('/checkout/where-it-goes');
+---
+<Shell title="How it gets there — Vela" current="checkout" customer={customer?.customer} cartCount={count}>
+  <nav class="steps" aria-label="Checkout steps">
+    <a class="step is-done" href="/checkout/where-it-goes">1 Where it goes</a>
+    <span class="step is-current">2 How it gets there</span>
+    <span class="step">3 Payment</span>
+  </nav>
+  <h1>How it gets there</h1>
+
+  <div class="co-grid">
+    <form class="card form" data-delivery-form>
+      <fieldset class="field">
+        <legend>Delivery method</legend>
+        <p class="hint">Nothing is preselected. Choose one.</p>
+        <div class="radios" role="radiogroup" aria-label="Delivery method">
+          {SHIPPING_METHODS.map((m) => (
+            <label class="radio mech">
+              <input type="radio" name="method" value={m.code} checked={view.shipping_method === m.code} />
+              <span class="m-name">{m.code}</span>
+              <span class="m-window">{m.window}</span>
+              <span class="m-price money tnum">{m.minor === 0 ? 'Free' : usd(m.minor)}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p class="form-error" role="alert" data-form-error></p>
+      <button class="btn" type="submit">Continue to payment</button>
+      <a class="btn btn-secondary" href="/checkout/where-it-goes">Back</a>
+    </form>
+
+    <aside class="summary card" aria-label="Order summary">
+      <h2>Summary</h2>
+      <ul class="sum-lines">
+        {view.lines.map((l) => (
+          <li><span>{l.product_title} <span class="muted">× {l.quantity}</span></span><span class="money tnum">{usd(l.unit_price_minor * l.quantity)}</span></li>
+        ))}
+      </ul>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{usd(view.subtotal_minor)}</dd></div>
+        <div><dt>Estimated tax</dt><dd class="money tnum">{usd(view.tax_minor)}</dd></div>
+        {view.protection_enabled && <div><dt>Shipment protection</dt><dd class="money tnum">{usd(view.protection_minor)}</dd></div>}
+        <div class="grand"><dt>Estimated total</dt><dd class="money tnum">{usd(view.total_minor)}</dd></div>
+      </dl>
+      <p class="est-note">Estimated. The exact total is shown on the next step.</p>
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-delivery-form]');
+  const err = document.querySelector('[data-form-error]');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (err) err.textContent = '';
+      const chosen = form.querySelector('input[name="method"]:checked');
+      if (!chosen) { if (err) err.textContent = 'Choose a delivery method.'; return; }
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving'; }
+      const res = await fetch('/api/cart/delivery', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ shipping_method: chosen.value }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (!res || !res.ok) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Continue to payment'; }
+        if (err) err.textContent = body?.error?.message || 'That did not work.';
+        return;
+      }
+      window.location.href = '/checkout/payment';
+    });
+  }
+</script>
+
+<style>
+  .steps { display: flex; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 4); font-size: 14px; color: var(--ground-light-fg-muted); }
+  .step.is-current { color: var(--ground-light-fg); font-weight: 700; }
+  .step.is-done a { color: inherit; }
+  h1 { font-size: 26px; margin-bottom: calc(var(--unit) * 6); }
+  .co-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: calc(var(--unit) * 6); align-items: start; }
+  @media (max-width: 64rem) { .co-grid { grid-template-columns: 1fr; } }
+  .form { padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 4); }
+  fieldset.field { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+  legend { font-weight: 700; font-size: 14px; }
+  .radios { display: grid; gap: calc(var(--unit) * 2); }
+  .radio { display: grid; grid-template-columns: auto 1fr auto auto; gap: calc(var(--unit) * 3); align-items: center; border: var(--border) solid var(--ground-light-line); border-radius: var(--radius); padding: calc(var(--unit) * 3); cursor: pointer; }
+  .radio:has(input:checked) { border-color: var(--ground-light-fg); }
+  .radio input { accent-color: var(--ground-light-fg); }
+  .m-name { font-weight: 700; }
+  .m-window { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .m-price { font-weight: 700; }
+  .form-error { color: var(--bad); font-size: 14px; min-height: 20px; }
+  .summary { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); }
+  .summary h2 { font-size: 18px; }
+  .sum-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+  .sum-lines li { display: flex; justify-content: space-between; gap: 8px; }
+  .muted { color: var(--ground-light-fg-muted); }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--ground-light-fg-muted); }
+  .totals dd { margin: 0; }
+  .totals .grand { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .est-note { font-size: 13px; color: var(--ground-light-fg-muted); }
+</style>

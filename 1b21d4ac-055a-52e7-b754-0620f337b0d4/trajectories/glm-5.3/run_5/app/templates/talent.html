@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ talent.title }} - Cirrus{% endblock %}
+{% block route %}talent{% endblock %}
+{% block well %}
+<article class="talent">
+  <header class="talent__head">
+    <h1 class="talent__name">{{ talent.title }}</h1>
+    <p class="talent__discipline">{{ talent.discipline|upper }}</p>
+  </header>
+
+  {% if talent.poster %}
+  <div class="talent__portrait tile" style="--tw:{{ talent.poster.width }}px;--th:{{ talent.poster.height }}px">
+    <span class="tile__holder" style="padding-top:{{ (talent.poster.height / talent.poster.width * 100)|round(3) }}%"></span>
+    <span class="tile__media" data-src="{{ talent.poster.url }}" data-seed="{{ talent.poster.seed }}"
+          role="img" aria-label="{{ talent.poster.alt }}"></span>
+  </div>
+  {% endif %}
+
+  {% if talent.selected_work %}
+  <section class="talent__work" aria-label="Selected work">
+    <h2 class="talent__worklabel">SELECTED WORK</h2>
+    <div class="talent__entries">
+      {% for work in talent.selected_work %}
+      <article class="entryrow entryrow--{{ work.variant }}">
+        <a class="tile tile--{{ work.variant }}" href="/works/{{ work.slug }}" data-cursor="{{ work.title }}"
+           style="--tw:{{ work.poster.width if work.poster else 598 }}px;--th:{{ work.poster.height if work.poster else 320 }}px">
+          <span class="tile__holder" style="padding-top:{{ ((work.poster.height / work.poster.width * 100) if work.poster else 53.5)|round(3) }}%"></span>
+          <span class="tile__media" data-src="{{ work.poster.url }}" data-seed="{{ work.poster.seed }}"
+                role="img" aria-label="{{ work.poster.alt if work.poster else work.title }}"></span>
+        </a>
+        <div class="caption caption--{{ work.variant }}">
+          <span class="caption__dot" aria-hidden="true"></span>
+          <span class="caption__ordinal">{{ '%03d'|format(work.ordinal) }}</span>
+          <a class="caption__title" href="/works/{{ work.slug }}" data-cursor="{{ work.title }}">{{ work.title }}</a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <p class="empty">No published work is credited to this name yet.</p>
+  {% endif %}
+
+  <div class="talent__contact">
+    <p class="talent__contactlabel">WORK WITH US</p>
+    <a class="talent__mail" href="mailto:{{ contact }}" aria-label="{{ contact }}">{{ contact }}</a>
+  </div>
+</article>
+{% endblock %}

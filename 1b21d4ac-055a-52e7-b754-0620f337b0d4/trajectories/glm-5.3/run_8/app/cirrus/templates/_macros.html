@@ -1,0 +1,74 @@
+{#- The persistent chrome: wordmark, asymmetric nav, centre mark slot, cursor
+    pair, corner credit, counter well, contact overlay. Never a child of the
+    route outlet. -#}
+{% macro split_label(text, cls='') -%}
+{#- the split must be invisible to assistive technology and to selection:
+    the whole word is the accessible name of the element that carries it. -#}
+<span class="split {{ cls }}" data-split aria-hidden="true">
+  {%- for ch in text -%}<span>{{ ch }}</span>{%- endfor -%}
+</span>
+{%- endmacro %}
+
+{% macro mark_entry() -%}
+<svg viewBox="0 0 41 18" width="41" height="18" focusable="false" aria-hidden="true">
+  <ellipse class="strokeonly" cx="20.5" cy="9" rx="19.75" ry="8.25" stroke-width="1.5" fill="none"/>
+</svg>
+{%- endmacro %}
+
+{% macro mark_works() -%}
+<svg viewBox="0 0 14 18" width="14" height="18" focusable="false" aria-hidden="true">
+  <rect x="0" y="0" width="4" height="18"/>
+  <rect x="5" y="0" width="4" height="11"/>
+  <rect x="10" y="0" width="4" height="18"/>
+</svg>
+{%- endmacro %}
+
+{% macro mark_roster(letter='C') -%}
+<svg viewBox="0 0 18 18" width="18" height="18" focusable="false" aria-hidden="true">
+  <path fill-rule="evenodd"
+        d="M9 0a9 9 0 1 0 0 18A9 9 0 0 0 9 0Zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 9 2Zm0 3.2 4 3.8-4 3.8L5 9l4-3.8Z"/>
+</svg>
+{%- endmacro %}
+
+{% macro mark_about() -%}
+<svg viewBox="0 0 27 18" width="27" height="18" focusable="false" aria-hidden="true">
+  <circle cx="9" cy="9" r="7.4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="18" cy="9" r="7.4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="9" cy="9" r="2.4"/>
+  <circle cx="18" cy="9" r="2.4"/>
+</svg>
+{%- endmacro %}
+
+{% macro centre_mark(route) -%}
+{%- if route == 'works' or route == 'work' -%}{{ mark_works() }}
+{%- elif route == 'talents' or route == 'talent' -%}{{ mark_roster() }}
+{%- elif route == 'about' -%}{{ mark_about() }}
+{%- else -%}{{ mark_entry() }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro tile(work, variant=None, cls='tile--index', link=True) -%}
+{%- set v = variant or work.variant or 'left' -%}
+{%- if link -%}
+<a class="tile {{ cls }} tile--{{ v }} variant-{{ v }}" href="/works/{{ work.slug }}"
+   data-cursor="{{ work.title }}" data-reveal aria-label="{{ work.title }}, film {{ work.ordinal }}">
+{%- else -%}
+<div class="tile {{ cls }} tile--{{ v }} variant-{{ v }}" data-cursor="{{ work.title }}" data-reveal>
+{%- endif -%}
+  <span class="tile-inner">
+    {%- if work.poster -%}
+    <img class="tile-img" src="{{ work.poster.url }}" alt="{{ work.poster.alt }}"
+         width="{{ work.poster.width }}" height="{{ work.poster.height }}"
+         {% if work.poster.seed %}data-seed="{{ work.poster.seed }}"{% endif %} decoding="async">
+    {%- else -%}
+    <span class="tile-img tile-ph"></span>
+    {%- endif -%}
+  </span>
+  <span class="caption">
+    <span class="caption-sq" aria-hidden="true"></span>
+    <span class="caption-ordinal">{{ work.ordinal }}</span>
+    <span class="caption-title">{{ work.title }}</span>
+  </span>
+</a>
+{%- if not link -%}</div>{%- endif -%}
+{%- endmacro %}

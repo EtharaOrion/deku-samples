@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block route %}work-detail{% endblock %}
+{% block title %}Cirrus - {{ work.title }}{% endblock %}
+{% block centre_mark %}{% include 'marks/works.svg' %}{% endblock %}
+{% block well %}
+<article class="work-detail" x-data="workDetail">
+  <header class="work-detail-head">
+    <h1 class="work-detail-title">{{ work.title }}</h1>
+    <p class="work-detail-ordinal">{{ work.ordinal }}</p>
+  </header>
+  {% if work.credits %}
+  <section class="work-credits" aria-label="Credits">
+    {% for c in work.credits %}
+    <p class="credit-line">
+      <span class="credit-role">{{ c.role }}</span>
+      {% if c.talent_slug %}<a class="credit-name" href="/talents/{{ c.talent_slug }}">{{ c.name }}</a>
+      {% else %}<span class="credit-name">{{ c.name }}</span>{% endif %}
+    </p>
+    {% endfor %}
+  </section>
+  {% endif %}
+  {% if work.reel %}
+  <figure class="work-reel" data-reel="{{ work.reel.id }}" data-poster="{{ work.poster.id if work.poster }}"
+          data-w="{{ work.reel.width }}" data-h="{{ work.reel.height }}">
+    <canvas class="reel-canvas" width="{{ work.reel.width }}" height="{{ work.reel.height }}"
+            aria-label="{{ work.reel.alt|e }}" role="img"></canvas>
+  </figure>
+  {% endif %}
+  {% if work.gallery %}
+  <section class="work-gallery">
+    {% for m in work.gallery %}
+    <figure class="gallery-fig variant-{{ work.variant if loop.index0 == 0 else gallery_variants[loop.index0 % 3] }}">
+      <span class="media-tile variant-{{ work.variant if loop.index0 == 0 else gallery_variants[loop.index0 % 3] }}"
+            data-reveal style="--ar:{{ m.width }} / {{ m.height }}">
+        <img class="still" src="/api/media/{{ m.id }}" alt="{{ m.alt|e }}"
+             width="{{ m.width }}" height="{{ m.height }}" loading="lazy" decoding="async">
+      </span>
+    </figure>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <nav class="work-neighbours" aria-label="Neighbouring works">
+    {% if work.prev %}
+    <a class="work-neighbour work-neighbour-prev" href="/works/{{ work.prev.slug }}">
+      <span class="neighbour-label">PREVIOUS</span>
+      <span class="neighbour-title">{{ work.prev.title }}</span>
+    </a>
+    {% endif %}
+    {% if work.next %}
+    <a class="work-neighbour work-neighbour-next" href="/works/{{ work.next.slug }}">
+      <span class="neighbour-label">NEXT</span>
+      <span class="neighbour-title">{{ work.next.title }}</span>
+    </a>
+    {% endif %}
+  </nav>
+</article>
+{% endblock %}

@@ -1,0 +1,67 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getOrCreateCart, serializeCart } from '../../lib/cart.js';
+import { money } from '../../lib/format.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cartRow = token ? await getOrCreateCart(token) : null;
+const cart = cartRow ? await serializeCart(cartRow) : null;
+const address = cart?.shipping_address || {};
+---
+
+<Shell title="Where it goes — Vela" current="checkout">
+  <h1>Checkout</h1>
+  <ol class="checkout-steps">
+    <li aria-current="step">Where it goes</li>
+    <li><a href="/checkout/how-it-gets-there">How it gets there</a></li>
+    <li>Payment</li>
+  </ol>
+
+  <div class="checkout-layout">
+    <form class="checkout-form" data-step-form data-next="/checkout/how-it-gets-there">
+      <h2>Where it goes</h2>
+      <label>Email<input type="email" name="email" required value={cart?.email || ''} autocomplete="email" /></label>
+      <label class="checkbox"><input type="checkbox" name="marketing" /> Send me news about software updates</label>
+      <label>Name<input type="text" name="name" required value={address.name || ''} autocomplete="name" /></label>
+      <label>Address<input type="text" name="line1" required value={address.line1 || ''} autocomplete="address-line1" /></label>
+      <label>Address 2<input type="text" name="line2" value={address.line2 || ''} autocomplete="address-line2" /></label>
+      <label>City<input type="text" name="city" required value={address.city || ''} autocomplete="address-level2" /></label>
+      <label>Region<input type="text" name="region" value={address.region || ''} autocomplete="address-level1" /></label>
+      <label>Postal code<input type="text" name="postal_code" required value={address.postal_code || ''} autocomplete="postal-code" /></label>
+      <label>Country
+        <select name="country" required autocomplete="country">
+          <option value="US" selected={(address.country || 'US') === 'US'}>United States</option>
+          <option value="GB" selected={address.country === 'GB'}>United Kingdom</option>
+        </select>
+      </label>
+      <label>Phone (optional)<input type="tel" name="phone" value={address.phone || ''} autocomplete="tel" /></label>
+      <p class="feedback" role="alert" data-step-error></p>
+      <button class="btn btn-primary" type="submit">Continue</button>
+    </form>
+
+    <aside class="checkout-summary" aria-label="Order summary">
+      <h2>Summary</h2>
+      {cart && cart.lines.length > 0 ? (
+        <fragment>
+          <ul class="summary-lines">
+            {cart.lines.map((l) => (
+              <li><span>{l.product_title} ({l.option_value}) × {l.quantity}</span><span class="tnum">{money(l.line_total_minor)}</span></li>
+            ))}
+          </ul>
+          <dl class="summary-rows">
+            <div><dt>Subtotal</dt><dd class="tnum">{money(cart.subtotal_minor)}</dd></div>
+            <div><dt>Estimated tax</dt><dd class="tnum">{money(cart.tax_minor)}</dd></div>
+            <div class="summary-total"><dt>Total</dt><dd class="tnum">{money(cart.total_minor)}</dd></div>
+          </dl>
+        </fragment>
+      ) : (
+        <p>Your cart is empty.</p>
+      )}
+    </aside>
+  </div>
+
+  <script>
+    import { mountStepForm } from '../../components/checkout.js';
+    mountStepForm(document.querySelector('[data-step-form]'));
+  </script>
+</Shell>

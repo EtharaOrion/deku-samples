@@ -1,0 +1,32 @@
+---
+import Shell from '../layouts/Shell.astro';
+import Card from '../components/Card.astro';
+import { listProducts, serializeProduct } from '../lib/products.js';
+
+const products = (await listProducts({ includeProtection: false })).map((p) => serializeProduct(p));
+const cameras = products.filter((p) => p.kind === 'camera');
+const accessories = products.filter((p) => p.kind !== 'camera');
+---
+
+<Shell title="Shop — Vela" current="shop">
+  <h1>Shop</h1>
+  {products.length === 0 && (
+    <p class="empty">Nothing is on the table right now. <a href="/downloads">See the software instead</a>.</p>
+  )}
+
+  <section aria-labelledby="cameras-h">
+    <h2 id="cameras-h" class="sr-only">Cameras</h2>
+    <div class="grid grid-cards">
+      {cameras.map((p) => <Card product={p} />)}
+    </div>
+  </section>
+
+  {accessories.length > 0 && (
+    <section aria-labelledby="acc-h">
+      <h2 id="acc-h" class="sr-only">Accessories and spares</h2>
+      <div class="grid grid-rows">
+        {accessories.map((p) => <Card product={p} dense />)}
+      </div>
+    </section>
+  )}
+</Shell>

@@ -1,0 +1,19 @@
+
+---
+import App from '@layouts/App.astro';
+import CheckoutHow from '@components/CheckoutHow.jsx';
+import { currentCart } from '@lib/session.js';
+const { request } = Astro;
+const { state } = await currentCart(request);
+---
+<App title="How it gets there">
+  <CheckoutHow client:load
+    subtotalMinor={state?.subtotal_minor ?? 0}
+    selectedMethod={state?.shipping_method || ''}
+    delivery={await (await import('@server/db/index.js')).q(
+      `SELECT dm.title, dm.price_minor, dm.min_days, dm.max_days FROM delivery_method dm
+       JOIN delivery_zone z ON z.id = dm.zone_id WHERE z.country='US' ORDER BY dm.price_minor`)}
+    addressKnown={!!state?.shipping_address}
+    email={state?.email || ''}
+  />
+</App>

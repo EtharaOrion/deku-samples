@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if kind == 'talent' %}New talent{% else %}New work{% endif %} - Cirrus Studio</title>
+<meta name="description" content="A production house for picture and its makers.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preload" href="/static/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/site.css">
+<script defer src="/static/site.js"></script>
+<script defer src="/static/alpine.min.js"></script>
+</head>
+<body class="is-studio" data-route="studio" x-data="studioNew('{{ kind }}')" x-init="init()">
+<main class="studio studio--form" id="well">
+  <a class="skip" href="#well">Skip to content</a>
+  <div class="frame frame--studio">
+    <a class="wordmark" href="/" aria-label="Cirrus, home">Cirrus</a>
+    <nav class="topnav" aria-label="Main">
+      <a class="topnav__works" href="/works">WORKS</a>
+      <span class="topnav__group">
+        <a href="/talents">TALENTS</a>
+        <a href="mailto:{{ contact }}">CONTACT</a>
+        <a href="/about">ABOUT</a>
+      </span>
+    </nav>
+  </div>
+
+  <div class="studio__bar">
+    <a class="studio__back" href="/studio">BACK TO THE PALETTE</a>
+    <p class="studio__house">{{ account.house_slug|upper }}</p>
+    <button class="btn btn--quiet" type="button" @click="signout">SIGN OUT</button>
+  </div>
+
+  <section class="studioform">
+    <h1 class="studioform__title">NEW {{ 'TALENT' if kind == 'talent' else 'WORK' }}</h1>
+    <p class="studioform__note">The record is created unlisted. Nothing is public until you publish it.</p>
+    <form class="form" @submit.prevent="submit">
+      <label class="field">
+        <span class="field__label">TITLE</span>
+        <input class="field__input" type="text" x-model="title" required>
+      </label>
+      <label class="field">
+        <span class="field__label">SLUG (OPTIONAL, MADE FROM THE TITLE IF LEFT EMPTY)</span>
+        <input class="field__input" type="text" x-model="slug">
+      </label>
+      {% if kind == 'talent' %}
+      <fieldset class="field field--set">
+        <legend class="field__label">DISCIPLINE</legend>
+        <div class="field__row">
+          {% for d in ['director','photographer','stylist'] %}
+          <label class="radio"><input type="radio" name="discipline" value="{{ d }}"
+                 x-model="discipline"><span>{{ d|upper }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% else %}
+      <fieldset class="field field--set">
+        <legend class="field__label">VARIANT</legend>
+        <div class="field__row">
+          {% for v in ['left','right','centre'] %}
+          <label class="radio"><input type="radio" name="variant" value="{{ v }}"
+                 x-model="variant"><span>{{ v|upper }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+      <p class="form__error" x-show="error" x-text="error" role="alert"></p>
+      <button class="btn" type="submit" :disabled="busy">
+        <span x-text="busy ? 'SAVING…' : 'CREATE, UNLISTED'">CREATE, UNLISTED</span>
+      </button>
+    </form>
+  </section>
+</main>
+</body>
+</html>

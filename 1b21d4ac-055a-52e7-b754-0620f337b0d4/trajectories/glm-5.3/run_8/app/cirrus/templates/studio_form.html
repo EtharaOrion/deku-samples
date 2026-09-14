@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="route--studio" data-item-form data-item-id="{{ item.id if item else '' }}"
+         data-kind="{{ kind }}">
+  <div class="studio-head">
+    <h1>{{ item.title if item else ('New talent' if kind == 'talent' else 'New work') }}</h1>
+    <a class="auth-note" href="/studio">Back to the palette</a>
+  </div>
+
+  <form class="palette" data-form novalidate>
+    {% if not item %}
+    <input type="hidden" name="kind" value="{{ kind }}">
+    {% endif %}
+    <div class="field">
+      <label for="title">Title</label>
+      <input id="title" name="title" type="text" required value="{{ item.title if item else '' }}">
+    </div>
+    {% if kind == 'talent' %}
+    <div class="field">
+      <label for="discipline">Discipline</label>
+      <select id="discipline" name="discipline" required>
+        {% for d in ['director', 'photographer', 'stylist'] %}
+        <option value="{{ d }}" {% if item and item.discipline == d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}
+    <div class="field">
+      <label for="variant">Variant</label>
+      <select id="variant" name="variant" required>
+        {% for v in ['left', 'right', 'centre'] %}
+        <option value="{{ v }}" {% if item and item.variant == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <p class="form-error" data-error hidden></p>
+    <button class="btn" type="submit">{{ 'Save' if item else 'Create' }}</button>
+    {% if item %}
+    <span class="auth-note">{{ 'Live' if item.published else 'Unlisted' }}{% if item.ordinal %} - {{ item.ordinal }}{% endif %}</span>
+    {% endif %}
+  </form>
+
+  {% if item %}
+  <div class="palette" style="margin-top:48px" data-slug-box>
+    <h2 class="footer-label">Change the address</h2>
+    <div class="field">
+      <label for="slug">Slug</label>
+      <input id="slug" name="slug" type="text" value="{{ item.slug }}">
+    </div>
+    <button class="btn btn--ghost" type="button" data-slug-save>Change slug</button>
+    <p class="auth-note">The old address keeps redirecting forever.</p>
+  </div>
+
+  <div class="palette" style="margin-top:48px" data-media-box>
+    <h2 class="footer-label">Media</h2>
+    <ul class="media-list" data-media-list>
+      {% for m in item.media %}
+      <li class="media-row">
+        <span>{{ m.role }}</span><span>{{ m.width }}x{{ m.height }}</span>
+        <span style="flex:1">{{ m.alt }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <form data-media-form novalidate>
+      <div class="field">
+        <label for="m-role">Role</label>
+        <select id="m-role" name="role">
+          <option value="poster">poster</option>
+          <option value="reel">reel</option>
+          <option value="gallery">gallery</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="m-seed">Seed</label>
+        <input id="m-seed" name="seed" type="text" placeholder="left empty, one is minted">
+      </div>
+      <div class="field">
+        <label for="m-size">Intrinsic size</label>
+        <select id="m-size" name="size">
+          <option value="598x320">598 x 320 (left)</option>
+          <option value="300x300">300 x 300 (right)</option>
+          <option value="1006x617">1006 x 617 (centre)</option>
+          <option value="246x311">246 x 311 (portrait)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="m-alt">Written alternative</label>
+        <input id="m-alt" name="alt" type="text" placeholder="what the still shows">
+      </div>
+      <p class="form-error" data-media-error hidden></p>
+      <button class="btn" type="submit">Attach media</button>
+    </form>
+  </div>
+
+  {% if kind == 'work' %}
+  <div class="palette" style="margin-top:48px" data-credits-box>
+    <h2 class="footer-label">Credits</h2>
+    <ul class="credit-list" data-credit-list>
+      {% for c in item.credits %}
+      <li><span>{{ c.role }}</span><span style="flex:1">{{ c.name }}</span></li>
+      {% endfor %}
+    </ul>
+    <form data-credit-form novalidate>
+      <div class="field">
+        <label for="c-role">Role</label>
+        <input id="c-role" name="role" type="text" placeholder="Director">
+      </div>
+      <div class="field">
+        <label for="c-name">Name</label>
+        <input id="c-name" name="name" type="text" placeholder="Rives">
+      </div>
+      <div class="field">
+        <label for="c-talent">Represented talent (optional)</label>
+        <select id="c-talent" name="talent_id">
+          <option value="">none</option>
+          {% for t in talents %}
+          <option value="{{ t.id }}">{{ t.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="form-error" data-credit-error hidden></p>
+      <button class="btn" type="submit">Add credit</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="palette" style="margin-top:48px" data-publish-box>
+    <h2 class="footer-label">Publishing</h2>
+    {% if item.published %}
+    <button class="btn btn--ghost" type="button" data-unpublish>Unlist</button>
+    {% else %}
+    <button class="btn" type="button" data-publish>Publish</button>
+    {% endif %}
+    <button class="btn btn--ghost" type="button" data-preview-token>Mint a preview token</button>
+    <p class="auth-note" data-token-out></p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

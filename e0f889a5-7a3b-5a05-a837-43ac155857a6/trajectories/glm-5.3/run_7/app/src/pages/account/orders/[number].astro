@@ -1,0 +1,104 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { q } from '../../../lib/db.js';
+import { guard } from '../../../lib/guard.js';
+import { orderByNumber, orderLines, orderSerials } from '../../../lib/orders.js';
+import { liveOwnerOf } from '../../../lib/store.js';
+import { money, dateLong } from '../../../lib/view-helpers.js';
+
+const { customer, expired, next } = await guard(Astro.request);
+if (!customer) return Astro.redirect('/sign-in?next=' + encodeURIComponent(next) + (expired ? '&expired=1' : ''));
+
+const { number } = Astro.params;
+const order = await orderByNumber(number);
+// Another customer's order reads as not found, never forbidden.
+if (!order || !order.customer_id || order.customer_id !== customer.id) {
+  return Astro.render404();
+}
+const lines = await orderLines(order.id);
+const serials = await orderSerials(order.id);
+const a = order.shipping_address || {};
+
+const serialStates = [];
+for (const s of serials) {
+  const owner = await liveOwnerOf((await q('SELECT id FROM device WHERE serial = $1', [s.serial]))[0].id);
+  serialStates.push({ ...s, mine: owner && owner.customer_id === customer.id });
+}
+---
+
+<Shell>
+  <nav class="crumbs"><a href="/account/orders">Orders</a> / <span class="mono">{order.number}</span></nav>
+  <h1 class="page-title">Order <span class="mono">{order.number}</span></h1>
+  <p class="muted">Placed {dateLong(order.placed_at || order.created_at)}.</p>
+  <p><span class="chip chip-finished">{order.status === 'confirmed' ? 'Confirmed and invoiced' : 'Pending'}</span></p>
+
+  <div class="order-grid">
+    <section>
+      <h2>Lines as they were bought</h2>
+      <table class="table">
+        <thead><tr><th>Item</th><th>SKU</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr>
+              <td>{l.title_snapshot}</td>
+              <td class="mono">{l.sku_snapshot}</td>
+              <td class="num tnum">{l.quantity}</td>
+              <td class="num money tnum">{money(l.unit_price_minor)}</td>
+              <td class="num money tnum">{money(l.total_minor)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {serialStates.length > 0 && (
+        <section class="serials">
+          <h2>Serial numbers on this order</h2>
+          {serialStates.map((s) => (
+            <div class="serial-row">
+              <span class="mono serial">{s.serial}</span>
+              {s.mine ? (
+                <span className="chip chip-finished">Registered to you</span>
+              ) : (
+                <button class="btn btn-quiet" type="button" data-register-serial={s.serial}>
+                  Register this camera
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+    </section>
+
+    <aside>
+      <h2>Totals</h2>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{money(order.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="money tnum">{money(order.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="money tnum">{money(order.tax_minor)}</dd></div>
+        <div class="grand"><dt>Total</dt><dd class="money tnum">{money(order.total_minor)}</dd></div>
+      </dl>
+      <h2>Address as captured</h2>
+      <address class="address">
+        {a.name}<br />{a.line1}{a.line2 ? `, ${a.line2}` : ''}<br />{a.city}{a.region ? `, ${a.region}` : ''} {a.postal_code}<br />{a.country}
+      </address>
+    </aside>
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/register-serial.js"></script>
+
+<style is:global>
+  .crumbs { color: var(--muted-light); font-size: 14px; margin-bottom: calc(var(--unit) * 4); }
+  .muted { color: var(--muted-light); margin: calc(var(--unit) * 2) 0; }
+  .order-grid { display: grid; gap: calc(var(--unit) * 6); grid-template-columns: 1fr; margin-top: calc(var(--unit) * 6); }
+  @media (min-width: 64rem) { .order-grid { grid-template-columns: 1.6fr 1fr; } }
+  .totals { margin: 0 0 calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--muted-light); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border) solid var(--line-light); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .address { font-style: normal; }
+  .serials { margin-top: calc(var(--unit) * 6); }
+  .serials h2 { font-size: 1rem; margin-bottom: calc(var(--unit) * 2); }
+  .serial-row { display: flex; align-items: center; gap: calc(var(--unit) * 3); padding: var(--unit) 0; }
+</style>

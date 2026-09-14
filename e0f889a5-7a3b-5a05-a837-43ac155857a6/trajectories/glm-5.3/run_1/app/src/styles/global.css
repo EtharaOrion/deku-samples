@@ -1,0 +1,347 @@
+/* Vela storefront. One grotesque (system grotesque stack), weights 400/700 only.
+   No italic anywhere. Tabular figures wherever figures stack. */
+
+:root {
+  /* ---- type: fluid below 64rem, pinned above it ------------------------ */
+  --display-fs: 12vw;      /* 46.8px @390, 118.8px @990, then pinned */
+  --body-fs: 3.75vw;       /* 14.625px @390, 37.125px @990, then pinned */
+  --root-fs: 16px;
+  --footer-link-fs: 14px;
+  --footer-secondary-fs: 16px;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* metric-matched fallback so the swap does not move the letter */
+  --grotesque-fallback: system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  /* ---- grounds: each surface declares which it is ---------------------- */
+  --ground-light: #f6f4ef;          /* light surface  */
+  --ground-light-fg: #1c1a17;       /* its own foreground */
+  --ground-light-fg-muted: #55524c;
+  --ground-light-line: #d9d4c9;
+  --ground-light-card: #fffefb;
+
+  --ground-dark: #17150f;           /* dark surface */
+  --ground-dark-fg: #f4f1ec;
+  --ground-dark-fg-muted: #b4afa4;
+  --ground-dark-line: #3a362d;
+
+  /* ---- meaning colours: one accent, three states, nothing else ---------- */
+  --accent: #d4551e;                /* saturated warm hue, never behind text */
+  --accent-ink: #b3420f;            /* same hue, AA on light ground for text */
+  --ok: #2c6e49;                    /* finished */
+  --ok-ink: #2c6e49;
+  --busy: #8a6d1a;                  /* in progress */
+  --bad: #a3281f;                   /* something gone wrong */
+
+  /* ---- frame ---------------------------------------------------------- */
+  --gutter: 20px;
+  --unit: 0.25rem;
+  --radius: 0.5rem;
+  --radius-0: 0;
+  --border: 1px;
+  --elevation: 0px 2px 4px rgba(0, 0, 0, 0.05);
+  --header-h: 80px;
+  --rail-w: 208px;
+  --measure: 64rem;
+  --widest: 1550px;
+}
+
+@media (min-width: 64rem) {
+  :root {
+    /* Linear from the 12vw value at 64rem through the pinned point at 1440px,
+       then held: the letter is a narrow column beside the film above that. */
+    --display-fs: clamp(48.932px, calc(304.9058px - 17.776vw), 122.88px);
+    --body-fs: clamp(20.9709px, calc(81.3024px - 4.1897vw), 38.4px);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--grotesque-fallback);
+  font-size: var(--root-fs);
+  line-height: 24px;
+  font-weight: 400;
+  font-style: normal;
+  background: var(--ground-light);
+  color: var(--ground-light-fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The grotesque: swapped in with font-display swap, weights 400 and 700 only. */
+@font-face {
+  font-family: "VelaGrotesque";
+  src: local("Helvetica Neue"), local("Arial"), local("Liberation Sans");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 104%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "VelaGrotesque";
+  src: local("Helvetica Neue Bold"), local("Arial Bold"), local("Liberation Sans Bold");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 104%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+.font-display, .letter-title, .letter-body {
+  font-family: "VelaGrotesque", var(--grotesque-fallback);
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: inherit; }
+
+/* tabular numerals wherever figures stack */
+.tnum, .money, .figure, .build, .serial, .version, .digest, .qty, .size {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.mono { font-family: var(--mono); font-weight: 400; }
+
+/* ---- focus: visible ring, never the accent ------------------------------ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.skip-link {
+  position: absolute;
+  left: calc(var(--gutter) * -1);
+  top: -100px;
+  z-index: 100;
+  background: var(--ground-light-card);
+  color: var(--ground-light-fg);
+  border: var(--border) solid var(--ground-light-line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.skip-link:focus { top: 8px; left: var(--gutter); }
+
+/* ---- layout shell ------------------------------------------------------ */
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  border-right: var(--border) solid var(--ground-light-line);
+  padding: calc(var(--unit) * 6) calc(var(--unit) * 4);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 2);
+}
+.rail a {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--unit) * 2);
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 2);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ground-light-fg-muted);
+  font-weight: 400;
+  line-height: 20px;
+}
+.rail a .marker {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  flex: none;
+  align-self: center;
+}
+.rail a[aria-current="page"] { color: var(--ground-light-fg); font-weight: 700; }
+.rail a[aria-current="page"] .marker { background: var(--ground-light-fg); }
+.rail a:hover { color: var(--ground-light-fg); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--unit) * 3);
+  padding: calc(var(--unit) * 3) 0;
+  border-bottom: var(--border) solid var(--ground-light-line);
+  margin-bottom: calc(var(--unit) * 6);
+}
+.wordmark {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.wordmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+.main-col { padding: 0 calc(var(--gutter)) calc(var(--unit) * 12); min-width: 0; }
+
+/* narrow viewport: the rail collapses to one control above the content */
+@media (max-width: 63.99rem) {
+  .shell { display: block; }
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    padding: 0;
+    display: none;
+  }
+  .rail-toggle-btn { display: inline-flex !important; }
+}
+.rail-toggle-btn {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  border: var(--border) solid var(--ground-light-line);
+  background: var(--ground-light-card);
+  color: inherit;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- buttons and controls --------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: var(--border) solid var(--ground-light-fg);
+  background: var(--ground-light-fg);
+  color: var(--ground-light-card);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 700;
+  line-height: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: none;
+}
+.btn:hover { background: #322f28; border-color: #322f28; }
+.btn[disabled] { opacity: 1; background: transparent; color: var(--ground-light-fg-muted); border-color: var(--ground-light-line); cursor: not-allowed; }
+.btn-secondary {
+  background: transparent;
+  color: var(--ground-light-fg);
+  border-color: var(--ground-light-line);
+}
+.btn-secondary:hover { background: var(--ground-light-card); }
+.btn-sm { padding: 6px 10px; font-weight: 400; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 18px;
+  border: var(--border) solid var(--ground-light-line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: var(--ground-light-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.chip[data-state="ok"] { color: var(--ok-ink); border-color: color-mix(in srgb, var(--ok) 35%, var(--ground-light-line)); }
+.chip[data-state="busy"] { color: var(--busy); border-color: color-mix(in srgb, var(--busy) 35%, var(--ground-light-line)); }
+.chip[data-state="bad"] { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, var(--ground-light-line)); }
+.chip[data-kind="accent"] { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--ground-light-line)); }
+
+.card {
+  background: var(--ground-light-card);
+  border: var(--border) solid var(--ground-light-line);
+  border-radius: var(--radius);
+  box-shadow: var(--elevation);
+}
+
+/* notices: persistent, never dismissible */
+.notice {
+  border: var(--border) solid var(--ground-light-line);
+  border-left: 3px solid var(--busy);
+  background: var(--ground-light-card);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
+}
+.notice[data-kind="bad"] { border-left-color: var(--bad); }
+.notice[data-kind="ok"] { border-left-color: var(--ok); }
+
+.stack > * + * { margin-top: calc(var(--unit) * 4); }
+.row { display: flex; align-items: center; gap: calc(var(--unit) * 3); flex-wrap: wrap; }
+.grid { display: grid; gap: calc(var(--unit) * 4); }
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+table.data th, table.data td {
+  text-align: left;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 2) calc(var(--unit) * 2) 0;
+  border-bottom: var(--border) solid var(--ground-light-line);
+  vertical-align: top;
+}
+table.data th { font-weight: 700; }
+table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 700; font-size: 14px; line-height: 20px; }
+.field input[type="text"], .field input[type="email"], .field input[type="password"],
+.field input[type="tel"], .field input:not([type]), .field select {
+  font: inherit;
+  padding: 8px 10px;
+  border: var(--border) solid var(--ground-light-line);
+  border-radius: var(--radius);
+  background: var(--ground-light-card);
+  color: inherit;
+  min-width: 0;
+}
+.field .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+
+.skeleton {
+  background: linear-gradient(90deg, #eae6dd 25%, #f1eee6 50%, #eae6dd 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius);
+  min-height: 20px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: vela-pulse 1.2s linear infinite; }
+  @keyframes vela-pulse { from { background-position: 200% 0; } to { background-position: 0 0; } }
+}
+
+.empty {
+  border: var(--border) dashed var(--ground-light-line);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 8) calc(var(--unit) * 4);
+  text-align: center;
+  color: var(--ground-light-fg-muted);
+}
+
+/* mechanical motion: short, linear, one speed */
+@media (prefers-reduced-motion: no-preference) {
+  .mech { transition: opacity 120ms linear, transform 120ms linear, background-color 120ms linear; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

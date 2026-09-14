@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block well %}
+<script>window.talents_json = {{ talents_json|safe }}; window.disciplines_json = {{ disciplines_json|safe }};</script>
+<div class="roster" id="roster"
+     x-data="roster(talents_json, disciplines_json, '{{ active_discipline }}')"
+     @keydown.arrow-left.prevent="advance(-1)"
+     @keydown.arrow-right.prevent="advance(1)">
+    <div class="roster-filter" role="group" aria-label="Filter by discipline">
+    {% for d in disciplines %}
+    <button type="button"
+            class="filter-item"
+            :class="{'is-active': discipline === '{{ d }}'}"
+            :aria-pressed="discipline === '{{ d }}' ? 'true' : 'false'"
+            @click="choose('{{ d }}')">{{ d|upper }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="roster-marker" aria-hidden="true"></div>
+
+  <div class="roster-stage" tabindex="0" role="group" aria-label="Roster, use arrow keys to move through the set">
+    {% set first = (talents or [None])[0] %}
+    <div class="roster-entry" :class="{'is-current': index === 0}" :style="'--drift:' + drift">
+      <h1 class="roster-name" :class="nameClass" x-text="current.title">{{ first.title if first else '' }}</h1>
+      <p class="roster-discipline" x-text="discipline.toUpperCase()">{{ active_discipline|upper if active_discipline else '' }}</p>
+      <a class="roster-portrait" :href="'/talents/' + current.slug" :data-cursor="current.title">
+        <img class="roster-img" :src="'/api/media/' + current.poster_id" :alt="current.alt"
+             src="/api/media/{{ poster_by_slug.get(first.slug, '') }}" alt="{{ first.title }}, {{ first.discipline }}" width="246" height="330">
+      </a>
+      <a class="roster-open label-col" :href="'/talents/' + current.slug">OPEN PROFILE</a>
+    </div>
+    <p class="empty-state" x-show="!visible.length">There is no published talent in this discipline yet.</p>
+  </div>
+
+  <div class="counter-well counter-roster" aria-live="polite">
+    <span class="counter-num" x-text="counterText"></span>
+  </div>
+</div>
+{% endblock %}

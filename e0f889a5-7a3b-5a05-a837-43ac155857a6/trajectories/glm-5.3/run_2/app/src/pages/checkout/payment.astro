@@ -1,0 +1,90 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import { getCartForContext } from '../../server/context.ts';
+import { money } from '../../server/format.ts';
+
+const cart = await getCartForContext(Astro);
+if (!cart || cart.view.lines.length === 0) return Astro.redirect('/cart');
+const view = cart.view;
+if (!view.email) return Astro.redirect('/checkout/where-it-goes');
+if (!view.shipping_method) return Astro.redirect('/checkout/how-it-gets-there');
+const cartCount = view.lines.reduce((s: number, l: any) => s + l.quantity, 0);
+const protectionPrice = view.protection_rung
+  ? (({ 'VELA-PROTECT-1': 98, 'VELA-PROTECT-2': 298, 'VELA-PROTECT-3': 598, 'VELA-PROTECT-4': 1198 } as any)[view.protection_rung] ?? 0)
+  : 0;
+---
+
+<Shell title="Payment — Vela" active="" cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Payment</h1>
+    <p class="lede">Step three of three. No card is taken; the invoice follows by email.</p>
+  </div>
+
+  <div class="checkout-layout">
+    <form class="card step-form" data-place-form>
+      <h2>Review</h2>
+      <dl class="review">
+        <div><dt>Delivering to</dt><dd>{view.shipping_address?.name}<br />{[view.shipping_address?.line1, view.shipping_address?.line2, view.shipping_address?.city, view.shipping_address?.region, view.shipping_address?.postal_code, view.shipping_address?.country].filter(Boolean).join(', ')}</dd></div>
+        <div><dt>Email</dt><dd>{view.email}</dd></div>
+        <div><dt>Delivery</dt><dd>{view.shipping_method} · {view.delivery_estimate}</dd></div>
+        {view.protection_enabled ? <div><dt>Shipment protection</dt><dd>Included for {money(protectionPrice)}</dd></div> : null}
+        <div class="total-row"><dt>Total to authorise</dt><dd class="num" data-authorise>{money(view.total_minor)}</dd></div>
+      </dl>
+
+      <button class="btn btn-primary" type="submit" data-place>Place the order</button>
+      <p class="placing" role="status" data-placing hidden>Placing your order</p>
+      <p class="inline-error" data-form-error hidden></p>
+      <a class="btn" href="/checkout/how-it-gets-there">Back</a>
+    </form>
+
+    <CheckoutSummary view={view} step={3} />
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-place-form]') as HTMLFormElement | null;
+  const errEl = document.querySelector('[data-form-error]') as HTMLElement | null;
+  const placing = document.querySelector('[data-placing]') as HTMLElement | null;
+  const placeBtn = document.querySelector('[data-place]') as HTMLButtonElement | null;
+  const key = 'vela:idempotency:' + (document.cookie.match(/vela_cart=([^;]+)/)?.[1] || 'anon');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl!.hidden = true; errEl!.textContent = '';
+    placing!.hidden = false;
+    placeBtn!.disabled = true;
+    let idempotencyKey = sessionStorage.getItem(key);
+    if (!idempotencyKey) {
+      idempotencyKey = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      sessionStorage.setItem(key, idempotencyKey);
+    }
+    try {
+      const res = await fetch('/api/orders', { method: 'POST', headers: { 'idempotency-key': idempotencyKey } });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+      sessionStorage.removeItem(key);
+      window.location.href = `/orders/${body.order.number}?access_token=${encodeURIComponent(body.access_token)}`;
+    } catch (err: any) {
+      placing!.hidden = true;
+      placeBtn!.disabled = false;
+      errEl!.hidden = false;
+      errEl!.textContent = err.message;
+    }
+  });
+</script>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .checkout-layout { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; align-items: start; }
+  .step-form { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); }
+  .step-form h2 { font-size: 17px; }
+  .review { display: grid; gap: calc(var(--unit) * 2); margin: 0; }
+  .review > div { display: grid; gap: 2px; }
+  .review dt { color: var(--ink-soft); font-size: 13px; }
+  .review dd { margin: 0; }
+  .total-row { border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .placing { color: var(--ink-soft); margin: 0; }
+  @media (min-width: 64rem) { .checkout-layout { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); } }
+</style>

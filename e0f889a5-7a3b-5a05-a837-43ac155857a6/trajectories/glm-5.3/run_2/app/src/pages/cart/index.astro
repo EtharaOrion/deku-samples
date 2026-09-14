@@ -1,0 +1,229 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getCartForContext, ensureCartCookie } from '../../server/context.ts';
+import { cartView } from '../../server/cart.ts';
+import { money } from '../../server/format.ts';
+
+await ensureCartCookie(Astro);
+const cart = await getCartForContext(Astro);
+const view = cart ? cart.view : await cartView(cart.row);
+const cartCount = view.lines.reduce((s: number, l: any) => s + l.quantity, 0);
+const hasAddress = Boolean(view.shipping_address && view.shipping_address.country);
+const images: Record<string, string> = { flagship: '/img/a1.svg', compact: '/img/cricket.svg', mount: '/img/mount.svg', case: '/img/case.svg', cable: '/img/cable.svg' };
+const protectionPrice = view.protection_rung ? ({ 'VELA-PROTECT-1': 98, 'VELA-PROTECT-2': 298, 'VELA-PROTECT-3': 598, 'VELA-PROTECT-4': 1198 } as any)[view.protection_rung] : 0;
+---
+
+<Shell title="Cart — Vela" active="" cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Cart</h1>
+  </div>
+
+  {view.lines.length === 0 ? (
+    <div class="empty">
+      <p>Your cart is empty.</p>
+      <a class="btn" href="/shop">See the shop</a>
+    </div>
+  ) : (
+    <div class="cart-layout">
+      <section aria-label="Cart lines" class="lines-wrap">
+        {view.notices.length > 0 ? (
+          <div class="notices">
+            {view.notices.map((n: any) => <p class="notice" data-notice>{n.message}</p>)}
+          </div>
+        ) : null}
+
+        <ul class="lines" data-cart-lines>
+          {view.lines.map((line: any) => (
+            <li class="card line" data-line-id={line.id} data-line-sku={line.sku} data-line-title={line.title}>
+              <img class="thumb" src={images[line.product_handle] || '/img/cricket.svg'} alt="" aria-hidden="true" />
+              <div class="line-main">
+                <p class="line-title">{line.title}</p>
+                <p class="line-variant">{line.option_value} · <span class="mono">{line.sku}</span></p>
+                <p class="line-unit num" data-unit-price>{money(line.current_price_minor)} each</p>
+              </div>
+              <div class="line-qty">
+                <div class="stepper" role="group" aria-label={`Quantity for ${line.title}`}>
+                  <button type="button" class="btn stepper-btn" data-qty-dec aria-label={`Decrease quantity of ${line.title}`}>−</button>
+                  <output class="qty-value num" data-qty-value aria-live="polite">{line.quantity}</output>
+                  <button type="button" class="btn stepper-btn" data-qty-inc aria-label={`Increase quantity of ${line.title}`}>+</button>
+                </div>
+                <p class="line-error inline-error" data-line-error hidden></p>
+              </div>
+              <p class="line-total num" data-line-total>{money(line.line_total_minor)}</p>
+              <button type="button" class="btn line-remove" data-remove aria-label={`Remove ${line.title} from the cart`}>Remove</button>
+            </li>
+          ))}
+        </ul>
+
+        <div class="protection card">
+          <label class="protection-label">
+            <input type="checkbox" data-protection checked={view.protection_enabled} />
+            <span>Protect this shipment against loss, theft and damage for <span class="num">{money(protectionPrice)}</span></span>
+          </label>
+        </div>
+      </section>
+
+      <aside class="summary card" aria-label="Summary">
+        <h2>Summary</h2>
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd class="num" data-subtotal>{money(view.subtotal_minor)}</dd></div>
+          <div><dt>Estimated delivery</dt><dd class="num">{view.shipping_minor !== null ? money(view.shipping_minor) : 'To be chosen'}</dd></div>
+          <div><dt>Estimated tax</dt><dd class="num" data-tax>{money(view.tax_minor)}</dd></div>
+          <div class="total-row"><dt>Total</dt><dd class="num" data-total>{money(view.total_minor)}</dd></div>
+        </dl>
+        <p class="estimate-note">
+          {hasAddress ? 'Estimated. We will show the exact amount once we know where it is going.' : 'Estimated. We will show the exact amount once we know where it is going.'}
+        </p>
+        <a class="btn btn-primary checkout-btn" href="/checkout/where-it-goes">Check out</a>
+      </aside>
+    </div>
+  )}
+</Shell>
+
+<script>
+  const linesEl = document.querySelector('[data-cart-lines]') as HTMLElement | null;
+  const summary = {
+    subtotal: document.querySelector('[data-subtotal]'),
+    tax: document.querySelector('[data-tax]'),
+    total: document.querySelector('[data-total]'),
+  };
+
+  function fmt(minor: number) {
+    const abs = Math.abs(Math.trunc(minor));
+    return `${minor < 0 ? '-' : ''}$${Math.floor(abs / 100).toLocaleString('en-US')}.${String(abs % 100).padStart(2, '0')}`;
+  }
+
+  function paint(cart: any) {
+    (summary.subtotal as HTMLElement).textContent = fmt(cart.subtotal_minor);
+    (summary.tax as HTMLElement).textContent = fmt(cart.tax_minor);
+    (summary.total as HTMLElement).textContent = fmt(cart.total_minor);
+    cart.lines?.forEach((l: any) => {
+      const row = linesEl?.querySelector(`[data-line-id="${l.id}"]`);
+      if (row) {
+        (row.querySelector('[data-qty-value]') as HTMLElement).textContent = String(l.quantity);
+        const unit = row.querySelector('[data-line-total]') as HTMLElement;
+        if (unit) unit.textContent = fmt(l.current_price_minor * l.quantity);
+      }
+    });
+    const badge = document.querySelector('.count-badge');
+    const total = (cart.lines || []).reduce((s: number, l: any) => s + l.quantity, 0);
+    const bar = document.querySelector('.bar-cart') as HTMLElement | null;
+    if (bar) bar.setAttribute('aria-label', `Cart, ${total} item${total === 1 ? '' : 's'}`);
+    if (badge) {
+      if (total === 0) badge.remove();
+      else badge.textContent = total > 99 ? '99+' : String(total);
+    }
+  }
+
+  async function send(url: string, method: string, body?: any) {
+    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error?.message || 'That did not work.');
+    return json;
+  }
+
+  linesEl?.querySelectorAll('[data-line-id]').forEach((rowEl) => {
+    const row = rowEl as HTMLElement;
+    const id = row.dataset.lineId!;
+    const out = row.querySelector('[data-qty-value]') as HTMLElement;
+    const errEl = row.querySelector('[data-line-error]') as HTMLElement;
+    let quantity = Number(out.textContent || '1');
+    let timer: number | undefined;
+
+    async function commit(next: number) {
+      try {
+        const cart = await send(`/api/cart/lines/${id}`, 'PATCH', { quantity: next });
+        quantity = next;
+        errEl.hidden = true; errEl.textContent = '';
+        paint(cart);
+      } catch (e: any) {
+        // Rejection reverts the number and states the reason.
+        out.textContent = String(quantity);
+        errEl.hidden = false;
+        errEl.textContent = e.message;
+      }
+    }
+
+    row.querySelector('[data-qty-inc]')?.addEventListener('click', () => {
+      const next = Math.min(10, quantity + 1);
+      out.textContent = String(next); // optimistic
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => commit(next), 220);
+    });
+    row.querySelector('[data-qty-dec]')?.addEventListener('click', () => {
+      const next = Math.max(1, quantity - 1);
+      out.textContent = String(next);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => commit(next), 220);
+    });
+    row.querySelector('[data-remove]')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      try {
+        const cart = await send(`/api/cart/lines/${id}`, 'DELETE');
+        row.remove();
+        if (!document.querySelector('[data-line-id]')) window.location.reload();
+        else paint(cart);
+      } catch (err: any) {
+        btn.disabled = false;
+        errEl.hidden = false; errEl.textContent = err.message;
+      }
+    });
+  });
+
+  document.querySelector('[data-protection]')?.addEventListener('change', async (e) => {
+    const enabled = (e.target as HTMLInputElement).checked;
+    try {
+      const cart = await send('/api/cart/protection', 'POST', { enabled });
+      paint(cart);
+      window.location.reload();
+    } catch {
+      (e.target as HTMLInputElement).checked = !enabled;
+    }
+  });
+</script>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .empty { display: grid; gap: calc(var(--unit) * 3); padding: calc(var(--unit) * 6) 0; }
+  .cart-layout { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; align-items: start; }
+  .notices { display: grid; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 3); }
+  .lines { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .line {
+    display: grid; grid-template-columns: 72px 1fr auto auto auto; gap: calc(var(--unit) * 3);
+    align-items: center; padding: calc(var(--unit) * 3);
+  }
+  .thumb { width: 72px; height: 48px; object-fit: cover; border-radius: 0; border: var(--border-w) solid var(--paper-line); }
+  .line-main { display: grid; gap: 2px; }
+  .line-title { margin: 0; font-weight: 700; }
+  .line-variant { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .line-unit { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .stepper { display: inline-flex; align-items: center; gap: calc(var(--unit) * 1); }
+  .stepper-btn { min-width: 36px; justify-content: center; padding: calc(var(--unit) * 1) 0; }
+  .qty-value { min-width: 40px; text-align: center; }
+  .line-error { margin: calc(var(--unit) * 1) 0 0; font-size: 13px; max-width: 20ch; }
+  .line-total { margin: 0; font-weight: 700; text-align: right; }
+  .line-remove { justify-self: end; }
+  .protection { padding: calc(var(--unit) * 3); margin-top: calc(var(--unit) * 3); }
+  .protection-label { display: flex; gap: calc(var(--unit) * 2); align-items: flex-start; }
+  .summary { padding: calc(var(--unit) * 3); display: grid; gap: calc(var(--unit) * 2); position: sticky; top: 96px; }
+  .summary h2 { font-size: 17px; }
+  .totals { display: grid; gap: calc(var(--unit) * 1); margin: 0; }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  .totals dt { color: var(--ink-soft); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .total-row { border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .estimate-note { color: var(--ink-soft); font-size: 13px; margin: 0; }
+  .checkout-btn { justify-content: center; }
+  @media (min-width: 64rem) {
+    .cart-layout { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
+  }
+  @media (max-width: 47rem) {
+    .line { grid-template-columns: 56px 1fr auto; grid-template-areas: 'thumb main total' 'thumb qty remove'; }
+    .thumb { grid-area: thumb; width: 56px; height: 40px; }
+    .line-main { grid-area: main; }
+    .line-qty { grid-area: qty; }
+    .line-total { grid-area: total; }
+    .line-remove { grid-area: remove; justify-self: end; }
+  }
+</style>

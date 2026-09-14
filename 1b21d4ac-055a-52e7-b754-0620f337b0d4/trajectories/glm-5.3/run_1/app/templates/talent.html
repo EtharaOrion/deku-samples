@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-talent" data-route="talent">
+  <article class="talent-detail">
+    <header class="talent-head">
+      <h1 class="talent-name">{{ talent.title }}</h1>
+      <p class="talent-discipline">{{ talent.discipline|upper }}</p>
+    </header>
+    {% if is_preview %}<p class="preview-marker" role="status">PREVIEW - NOT PUBLISHED</p>{% endif %}
+    {% set reel = talent.media|selectattr('role','equalto','reel')|list %}
+    {% if reel %}
+    {% set r = reel[0] %}
+    <div class="media-tile media-tile-reel" data-reveal data-media="reel" data-seed="{{ r.seed }}" style="--intrinsic-ratio: {{ r.width }} / {{ r.height }}">
+      <canvas class="reel-canvas" width="{{ r.width }}" height="{{ r.height }}" role="img" aria-label="{{ r.alt }}"></canvas>
+    </div>
+    {% endif %}
+    <section class="talent-selected" aria-labelledby="selected-heading">
+      <h2 class="selected-heading" id="selected-heading">SELECTED WORK</h2>
+      {% if talent.selected_work %}
+      <ol class="works-list">
+        {% for w in talent.selected_work %}
+        {% set p = w.poster %}
+        {% if p %}
+        <li class="work-entry variant-{{ w.variant }}">
+          <a class="work-link" href="/works/{{ w.slug }}" data-cursor-label="{{ w.title }}">
+            <span class="media-tile" data-reveal style="--intrinsic-ratio: {{ p.width }} / {{ p.height }}">
+              <img class="work-still" src="{{ p.url }}" width="{{ p.width }}" height="{{ p.height }}"
+                   alt="{{ p.alt }}" data-colour-return decoding="async" loading="lazy">
+            </span>
+          </a>
+          <div class="caption-row">
+            <span class="caption-square" aria-hidden="true"></span>
+            <span class="caption-ordinal">{{ w.ordinal_label }}</span>
+            <a class="caption-title" href="/works/{{ w.slug }}">{{ w.title }}</a>
+          </div>
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="empty-state">No published work is credited to {{ talent.title }} yet.</p>
+      {% endif %}
+      <p class="talent-contact">WORK WITH US <a class="footer-mail" href="mailto:{{ house.contact_email }}" data-letters>{{ house.contact_email }}</a></p>
+    </section>
+  </article>
+</main>
+{% endblock %}

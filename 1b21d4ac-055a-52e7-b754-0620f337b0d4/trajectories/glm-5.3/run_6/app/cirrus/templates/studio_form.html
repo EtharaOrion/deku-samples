@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="studio studio-form-page" x-data='itemForm({ kind: {{ kind | tojson }}, item: {% if item %}{{ item | tojson }}{% else %}null{% endif %} })'  x-init="init()">
+  <nav class="studio-crumbs"><a href="/studio">Palette</a></nav>
+  <h1 class="studio-title" x-text="heading"></h1>
+
+  <form class="studio-form" @submit.prevent="save">
+    <label class="field">
+      <span class="field-label">Name</span>
+      <input class="field-input" type="text" x-model="title" required>
+    </label>
+    <label class="field">
+      <span class="field-label">Slug</span>
+      <input class="field-input" type="text" x-model="slug" :placeholder="suggestedSlug">
+    </label>
+    {% if kind == 'talent' %}
+    <fieldset class="field">
+      <span class="field-label">Discipline</span>
+      <span class="field-options">
+        <label class="radio"><input type="radio" value="director" x-model="discipline"> Director</label>
+        <label class="radio"><input type="radio" value="photographer" x-model="discipline"> Photographer</label>
+        <label class="radio"><input type="radio" value="stylist" x-model="discipline"> Stylist</label>
+      </span>
+    </fieldset>
+    {% else %}
+    <fieldset class="field">
+      <span class="field-label">Width variant</span>
+      <span class="field-options">
+        <label class="radio"><input type="radio" value="left" x-model="variant"> Left</label>
+        <label class="radio"><input type="radio" value="right" x-model="variant"> Right</label>
+        <label class="radio"><input type="radio" value="centre" x-model="variant"> Centre</label>
+      </span>
+    </fieldset>
+    {% endif %}
+    <p class="field-error" x-show="error" x-text="error" role="alert"></p>
+    <div class="form-row">
+      <button class="btn" type="submit" :disabled="busy">
+        <span x-text="busy ? 'Saving…' : (itemId ? 'Save changes' : 'Create')"></span>
+      </button>
+      <button class="btn btn--ghost" type="button" @click="cancel()">Back</button>
+    </div>
+  </form>
+
+  {% if item %}
+  <section class="studio-section">
+    <h2 class="studio-sub">Media</h2>
+    <ul class="media-list">
+      <template x-for="m in media" :key="m.id">
+        <li class="media-row">
+          <img class="media-thumb" :src="`/api/media/${m.media_id || m.id}`" :alt="m.alt" width="60" height="40">
+          <span class="media-meta" x-text="`${m.role} · ${m.width}×${m.height}`"></span>
+          <span class="media-alt" x-text="m.alt"></span>
+          <button class="btn btn--tiny" type="button" @click="removeMedia(m)">Remove</button>
+        </li>
+      </template>
+      <li class="empty-state" x-show="!media.length">No media yet.</li>
+    </ul>
+    <form class="studio-form studio-form--tight" @submit.prevent="addMedia">
+      <label class="field"><span class="field-label">Role</span>
+        <select class="field-input" x-model="newMedia.role">
+          <option value="poster">poster</option><option value="reel">reel</option><option value="gallery">gallery</option>
+        </select>
+      </label>
+      <label class="field"><span class="field-label">Seed</span>
+        <input class="field-input" type="text" x-model="newMedia.seed" required></label>
+      <label class="field"><span class="field-label">Width</span>
+        <input class="field-input" type="number" x-model.number="newMedia.width" min="1" max="3840" required></label>
+      <label class="field"><span class="field-label">Height</span>
+        <input class="field-input" type="number" x-model.number="newMedia.height" min="1" max="3840" required></label>
+      <label class="field field--wide"><span class="field-label">Written alternative</span>
+        <input class="field-input" type="text" x-model="newMedia.alt" required></label>
+      <p class="field-error" x-show="mediaError" x-text="mediaError" role="alert"></p>
+      <button class="btn btn--ghost" type="submit" :disabled="busy">Attach media</button>
+    </form>
+  </section>
+
+  {% if kind == 'work' %}
+  <section class="studio-section">
+    <h2 class="studio-sub">Credits</h2>
+    <ul class="media-list">
+      <template x-for="c in credits" :key="c.id">
+        <li class="media-row">
+          <span class="media-meta" x-text="c.role"></span>
+          <span class="media-alt" x-text="c.name"></span>
+          <button class="btn btn--tiny" type="button" @click="removeCredit(c)">Remove</button>
+        </li>
+      </template>
+      <li class="empty-state" x-show="!credits.length">No credits yet.</li>
+    </ul>
+    <form class="studio-form studio-form--tight" @submit.prevent="addCredit">
+      <label class="field"><span class="field-label">Role</span>
+        <input class="field-input" type="text" x-model="newCredit.role" required placeholder="Director"></label>
+      <label class="field"><span class="field-label">Name</span>
+        <input class="field-input" type="text" x-model="newCredit.name" required placeholder="Rives"></label>
+      <p class="field-error" x-show="creditError" x-text="creditError" role="alert"></p>
+      <button class="btn btn--ghost" type="submit" :disabled="busy">Add credit</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="studio-section studio-section--actions">
+    <h2 class="studio-sub">Publishing</h2>
+    <p class="studio-note" x-show="item.published" x-cloak>This record is live.</p>
+    <p class="studio-note" x-show="!item.published">This record is unlisted: absent from the roster, the index, the cluster and its own address.</p>
+    <div class="form-row">
+      <button class="btn" type="button" @click="togglePublish()" :disabled="busy">
+        <span x-text="item.published ? 'Unlist' : 'Publish'"></span>
+      </button>
+      <button class="btn btn--ghost" type="button" @click="mintPreview()" :disabled="busy">Preview</button>
+      <button class="btn btn--ghost" type="button" @click="rename()" :disabled="busy">Change slug</button>
+    </div>
+    <p class="studio-preview" x-show="previewUrl" x-cloak>
+      Preview for fifteen minutes: <a :href="previewUrl" target="_blank" rel="noopener" x-text="previewUrl"></a>
+    </p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

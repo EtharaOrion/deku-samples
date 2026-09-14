@@ -1,0 +1,125 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { readOrder } from '../../lib/orders.js';
+import { formatUsd } from '../../lib/money.js';
+import { formatDate, currentCustomer } from '../../lib/session.js';
+
+export const prerender = false;
+
+const { number } = Astro.params;
+const url = new URL(Astro.request.url);
+const accessToken = url.searchParams.get('access_token') || url.searchParams.get('token');
+const customer = await currentCustomer(Astro.request);
+
+let order = null;
+let failed = false;
+try {
+  order = await readOrder(number, { accessToken, customerId: customer ? customer.id : null });
+} catch (err) {
+  failed = true;
+}
+
+const address = order?.shipping_address || {};
+const methodLabel = order?.shipping_method === 'express' ? 'Express' : 'Standard';
+const cameraLines = (order?.lines || []).filter((l) => l.product_kind === 'camera');
+---
+
+<Shell title={order ? `Order ${order.number}` : 'Order'} description="One order.">
+  {
+    failed ? (
+      <div class="empty">
+        <h1 class="page-title">That page does not exist.</h1>
+        <p>
+          The link is wrong or the order belongs to somebody else.{' '}
+          <a href="/sign-in">Sign in</a> to see your own orders.
+        </p>
+      </div>
+    ) : (
+      <>
+        <h1 class="page-title">
+          Order <span class="mono">{order.number}</span> is confirmed.
+        </h1>
+        <div class="notice finished">
+          <p>
+            We have emailed <span class="mono">{order.email}</span>.
+          </p>
+        </div>
+        <p>
+          <a class="btn" href={`/account/orders/${order.number}`}>Keep track of this order</a>
+        </p>
+
+        <section class="card">
+          <h2 class="section-title">What you bought</h2>
+          <table class="data num">
+            <thead>
+              <tr><th scope="col">Item</th><th scope="col" class="num">Each</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Total</th></tr>
+            </thead>
+            <tbody>
+              {order.lines.map((line) => (
+                <tr>
+                  <td>
+                    {line.title}
+                    {line.product_kind === 'camera' && <span class="hint"> · {line.sku}</span>}
+                  </td>
+                  <td class="num tnum">{formatUsd(line.unit_price_minor)}</td>
+                  <td class="num tnum">{line.quantity}</td>
+                  <td class="num tnum">{formatUsd(line.total_minor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <dl class="totals">
+            <div><dt>Subtotal</dt><dd class="tnum">{formatUsd(order.subtotal_minor)}</dd></div>
+            <div><dt>Delivery ({methodLabel})</dt><dd class="tnum">{formatUsd(order.shipping_minor)}</dd></div>
+            <div><dt>Tax</dt><dd class="tnum">{formatUsd(order.tax_minor)}</dd></div>
+            <div class="grand"><dt>Total</dt><dd class="tnum">{formatUsd(order.total_minor)}</dd></div>
+          </dl>
+          <p class="hint">
+            Invoiced in {order.currency.toUpperCase()} to account{' '}
+            <span class="mono">{order.killbill_external_key}</span> for{' '}
+            <span class="mono tnum">{order.killbill_invoice_amount}</span>.
+          </p>
+        </section>
+
+        <div class="grid two">
+          <section class="card">
+            <h2 class="section-title">Where it goes</h2>
+            <address>
+              {address.name}<br />
+              {address.line1}{address.line2 ? <><br />{address.line2}</> : ''}<br />
+              {address.city}{address.region ? `, ${address.region}` : ''} {address.postalCode}<br />
+              {address.country}
+            </address>
+            <p class="hint">{methodLabel} delivery.</p>
+          </section>
+
+          <section class="card">
+            <h2 class="section-title">Serial numbers on this order</h2>
+            {
+              order.serials.length === 0 ? (
+                <p class="hint">No cameras on this order.</p>
+              ) : (
+                <ul class="serial-list">
+                  {order.serials.map((serial) => (
+                    <li>
+                      <span class="mono">{serial.serial}</span>
+                      <span class="hint">{serial.model}</span>
+                      <span class="hint">{serial.nickname || ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+            <p class="hint">Register a serial on your account page to keep it.</p>
+          </section>
+        </div>
+      </>
+    )
+  }
+</Shell>
+
+<style>
+  .serial-list { display: grid; gap: calc(var(--step) * 2); }
+  .serial-list li { display: flex; flex-wrap: wrap; gap: calc(var(--step) * 3); border-bottom: var(--border) solid var(--line); padding-bottom: var(--step); }
+  .grid.two { margin-top: calc(var(--step) * 4); }
+</style>

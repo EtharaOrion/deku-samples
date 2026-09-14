@@ -1,0 +1,1 @@
+const e=document.querySelector(".rail-toggle"),t=document.getElementById("rail-nav");e?.addEventListener("click",()=>{t?.hasAttribute("hidden")?(t?.removeAttribute("hidden"),e.setAttribute("aria-expanded","true")):(t?.setAttribute("hidden",""),e.setAttribute("aria-expanded","false"))});

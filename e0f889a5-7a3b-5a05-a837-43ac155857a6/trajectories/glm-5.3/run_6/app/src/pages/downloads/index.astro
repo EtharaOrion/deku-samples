@@ -1,0 +1,70 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseList from '../../components/ReleaseList.astro';
+import { listReleases } from '../../lib/firmware.js';
+import { formatBytes } from '../../lib/session.js';
+
+export const prerender = false;
+
+const result = await listReleases({ pageSize: 100 });
+const releases = result.data;
+const newest = releases[0];
+---
+
+<Shell title="Downloads" description="Arranger, firmware, and every release note.">
+  <h1 class="page-title">Downloads</h1>
+
+  <section class="card" aria-labelledby="app-heading">
+    <h2 class="section-title" id="app-heading">Arranger</h2>
+    <p id="app-requirement">Arranger requires macOS 13.0 or later. Download the app below.</p>
+    <p class="download-row">
+      <a class="btn" href={`/downloads/${newest.version}`} data-download={newest.artifact_name}>
+        Download Arranger {newest.version}
+      </a>
+      <span class="download-meta">
+        <span class="tnum">{formatBytes(newest.size_bytes)}</span>
+        <span class="mono digest" title="SHA-256 digest">{newest.sha256}</span>
+      </span>
+    </p>
+    <p class="hint" data-platform-note hidden>
+      Arranger is a macOS application.
+    </p>
+  </section>
+
+  <section class="card" aria-labelledby="firmware-heading">
+    <h2 class="section-title" id="firmware-heading">Firmware</h2>
+    <p class="download-row">
+      <a class="btn" href="#firmware-cricket" data-download="vela-cricket-firmware-7.2">
+        Download Vela Cricket Firmware 7.2
+      </a>
+    </p>
+    <p class="hint" id="firmware-cricket">
+      <a href="/doctor">Firmware install (web-based)</a> · Only use this if Arranger cannot see
+      your camera.
+    </p>
+  </section>
+
+  <section aria-labelledby="archive-heading" class="archive">
+    <h2 class="section-title" id="archive-heading">Every release</h2>
+    <ReleaseList releases={releases} />
+  </section>
+</Shell>
+
+<script>
+  // The primary control adapts to the reader's platform but is never disabled
+  // and never hidden: fetching an installer on a work laptop for a machine at
+  // home is an ordinary thing to do.
+  const note = document.querySelector('[data-platform-note]');
+  if (note) {
+    const platform = navigator.platform || '';
+    const isMac = /mac/i.test(platform) || /Mac/i.test(navigator.userAgent);
+    note.hidden = isMac;
+  }
+</script>
+
+<style>
+  .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--step) * 4); margin-bottom: calc(var(--step) * 2); }
+  .download-meta { display: grid; gap: var(--step); font-size: 0.8125rem; color: var(--ink-soft); }
+  .digest { word-break: break-all; max-width: 34rem; }
+  .archive { margin-top: calc(var(--step) * 8); }
+</style>

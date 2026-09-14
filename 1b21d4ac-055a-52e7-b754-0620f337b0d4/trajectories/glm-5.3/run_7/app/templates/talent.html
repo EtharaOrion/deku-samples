@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block route %}
+<article class="talent">
+  <header class="talent-head">
+    <p class="talent-discipline">{{ talent.discipline|upper }}</p>
+    <h1 class="talent-name">{{ talent.title }}</h1>
+  </header>
+  {% set reel = media.reel %}
+  {% if reel %}
+  <figure class="talent-reel" data-reel-seed="{{ reel.seed }}">
+    <canvas class="reel-canvas" width="{{ reel.width }}" height="{{ reel.height }}" aria-hidden="true"></canvas>
+    <img class="reel-still" src="/api/media/{{ media.poster.id if media.poster else reel.id }}" alt="{{ reel.alt }}"
+         width="{{ reel.width }}" height="{{ reel.height }}">
+    <button type="button" class="reel-play" hidden>Play film</button>
+  </figure>
+  {% endif %}
+  {% if media.poster %}
+  <figure class="talent-portrait">
+    <span class="reveal"><img src="/api/media/{{ media.poster.id }}" alt="{{ media.poster.alt }}"
+      width="{{ media.poster.width }}" height="{{ media.poster.height }}" loading="lazy" decoding="async"></span>
+  </figure>
+  {% endif %}
+  <section class="talent-work">
+    <h2 class="talent-work-label">Selected work</h2>
+    <ol class="works-list">
+      {% for w in selected %}
+      <li class="work-entry variant-{{ w.variant }}">
+        <a class="work-link" href="/works/{{ w.slug }}" data-cur="{{ w.title|upper }}">
+          <span class="reveal">{% if w.poster %}
+            <img class="work-still" src="/api/media/{{ w.poster.id }}" alt="{{ w.poster.alt }}"
+                 width="{{ w.poster.width }}" height="{{ w.poster.height }}" loading="lazy" decoding="async">
+            {% endif %}</span>
+          <span class="caption-row">
+            <span class="caption-mark" aria-hidden="true"></span>
+            <span class="caption-ordinal">{{ '%03d' % w.ordinal if w.ordinal else '' }}</span>
+            <span class="caption-title">{{ w.title }}</span>
+          </span>
+        </a>
+      </li>
+      {% else %}<li class="empty-state">No published work carries this name yet.</li>{% endfor %}
+    </ol>
+  </section>
+  {% if preview %}{% include 'preview_banner.html' %}{% endif %}
+</article>
+{% endblock %}

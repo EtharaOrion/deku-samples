@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block route %}preview{% endblock %}
+{% block title %}Cirrus - Preview{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">{% endblock %}
+{% block centre_mark %}{% include 'marks/works.svg' %}{% endblock %}
+{% block well %}
+<div class="preview" x-data="previewRoute" data-record='{{ record|tojson if record else "null" }}'>
+  <div class="preview-banner" role="status">PREVIEW - NOT PUBLISHED</div>
+  {% if record %}
+  {% if record.kind == 'work' %}
+  <article class="work-detail preview-record">
+    <header class="work-detail-head">
+      <h1 class="work-detail-title">{{ record.title }}</h1>
+      <p class="work-detail-ordinal">{{ record.ordinal if record.ordinal else '—' }}</p>
+    </header>
+    {% if record.credits %}
+    <section class="work-credits" aria-label="Credits">
+      {% for c in record.credits %}
+      <p class="credit-line"><span class="credit-role">{{ c.role }}</span><span class="credit-name">{{ c.name }}</span></p>
+      {% endfor %}
+    </section>
+    {% endif %}
+    {% for m in record.media %}
+    <figure class="preview-fig">
+      <span class="media-tile variant-{{ m.role }}" data-reveal style="--ar:{{ m.width }} / {{ m.height }}">
+        <img class="still" src="/api/media/{{ m.id }}" alt="{{ m.alt|e }}"
+             width="{{ m.width }}" height="{{ m.height }}" loading="lazy" decoding="async">
+      </span>
+    </figure>
+    {% endfor %}
+  </article>
+  {% else %}
+  <article class="talent-detail preview-record">
+    <header class="talent-head">
+      <h1 class="roster-name fit-name" data-fit>{{ record.title }}</h1>
+      <p class="roster-discipline">{{ record.discipline|upper }}</p>
+    </header>
+    {% for m in record.media %}
+    <figure class="preview-fig">
+      <span class="media-tile variant-portrait" data-reveal style="--ar:{{ m.width }} / {{ m.height }}">
+        <img class="still" src="/api/media/{{ m.id }}" alt="{{ m.alt|e }}"
+             width="{{ m.width }}" height="{{ m.height }}" loading="lazy" decoding="async">
+      </span>
+    </figure>
+    {% endfor %}
+  </article>
+  {% endif %}
+  {% else %}
+  <div class="preview-empty counter-well">
+    <p class="preview-line">Loading preview...</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

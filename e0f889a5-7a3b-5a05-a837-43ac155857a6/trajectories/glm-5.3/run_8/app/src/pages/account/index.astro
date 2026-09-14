@@ -1,0 +1,77 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import { currentCustomer } from '@lib/session.js';
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) return Astro.redirect(`/sign-in?redirect=${encodeURIComponent('/account')}`);
+
+const devices = await q(
+  `SELECT d.serial, d.nickname, d.firmware_version, d.warranty_until, p.title AS model,
+          (SELECT f.version FROM firmware f WHERE f.product_id = d.product_id AND f.channel='general' ORDER BY f.build DESC LIMIT 1) AS latest
+   FROM device_ownership o JOIN device d ON d.id = o.device_id JOIN product p ON p.id = d.product_id
+   WHERE o.customer_id = $1 AND o.released_at IS NULL ORDER BY o.id DESC`,
+  [customer.id]
+);
+const orders = await q('SELECT * FROM orders WHERE customer_id = $1 ORDER BY id DESC LIMIT 2', [customer.id]);
+const latestApp = await one('SELECT version, build FROM app_release ORDER BY build DESC LIMIT 1');
+const seen = await one('SELECT build FROM customer_app_seen WHERE customer_id = $1', [customer.id]);
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+const date = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+---
+<App title="Account">
+  <h1>Your account</h1>
+  <p class="muted">Signed in as {customer.email}.</p>
+
+  <section class="block" aria-label="Your cameras">
+    <h2>Cameras</h2>
+    {devices.length === 0 ? (
+      <p>No cameras registered yet. <a href="/account/cameras">Register one</a>.</p>
+    ) : (
+      <ul class="camera-list">
+        {devices.map((d) => (
+          <li class="card">
+            <a href={`/account/cameras/${d.serial}`}><strong>{d.model}</strong> {d.nickname ? <span class="muted">“{d.nickname}”</span> : null}</a>
+            <div class="mono">{d.serial}</div>
+            <div class="chips">
+              <span class="chip">{d.firmware_version ? `Firmware ${d.firmware_version}` : 'Not yet connected'}</span>
+              {d.firmware_version && d.latest && d.firmware_version !== d.latest ? <span class="chip chip-warn">Update available</span> : null}
+              <span class="chip">{d.warranty_until ? `Warranty to ${date(d.warranty_until)}` : 'No warranty date'}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <section class="block" aria-label="Recent orders">
+    <h2>Orders</h2>
+    {orders.length === 0 ? <p>No orders yet.</p> : (
+      <ul class="order-list">
+        {orders.map((o) => (
+          <li class="card">
+            <a href={`/account/orders/${o.number}`} class="mono">{o.number}</a>
+            <div class="muted small">{date(o.placed_at)}</div>
+            <div class="tnum">{fmt(o.total_minor)}</div>
+          </li>
+        ))}
+      </ul>
+    )}
+    <p><a href="/account/orders">All orders</a></p>
+  </section>
+
+  <section class="block" aria-label="Software">
+    <h2>Software</h2>
+    <p>Arranger <span class="mono">{latestApp?.version}</span> is the current version.</p>
+    {seen && seen.build < (latestApp?.build ?? 0) ? (
+      <p class="notice">There is a newer Arranger than the one you last saw. <a href="/downloads">See the release</a>.</p>
+    ) : (
+      <p class="muted">You are up to date.</p>
+    )}
+  </section>
+</App>
+<style>
+.block { margin-bottom: calc(var(--unit) * 5); }
+.camera-list, .order-list { list-style: none; padding: 0; display: grid; gap: calc(var(--unit) * 2); grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+.chips { display: flex; gap: var(--unit); flex-wrap: wrap; margin-top: var(--unit); }
+</style>

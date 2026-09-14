@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block route %}talents{% endblock %}
+{% block title %}Cirrus - Talents{% endblock %}
+{% block centre_mark %}{% include 'marks/talents.svg' %}{% endblock %}
+{% block well %}
+<div class="roster" x-data='roster({{ talents|tojson }}, {{ disciplines|tojson }})'>
+  <div class="roster-filter" role="group" aria-label="Filter by discipline">
+    {% for d in disciplines %}
+    <button class="filter-btn" type="button" :aria-pressed="active === '{{ d }}'"
+            @click="setDiscipline('{{ d }}')" :class="{active: active === '{{ d }}'}"
+            data-cursor="{{ d|upper }}">{{ d|upper }}</button>
+    {% endfor %}
+  </div>
+  <div class="roster-marker" :style="markerStyle" aria-hidden="true"></div>
+
+  <section class="roster-screen" aria-live="polite" :aria-label="current ? current.title : ''">
+    {% for t in talents %}
+    <article class="roster-entry" x-show="visible('{{ t.slug }}')"
+             :aria-hidden="visible('{{ t.slug }}') ? null : 'true'">
+      <span class="roster-name fit-name" data-fit>{{ t.title }}</span>
+      <p class="roster-discipline">{{ t.discipline|upper }}</p>
+      <div class="roster-portrait-wrap">
+        <span class="media-tile variant-portrait" data-reveal
+              {% if t.poster %}style="--ar:{{ t.poster.width }} / {{ t.poster.height }}"{% endif %}>
+          {% if t.poster %}
+          <img class="still" src="/api/media/{{ t.poster.id }}" alt="{{ t.alt|e }}"
+               width="{{ t.poster.width }}" height="{{ t.poster.height }}" loading="lazy" decoding="async">
+          {% endif %}
+        </span>
+      </div>
+      <a class="roster-open" :href="current ? '/talents/' + current.slug : '#'"
+         :tabindex="visible('{{ t.slug }}') ? 0 : -1" data-cursor="OPEN">OPEN</a>
+    </article>
+    {% else %}
+    <p class="empty-state">No talent is published in this discipline yet.</p>
+    {% endfor %}
+    <h1 class="roster-sr-name" x-text="current ? current.title : ''"></h1>
+  </section>
+
+  <div class="counter-well roster-counter" data-counter-well>
+    <span class="counter-line"></span>
+    <p class="counter-nums"><span class="counter-now" x-text="nowNum">01</span>
+       <span class="counter-of">/</span>
+       <span class="counter-total" x-text="totalNum">03</span></p>
+  </div>
+</div>
+{% endblock %}

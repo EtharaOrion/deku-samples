@@ -1,0 +1,103 @@
+---
+import { formatBytes, formatShortDate } from '../lib/session.js';
+
+const noteGroups = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+
+// Release notes hold four ordered groups only, and none are invented beyond
+// those four.
+---
+
+{
+  Astro.props.releases ? (
+    <ul class="release-list">
+      {
+        Astro.props.releases.map((release, index) => {
+          const open = Astro.props.expandedVersion
+            ? release.version === Astro.props.expandedVersion
+            : index === 0;
+          return (
+            <li class="release">
+              <hr class="rule" aria-hidden="true" />
+              <details open={open} id={`release-${release.version}`}>
+                <summary>
+                  <span class="release-title">Arranger {release.version}</span>
+                  <span class="release-date">
+                    Released on {formatShortDate(release.released_on)}
+                  </span>
+                  <span class="release-build hint">
+                    build <span class="mono tnum">{release.build}</span>
+                  </span>
+                </summary>
+                <div class="release-body">
+                  <p class="download-row">
+                    <a class="btn secondary" href={`/downloads/${release.version}`} data-download={release.artifact_name}>
+                      Download Arranger {release.version}
+                    </a>
+                    <span class="meta">
+                      <span class="tnum">{formatBytes(release.size_bytes)}</span>
+                      <span class="mono digest">{release.sha256}</span>
+                    </span>
+                  </p>
+                  {release.description && <p>{release.description}</p>}
+                  {noteGroups.map((group) => {
+                    const items = (release.notes || {})[group] || [];
+                    if (!items.length) return null;
+                    return (
+                      <section class="note-group">
+                        <h3>{group}</h3>
+                        <ul>
+                          {items.map((item) => <li>{item}</li>)}
+                        </ul>
+                      </section>
+                    );
+                  })}
+                  <p class="signoff">The Vela team.</p>
+                </div>
+              </details>
+            </li>
+          );
+        })
+      }
+    </ul>
+  ) : (
+    <div class="notes">
+      {
+        noteGroups.map((group) => {
+          const items = (Astro.props.notes || {})[group] || [];
+          if (!items.length) return null;
+          return (
+            <section class="note-group">
+              <h3>{group}</h3>
+              <ul>
+                {items.map((item) => <li>{item}</li>)}
+              </ul>
+            </section>
+          );
+        })
+      }
+    </div>
+  )
+}
+
+<script>
+  // Nothing here: this component is server-rendered markup and the disclosure
+  // works with no scripting.
+</script>
+
+<style>
+  .release-list { display: grid; gap: 0; }
+  .rule { border: 0; border-top: var(--border) solid var(--line); margin: calc(var(--step) * 6) 0; position: relative; }
+  .rule::after { content: ''; position: absolute; left: 0; right: 0; top: -1px; border-top: 1px dashed var(--line); }
+  details summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: calc(var(--step) * 4); align-items: baseline; padding: calc(var(--step) * 2) 0; }
+  .release-title { font-weight: 700; }
+  .release-date { color: var(--ink-soft); }
+  .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--step) * 4); margin-bottom: calc(var(--step) * 4); }
+  .meta { display: grid; gap: var(--step); font-size: 0.8125rem; color: var(--ink-soft); }
+  .digest { word-break: break-all; max-width: 34rem; }
+  .note-group { margin-top: calc(var(--step) * 4); }
+  .note-group h3 { font-size: 0.875rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+  .note-group ul { display: grid; gap: var(--step); margin-top: var(--step); }
+  .note-group li { border-bottom: var(--border) solid var(--line); padding: calc(var(--step) * 2) 0; }
+  .signoff { margin-top: calc(var(--step) * 4); color: var(--ink-soft); }
+</style>
+

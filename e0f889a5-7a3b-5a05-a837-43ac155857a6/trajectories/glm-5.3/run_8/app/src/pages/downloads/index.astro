@@ -1,0 +1,95 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import DownloadButton from '@components/DownloadButton.jsx';
+import { currentCustomer } from '@lib/session.js';
+import { q } from '@server/db/index.js';
+
+const customer = await currentCustomer(Astro.request);
+if (customer && latest) {
+  await q(`INSERT INTO customer_app_seen (customer_id, build) VALUES ($1, $2)
+           ON CONFLICT (customer_id) DO UPDATE SET build = GREATEST(customer_app_seen.build, EXCLUDED.build), seen_at = now()`,
+          [customer.id, latest.build]);
+}
+
+const releases = await q('SELECT * FROM app_release ORDER BY build DESC');
+const latest = releases[0] || null;
+const focus = Astro.url.searchParams.get('v');
+const expandedDefault = focus && releases.find((r) => r.version === focus) ? focus : latest?.version;
+const fmtBytes = (b) => `${Number(b).toLocaleString('en-US')} bytes`;
+const cricketFw = await one(
+  `SELECT f.version, f.build FROM firmware f JOIN product p ON p.id = f.product_id
+   WHERE p.handle = 'compact' AND f.channel = 'general' ORDER BY f.build DESC LIMIT 1`
+);
+const GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+const renderNote = (n) => String(n).replace(/#(\d+)/g, '<span class="ref">#$1</span>');
+---
+<App title="Downloads">
+  <h1>Downloads</h1>
+  <section class="card hero">
+    <p>Arranger requires macOS 13.0 or later. Download the app below.</p>
+    {latest ? (
+      <p class="dl-row">
+        <DownloadButton client:load label={`Download Arranger ${latest.version}`} artifact={latest.artifact_name} version={latest.version} />
+        <span class="muted small tnum">{fmtBytes(latest.size_bytes)}</span>
+        <span class="muted small mono digest">{latest.sha256}</span>
+      </p>
+    ) : null}
+  </section>
+
+  <section class="card fw">
+    <h2>Firmware</h2>
+    {cricketFw ? (
+      <p class="dl-row">
+        <a class="btn" href="/api/firmware/manifest?model=vela-cricket" download={`vela-cricket-firmware-${cricketFw.version}.bin`}>Download Vela Cricket Firmware {cricketFw.version}</a>
+        <span class="muted small">Firmware install (web-based): <a href="/doctor">use the installer</a>. Only use this if Arranger cannot see your camera.</span>
+      </p>
+    ) : (
+      <p class="muted">No firmware is published yet.</p>
+    )}
+  </section>
+
+  <section aria-label="Release archive">
+    <h2>The archive</h2>
+    <p class="muted small">Newest build first. Release dates are not a sort key.</p>
+    {releases.length === 0 ? <p>No releases yet.</p> : null}
+    {releases.map((r, idx) => (
+      <div class="release-sep" aria-hidden="true"></div>
+      <details class="release" open={r.version === expandedDefault} id={`arranger-${r.version}`}>
+        <summary>
+          <span class="tri" aria-hidden="true">{r.version === expandedDefault ? '▾' : '▸'}</span>
+          <span>Arranger {r.version}</span>
+          <span class="muted small">Released on {new Date(r.released_on).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </summary>
+        <div class="release-body">
+          <p class="dl-row">
+            <DownloadButton client:load label={`Download Arranger ${r.version}`} artifact={r.artifact_name} version={r.version} />
+            <span class="muted small tnum">{fmtBytes(r.size_bytes)}</span>
+            <span class="muted small mono digest">{r.sha256}</span>
+          </p>
+          {r.description ? <p>{r.description}</p> : null}
+          {GROUPS.map((g) => r.notes && r.notes[g] && r.notes[g].length ? (
+            <div class="note-group">
+              <h3>{g}</h3>
+              <ul>
+                {r.notes[g].map((n) => <li set:html={renderNote(n)} />)}
+              </ul>
+            </div>
+          ) : null)}
+          <p class="muted small">The Vela team.</p>
+          <p class="muted small"><a href={`/downloads/${r.version}`}>Permalink for Arranger {r.version}</a></p>
+        </div>
+      </details>
+    ))}
+  </section>
+</App>
+<style>
+.hero { margin-bottom: calc(var(--unit) * 3); }
+.dl-row { display: flex; gap: calc(var(--unit) * 2); align-items: center; flex-wrap: wrap; }
+.digest { overflow-wrap: anywhere; }
+.fw { margin-bottom: calc(var(--unit) * 4); }
+.release-body { padding: calc(var(--unit) * 2) 0 calc(var(--unit) * 2) calc(var(--unit) * 3); }
+.note-group h3 { font-size: 0.9375rem; }
+.note-group ul { margin: var(--unit) 0; padding-left: 1.25rem; }
+.ref { font-size: 0.9em; font-family: var(--mono); }
+</style>

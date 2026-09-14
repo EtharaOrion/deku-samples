@@ -1,0 +1,129 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { q } from '../../lib/db.js';
+import { guard } from '../../lib/guard.js';
+import { latestFirmwareForProduct, compareVersions } from '../../lib/store.js';
+import { money, dateLong } from '../../lib/view-helpers.js';
+
+const { customer, expired, next, bearer } = await guard(Astro.request);
+if (!customer) {
+  return Astro.redirect('/sign-in?next=' + encodeURIComponent(next) + (expired ? '&expired=1' : ''));
+}
+
+const devices = await q(
+  `SELECT d.*, p.title AS model, p.handle AS product_handle, v.title AS variant_title
+     FROM device_ownership o
+     JOIN device d ON d.id = o.device_id
+     JOIN product p ON p.id = d.product_id
+     JOIN variant v ON v.id = d.variant_id
+    WHERE o.customer_id = $1 AND o.released_at IS NULL
+    ORDER BY o.claimed_at DESC`,
+  [customer.id]
+);
+const orders = await q(
+  `SELECT * FROM "order" WHERE customer_id = $1 ORDER BY id DESC LIMIT 2`,
+  [customer.id]
+);
+const latest = await q('SELECT * FROM app_release ORDER BY build DESC LIMIT 1');
+const currentApp = latest[0];
+const seenRow = await q('SELECT value FROM meta WHERE key = $1', ['app_seen_' + customer.id]);
+const seenVersion = seenRow.length ? seenRow[0].value : null;
+
+const deviceCards = [];
+for (const d of devices) {
+  const fw = await latestFirmwareForProduct(d.product_id);
+  const behind = !!(fw && d.firmware_version && compareVersions(fw.version, d.firmware_version) > 0);
+  const warrantyGone = d.warranty_until ? new Date(d.warranty_until + 'T00:00:00Z') < new Date() : false;
+  deviceCards.push({ ...d, behind, neverConnected: !d.firmware_version, warrantyGone, latestVersion: fw ? fw.version : null });
+}
+---
+
+<Shell>
+  <header class="account-head">
+    <h1 class="page-title">{customer.name}</h1>
+    <p class="muted">{customer.email}</p>
+    <form method="get" action="/api/account/signout" data-signout>
+      <button class="btn btn-quiet" type="submit">Sign out</button>
+    </form>
+  </header>
+
+  <div class="account-blocks" data-bearer={bearer}>
+    <section class="account-block" data-block="cameras" aria-labelledby="cameras-h">
+      <h2 id="cameras-h">Cameras</h2>
+      {deviceCards.length === 0 ? (
+        <p class="empty">No cameras registered yet.</p>
+      ) : (
+        <div class="grid grid-cards">
+          {deviceCards.map((d) => (
+            <a class="card cam-card" href={`/account/cameras/${d.serial}`}>
+              <h3>{d.model}</h3>
+              <p class="muted">{d.nickname || d.variant_title}</p>
+              <p class="mono serial">{d.serial}</p>
+              <p class="chips">
+                {d.behind && <span class="chip chip-progress">Update available</span>}
+                {d.neverConnected && <span class="chip chip-muted">Not yet connected</span>}
+                {!d.behind && !d.neverConnected && <span class="chip chip-finished">Up to date</span>}
+                <span class={`chip ${d.warrantyGone ? 'chip-muted' : 'chip-muted'}`}>
+                  {d.warrantyGone ? 'Warranty ended' : 'In warranty'}
+                </span>
+              </p>
+            </a>
+          ))}
+        </div>
+      )}
+      <p><a href="/account/cameras">All cameras</a></p>
+    </section>
+
+    <section class="account-block" data-block="orders" aria-labelledby="orders-h">
+      <h2 id="orders-h">Recent orders</h2>
+      {orders.length === 0 ? (
+        <p class="empty">No orders yet.</p>
+      ) : (
+        <table class="table">
+          <tbody>
+            {orders.map((o) => (
+              <tr>
+                <td><a class="mono" href={`/account/orders/${o.number}`}>{o.number}</a></td>
+                <td>{dateLong(o.placed_at || o.created_at)}</td>
+                <td class="num money tnum">{money(o.total_minor)}</td>
+                <td><span class="chip chip-finished">{o.status === 'confirmed' ? 'Confirmed and invoiced' : 'Pending'}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p><a href="/account/orders">All orders</a></p>
+    </section>
+
+    <section class="account-block" data-block="software" aria-labelledby="software-h">
+      <h2 id="software-h">Software</h2>
+      <p>
+        The current application version is Arranger <span class="mono version">{currentApp.version}</span>
+        (build <span class="mono build tnum">{currentApp.build}</span>).
+      </p>
+      {seenVersion ? (
+        <p>
+          {compareVersions(currentApp.version, seenVersion) > 0
+            ? `That is newer than the ${seenVersion} you last saw.`
+            : `You have already seen ${seenVersion}.`}
+        </p>
+      ) : (
+        <p>This is the first version we have shown you.</p>
+      )}
+      <p><a href="/downloads">Go to downloads</a></p>
+    </section>
+  </div>
+</Shell>
+
+
+
+<style is:global>
+  .account-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 6); }
+  .muted { color: var(--muted-light); }
+  .account-blocks { display: grid; gap: calc(var(--unit) * 6); }
+  .account-block { border: var(--border) solid var(--line-light); border-radius: var(--radius); padding: calc(var(--unit) * 4); box-shadow: var(--shadow); }
+  .account-block h2 { font-size: 1rem; margin-bottom: calc(var(--unit) * 3); }
+  .cam-card { display: grid; gap: calc(var(--unit) * 1.5); padding: calc(var(--unit) * 3); text-decoration: none; }
+  .cam-card h3 { font-size: 1rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--unit); }
+</style>

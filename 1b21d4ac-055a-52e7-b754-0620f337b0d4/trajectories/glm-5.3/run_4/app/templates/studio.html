@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="studio" x-data='studio({{ {'records': records, 'house': house_slug} | tojson }})'>
+  <div class="palette-wrap">
+    <div class="palette" role="dialog" aria-label="Command palette">
+      <label class="palette-field">
+        <span class="field-label">Search or act</span>
+        <input class="palette-input" type="text" x-model="query" @keydown="onKeydown($event)"
+               @keydown.escape.window="query=''"
+               placeholder="Type a title, a slug or an action" data-palette-input
+               aria-describedby="palette-hint">
+      </label>
+      <p class="palette-hint" id="palette-hint">Enter opens. Escape clears.</p>
+      <ul class="palette-list" role="listbox" aria-label="Records and actions">
+        <template x-for="(opt, i) in options" :key="opt.key">
+          <li class="palette-option" role="option" :aria-selected="i === selected"
+              :class="i === selected ? 'is-selected' : ''" @click="go(opt)"
+              @mousemove="selected = i">
+            <span class="option-kind" x-text="opt.kind"></span>
+            <span class="option-title" x-text="opt.title"></span>
+            <span class="option-meta" x-text="opt.meta"></span>
+          </li>
+        </template>
+        <li class="palette-empty" x-show="!options.length">
+          <span>Nothing in this house matches.</span>
+        </li>
+      </ul>
+      <div class="palette-actions">
+        <button class="palette-action" type="button" @click="newTalent()">New talent</button>
+        <button class="palette-action" type="button" @click="newWork()">New work</button>
+        <button class="palette-action" type="button" @click="reorder()">Reorder index</button>
+      </div>
+      <div class="reorder" x-show="reordering" x-cloak>
+        <p class="palette-hint">The index order. Move a work and the ordinals follow.</p>
+        <ol class="reorder-list">
+          <template x-for="(w, i) in works" :key="w.id">
+            <li class="reorder-row">
+              <span class="option-kind" x-text="String(i + 1).padStart(3, '0')"></span>
+              <span class="option-title" x-text="w.title"></span>
+              <span class="reorder-moves">
+                <button class="palette-action" type="button" @click="move(i, -1)"
+                        :aria-label="`Move ${w.title} earlier`">&#8593;</button>
+                <button class="palette-action" type="button" @click="move(i, 1)"
+                        :aria-label="`Move ${w.title} later`">&#8595;</button>
+              </span>
+            </li>
+          </template>
+        </ol>
+        <p class="form-ok" x-text="reorderOk" x-show="reorderOk" x-cloak></p>
+      </div>
+    </div>
+  </div>
+  <div class="record-grid">
+    <template x-for="r in records" :key="r.id">
+      <article class="record-card">
+        <p class="record-title" x-text="r.title"></p>
+        <p class="record-meta">
+          <span class="record-kind" x-text="r.kind"></span>
+          <span class="record-slug" x-text="r.slug"></span>
+          <span class="record-live" :class="r.published ? 'is-live' : ''"
+                x-text="r.published ? 'live' : 'unlisted'"></span>
+        </p>
+        <div class="record-links">
+          <a class="record-link" :href="`/studio/items/${r.id}`">Edit</a>
+          <button class="record-link" type="button" @click="preview(r)">Preview</button>
+        </div>
+      </article>
+    </template>
+    <p class="record-empty" x-show="!records.length">This house has no records yet.</p>
+  </div>
+</section>
+{% endblock %}

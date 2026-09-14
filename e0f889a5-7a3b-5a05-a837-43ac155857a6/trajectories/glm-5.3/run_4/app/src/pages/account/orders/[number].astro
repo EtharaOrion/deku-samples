@@ -1,0 +1,78 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { orderByNumber, serializeOrder } from '../../../lib/orders.js';
+import { money, formatDate } from '../../../lib/format.js';
+
+const customer = Astro.locals.customer;
+if (!customer) return Astro.redirect(`/sign-in?next=/account/orders`);
+
+const { number } = Astro.params;
+const order = await orderByNumber(number);
+if (!order || order.customer_id !== customer.id) return Astro.rewrite('/404');
+
+const serialized = await serializeOrder(order);
+const address = order.shipping_address || {};
+---
+
+<Shell title={`Order ${order.number} — Vela`} current="orders" customer={{ name: customer.name, email: customer.email }}>
+  <nav class="breadcrumb"><a href="/account/orders">Orders</a> / <span class="mono">{order.number}</span></nav>
+  <h1 class="mono">{order.number}</h1>
+  <p>Placed {formatDate(order.placed_at)}</p>
+
+  <section>
+    <h2>Lines</h2>
+    <ul class="summary-lines">
+      {serialized.lines.map((l) => (
+        <li>
+          <span>{l.title} ({l.option_value}) × {l.quantity}</span>
+          <span class="tnum">{money(l.total_minor)}</span>
+          {l.serials.length > 0 && (
+            <span class="serials">Serials: {l.serials.map((s) => <code class="mono">{s}</code>)}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section>
+    <h2>Totals</h2>
+    <dl class="summary-rows">
+      <div><dt>Subtotal</dt><dd class="tnum">{money(order.subtotal_minor)}</dd></div>
+      <div><dt>Delivery ({order.shipping_method})</dt><dd class="tnum">{money(order.shipping_minor)}</dd></div>
+      <div><dt>Tax</dt><dd class="tnum">{money(order.tax_minor)}</dd></div>
+      <div class="summary-total"><dt>Total</dt><dd class="tnum">{money(order.total_minor)}</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Address</h2>
+    <address>
+      {address.name}<br />
+      {address.line1}{address.line2 ? `, ${address.line2}` : ''}<br />
+      {address.city} {address.region} {address.postal_code}<br />
+      {address.country}
+    </address>
+  </section>
+
+  <section data-register-serials>
+    <h2>Register these cameras</h2>
+    {serialized.lines.filter((l) => l.serials.length > 0).flatMap((l) => l.serials).length === 0 ? (
+      <p class="empty">This order has no cameras.</p>
+    ) : (
+      <ul>
+        {serialized.lines.flatMap((l) => l.serials).map((s) => (
+          <li data-serial-row={s}>
+            <code class="mono">{s}</code>
+            <button class="btn" data-register-one data-serial={s}>Register to my account</button>
+          </li>
+        ))}
+      </ul>
+    )}
+    <p class="feedback" data-serials-feedback role="status"></p>
+  </section>
+
+  <script>
+    import { mountOrderSerials } from '../../../components/order-serials.js';
+    mountOrderSerials(document.querySelector('[data-register-serials]'), document.querySelector('[data-serials-feedback]'));
+  </script>
+</Shell>

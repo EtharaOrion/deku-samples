@@ -1,0 +1,73 @@
+---
+import App from '@layouts/App.astro';
+import { q } from '@server/db/index.js';
+
+const products = await q(
+  `SELECT p.id, p.handle, p.title, p.subtitle, p.kind, p.status, p.support_until,
+          COALESCE(MIN(v.price_minor), 0) AS price_from_minor,
+          SUM(CASE WHEN v.inventory_policy = 'deny' THEN GREATEST(il.available, 0) ELSE 999 END) AS total_available,
+          COUNT(v.id) AS variant_count,
+          MAX(CASE WHEN v.inventory_policy = 'deny' AND il.available > 0 THEN il.available ELSE NULL END) AS best_available
+   FROM product p
+   JOIN variant v ON v.product_id = p.id
+   LEFT JOIN inventory_level il ON il.variant_id = v.id
+   WHERE p.kind <> 'protection'
+   GROUP BY p.id ORDER BY p.position`
+);
+const cameras = products.filter((p) => p.kind === 'camera');
+const others = products.filter((p) => p.kind !== 'camera');
+const fmt = (minor) => { const abs = Math.abs(minor); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+const chipFor = (p) => {
+  if (p.status === 'discontinued') return { cls: 'chip-warn', text: 'Discontinued' };
+  if (Number(p.total_available) <= 0) return { cls: 'chip-err', text: 'Sold out' };
+  if (p.best_available != null && Number(p.best_available) <= 10) return { cls: 'chip-warn', text: `Only ${p.best_available} left` };
+  return null;
+};
+---
+<App title="Shop">
+  <h1>Shop</h1>
+  <p class="muted">Two cameras and what makes them better. Nothing else.</p>
+  {products.length === 0 ? (
+    <div class="card empty">
+      <p>Nothing is on the table right now.</p>
+      <a class="btn" href="/downloads">Go to downloads</a>
+    </div>
+  ) : (
+    <>
+      <section aria-label="Cameras" class="grid cameras">
+        {cameras.map((p) => (
+          <a class="card product-card" href={`/shop/${p.handle}`}>
+            <div class="media media-camera" aria-hidden="true"></div>
+            <h2>{p.title}</h2>
+            <p class="muted">{p.subtitle}</p>
+            <p class="price tnum">From {fmt(p.price_from_minor)}</p>
+            {chipFor(p) ? <span class={`chip ${chipFor(p).cls}`}>{chipFor(p).text}</span> : null}
+          </a>
+        ))}
+      </section>
+      <section aria-label="Accessories and spares" class="grid accessories">
+        {others.map((p) => (
+          <a class="card product-card" href={`/shop/${p.handle}`}>
+            <div class="media media-small" aria-hidden="true"></div>
+            <h2>{p.title}</h2>
+            <p class="muted">{p.subtitle}</p>
+            <p class="price tnum">From {fmt(p.price_from_minor)}</p>
+            {chipFor(p) ? <span class={`chip ${chipFor(p).cls}`}>{chipFor(p).text}</span> : null}
+          </a>
+        ))}
+      </section>
+    </>
+  )}
+</App>
+<style>
+.cameras { grid-template-columns: repeat(2, 1fr); margin-bottom: calc(var(--unit) * 4); }
+.accessories { grid-template-columns: repeat(3, 1fr); }
+.product-card { text-decoration: none; display: flex; flex-direction: column; gap: var(--unit); }
+.media { border-radius: 0; border: var(--border) solid var(--line); background: linear-gradient(160deg, #e7e3da, #cfcabd); }
+.media-camera { aspect-ratio: 4 / 3; }
+.media-small { aspect-ratio: 5 / 2; }
+.price { font-weight: 700; }
+@media (max-width: 48rem) {
+  .cameras, .accessories { grid-template-columns: 1fr; }
+}
+</style>

@@ -1,0 +1,61 @@
+---
+import { money } from '../server/format.ts';
+
+export interface Props {
+  view: any;
+  step: number;
+}
+
+const { view, step } = Astro.props as Props;
+const steps = [
+  { href: '/checkout/where-it-goes', label: 'Where it goes' },
+  { href: '/checkout/how-it-gets-there', label: 'How it gets there' },
+  { href: '/checkout/payment', label: 'Payment' },
+];
+const protectionPrice = view.protection_rung
+  ? (({ 'VELA-PROTECT-1': 98, 'VELA-PROTECT-2': 298, 'VELA-PROTECT-3': 598, 'VELA-PROTECT-4': 1198 } as any)[view.protection_rung] ?? 0)
+  : 0;
+---
+
+<aside class="summary card" aria-label="Order summary">
+  <h2>Summary</h2>
+  <ul class="sum-lines">
+    {view.lines.map((l: any) => (
+      <li>
+        <span class="sum-title">{l.title} <span class="sum-qty">× {l.quantity}</span></span>
+        <span class="num">{money(l.current_price_minor * l.quantity)}</span>
+      </li>
+    ))}
+  </ul>
+  <dl class="totals">
+    <div><dt>Subtotal</dt><dd class="num">{money(view.subtotal_minor)}</dd></div>
+    {view.protection_enabled ? <div><dt>Shipment protection</dt><dd class="num">{money(protectionPrice)}</dd></div> : null}
+    <div><dt>Delivery</dt><dd class="num">{view.shipping_minor !== null ? money(view.shipping_minor) : 'To be chosen'}</dd></div>
+    <div><dt>Tax</dt><dd class="num">{money(view.tax_minor)}</dd></div>
+    <div class="total-row"><dt>Total</dt><dd class="num" data-summary-total>{money(view.total_minor)}</dd></div>
+  </dl>
+  <ol class="steps">
+    {steps.map((s, i) => (
+      <li class:list={{ 'is-current': i + 1 === step, 'is-done': i + 1 < step }}>
+        {i + 1 < step ? <a href={s.href}>{s.label}</a> : <span>{s.label}</span>}
+      </li>
+    ))}
+  </ol>
+</aside>
+
+<style>
+  .summary { padding: calc(var(--unit) * 3); display: grid; gap: calc(var(--unit) * 2); }
+  .summary h2 { font-size: 17px; }
+  .sum-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  .sum-lines li { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); font-size: 14px; }
+  .sum-qty { color: var(--ink-soft); }
+  .totals { display: grid; gap: calc(var(--unit) * 1); margin: 0; border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); font-size: 14px; }
+  .totals dt { color: var(--ink-soft); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .total-row { border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); font-weight: 700; font-size: 16px; }
+  .steps { list-style: none; display: flex; gap: calc(var(--unit) * 2); padding: 0; margin: calc(var(--unit) * 2) 0 0; font-size: 13px; flex-wrap: wrap; }
+  .steps li { color: var(--ink-soft); }
+  .steps .is-current { color: var(--ink); font-weight: 700; }
+  .steps a { color: inherit; }
+</style>

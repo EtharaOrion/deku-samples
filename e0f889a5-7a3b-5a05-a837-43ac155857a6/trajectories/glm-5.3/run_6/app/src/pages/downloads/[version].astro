@@ -1,0 +1,54 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import ReleaseList from '../../components/ReleaseList.astro';
+import { getRelease, listReleases } from '../../lib/firmware.js';
+import { formatBytes, formatShortDate } from '../../lib/session.js';
+
+export const prerender = false;
+
+const { version } = Astro.params;
+const release = await getRelease(version);
+if (!release) {
+  return Astro.redirect('/404');
+}
+const result = await listReleases({ pageSize: 100 });
+const releases = result.data;
+---
+
+<Shell title={`Arranger ${release.version}`} description={`Release notes for Arranger ${release.version}.`}>
+  <h1 class="page-title">Arranger <span class="mono">{release.version}</span></h1>
+  <p class="subtitle">
+    Released on {formatShortDate(release.released_on)} · build <span class="mono tnum">{release.build}</span>
+  </p>
+
+  <section class="card">
+    <p class="download-row">
+      <a class="btn" href={`/downloads/${release.version}`} data-download={release.artifact_name}>
+        Download Arranger {release.version}
+      </a>
+      <span class="download-meta">
+        <span class="tnum">{formatBytes(release.size_bytes)}</span>
+        <span class="mono digest">{release.sha256}</span>
+      </span>
+    </p>
+    {release.description && <p>{release.description}</p>}
+    <ReleaseList notes={release.notes} />
+    <p class="signoff">The Vela team.</p>
+  </section>
+
+  <section class="archive">
+    <h2 class="section-title">Every release</h2>
+    <p class="hint">The whole archive is on the downloads page, newest build first.</p>
+  </section>
+
+  <p><a class="btn secondary" href="/downloads">Back to the archive</a></p>
+</Shell>
+
+<style>
+  .subtitle { color: var(--ink-soft); margin-bottom: calc(var(--step) * 6); }
+  .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--step) * 4); margin-bottom: calc(var(--step) * 4); }
+  .download-meta { display: grid; gap: var(--step); font-size: 0.8125rem; color: var(--ink-soft); }
+  .digest { word-break: break-all; max-width: 34rem; }
+  .archive { margin-top: calc(var(--step) * 8); }
+  .signoff { margin-top: calc(var(--step) * 4); color: var(--ink-soft); }
+</style>

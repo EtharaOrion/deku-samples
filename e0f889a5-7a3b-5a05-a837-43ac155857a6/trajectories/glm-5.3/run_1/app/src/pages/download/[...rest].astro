@@ -1,0 +1,42 @@
+---
+import { db } from '../../lib/store.mjs';
+
+const parts = Astro.params.rest?.split('/') || [];
+if (parts[0] === 'arranger' && parts[1]) {
+  const r = (await (await db()).query(`SELECT * FROM app_release WHERE artifact_name=$1`, [parts[1]])).rows[0];
+  if (r) {
+    const body = JSON.stringify({
+      artifact: r.artifact_name,
+      version: r.version,
+      build: r.build,
+      size_bytes: r.size_bytes,
+      sha256: r.sha256,
+    }, null, 2);
+    return new Response(body, {
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-disposition': `attachment; filename="${r.artifact_name}.json"`,
+        'x-vela-build': String(r.build),
+      },
+    });
+  }
+}
+if (parts[0] === 'firmware' && parts[1] && parts[2]) {
+  const r = (await (await db()).query(
+    `SELECT f.*, p.handle AS product_handle FROM firmware f JOIN product p ON p.id=f.product_id
+     WHERE p.handle=$1 AND f.version=$2`, [parts[1], parts[2]])).rows[0];
+  if (r) {
+    const body = JSON.stringify({
+      product: r.product_handle, version: r.version, build: r.build,
+      min_firmware: r.min_firmware, min_app_version: r.min_app_version,
+      size_bytes: r.size_bytes, sha256: r.sha256,
+    }, null, 2);
+    return new Response(body, {
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-disposition': `attachment; filename="vela-${r.product_handle}-firmware-${r.version}.json"`,
+      },
+    });
+  }
+}
+return new Response('That page does not exist.', { status: 404 });

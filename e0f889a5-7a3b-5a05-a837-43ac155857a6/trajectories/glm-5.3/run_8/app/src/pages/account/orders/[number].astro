@@ -1,0 +1,74 @@
+---
+import App from '@layouts/App.astro';
+import { one, q } from '@server/db/index.js';
+import { currentCustomer } from '@lib/session.js';
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) return Astro.redirect(`/sign-in?redirect=${encodeURIComponent('/account/orders')}`);
+
+const number = Astro.params.number;
+const order = await one('SELECT * FROM orders WHERE number = $1 AND customer_id = $2', [number, customer.id]);
+if (!order) return Astro.redirect('/404');
+const lines = await q('SELECT * FROM order_line WHERE order_id = $1 ORDER BY id', [order.id]);
+const serials = await q('SELECT id, serial, variant_id, status FROM device WHERE order_id = $1 ORDER BY id', [order.id]);
+const variantSku = await q('SELECT id, sku FROM variant');
+const skuById = new Map(variantSku.map((v) => [v.id, v.sku]));
+const addr = order.shipping_address || {};
+const fmt = (m) => { const abs = Math.abs(m); return `$${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`; };
+const date = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+---
+<App title={`Order ${order.number}`}>
+  <nav class="crumbs"><a href="/account/orders">Orders</a> / <span class="mono">{order.number}</span></nav>
+  <h1><span class="mono">{order.number}</span></h1>
+  <p class="muted">Placed {date(order.placed_at)}. {order.status === 'confirmed' ? 'Confirmed' : 'Pending'}, {order.payment_status === 'invoiced' ? 'invoiced' : 'unpaid'}{order.fulfilment_status === 'fulfilled' ? ', delivered' : ''}.</p>
+
+  <section class="card">
+    <h2>Lines as they were bought</h2>
+    <table class="spec">
+      <tbody>
+        {lines.map((l) => (
+          <tr>
+            <th scope="row">{l.title_snapshot} <span class="muted small mono">{l.sku_snapshot}</span></th>
+            <td class="num tnum">x{l.quantity}</td>
+            <td class="num tnum">{fmt(l.total_minor)}</td>
+          </tr>
+        ))}
+        <tr><th scope="row">Subtotal</th><td></td><td class="num tnum">{fmt(order.subtotal_minor)}</td></tr>
+        {order.protection_minor ? <tr><th scope="row">Shipment protection</th><td></td><td class="num tnum">{fmt(order.protection_minor)}</td></tr> : null}
+        <tr><th scope="row">Delivery ({order.shipping_method})</th><td></td><td class="num tnum">{fmt(order.shipping_minor)}</td></tr>
+        <tr><th scope="row">Tax</th><td></td><td class="num tnum">{fmt(order.tax_minor)}</td></tr>
+        <tr><th scope="row">Total</th><td></td><td class="num tnum"><strong>{fmt(order.total_minor)}</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  {serials.length ? (
+    <section class="card">
+      <h2>Serial numbers</h2>
+      <p class="muted small">The serials allocated to the cameras on this order. Register one to keep it on your account.</p>
+      <ul class="serials">
+        {serials.map((s) => (
+          <li>
+            <span class="mono">{s.serial}</span>
+            {s.status === 'registered' ? <span class="chip chip-ok">Registered</span> : <a class="btn btn-quiet" href={`/account/cameras?register=${s.serial}`}>Register this camera</a>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  ) : null}
+
+  <section class="card">
+    <h2>Where it goes</h2>
+    <address>
+      {addr.name}<br />
+      {addr.line1}{addr.line2 ? <><br />{addr.line2}</> : null}<br />
+      {addr.city}{addr.region ? `, ${addr.region}` : ''} {addr.postal_code}<br />
+      {addr.country}
+    </address>
+  </section>
+</App>
+<style>
+.crumbs { margin-bottom: calc(var(--unit) * 2); font-size: 0.875rem; }
+.serials { list-style: none; padding: 0; display: grid; gap: var(--unit); }
+.serials li { display: flex; gap: calc(var(--unit) * 2); align-items: center; }
+</style>

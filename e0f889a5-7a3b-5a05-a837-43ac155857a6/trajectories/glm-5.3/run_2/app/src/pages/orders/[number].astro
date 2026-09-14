@@ -1,0 +1,114 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { orderViewByNumber } from '../../server/orders.ts';
+import { sha256Hex } from '../../server/crypto.ts';
+import { money, longDate, orderChip } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+import { getCustomer } from '../../server/context.ts';
+
+const { number } = Astro.params;
+const accessToken = Astro.url.searchParams.get('access_token');
+const order = await orderViewByNumber(number || '');
+if (!order) return Astro.redirect('/404');
+
+const tokenOk = accessToken && sha256Hex(accessToken) === (await orderHash(number!));
+const customer = await getCustomer(Astro);
+const owns = Boolean(customer && order.customer_id && String(order.customer_id) === String(customer.id));
+if (!tokenOk && !owns) return Astro.redirect('/404');
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+async function orderHash(num: string) {
+  const { q } = await import('../../server/db/pool.ts');
+  const res = await q('SELECT access_token_hash FROM order_row WHERE number = \$1', [num]);
+  return res.rows[0]?.access_token_hash ?? '';
+}
+
+const chip = orderChip(order);
+const address = order.shipping_address || {};
+---
+
+<Shell title={`Order ${order.number} — Vela`} active="" cartCount={cartCount}>
+  <div class="confirm card">
+    <p class="confirm-state">Confirmed</p>
+    <h1>Order {order.number} is confirmed.</h1>
+    <p class="confirm-body">We have emailed {order.email}.</p>
+    <div class="confirm-actions">
+      {customer ? (
+        <a class="btn btn-primary" href={`/account/orders/${order.number}`}>Keep track of this order</a>
+      ) : (
+        <a class="btn btn-primary" href={`/orders/${order.number}?access_token=${accessToken ?? ''}`}>Keep track of this order</a>
+      )}
+    </div>
+  </div>
+
+  <div class="order-layout">
+    <section aria-label="Lines" class="card lines-card">
+      <h2>What you bought</h2>
+      <ul class="order-lines">
+        {order.lines.map((l: any) => (
+          <li>
+            <span class="line-title">{l.title_snapshot} <span class="mono line-sku">{l.sku_snapshot}</span></span>
+            <span class="num">{l.quantity} × {money(l.unit_price_minor)}</span>
+            <span class="num line-total">{money(l.total_minor)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="num">{money(order.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="num">{money(order.shipping_minor)}</dd></div>
+        {order.protection_minor > 0 ? <div><dt>Shipment protection</dt><dd class="num">{money(order.protection_minor)}</dd></div> : null}
+        <div><dt>Tax</dt><dd class="num">{money(order.tax_minor)}</dd></div>
+        <div class="total-row"><dt>Total</dt><dd class="num">{money(order.total_minor)}</dd></div>
+      </dl>
+      <p class="chip-row"><span class="chip chip-ok">{chip}</span></p>
+      <p class="placed">Placed {longDate(order.placed_at)}</p>
+    </section>
+
+    <aside class="card side-card">
+      <h2>Where it goes</h2>
+      <address class="address">
+        {address.name}<br />
+        {address.line1}{address.line2 ? <><br />{address.line2}</> : null}<br />
+        {[address.city, address.region].filter(Boolean).join(', ')} {address.postal_code}<br />
+        {address.country}
+      </address>
+      <h2>How it gets there</h2>
+      <p>{order.shipping_method} · {order.shipping_method === 'Express' ? '2 days' : '5 to 7 days'}</p>
+      {order.serials.length > 0 ? (
+        <>
+          <h2>Serial numbers</h2>
+          <ul class="serials">
+            {order.serials.map((s: any) => <li><span class="mono">{s.serial}</span></li>)}
+          </ul>
+        </>
+      ) : null}
+    </aside>
+  </div>
+</Shell>
+
+<style>
+  .confirm { padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 5); }
+  .confirm-state { margin: 0; color: var(--finished); font-size: 14px; }
+  .confirm h1 { font-size: 28px; }
+  .confirm-body { margin: 0; }
+  .confirm-actions { display: flex; gap: calc(var(--unit) * 2); flex-wrap: wrap; }
+  .order-layout { display: grid; gap: calc(var(--unit) * 4); grid-template-columns: 1fr; align-items: start; }
+  .lines-card, .side-card { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); }
+  h2 { font-size: 17px; }
+  .order-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .order-lines li { display: grid; grid-template-columns: 1fr auto auto; gap: calc(var(--unit) * 3); align-items: baseline; }
+  .line-sku { color: var(--ink-soft); font-size: 13px; margin-left: calc(var(--unit) * 1); }
+  .line-total { font-weight: 700; }
+  .totals { display: grid; gap: calc(var(--unit) * 1); margin: 0; border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); }
+  .totals > div { display: flex; justify-content: space-between; gap: calc(var(--unit) * 2); }
+  .totals dt { color: var(--ink-soft); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .total-row { border-top: var(--border-w) solid var(--paper-line); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .chip-row { margin: 0; }
+  .placed { color: var(--ink-soft); margin: 0; font-size: 14px; }
+  .address { font-style: normal; }
+  .serials { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  @media (min-width: 64rem) { .order-layout { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); } }
+</style>

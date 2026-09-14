@@ -1,0 +1,89 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { sessionCustomer } from '../../server/session.js';
+import { getOrder, loadOrderLines, orderSerials, canSeeOrder, toOrderView } from '../../server/orders.js';
+import { dollars } from '../../server/money.js';
+
+const { number } = Astro.params;
+const order = number ? await getOrder(number.toUpperCase()) : null;
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+const token = Astro.url.searchParams.get('access_token');
+const cookieToken = Astro.cookies.get('vela_order_token')?.value ?? null;
+const allowed = order ? await canSeeOrder(order, { accessToken: token ?? cookieToken, customerId: customer?.id ?? null }) : false;
+if (!order || !allowed) return Astro.redirect('/404');
+
+const lines = await loadOrderLines(order.id);
+const serials = await orderSerials(order.id);
+const view = toOrderView(order, lines, serials);
+if (token) Astro.cookies.set('vela_order_token', token, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 });
+---
+<PageShell title={`Order ${view.number} — Vela`} heading={`Order ${view.number}`} active="">
+  <div class="order">
+    <div class="confirmed card">
+      <p class="stated">Order {view.number} is confirmed.</p>
+      <p>We have emailed {view.email}.</p>
+      <a class="btn" href="/account/orders">Keep track of this order</a>
+    </div>
+
+    <section class="block card">
+      <h2>Lines</h2>
+      <ul>
+        {view.lines.map((l) => (
+          <li>
+            <span class="line__title">{l.title}</span>
+            <span class="tnum">×{l.quantity} · {dollars(l.total_minor)}</span>
+            {l.serials.length > 0 && (
+              <span class="serials">
+                {l.serials.map((s) => <span class="serial mono">{s}</span>)}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="block card">
+      <h2>Totals</h2>
+      <dl class="tnum">
+        <dt>Subtotal</dt><dd>{dollars(view.subtotal_minor)}</dd>
+        {view.protection_minor > 0 && (<><dt>Shipment protection</dt><dd>{dollars(view.protection_minor)}</dd></>)}
+        <dt>Delivery, {view.shipping_method}</dt><dd>{dollars(view.shipping_minor)}</dd>
+        <dt>Tax</dt><dd>{dollars(view.tax_minor)}</dd>
+        <dt>Total</dt><dd class="total">{dollars(view.total_minor)}</dd>
+      </dl>
+      <p class="field-hint">Invoiced in USD. Reference {view.number}.</p>
+    </section>
+
+    <section class="block card">
+      <h2>Address</h2>
+      {view.shipping_address && (
+        <address>
+          {view.shipping_address.name}<br />
+          {view.shipping_address.line1}{view.shipping_address.line2 ? `, ${view.shipping_address.line2}` : ''}<br />
+          {view.shipping_address.city}, {view.shipping_address.region} {view.shipping_address.postal_code}<br />
+          {view.shipping_address.country}
+        </address>
+      )}
+      <p class="chip chip--done">{view.status_chip}</p>
+    </section>
+  </div>
+</PageShell>
+
+<style>
+  .order { display: grid; gap: calc(var(--space) * 4); padding: 0 var(--gutter); }
+  .confirmed { padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); justify-items: start; }
+  .confirmed .stated { font-size: 20px; line-height: 30px; font-weight: 700; margin: 0; }
+  .confirmed p { margin: 0; }
+  .block { padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .block h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .block ul { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 3); }
+  .block li { display: flex; gap: calc(var(--space) * 3); flex-wrap: wrap; justify-content: space-between; }
+  .line__title { font-weight: 700; }
+  .serials { display: flex; gap: var(--space); flex-basis: 100%; }
+  .serial { border: var(--border-w) solid var(--ink-on-light-muted); border-radius: var(--radius); padding: 0 calc(var(--space) * 2); }
+  .block dl { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .block dt { color: var(--ink-on-light-muted); }
+  .block dd { margin: 0; text-align: right; }
+  .total { font-weight: 700; }
+  address { font-style: normal; }
+</style>

@@ -1,0 +1,110 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { getCustomer, orderByNumber } from '../../../lib/store.mjs';
+import { usd } from '../../../../server/domain.mjs';
+
+const s = await getCustomer(Astro.request);
+if (!s || s.expired || !s.customer) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+const me = s.customer;
+const number = String(Astro.params.number || '').toUpperCase();
+const order = await orderByNumber(number);
+if (!order || order.customer_id !== me.id) return new Response('That page does not exist.', { status: 404 });
+const addr = order.shipping_address || {};
+---
+<Shell title={`Order ${order.number} — Vela`} current="orders" customer={me}>
+  <nav class="crumb"><a href="/account/orders">Orders</a> / <span>{order.number}</span></nav>
+  <h1 class="mono">{order.number}</h1>
+  <p class="lede">Placed {order.placed_at ? new Date(order.placed_at).toISOString().slice(0, 10) : ''} · {order.status} · {order.payment_status} · {order.fulfilment_status}</p>
+
+  <section class="card block">
+    <h2>Lines as bought</h2>
+    <table class="data">
+      <thead><tr><th>Item</th><th>SKU</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {order.lines.map((l) => (
+          <tr>
+            <td>{l.title_snapshot}</td>
+            <td class="mono">{l.sku_snapshot}</td>
+            <td class="num tnum">{l.quantity}</td>
+            <td class="num money tnum">{usd(l.unit_price_minor)}</td>
+            <td class="num money tnum">{usd(l.total_minor)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <div class="serial-block">
+      <h3>Serial numbers</h3>
+      {order.lines.every((l) => (l.serials || []).length === 0) ? (
+        <p class="hint">No serials were allocated to this order.</p>
+      ) : (
+        order.lines.map((l) => (l.serials || []).length > 0 && (
+          <div class="serial-row">
+            <span class="mono serial">{l.serials.join(', ')}</span>
+            <span class="muted">{l.title_snapshot}</span>
+            <form data-register-serial class="inline">
+              <input type="hidden" name="serial" value={l.serials[0]} />
+              <button class="btn btn-secondary btn-sm" type="submit"
+                data-confirm={`Register ${l.serials[0]} to this account?`}>Register this camera</button>
+            </form>
+          </div>
+        ))
+      )}
+    </div>
+  </section>
+
+  <section class="card block">
+    <h2>Totals</h2>
+    <dl class="totals">
+      <div><dt>Subtotal</dt><dd class="money tnum">{usd(order.subtotal_minor)}</dd></div>
+      <div><dt>Delivery ({order.shipping_method})</dt><dd class="money tnum">{usd(order.shipping_minor)}</dd></div>
+      <div><dt>Tax</dt><dd class="money tnum">{usd(order.tax_minor)}</dd></div>
+      <div class="grand"><dt>Total</dt><dd class="money tnum">{usd(order.total_minor)}</dd></div>
+    </dl>
+    <p class="hint">Total {usd(order.total_minor)} {order.currency}. Invoiced to {order.email}.</p>
+  </section>
+
+  <section class="card block">
+    <h2>Address as captured</h2>
+    <p>{addr.name}<br />{addr.line1}{addr.line2 ? <><br />{addr.line2}</> : ''}<br />{addr.city} {addr.region} {addr.postal_code}<br />{addr.country}{addr.phone ? <><br />{addr.phone}</> : ''}</p>
+  </section>
+</Shell>
+
+<script>
+  for (const form of Array.from(document.querySelectorAll('[data-register-serial]'))) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const serial = form.querySelector('input[name="serial"]').value;
+      const btn = form.querySelector('button');
+      if (btn && !window.confirm(btn.dataset.confirm || 'Register this camera?')) return;
+      const res = await fetch('/api/account/devices', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serial }),
+      }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (res && res.ok) {
+        if (btn) { btn.disabled = true; btn.textContent = 'Registered'; }
+      } else if (btn) {
+        btn.textContent = body?.error?.message || 'That did not work.';
+      }
+    });
+  }
+</script>
+
+<style>
+  .crumb { font-size: 14px; color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 4); }
+  h1 { font-size: 26px; }
+  .lede { color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 6); }
+  .block { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 3); margin-bottom: calc(var(--unit) * 4); }
+  .block h2 { font-size: 17px; }
+  .serial-block h3 { font-size: 14px; color: var(--ground-light-fg-muted); font-weight: 400; }
+  .serial-row { display: flex; gap: calc(var(--unit) * 3); align-items: center; flex-wrap: wrap; }
+  .muted { color: var(--ground-light-fg-muted); font-size: 14px; }
+  .totals { margin: 0; display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--ground-light-fg-muted); }
+  .totals dd { margin: 0; }
+  .totals .grand { border-top: var(--border) solid var(--ground-light-line); padding-top: calc(var(--unit) * 2); font-weight: 700; font-size: 18px; }
+  .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+  .inline { display: inline; }
+</style>

@@ -1,0 +1,81 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { listProducts } from '../../lib/catalog.js';
+import { formatUsd } from '../../lib/money.js';
+
+export const prerender = false;
+
+const result = await listProducts({ pageSize: 100 });
+const products = result.data;
+const cameras = products.filter((p) => p.kind === 'camera');
+const accessories = products.filter((p) => p.kind !== 'camera');
+---
+
+<Shell title="Shop" description="Two cameras and the things that go with them.">
+  <h1 class="page-title">Shop</h1>
+
+  {
+    products.length === 0 ? (
+      <div class="empty">
+        <p>Nothing is on the table right now.</p>
+        <p><a href="/downloads">Get Arranger and firmware instead</a></p>
+      </div>
+    ) : (
+      <>
+        <section aria-labelledby="cameras-heading">
+          <h2 class="section-title" id="cameras-heading">Cameras</h2>
+          <ul class="grid product-grid cameras">
+            {cameras.map((product) => (
+              <li class="card product-card camera">
+                <a class="product-link" href={`/shop/${product.handle}`}>
+                  <div class="product-media" data-kind={product.kind} aria-hidden="true" />
+                  <h3 class="product-title">{product.title}</h3>
+                  <p class="product-subtitle">{product.subtitle}</p>
+                  <p class="product-price tnum">
+                    {product.variants.length > 1 && product.variants.some((v) => v.price_minor !== product.variants[0].price_minor)
+                      ? `From ${formatUsd(Math.min(...product.variants.map((v) => v.price_minor)))}`
+                      : formatUsd(product.variants[0]?.price_minor ?? 0)}
+                  </p>
+                  {product.availability.state !== 'available' && (
+                    <p>
+                      <span class={`chip ${product.availability.state === 'discontinued' ? 'is-neutral' : 'is-wrong'}`}>
+                        {product.availability.label}
+                      </span>
+                    </p>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="accessories-heading">
+          <h2 class="section-title" id="accessories-heading">Accessories and spares</h2>
+          <ul class="grid product-grid accessories">
+            {accessories.map((product) => (
+              <li class="card product-card">
+                <a class="product-link" href={`/shop/${product.handle}`}>
+                  <div class="product-media small" data-kind={product.kind} aria-hidden="true" />
+                  <h3 class="product-title">{product.title}</h3>
+                  <p class="product-subtitle">{product.subtitle}</p>
+                  <p class="product-price tnum">
+                    {product.variants.length > 1 && product.variants.some((v) => v.price_minor !== product.variants[0].price_minor)
+                      ? `From ${formatUsd(Math.min(...product.variants.map((v) => v.price_minor)))}`
+                      : formatUsd(product.variants[0]?.price_minor ?? 0)}
+                  </p>
+                  {product.availability.state !== 'available' && (
+                    <p>
+                      <span class={`chip ${product.availability.state === 'discontinued' ? 'is-neutral' : 'is-wrong'}`}>
+                        {product.availability.label}
+                      </span>
+                    </p>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </>
+    )
+  }
+</Shell>

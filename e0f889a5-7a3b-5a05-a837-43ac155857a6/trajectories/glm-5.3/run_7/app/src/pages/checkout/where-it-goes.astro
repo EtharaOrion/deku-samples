@@ -1,0 +1,105 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { ensureCart, cartPayload, SHIPPING_METHODS } from '../../lib/store.js';
+import { money } from '../../lib/view-helpers.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cart = token ? await ensureCart(token, null) : null;
+const payload = cart ? await cartPayload(cart) : null;
+if (!payload || payload.lines.length === 0) return Astro.redirect('/cart');
+
+const address = payload.shipping_address || {};
+const email = payload.email || '';
+---
+
+<Shell>
+  <ol class="steps" aria-label="Checkout steps">
+    <li aria-current="step">Where it goes</li>
+    <li>How it gets there</li>
+    <li>Payment</li>
+  </ol>
+
+  <div class="checkout-grid">
+    <form class="checkout-form" data-step-form data-next="/checkout/how-it-gets-there">
+      <h1 class="page-title">Where it goes</h1>
+      <p class="step-note">We send the order and nothing else to this address.</p>
+
+      <div class="fields">
+        <label class="field"><span>Email</span>
+          <input name="email" type="email" required value={email} autocomplete="email" inputmode="email" />
+        </label>
+        <label class="field check">
+          <input type="checkbox" name="marketing" />
+          <span>Email me about new cameras. Unticked by default.</span>
+        </label>
+        <label class="field"><span>Name</span>
+          <input name="name" required value={address.name || ''} autocomplete="name" />
+        </label>
+        <label class="field"><span>Address line 1</span>
+          <input name="line1" required value={address.line1 || ''} autocomplete="address-line1" />
+        </label>
+        <label class="field"><span>Address line 2 (optional)</span>
+          <input name="line2" value={address.line2 || ''} autocomplete="address-line2" />
+        </label>
+        <div class="field-row">
+          <label class="field"><span>City</span>
+            <input name="city" required value={address.city || ''} autocomplete="address-level2" />
+          </label>
+          <label class="field"><span>Region</span>
+            <input name="region" value={address.region || ''} autocomplete="address-level1" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field"><span>Postal code</span>
+            <input name="postal_code" required value={address.postal_code || ''} autocomplete="postal-code" />
+          </label>
+          <label class="field"><span>Country</span>
+            <input name="country" required value={address.country || 'US'} list="countries" autocomplete="country" />
+          </label>
+        </div>
+        <datalist id="countries">
+          <option value="US">United States</option>
+        </datalist>
+        <label class="field"><span>Phone (optional)</span>
+          <input name="phone" value={address.phone || ''} autocomplete="tel" inputmode="tel" />
+        </label>
+      </div>
+
+      <p class="form-error" role="alert" data-form-error></p>
+      <div class="step-actions">
+        <a class="btn btn-quiet" href="/cart">Back to the cart</a>
+        <button class="btn btn-primary" type="submit">Continue to delivery</button>
+      </div>
+    </form>
+
+    <aside class="cart-summary" aria-label="Summary">
+      <h2>Summary</h2>
+      {payload.lines.map((l) => (
+        <p class="sum-line"><span>{l.product_title} × {l.quantity}</span> <span class="money tnum">{money(l.line_total_minor)}</span></p>
+      ))}
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{money(payload.subtotal_minor)}</dd></div>
+        <div><dt>Estimated delivery</dt><dd class="money tnum">{money(payload.shipping_minor)}</dd></div>
+        <div><dt>Estimated tax</dt><dd class="money tnum">{money(payload.tax_minor)}</dd></div>
+        <div class="grand"><dt>Estimated total</dt><dd class="money tnum">{money(payload.total_minor)}</dd></div>
+      </dl>
+      <p class="estimate-note">Estimated. We will show the exact amount once we know where it is going.</p>
+    </aside>
+  </div>
+</Shell>
+
+<script is:inline src="/scripts/checkout.js" data-next="/checkout/how-it-gets-there"></script>
+
+<style is:global>
+  .steps { display: flex; gap: calc(var(--unit) * 4); list-style: none; margin: 0 0 calc(var(--unit) * 6); padding: 0; color: var(--muted-light); font-size: 14px; }
+  .steps li[aria-current="step"] { color: var(--fg-light); font-weight: 700; }
+  .checkout-grid { display: grid; gap: calc(var(--unit) * 6); grid-template-columns: 1fr; }
+  @media (min-width: 64rem) { .checkout-grid { grid-template-columns: 1.5fr 1fr; } }
+  .fields { display: grid; gap: calc(var(--unit) * 4); max-width: 32rem; }
+  .field-row { display: grid; gap: calc(var(--unit) * 3); grid-template-columns: 1fr 1fr; }
+  .field.check { flex-direction: row; align-items: flex-start; gap: calc(var(--unit) * 2); font-size: 14px; }
+  .step-note { color: var(--muted-light); margin-bottom: calc(var(--unit) * 4); }
+  .step-actions { display: flex; justify-content: space-between; gap: var(--unit); margin-top: calc(var(--unit) * 6); }
+  .form-error { color: var(--error); min-height: 1.4rem; }
+  .sum-line { display: flex; justify-content: space-between; gap: var(--unit); font-size: 14px; }
+</style>

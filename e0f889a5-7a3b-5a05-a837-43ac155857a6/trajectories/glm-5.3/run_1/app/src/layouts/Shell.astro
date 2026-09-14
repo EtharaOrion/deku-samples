@@ -1,0 +1,90 @@
+---
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  current?: string;
+  customer?: { id: any; email: string; name: string } | null;
+  cartCount?: number;
+  hideRail?: boolean;
+}
+const { title = 'Vela', description = 'Cameras built and sold directly.', current, customer, cartCount = 0 } = Astro.props;
+
+const rail = [
+  { href: '/shop', key: 'shop', label: 'Shop' },
+  { href: '/downloads', key: 'downloads', label: 'Downloads' },
+  { href: '/doctor', key: 'doctor', label: 'Firmware installer' },
+  ...(customer
+    ? [
+        { href: '/account', key: 'account', label: 'Overview' },
+        { href: '/account/orders', key: 'orders', label: 'Orders' },
+        { href: '/account/cameras', key: 'cameras', label: 'Cameras' },
+      ]
+    : []),
+];
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f6f4ef'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4551e'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <nav class="rail" id="rail" aria-label="Main">
+        {rail.map((r) => (
+          <a href={r.href} aria-current={current === r.key ? 'page' : undefined}>
+            <span class="marker" aria-hidden="true"></span>
+            <span>{r.label}</span>
+          </a>
+        ))}
+        <div style="margin-top:auto;display:grid;gap:4px">
+          {customer ? (
+            <>
+              <a href="/account" aria-current={current === 'account' ? 'page' : undefined}><span class="marker" aria-hidden="true"></span><span>{customer.name}</span></a>
+              <a href="/sign-out"><span class="marker" aria-hidden="true"></span><span>Sign out</span></a>
+            </>
+          ) : (
+            <>
+              <a href="/sign-in" aria-current={current === 'signin' ? 'page' : undefined}><span class="marker" aria-hidden="true"></span><span>Sign in</span></a>
+              <a href="/sign-up" aria-current={current === 'signup' ? 'page' : undefined}><span class="marker" aria-hidden="true"></span><span>Create account</span></a>
+            </>
+          )}
+        </div>
+      </nav>
+      <div class="main-col">
+        <div class="topbar">
+          <button class="rail-toggle-btn" type="button" data-rail-toggle aria-expanded="false" aria-controls="rail">
+            <span aria-hidden="true">≡</span> Menu
+          </button>
+          <a class="wordmark" href="/"><span class="dot" aria-hidden="true"></span>vela</a>
+          <a class="btn btn-secondary btn-sm" href="/cart" data-cart-link aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}>
+            Cart{cartCount > 0 ? <span class="chip" data-cart-badge style="margin-left:6px">{badge}</span> : ''}
+          </a>
+        </div>
+        <main id="main">
+          <slot />
+        </main>
+      </div>
+    </div>
+    <script is:inline>
+      (function () {
+        var btn = document.querySelector('[data-rail-toggle]');
+        var rail = document.getElementById('rail');
+        if (!btn || !rail) return;
+        btn.addEventListener('click', function () {
+          var open = rail.style.display === 'flex';
+          rail.style.display = open ? '' : 'flex';
+          btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        });
+      })();
+    </script>
+  </body>
+</html>

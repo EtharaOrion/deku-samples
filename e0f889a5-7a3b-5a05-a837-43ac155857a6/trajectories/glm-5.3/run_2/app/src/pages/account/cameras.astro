@@ -1,0 +1,121 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { requirePageCustomer, signInRedirect } from '../../server/pageguard.ts';
+import { devicesForCustomer, deviceView } from '../../server/devices.ts';
+import { getCartForContext } from '../../server/context.ts';
+
+const customer = await requirePageCustomer(Astro);
+if (!customer) return Astro.redirect(signInRedirect('/account/cameras'));
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const { rows } = await devicesForCustomer(customer.id, 100, null);
+const cameras = await Promise.all(rows.map((d: any) => deviceView(d)));
+---
+
+<Shell title="Cameras — Vela" active="cameras" customer={{ email: customer.email, name: customer.name }} cartCount={cartCount}>
+  <div class="page-head">
+    <h1>Cameras</h1>
+    <p class="lede">A camera is registered to one account at a time.</p>
+  </div>
+
+  <form class="card register" data-register-row>
+    <div class="field grow">
+      <label for="serial">Register a camera</label>
+      <input id="serial" class="mono" data-serial placeholder="VA2609KTMHX4" autocomplete="off" spellcheck="false" />
+      <p class="hint">Twelve characters, on the underside of the camera.</p>
+    </div>
+    <button class="btn btn-primary" type="submit" data-register>Register</button>
+    <p class="inline-error" data-register-error hidden></p>
+    <p class="flash-ok" data-register-ok hidden role="status">Registered. The camera is on your account now.</p>
+  </form>
+
+  {cameras.length === 0 ? (
+    <div class="empty">
+      <p>No cameras registered yet.</p>
+    </div>
+  ) : (
+    <ul class="grid">
+      {cameras.map((c: any) => (
+        <li class="card camera">
+          <a class="camera-link" href={`/account/cameras/${c.serial}`}>
+            <span class="camera-title">{c.nickname || c.model}</span>
+            <span class="camera-model">{c.model} · {c.option_value}</span>
+            <span class="mono camera-serial">{c.serial}</span>
+            <span class="camera-chips">
+              <span class={c.never_connected ? 'chip' : (c.update_available ? 'chip chip-low' : 'chip chip-ok')}>
+                {c.never_connected ? 'Not yet connected' : (c.update_available ? `Update available (${c.latest_firmware_version})` : `Firmware ${c.firmware_version}`)}
+              </span>
+              {c.warranty_until ? <span class="chip">Warranty to {c.warranty_until}</span> : <span class="chip">Warranty expired</span>}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+</Shell>
+
+<script>
+  const form = document.querySelector('[data-register-row]') as HTMLFormElement | null;
+  const input = document.querySelector('[data-serial]') as HTMLInputElement | null;
+  const errEl = document.querySelector('[data-register-error]') as HTMLElement | null;
+  const okEl = document.querySelector('[data-register-ok]') as HTMLElement | null;
+  const SERIAL = /^(VA|VC)\d{2}(0[1-9]|[1-4]\d|5[0-3])[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
+
+  // Grouped as typed, stored unformatted, validated for shape instantly.
+  input?.addEventListener('input', () => {
+    const raw = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const groups = [raw.slice(0, 2), raw.slice(2, 4), raw.slice(4, 6), raw.slice(6, 12)].filter(Boolean);
+    input.value = groups.join(' ');
+    errEl!.hidden = true;
+    if (raw.length === 12 && !SERIAL.test(raw)) {
+      errEl!.hidden = false;
+      errEl!.textContent = 'That serial number does not look right.';
+    }
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const serial = (input?.value || '').replace(/\s+/g, '').toUpperCase();
+    errEl!.hidden = true; errEl!.textContent = '';
+    okEl!.hidden = true;
+    if (!SERIAL.test(serial)) {
+      errEl!.hidden = false;
+      errEl!.textContent = 'That serial number does not look right.';
+      return;
+    }
+    try {
+      const res = await fetch('/api/account/devices', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serial }),
+        credentials: 'include',
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message || 'That did not work.');
+      window.location.reload();
+    } catch (err: any) {
+      errEl!.hidden = false;
+      errEl!.textContent = err.message;
+    }
+  });
+</script>
+
+<style>
+  .page-head h1 { font-size: 28px; }
+  .lede { color: var(--ink-soft); margin: 0; }
+  .register { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--unit) * 2); align-items: end; margin-bottom: calc(var(--unit) * 5); }
+  .grow { width: 100%; }
+  .hint { color: var(--ink-soft); font-size: 13px; margin: 0; }
+  .inline-error, .flash-ok { grid-column: 1 / -1; margin: 0; }
+  .flash-ok { color: var(--finished); }
+  .empty p { color: var(--ink-soft); }
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 3); grid-template-columns: 1fr; }
+  .camera { padding: 0; }
+  .camera-link { display: grid; gap: 2px; padding: calc(var(--unit) * 3); text-decoration: none; }
+  .camera-title { font-weight: 700; font-size: 19px; }
+  .camera-model { color: var(--ink-soft); font-size: 14px; }
+  .camera-serial { color: var(--ink-soft); }
+  .camera-chips { display: flex; gap: calc(var(--unit) * 1); flex-wrap: wrap; margin-top: calc(var(--unit) * 1); }
+  @media (min-width: 48rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>

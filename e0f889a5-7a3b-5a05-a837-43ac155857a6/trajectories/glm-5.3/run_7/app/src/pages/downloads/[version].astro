@@ -1,0 +1,89 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { q } from '../../lib/db.js';
+import { dateLong } from '../../lib/view-helpers.js';
+
+const { version } = Astro.params;
+const rows = await q('SELECT * FROM app_release WHERE version = $1', [version]);
+if (!rows.length) return Astro.redirect('/downloads');
+const r = rows[0];
+const all = await q('SELECT * FROM app_release ORDER BY build DESC');
+
+function noteParts(item) {
+  const m = String(item).match(/^(.*?)\s*\[([^\]]+)\]$/);
+  if (!m) return { text: String(item), ref: null };
+  return { text: m[1], ref: m[2] };
+}
+function noteText(item) { return noteParts(item).text + (noteParts(item).ref ? ' ' : ''); }
+function noteRef(item) { return noteParts(item).ref; }
+---
+
+<Shell>
+  <nav class="crumbs"><a href="/downloads">Downloads</a> / <span>Arranger {r.version}</span></nav>
+
+  <article class="release release-open">
+    <h1 class="page-title">Arranger {r.version}</h1>
+    <p class="release-date">Released on {dateLong(r.released_on)}</p>
+    <div class="download-row">
+      <a class="btn btn-primary" href={`/downloads/file/${r.artifact_name}`} download>Download {r.version}</a>
+      <p class="meta mono">
+        <span class="build tnum">Build {r.build}</span>
+        <span class="digest">{r.sha256}</span>
+        <span class="tnum">{r.size_bytes.toLocaleString('en-US')} bytes</span>
+      </p>
+    </div>
+    <p class="release-desc">{r.description}</p>
+    {Object.entries(r.notes).map(([group, items]) => (
+      items.length > 0 && (
+        <section class="note-group">
+          <h2>{group}</h2>
+          <ul>{items.map((item) => <li>{noteText(item)}{noteRef(item) && <code class="ref">{noteRef(item)}</code>}</li>)}</ul>
+        </section>
+      )
+    ))}
+    <p class="release-signoff">The Vela team.</p>
+  </article>
+
+  <section class="others">
+    <h2>Other releases</h2>
+    {all.filter((x) => x.version !== r.version).map((x) => (
+      <details class="release-details">
+        <summary>
+          <span class="release-title">Arranger {x.version}</span>
+          <span class="release-date">Released on {dateLong(x.released_on)}</span>
+          <span class="release-toggle">Show notes</span>
+        </summary>
+        <div class="release-body">
+          <a class="btn btn-quiet" href={`/downloads/file/${x.artifact_name}`} download>Download {x.version}</a>
+          {Object.entries(x.notes).map(([group, items]) => (
+            items.length > 0 && (
+              <section class="note-group">
+                <h3>{group}</h3>
+                <ul>{items.map((item) => <li>{noteText(item)}{noteRef(item) && <code class="ref">{noteRef(item)}</code>}</li>)}</ul>
+              </section>
+            )
+          ))}
+          <p class="release-signoff">The Vela team.</p>
+        </div>
+      </details>
+    ))}
+  </section>
+</Shell>
+
+<style is:global>
+  .crumbs { color: var(--muted-light); font-size: 14px; margin-bottom: calc(var(--unit) * 4); }
+  .release { display: grid; gap: calc(var(--unit) * 4); max-width: 44rem; }
+  .release-date { color: var(--muted-light); }
+  .download-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: calc(var(--unit) * 4); }
+  .meta { display: flex; flex-wrap: wrap; gap: calc(var(--unit) * 3); color: var(--muted-light); font-size: 13px; }
+  .note-group h2, .note-group h3 { font-size: 0.9375rem; margin-bottom: var(--unit); }
+  .note-group ul { margin: 0; padding-left: 1.2rem; }
+  .ref { font-family: var(--font-mono); font-weight: 400; font-size: 0.9em; color: var(--muted-light); }
+  .release-signoff { color: var(--muted-light); }
+  .others { margin-top: calc(var(--unit) * 10); display: grid; gap: calc(var(--unit) * 3); }
+  .others details summary { display: flex; gap: calc(var(--unit) * 3); align-items: baseline; cursor: pointer; list-style: none; }
+  .others details summary::-webkit-details-marker { display: none; }
+  .release-title { font-weight: 700; }
+  .release-toggle { color: var(--muted-light); font-size: 13px; margin-left: auto; }
+  .release-body { padding: calc(var(--unit) * 3) 0; display: grid; gap: calc(var(--unit) * 3); }
+</style>

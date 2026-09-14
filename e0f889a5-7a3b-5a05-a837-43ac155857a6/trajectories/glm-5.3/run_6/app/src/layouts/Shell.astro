@@ -1,0 +1,111 @@
+---
+import '../styles/global.css';
+import { currentCustomer, cartForPage } from '../lib/session.js';
+import { formatUsd } from '../lib/money.js';
+
+export const prerender = false;
+
+const { request, url } = Astro;
+const customer = await currentCustomer(request);
+const { cartView } = await cartForPage(request);
+
+const nav = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' }
+];
+if (customer) {
+  nav.push(
+    { href: '/account', label: 'Overview' },
+    { href: '/account/orders', label: 'Orders' },
+    { href: '/account/cameras', label: 'Cameras' }
+  );
+}
+
+const path = url.pathname;
+const isCurrent = (href) =>
+  href === '/account' ? path === '/account' : path === href || path.startsWith(href + '/');
+
+const railId = 'rail';
+const props = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{props.title ? `${props.title} · Vela` : 'Vela'}</title>
+    <meta name="description" content={props.description || 'Vela builds two cameras and sells them directly.'} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <button class="rail-toggle" type="button" data-rail-toggle aria-expanded="false" aria-controls={railId}>
+        <span aria-hidden="true">☰</span>
+        <span>Menu</span>
+      </button>
+      <header class="shell-bar">
+        <a class="wordmark" href="/">vela</a>
+        <span class="spacer"></span>
+        {
+          customer ? (
+            <button class="cart-control" type="button" data-sign-out>
+              <span>{customer.name.split(' ')[0]}</span>
+              <span>Sign out</span>
+            </button>
+          ) : (
+            <a class="cart-control" href="/sign-in">
+              <span>Sign in</span>
+            </a>
+          )
+        }
+        <a class="cart-control" href="/cart" aria-label={`Cart, ${cartView.item_count} item${cartView.item_count === 1 ? '' : 's'}`}>
+          <span>Cart</span>
+          {
+            cartView.item_count > 0 && (
+              <span class="count tnum">{cartView.item_count > 99 ? '99+' : cartView.item_count}</span>
+            )
+          }
+        </a>
+      </header>
+      <nav class="rail" id={railId} aria-label="Main">
+        <ul>
+          {
+            nav.map((item) => (
+              <li>
+                <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                  <span class="marker" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+      <main class="content" id="main">
+        <slot />
+      </main>
+    </div>
+    <script>
+      const toggle = document.querySelector('[data-rail-toggle]');
+      if (toggle) {
+        const rail = document.getElementById('rail');
+        toggle.addEventListener('click', () => {
+          const open = rail.classList.toggle('is-open');
+          toggle.setAttribute('aria-expanded', String(open));
+        });
+      }
+      const signOut = document.querySelector('[data-sign-out]');
+      if (signOut) {
+        signOut.addEventListener('click', async (event) => {
+          event.preventDefault();
+          await fetch('/api/auth/logout', { method: 'POST' });
+          window.localStorage.removeItem('vela_token');
+          window.location.href = '/';
+        });
+      }
+    </script>
+  </body>
+</html>

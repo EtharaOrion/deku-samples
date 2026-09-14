@@ -1,0 +1,1895 @@
+/* =============================================================================
+   Cirrus — the measured design system.
+   Two warm values and their opacity states, a serif display face and a
+   grotesque interface face, eight transitions, no keyframes, no colour on text
+   that is not one of the two tokens.
+   ========================================================================== */
+
+/* ------------------------------------------------------------ foundations */
+
+:root {
+  --color-dark: #060403;
+  --color-light: #e9eae4;
+
+  --fontM: 24px;
+  --fontS: 12px;
+  --fontXS: 10px;
+  --fontXXS: 8px;
+
+  --frame-h: 56px;
+  --dur-fast: 0.2s;
+  --dur-mid: 0.45s;
+  --dur-slow: 0.8s;
+  --curve-slow: cubic-bezier(.2, .65, .47, .96);
+  --curve-late: cubic-bezier(.83, .12, .35, .96);
+}
+
+/* The display face ladder: no size exists between 24px and 36px. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+figcaption {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: inherit;
+  font-size: inherit;
+}
+
+
+html {
+  background: var(--color-light);
+}
+
+body {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  background: var(--color-light);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* the scrolling well; the frame never scrolls */
+.well {
+  min-height: 100vh;
+}
+
+.display {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  text-transform: none;
+}
+
+.capitals .display {
+  text-transform: uppercase;
+}
+
+::selection {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.2s ease-out;
+}
+
+a:hover {
+  opacity: 0.5;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--color-dark);
+  outline-offset: 3px;
+}
+
+html[data-ground="dark"] a:focus-visible,
+html[data-ground="dark"] button:focus-visible,
+html[data-ground="dark"] input:focus-visible {
+  outline-color: var(--color-light);
+}
+
+/* skip link: first focusable element */
+.skip {
+  position: fixed;
+  left: 40px;
+  top: 8px;
+  z-index: 60;
+  transform: translateY(-200%);
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding: 8px 12px;
+  transition: transform 0.45s cubic-bezier(.83, .12, .35, .96);
+}
+
+.skip:focus {
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------- utilities */
+
+.opt {
+  /* opt-out: an element that suppresses the cursor square */
+  cursor: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ frame */
+
+.frame {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.frame > * {
+  pointer-events: auto;
+}
+
+/* decorative layers of the frame never take a pointer event */
+.mark-slot,
+.cursor-pair {
+  pointer-events: none !important;
+}
+
+
+.frame.is-out {
+  opacity: 0;
+}
+
+/* the wordmark: authored once, blended, never two versions */
+.wordmark {
+  position: absolute;
+  left: 40px;
+  top: 22px;
+  z-index: 11;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+  mix-blend-mode: difference;
+  color: var(--color-dark);
+}
+
+/* the asymmetric bar: WORKS centred on the window midpoint, the rest at right */
+.nav {
+  position: absolute;
+  top: 24px;
+  right: 40px;
+  z-index: 12;
+  display: flex;
+  gap: 28px;
+  align-items: baseline;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav-item--works {
+  /* WORKS is centred on the window midpoint, which is not the nav's own
+     box, so it is pinned to the window like the frame it belongs to */
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 24px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 12;
+}
+
+
+.nav-item--works a {
+  pointer-events: auto;
+}
+
+
+.nav .nav-gap {
+  /* keeps the centred WORKS out of the right group's flow */
+  display: none;
+}
+
+.nav-item {
+  white-space: nowrap;
+}
+
+.nav-item.is-active {
+  opacity: 0.5;
+}
+
+.nav-item--contact.is-active {
+  opacity: 1;
+}
+
+/* letter split: the whole word stays the accessible name */
+.split {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.split > span {
+  display: inline-block;
+  transform: translateY(0.9em);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(.83, .12, .35, .96), opacity 0.3s;
+}
+
+.split.is-in > span {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+html.reduced .split > span {
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+/* the centre mark slot */
+.mark-slot {
+  position: absolute;
+  top: 438px;
+  z-index: 8;
+  /* optical centring: each mark is centred on the window midpoint by its own
+     rendered width, not by a shared anchor */
+  left: calc(50% - var(--mark-w, 0px) / 2);
+  transition: opacity 0.4s;
+}
+
+html[data-mark="entry"] .mark-slot { --mark-w: 41px; }
+html[data-mark="works"] .mark-slot { --mark-w: 14px; }
+html[data-mark="talents"] .mark-slot { --mark-w: 18px; }
+html[data-mark="about"] .mark-slot { --mark-w: 27px; }
+
+.mark-slot svg {
+  display: block;
+  overflow: visible;
+}
+
+html[data-ground="dark"] .mark-slot svg {
+  fill: var(--color-light);
+}
+
+html[data-ground="light"] .mark-slot svg {
+  fill: var(--color-dark);
+}
+
+html[data-ground="dark"] .mark-slot svg .strokeonly {
+  fill: none;
+  stroke: var(--color-light);
+}
+
+html[data-ground="light"] .mark-slot svg .strokeonly {
+  fill: none;
+  stroke: var(--color-dark);
+}
+
+.frame.is-out .mark-slot {
+  opacity: 0;
+}
+
+/* the corner credit: blended so it reads on the dark entry route too */
+.corner-credit {
+  position: absolute;
+  right: 40px;
+  bottom: 14px;
+  z-index: 11;
+  mix-blend-mode: difference;
+  color: var(--color-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.corner-credit .arrows {
+  position: relative;
+  width: 8px;
+  height: 16px;
+  display: inline-block;
+}
+
+.corner-credit .arrow {
+  position: absolute;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  transition: transform 0.45s cubic-bezier(.83, .12, .35, .96), opacity 0.3s;
+}
+
+.corner-credit .arrow--rest {
+  top: 0;
+  opacity: 1;
+}
+
+.corner-credit .arrow--arrived {
+  top: 8px;
+  opacity: 0;
+  transform: translate(-8px, 8px);
+}
+
+.corner-credit:hover .arrow--rest {
+  transform: translate(8px, -16px);
+  opacity: 0;
+}
+
+.corner-credit:hover .arrow--arrived {
+  transform: translate(0, 0);
+  opacity: 1;
+}
+
+/* the cursor pair */
+.cursor-pair {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-999px, -999px);
+  transition: opacity 300ms ease;
+  will-change: transform;
+}
+
+.cursor-pair.is-live {
+  opacity: 1;
+}
+
+.cursor-square {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  background: var(--color-dark);
+  mix-blend-mode: difference;
+}
+
+.cursor-label {
+  position: absolute;
+  left: 14px;
+  top: -7px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  mix-blend-mode: difference;
+  color: var(--color-dark);
+}
+
+.cursor-pair.is-above .cursor-label {
+  left: 0;
+  top: -150px;
+}
+
+@media (pointer: coarse) {
+  .cursor-pair {
+    display: none;
+  }
+}
+
+html.reduced .cursor-pair {
+  display: none;
+}
+
+/* the loading veil + the route veil */
+.loading-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--color-dark);
+  opacity: 1;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.loading-veil.is-open {
+  opacity: 0;
+}
+
+html.reduced .loading-veil {
+  transition: none;
+}
+
+html.reduced .frame,
+html.reduced #content,
+html.reduced #footer {
+  transition: none;
+}
+
+/* ------------------------------------------------------------------ entry */
+
+.route--entry {
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-dark);
+  color: var(--color-light);
+  overflow: hidden;
+}
+
+html[data-ground="dark"] body {
+  background: var(--color-dark);
+}
+
+/* the counter: one component, three routes */
+.counter {
+  position: absolute;
+  left: 50%;
+  top: 438px;
+  transform: translate(-50%, -50%);
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 40px;
+  font-weight: 200;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--color-light);
+  white-space: nowrap;
+}
+
+.counter-value {
+  display: inline-block;
+}
+
+html[data-ground="light"] .counter {
+  color: var(--color-dark);
+}
+
+.counter--roster {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  top: auto;
+  transform: translateX(-50%);
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.counter--preview {
+  font-size: 27px;
+  font-weight: 400;
+}
+
+/* entry cluster: authored positions, dense toward the centre */
+.entry-cluster {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.entry-cluster.is-open {
+  opacity: 1;
+}
+
+html.reduced .entry-cluster {
+  transition: none;
+}
+
+.entry-still {
+  position: absolute;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  opacity: 1;
+  transition: opacity 0.2s ease-out;
+}
+
+.entry-still:hover {
+  opacity: 0.5;
+}
+
+.entry-still img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.entry-still figcaption {
+  position: absolute;
+  left: 0;
+  bottom: -26px;
+  font-size: 12px;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+
+.entry-still:focus-visible figcaption,
+.entry-still.is-touch figcaption {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------- media */
+
+.tile {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.tile-inner {
+  position: relative;
+  overflow: hidden;
+  clip-path: inset(100% 0% 0%);
+  transform: translateX(-123px);
+  transition: clip-path 0.8s var(--curve-slow);
+}
+
+.tile.is-revealed .tile-inner,
+.roster-portrait.is-revealed .tile-inner {
+  clip-path: inset(0% 0% 0%);
+  transform: translateX(0);
+  transition: clip-path 0.8s var(--curve-slow), transform 0.8s var(--curve-slow);
+}
+
+html.reduced .tile-inner {
+  clip-path: inset(0 0 0 0);
+  transform: none;
+  transition: none;
+}
+
+.tile-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: scale(1.015); /* never expose a sub-pixel edge on reveal */
+  filter: saturate(1);
+  transition: filter 0.8s var(--curve-slow);
+}
+
+/* the colour return: stills rest desaturated, give colour back on hover */
+.tile--index .tile-img {
+  filter: saturate(0);
+}
+
+.tile--index:hover .tile-img,
+.tile--index:focus-visible .tile-img,
+.tile--index.is-touch .tile-img {
+  filter: saturate(1);
+}
+
+html.reduced .tile--index .tile-img,
+html.reduced .tile--index:hover .tile-img {
+  transition: filter 0.01s;
+}
+
+.tile-reel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.tile-reel.is-live {
+  opacity: 1;
+}
+
+.tile-ph {
+  position: absolute;
+  inset: 0;
+  background: var(--color-dark);
+  opacity: 0.08;
+  transition: opacity 0.3s;
+}
+
+/* the placeholder clears on decode or on failure alike */
+.tile-img.is-failed {
+  opacity: 0;
+}
+
+.tile-inner.is-decoded .tile-ph,
+.tile-inner.is-failed .tile-ph {
+  opacity: 0;
+}
+
+/* the caption row: one component shared by the index, the detail and the
+   talent's selected work; the 4px square, an 8px gap, the ordinal, then the
+   title flush with the still's right edge */
+.caption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+
+.caption-sq {
+  width: 4px;
+  height: 4px;
+  flex: none;
+  background: var(--color-dark);
+  align-self: center;
+}
+
+.caption-ordinal {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 17.1px;
+  letter-spacing: 0.04em;
+  color: var(--color-dark);
+}
+
+.caption-title {
+  margin-left: auto;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 25.2px;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: right;
+  color: var(--color-dark);
+}
+
+/* variant geometry */
+.variant-left {
+  width: 598px;
+  margin-left: 40px;
+}
+
+.variant-right {
+  width: 300px;
+  margin-left: auto;
+  margin-right: 40px;
+}
+
+.variant-centre {
+  width: 1006px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ----------------------------------------------------------------- works */
+
+.route--works {
+  background: var(--color-light);
+  color: var(--color-dark);
+}
+
+.works-opening {
+  position: relative;
+  min-height: 94vh;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 40px 6vh;
+  box-sizing: border-box;
+}
+
+.works-opening p {
+  margin: 0;
+  width: 100%;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 40px;
+  font-weight: 200;
+  line-height: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+  filter: blur(10px);
+  transition: filter 0.8s var(--curve-slow);
+}
+
+
+.works-opening.is-sharp p {
+  filter: blur(0);
+}
+
+html.reduced .works-opening p {
+  filter: none;
+  transition: none;
+}
+
+.works-list {
+  padding: 0 0 6vh;
+}
+
+.work-entry {
+  margin: 0 0 3vh;
+}
+
+.work-entry--wide-gap {
+  /* one authored break in the rhythm: a screen and a half of empty ground */
+  margin-bottom: 30vh;
+}
+
+
+/* ----------------------------------------------------------- work detail */
+
+.route--work {
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding-top: 18vh;
+}
+
+.work-head {
+  padding: 0 40px;
+  margin-bottom: 12vh;
+}
+
+.work-head h1 {
+  margin: 0 0 18px;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 56px;
+  font-weight: 300;
+  line-height: 61.6px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+}
+
+.work-ordinal {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 17.1px;
+  letter-spacing: 0.04em;
+  color: var(--color-dark);
+}
+
+.credits {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 32px;
+  padding: 0 40px;
+  margin: 8vh 0;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.credits dt {
+  opacity: 0.5;
+}
+
+.credits dd {
+  margin: 0;
+}
+
+.work-reel {
+  width: 100%;
+  aspect-ratio: 1006 / 617;
+  margin: 0 0 18vh;
+  background: var(--color-dark);
+  opacity: 0.06;
+  position: relative;
+  overflow: hidden;
+}
+
+.work-reel canvas,
+.work-reel img,
+.work-reel video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.work-neighbours {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  padding: 10vh 40px 30vh;
+}
+
+.work-neighbours a {
+  display: block;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+}
+
+.work-neighbours a span {
+  display: block;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.work-neighbours .next {
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- talents */
+
+.route--talents {
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-light);
+  color: var(--color-dark);
+  overflow: hidden;
+}
+
+@media (max-width: 767px), (max-height: 499px) {
+  .route--talents {
+    overflow: visible;
+  }
+}
+
+.roster {
+  position: relative;
+  height: 100vh;
+}
+
+.roster-track {
+  position: absolute;
+  inset: 0;
+}
+
+.roster-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.roster-slide.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.roster-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 112px;
+  margin: 0;
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 125px;
+  font-weight: 300;
+  line-height: 137.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+/* a name that will not fit reduces to fit rather than wrapping */
+.roster-name,
+.talent-head h1 {
+  font-size: clamp(24px, calc((100vw - 80px) / 8.5), 125px);
+  line-height: 1.1;
+}
+
+/* the roster's own path curve: rises slowly, accelerates, then is completely
+   flat from 57% onward, so a name settles into place rather than sliding */
+.roster-name-inner {
+  display: inline-block;
+  transform: translateY(26px);
+  transition: transform 0.8s cubic-bezier(0.244, 0.14, 0.572, 1);
+}
+
+.roster-slide.is-active .roster-name-inner {
+  transform: translateY(0);
+}
+
+html.reduced .roster-name-inner {
+  transform: none;
+  transition: none;
+}
+
+
+.roster-discipline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 357px;
+  text-align: center;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.roster-portrait {
+  position: absolute;
+  left: 50%;
+  top: 567px;
+  width: 246px;
+  transform: translateX(-50%);
+}
+
+
+.roster-link {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* the discipline filter in the left margin */
+.filter {
+  position: absolute;
+  left: 54px;
+  top: 443px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* the marker square is drawn at x = 40, level with the active word */
+  --marker-x: -14px;
+}
+
+.filter button {
+  position: relative;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 0 0 14px;
+  margin: 0;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.2s ease-out;
+  text-align: left;
+}
+
+/* the one place a hover brightens rather than fades */
+.filter button:hover {
+  opacity: 0.8;
+}
+
+.filter button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.filter-marker {
+  position: absolute;
+  left: var(--marker-x, -14px);
+  top: 5px;
+  width: 4px;
+  height: 4px;
+  background: var(--color-dark);
+  opacity: 0;
+  transition: transform 0.45s var(--curve-late), opacity 0.1s;
+}
+
+.filter button[aria-pressed="true"] .filter-marker {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------- talent detail */
+
+.route--talent {
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding-top: 14vh;
+}
+
+.talent-head {
+  position: relative;
+  padding: 0 40px;
+  text-align: center;
+  margin-bottom: 10vh;
+}
+
+.talent-head h1 {
+  margin: 0;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 125px;
+  font-weight: 300;
+  line-height: 137.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+.talent-head .discipline {
+  margin-top: 8px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.talent-reel {
+  width: 1006px;
+  max-width: calc(100vw - 80px);
+  aspect-ratio: 1006 / 617;
+  margin: 0 auto 16vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.talent-selected {
+  padding: 0 0 30vh;
+}
+
+.talent-selected h2 {
+  padding: 0 40px;
+  margin: 0 0 8vh;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.talent-contact {
+  padding: 0 40px 20vh;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.talent-contact a {
+  display: inline-block;
+  margin-top: 10px;
+}
+
+/* ------------------------------------------------------------------ about */
+
+.route--about {
+  background: var(--color-light);
+  color: var(--color-dark);
+}
+
+.about-opening {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-figure {
+  position: relative;
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 36px;
+  font-weight: 100;
+  line-height: 34.56px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.about-figure p {
+  margin: 0;
+}
+
+.about-figure .mirror {
+  transform: scaleY(1);
+}
+
+.about-mid {
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 36px;
+  font-weight: 100;
+  line-height: 34.56px;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  margin: 0;
+}
+
+.about-mark-second {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+}
+
+.about-mark-second svg {
+  display: block;
+}
+
+html[data-ground="light"] .about-mark-second svg {
+  fill: var(--color-dark);
+}
+
+.about-body {
+  padding: 20vh 40px 10vh;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.blurblock {
+  filter: blur(10px);
+  transition: filter 0.8s var(--curve-slow);
+}
+
+html.reduced .blurblock {
+  filter: none;
+  transition: none;
+}
+
+.about-body .lines p {
+  margin: 0 0 6px;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 21.6px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+}
+
+.about-body .long {
+  margin-top: 16vh;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 21.6px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-dark);
+}
+
+/* the closing lockup: one figure, three sizes, optically nested */
+.lockup {
+  position: relative;
+  height: 260px;
+  margin: 24vh auto 34vh;
+  width: 560px;
+  max-width: calc(100vw - 80px);
+}
+
+.lockup .big {
+  position: absolute;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 58px;
+  font-weight: 400;
+  line-height: 40.6px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+.lockup .mid {
+  position: absolute;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24.75px;
+  font-weight: 100;
+  line-height: 23.76px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+.lockup .tiny {
+  position: absolute;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 9.75px;
+  font-weight: 100;
+  line-height: 9.36px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- footer */
+
+.footer {
+  position: relative;
+  z-index: 9;
+  margin-top: -30vh;
+  padding: 26vh 40px 34px;
+  transform: translateY(249.506px);
+  opacity: 0;
+  transition: transform 0.8s var(--curve-slow), opacity 0.4s;
+}
+
+.footer.is-in {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+html.reduced .footer {
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+/* the three surfaces that never scroll carry no footer: it could never
+   arrive and would only make the route scroll */
+body[data-route="entry"] #footer,
+body[data-route="talents"] #footer,
+body.is-preview #footer {
+  display: none;
+}
+
+.footer-scrim {
+  position: absolute;
+  inset: -50%;
+  z-index: -1;
+  pointer-events: none;
+  /* the one supporting value with a job of its own: the footer overlay
+     gradient, and nowhere else */
+  background: linear-gradient(0deg, #313236 -1.82%, #31323684 43.56%, #eaebe500);
+  transform: scale(1.5);
+}
+
+
+
+
+.footer-cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 24px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer-col--premises {
+  align-items: flex-start;
+}
+
+.footer-col--premises .num {
+  align-self: flex-end;
+}
+
+.footer-col--right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.footer-label {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------- contact overlay */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay-items {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: center;
+}
+
+.overlay-items > * {
+  transform: translateY(200px);
+  opacity: 0;
+  transition: transform 0.45s var(--curve-late), opacity 0.3s;
+}
+
+.overlay.is-open .overlay-items > * {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+html.reduced .overlay-items > * {
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+.overlay-close {
+  position: absolute;
+  right: 40px;
+  top: 24px;
+}
+
+.overlay .mail {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: none;
+}
+
+/* --------------------------------------------------------------- previews */
+
+body[data-route="work"].is-preview,
+body[data-route="talent"].is-preview {
+  overflow: hidden;
+}
+
+.counter--preview {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-light);
+  color: var(--color-dark);
+  transform: none;
+  transition: opacity 0.4s;
+}
+
+.counter--preview.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  padding: 8px 40px;
+  background: var(--color-dark);
+  color: var(--color-light);
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- studio */
+
+.route--studio {
+  padding: 96px 40px 20vh;
+  background: var(--color-light);
+  color: var(--color-dark);
+}
+
+.palette {
+  max-width: 720px;
+}
+
+.palette h1 {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: none;
+  margin: 0 0 22px;
+}
+
+.palette-input,
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-dark);
+  border-radius: 0;
+  padding: 8px 2px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.palette-input {
+  border: 0;
+  border-bottom: 1px solid var(--color-dark);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.field label {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+}
+
+.palette-list,
+.card-grid {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.palette-list li {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-dark) 12%, transparent);
+}
+
+.palette-row {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding: 10px 2px;
+  width: 100%;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+}
+
+.palette-row .t {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 25.2px;
+  text-transform: none;
+}
+
+.palette-row .meta {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  opacity: 0.5;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  border: 1px solid color-mix(in srgb, var(--color-dark) 14%, transparent);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card .t {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 25.2px;
+  text-transform: none;
+}
+
+.card .meta {
+  display: flex;
+  gap: 10px;
+  opacity: 0.5;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.card .live {
+  opacity: 1;
+}
+
+.btn {
+  appearance: none;
+  background: var(--color-dark);
+  color: var(--color-light);
+  border: 0;
+  border-radius: 0;
+  padding: 10px 16px;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s ease-out;
+}
+
+.btn:hover {
+  opacity: 0.8;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--color-dark);
+  border: 1px solid var(--color-dark);
+}
+
+.form-error {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  border: 1px solid var(--color-dark);
+  padding: 10px 12px;
+  margin: 0 0 18px;
+}
+
+.studio-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.studio-head h1 {
+  margin: 0;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: none;
+}
+
+.media-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-dark) 10%, transparent);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.media-list,
+.credit-list {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.credit-list li {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-dark) 10%, transparent);
+}
+
+.empty {
+  padding: 8vh 40px;
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: none;
+  color: var(--color-dark);
+}
+
+/* ---------------------------------------------------------------- 404 */
+
+.route--404 {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-light);
+  color: var(--color-dark);
+}
+
+.route--404 h1,
+.route--404 p {
+  margin: 0;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 18.9px;
+  text-transform: none;
+}
+
+/* ------------------------------------------------------- login / signup */
+
+.auth-route {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-light);
+  color: var(--color-dark);
+  padding: 96px 24px 48px;
+  box-sizing: border-box;
+}
+
+.auth-card {
+  width: 380px;
+  max-width: 100%;
+}
+
+.auth-card h1 {
+  margin: 0 0 20px;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 40px;
+  font-weight: 200;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+.auth-note {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-top: 18px;
+}
+
+/* ------------------------------------------------------- responsive */
+
+@media (max-width: 767px), (max-height: 499px) {
+  /* below the breakpoint the roster is a scroll-driven sequence: one talent
+     per screenful, every slide visible, the name moving at its own rate */
+  .roster {
+    height: auto;
+  }
+
+  .roster-slide {
+    position: relative;
+    inset: auto;
+    min-height: 100vh;
+    opacity: 1;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 16vh;
+  }
+
+  .roster-name,
+  .roster-discipline,
+  .roster-portrait {
+    position: static;
+    transform: none;
+  }
+
+  .roster-name {
+    font-size: min(15vw, 125px);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+
+  .roster-portrait {
+    width: 62vw;
+    margin-top: 6vh;
+  }
+
+  .roster-name-inner {
+    transform: none;
+    transition: none;
+  }
+
+  /* a touch visitor cannot hover: the work is shown in colour */
+  .tile--index .tile-img {
+    filter: saturate(1);
+  }
+
+  .variant-left,
+  .variant-right,
+  .variant-centre {
+    width: calc(100vw - 48px);
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .works-list,
+  .work-entry {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .works-opening {
+    padding: 0 24px 20vh;
+  }
+
+  .works-opening p {
+    font-size: 27px;
+  }
+
+  .roster-name,
+  .talent-head h1 {
+    font-size: min(15vw, 125px);
+    line-height: 1.1;
+  }
+
+  .roster-portrait {
+    top: 520px;
+    width: 60vw;
+  }
+
+  .roster-name {
+    top: 18vh;
+  }
+
+  .roster-discipline {
+    top: calc(18vh + 150px);
+  }
+
+  .filter {
+    position: static;
+    flex-direction: row;
+    gap: 14px;
+    padding: 0 24px;
+    margin-bottom: 4vh;
+  }
+
+  .about-body .lines p {
+    display: block;
+  }
+
+  .footer-cols {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 12px;
+  }
+
+  .work-neighbours {
+    grid-template-columns: 1fr;
+  }
+
+  .lockup {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .lockup .big,
+  .lockup .mid,
+  .lockup .tiny {
+    position: static;
+  }
+
+  .credits {
+    padding: 0 24px;
+  }
+
+  .work-head,
+  .talent-head,
+  .talent-selected h2,
+  .talent-contact {
+    padding: 0 24px;
+  }
+}
+
+/* the frame retracts below the breakpoint, as a threshold not a scrub */
+.frame.is-retracted .wordmark,
+.frame.is-retracted .nav {
+  transform: translateY(-64px);
+}
+
+.wordmark,
+.nav {
+  transition: opacity 0.4s, transform 0.45s var(--curve-late);
+}
+
+html.reduced .wordmark,
+html.reduced .nav {
+  transition: opacity 0.4s;
+}

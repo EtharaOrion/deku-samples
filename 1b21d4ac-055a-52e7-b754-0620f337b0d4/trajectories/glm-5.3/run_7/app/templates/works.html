@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block route %}
+<div class="works" x-data="worksRoute()">
+  <header class="works-opening">
+    <h1 class="opening-line" :class="{sharp: opened}" aria-label="Quiet decisions, made early, are the ones you notice last.">
+      Quiet decisions, made early,<br>are the ones you notice last.
+    </h1>
+  </header>
+  <ol class="works-list">
+    {% for w in works %}{% set m = poster_by_slug.get(w.slug) %}
+    <li class="work-entry variant-{{ w.variant }}" data-variant="{{ w.variant }}">
+      <a class="work-link" href="/works/{{ w.slug }}" data-cur="{{ w.title|upper }}">
+        <span class="reveal">
+          <img class="work-still" src="{{ '/api/media/' + m.id if m else '' }}" alt="{{ m.alt if m else (w.title ~ ' — still') }}"
+               width="{{ m.width if m else 598 }}" height="{{ m.height if m else 320 }}"
+               {% if not m %}style="background:var(--color-dark)"{% endif %} loading="lazy" decoding="async">
+        </span>
+        <span class="caption-row">
+          <span class="caption-mark" aria-hidden="true"></span>
+          <span class="caption-ordinal">{{ '%03d' % w.ordinal }}</span>
+          <span class="caption-title">{{ w.title }}</span>
+        </span>
+      </a>
+    </li>
+    {% else %}<li class="empty-state">No work is published yet. The studio is holding it.</li>{% endfor %}
+  </ol>
+</div>
+{% endblock %}

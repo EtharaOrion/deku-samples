@@ -1,0 +1,80 @@
+---
+import App from '../layouts/App.astro';
+import { money } from '../lib/format';
+import { catalogueProducts, availabilityOf } from '../lib/queries';
+const products = await catalogueProducts();
+const stateOf = (p) => {
+  const a = availabilityOf(p);
+  if (a.state === 'discontinued') return { label: 'Discontinued', tone: '' };
+  if (a.state === 'sold_out') return { label: 'Sold out', tone: 'wrong' };
+  return null;
+};
+const fromPrice = (p) => Math.min(...p.variants.map((v) => v.price_minor));
+const differs = (p) => new Set(p.variants.map((v) => v.price_minor)).size > 1;
+const cameras = products.filter((p) => p.kind === 'camera');
+const rest = products.filter((p) => p.kind !== 'camera');
+---
+<App title="Shop" active="shop">
+  <h1 class="page-title">Shop</h1>
+  <p class="page-sub">Cameras first, then what goes with them. Ordered as we make them.</p>
+
+  {products.length === 0 && (
+    <p class="empty-note">Nothing is on the table right now. <a href="/downloads">The downloads are here.</a></p>
+  )}
+
+  {cameras.length > 0 && (
+    <section aria-label="Cameras" class="grid grid-cameras">
+      {cameras.map((p) => (
+        <a class="card product-card" href={`/shop/${p.handle}`}>
+          <div class="media media-camera" data-tone={p.handle}></div>
+          <div class="card-row">
+            <h2 class="title">{p.title}</h2>
+            {stateOf(p) && <span class="chip" data-tone={stateOf(p).tone}>{stateOf(p).label}</span>}
+          </div>
+          <p class="subtitle">{p.subtitle}</p>
+          <p class="price tnum">{differs(p) ? 'From ' : ''}{money(fromPrice(p))}</p>
+        </a>
+      ))}
+    </section>
+  )}
+
+  {rest.length > 0 && (
+    <section aria-label="Accessories and spares" class="grid grid-rest">
+      {rest.map((p) => (
+        <a class="card product-card product-card-dense" href={`/shop/${p.handle}`}>
+          <div class="media media-small" data-tone={p.handle}></div>
+          <div class="card-row">
+            <h2 class="title">{p.title}</h2>
+            {stateOf(p) && <span class="chip" data-tone={stateOf(p).tone}>{stateOf(p).label}</span>}
+          </div>
+          <p class="subtitle">{p.subtitle}</p>
+          <p class="price tnum">{differs(p) ? 'From ' : ''}{money(fromPrice(p))}</p>
+        </a>
+      ))}
+    </section>
+  )}
+</App>
+<style>
+  .page-title { font-size: 2rem; letter-spacing: -0.01em; }
+  .page-sub { color: var(--surface-ink-2); margin: 0 0 calc(var(--unit) * 5); }
+  .grid { display: grid; gap: calc(var(--unit) * 4); }
+  .grid-cameras { grid-template-columns: repeat(2, 1fr); margin-bottom: calc(var(--unit) * 6); }
+  .grid-rest { grid-template-columns: repeat(3, 1fr); }
+  .product-card { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); text-decoration: none; }
+  .product-card-dense { padding: calc(var(--unit) * 3); }
+  .card-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--unit); }
+  .title { font-size: 1.25rem; }
+  .subtitle { margin: 0; color: var(--surface-ink-2); font-size: 0.9375rem; }
+  .price { margin: auto 0 0; font-size: 1.0625rem; font-variant-numeric: tabular-nums; }
+  .media { border-radius: 0; background: var(--ground-light-2); aspect-ratio: 3 / 2; }
+  .media-small { aspect-ratio: 5 / 2; }
+  .media[data-tone="flagship"] { background: linear-gradient(150deg, hsl(220 6% 62%), hsl(220 5% 42%)); }
+  .media[data-tone="compact"] { background: linear-gradient(150deg, hsl(28 10% 58%), hsl(28 8% 38%)); }
+  .media[data-tone="mount"] { background: linear-gradient(150deg, hsl(140 5% 66%), hsl(140 4% 48%)); }
+  .media[data-tone="case"] { background: linear-gradient(150deg, hsl(40 12% 60%), hsl(40 10% 40%)); }
+  .media[data-tone="cable"] { background: linear-gradient(150deg, hsl(200 6% 64%), hsl(200 5% 46%)); }
+  .empty-note { color: var(--surface-ink-2); }
+  @media (max-width: 63.99rem) {
+    .grid-cameras, .grid-rest { grid-template-columns: 1fr; }
+  }
+</style>

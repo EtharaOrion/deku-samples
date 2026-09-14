@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-work" data-route="work">
+  <article class="work-detail" data-slug="{{ work.slug }}">
+    <header class="work-head">
+      <p class="work-ordinal">{{ work.ordinal_label }}</p>
+      <h1 class="work-title">{{ work.title }}</h1>
+      <p class="work-variant-label">{{ work.variant|upper }}</p>
+    </header>
+    {% if is_preview %}<p class="preview-marker" role="status">PREVIEW - NOT PUBLISHED</p>{% endif %}
+    <div class="work-reel">
+      {% set reel = work.media|selectattr('role','equalto','reel')|list %}
+      {% if reel %}
+      {% set r = reel[0] %}
+      <div class="media-tile media-tile-reel" data-reveal data-media="reel" data-seed="{{ r.seed }}" style="--intrinsic-ratio: {{ r.width }} / {{ r.height }}">
+        <canvas class="reel-canvas" width="{{ r.width }}" height="{{ r.height }}" aria-hidden="true" role="img" aria-label="{{ r.alt }}"></canvas>
+      </div>
+      {% endif %}
+    </div>
+    <ul class="work-credits">
+      {% for c in work.credits %}
+      <li class="credit-pair">
+        <span class="credit-role">{{ c.role|upper }}</span>
+        {% if c.talent %}
+        <a class="credit-name" href="/talents/{{ c.talent.slug }}">{{ c.name }}</a>
+        {% else %}
+        <span class="credit-name">{{ c.name }}</span>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="credit-pair empty-state">No credits are recorded for this film.</li>
+      {% endfor %}
+    </ul>
+    <div class="work-gallery">
+      {% for m in work.media if m.role == 'gallery' %}
+      {% set cls = ['left','right','centre'][loop.index0 % 3] %}
+      <div class="work-gallery-item variant-{{ cls }}">
+        <span class="media-tile" data-reveal style="--intrinsic-ratio: {{ m.width }} / {{ m.height }}">
+          <img src="{{ m.url }}" width="{{ m.width }}" height="{{ m.height }}" alt="{{ m.alt }}" decoding="async" loading="lazy">
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <nav class="work-neighbours" aria-label="More work">
+      {% if work.previous %}
+      <a class="neighbour neighbour-prev" href="/works/{{ work.previous.slug }}" data-cursor-label="Previous">
+        <span class="neighbour-label">PREVIOUS</span>
+        <span class="neighbour-title">{{ work.previous.title }}</span>
+        <span class="neighbour-ordinal">{{ work.previous.ordinal_label }}</span>
+      </a>
+      {% endif %}
+      {% if work.next %}
+      <a class="neighbour neighbour-next" href="/works/{{ work.next.slug }}" data-cursor-label="Next">
+        <span class="neighbour-label">NEXT</span>
+        <span class="neighbour-title">{{ work.next.title }}</span>
+        <span class="neighbour-ordinal">{{ work.next.ordinal_label }}</span>
+      </a>
+      {% endif %}
+    </nav>
+  </article>
+</main>
+{% endblock %}

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="cirrus-contact" content="{{ contact }}">
+<title>{% block title %}Cirrus{% endblock %}</title>
+<meta name="description" content="A production house for picture and its makers.">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="A production house for picture and its makers.">
+<meta property="og:image" content="{{ public_url }}/assets/share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/static/cirrus-display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/cirrus-text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/site.css">
+<script defer src="/static/site.js"></script>
+<script defer src="/static/alpine.min.js"></script>
+</head>
+<body data-route="{% block route %}page{% endblock %}"
+      x-data="site" x-init="init()" :class="'is-'+(route||'page')" class="is-page">
+<a class="skip" href="#well">Skip to content</a>
+
+{# ---------------- the fixed frame, mounted once and never remounted ---------------- #}
+<div class="frame" x-ref="frame">
+  <a class="wordmark" href="/" aria-label="Cirrus, home" data-no-cursor>Cirrus</a>
+
+  <nav class="topnav" aria-label="Main">
+    <a class="topnav__works" href="/works" data-split>WORKS</a>
+    <span class="topnav__group">
+      <a href="/talents" data-split>TALENTS</a>
+      <a href="mailto:{{ contact }}" data-contact-link data-split>CONTACT</a>
+      <a href="/about" data-split>ABOUT</a>
+    </span>
+  </nav>
+
+  <div class="mark mark--{{ self.route() }}" aria-hidden="true" x-ref="mark">
+    <svg class="mark__svg mark__svg--entry" viewBox="0 0 41 18" aria-hidden="true" focusable="false">
+      <ellipse cx="20.5" cy="9" rx="19.75" ry="8.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    <svg class="mark__svg mark__svg--works" viewBox="0 0 14 18" aria-hidden="true" focusable="false">
+      <rect x="0" y="0" width="14" height="5.4" fill="currentColor"></rect>
+      <rect x="0" y="6.3" width="9" height="5.4" fill="currentColor"></rect>
+      <rect x="0" y="12.6" width="14" height="5.4" fill="currentColor"></rect>
+    </svg>
+    <svg class="mark__svg mark__svg--talents" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+      <circle cx="9" cy="9" r="8.25" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+      <text class="mark__letter" x="9" y="13.4" text-anchor="middle">C</text>
+    </svg>
+    <svg class="mark__svg mark__svg--about" viewBox="0 0 27 18" aria-hidden="true" focusable="false">
+      <circle cx="8.25" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+      <circle cx="18.75" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+    </svg>
+    <svg class="mark__svg mark__svg--studio" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+      <rect x="0" y="0" width="6" height="18" fill="currentColor"></rect>
+      <rect x="8" y="0" width="3" height="18" fill="currentColor"></rect>
+      <rect x="13" y="0" width="5" height="18" fill="currentColor"></rect>
+    </svg>
+  </div>
+
+  <a class="credit" href="https://aube.studio" target="_blank" rel="noopener noreferrer"
+     aria-label="Site by Aube, opens in a new tab">
+    <svg viewBox="0 0 60 16" aria-hidden="true" focusable="false">
+      <path d="M0 8h9M9 8l5-5M9 8l5 5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M20 8h14M34 8l4-4M34 8l4 4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M46 8h14M60 8l-4-4M60 8l-4 4" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5"/>
+    </svg>
+    <span class="credit__arrows" aria-hidden="true">
+      <svg class="credit__arrow credit__arrow--rest" viewBox="0 0 8 8" aria-hidden="true">
+        <path d="M1 7 7 1M2.5 1H7v4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg class="credit__arrow credit__arrow--arrived" viewBox="0 0 8 8" aria-hidden="true">
+        <path d="M1 7 7 1M2.5 1H7v4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+    </span>
+  </a>
+
+  {# the cursor pair, parked off stage until the pointer moves #}
+  <div class="cursor" x-ref="cursor" aria-hidden="true">
+    <span class="cursor__square"></span>
+    <span class="cursor__label" x-text="cursorLabel"></span>
+  </div>
+</div>
+
+{# ---------------- the scrolling well, swapped per route ---------------- #}
+<main class="well" id="well" data-route="{{ self.route() }}">{% block well %}{% endblock %}</main>
+
+{# ---------------- footer + counter + overlay belong to the persistent tree ---------------- #}
+<footer class="footer" x-ref="footer" aria-label="Footer">
+  <div class="footer__scrim" aria-hidden="true"></div>
+  <div class="footer__list">
+    <div class="footer__col footer__col--premises">
+      <span>9 PASSAGE BELLEVUE</span><span>PARIS</span>
+      <span class="footer__num">11</span>
+    </div>
+    <div class="footer__col"><span>FOR PICTURE</span><span>AND ITS MAKERS</span></div>
+    <div class="footer__col">
+      <span class="footer__label">WORK WITH US</span>
+      <a class="footer__mail" href="mailto:{{ contact }}" aria-label="{{ contact }}">{{ contact }}</a>
+    </div>
+    <div class="footer__col footer__col--social">
+      <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram, opens in a new tab">INSTAGRAM</a>
+      <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn, opens in a new tab">LINKEDIN</a>
+    </div>
+  </div>
+</footer>
+
+<div class="counterwell" x-ref="counterwell" x-show="counterActive" role="status" aria-live="polite">
+  <span class="counterwell__num" x-text="counterValue + '%'"></span>
+  <span class="counterwell__note" x-text="counterNote"></span>
+</div>
+
+<div class="overlay" x-data="contactOverlay" x-show="isOpen" x-cloak role="dialog" aria-modal="true"
+     aria-label="Contact" @keydown.escape.window="close()">
+  <button class="overlay__close" type="button" @click="close()" aria-label="Close contact">CLOSE</button>
+  <div class="overlay__inner">
+    <p class="overlay__item" style="--i:0">WORK WITH US</p>
+    <a class="overlay__item overlay__mail" style="--i:1" :href="'mailto:'+house" :aria-label="house" x-text="house"></a>
+  </div>
+</div>
+
+{# route content swap for full page loads keeps the frame out of the outlet #}
+<template x-if="false"></template>
+</body>
+</html>

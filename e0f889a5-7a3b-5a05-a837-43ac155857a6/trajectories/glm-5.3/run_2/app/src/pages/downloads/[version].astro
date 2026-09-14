@@ -1,0 +1,82 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { listReleases, orderedNotes } from '../../server/releases.ts';
+import { bytesExact } from '../../server/format.ts';
+import { getCartForContext } from '../../server/context.ts';
+
+const cart = await getCartForContext(Astro);
+const cartCount = cart ? cart.view.lines.reduce((s: number, l: any) => s + l.quantity, 0) : 0;
+
+const { rows } = await listReleases(200, null);
+const current = rows.find((r: any) => r.version === Astro.params.version) ?? null;
+const newest = rows[0] ?? null;
+
+function notesOf(row: any) {
+  const parsed = typeof row.notes === 'string' ? JSON.parse(row.notes) : row.notes;
+  return orderedNotes(parsed);
+}
+---
+
+<Shell title={`Arranger ${current?.version ?? ''} — Vela`} active="downloads" cartCount={cartCount}>
+  <nav class="crumbs"><a href="/downloads">Downloads</a> <span aria-hidden="true">/</span> <span>Arranger {current?.version}</span></nav>
+
+  {current ? (
+    <article class="card release-page">
+      <h1>Arranger <span class="mono">{current.version}</span></h1>
+      <p class="date">Released on {new Date(current.released_on).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })} · build <span class="mono">{current.build}</span></p>
+      <a class="btn btn-primary" href="/download/arranger/{current.artifact_name}">Download Arranger {current.version}</a>
+      <dl class="release-meta">
+        <div><dt>Size</dt><dd class="num">{bytesExact(Number(current.size_bytes))}</dd></div>
+        <div><dt>Artifact</dt><dd class="mono">{current.artifact_name}</dd></div>
+        <div><dt>Digest</dt><dd class="mono digest">{current.sha256}</dd></div>
+      </dl>
+      <p class="desc">{current.description}</p>
+      <div class="note-groups">
+        {notesOf(current).map((g: any) => (
+          <section class="note-group">
+            <h2>{g.title}</h2>
+            <ul>{g.items.map((i: string) => <li set:html={i.replace(/\[(#\d+)\]/g, '<span class="mono issue">$1</span>')} />)}</ul>
+          </section>
+        ))}
+      </div>
+      <p class="signoff">The Vela team.</p>
+    </article>
+  ) : (
+    <div class="empty">
+      <p>That page does not exist.</p>
+      <a class="btn" href="/downloads">See every release</a>
+    </div>
+  )}
+
+  <section class="others">
+    <h2>Other releases</h2>
+    <ul>
+      {rows.filter((r: any) => r.version !== current?.version).map((r: any) => (
+        <li><a href={`/downloads/${r.version}`}>Arranger <span class="mono">{r.version}</span></a> <span class="num muted">{r.build}</span></li>
+      ))}
+    </ul>
+  </section>
+</Shell>
+
+<style>
+  .crumbs { color: var(--ink-soft); display: flex; gap: calc(var(--unit) * 2); margin-bottom: calc(var(--unit) * 3); }
+  .release-page { padding: calc(var(--unit) * 5); display: grid; gap: calc(var(--unit) * 3); justify-items: start; }
+  h1 { font-size: 28px; }
+  .date { color: var(--ink-soft); margin: 0; }
+  .release-meta { display: grid; gap: calc(var(--unit) * 1); margin: 0; font-size: 14px; }
+  .release-meta > div { display: flex; gap: calc(var(--unit) * 2); }
+  .release-meta dt { color: var(--ink-soft); width: 72px; }
+  .release-meta dd { margin: 0; }
+  .digest { word-break: break-all; max-width: 46ch; }
+  .desc { margin: 0; max-width: 60ch; }
+  .note-groups { display: grid; gap: calc(var(--unit) * 3); }
+  .note-group h2 { font-size: 15px; margin-bottom: calc(var(--unit) * 1); }
+  .note-group ul { margin: 0; padding-left: 1.2rem; display: grid; gap: calc(var(--unit) * 1); }
+  .issue { font-size: 0.9em; color: var(--ink-soft); }
+  .signoff { color: var(--ink-soft); margin: 0; }
+  .others h2 { font-size: 17px; margin: calc(var(--unit) * 5) 0 calc(var(--unit) * 2); }
+  .others ul { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  .others li { display: flex; gap: calc(var(--unit) * 2); align-items: baseline; }
+  .muted { color: var(--ink-soft); font-size: 14px; }
+  .empty { display: grid; gap: calc(var(--unit) * 3); padding: calc(var(--unit) * 6) 0; }
+</style>

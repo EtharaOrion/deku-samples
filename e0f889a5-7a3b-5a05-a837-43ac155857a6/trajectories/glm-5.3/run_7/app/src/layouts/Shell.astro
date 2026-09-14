@@ -1,0 +1,65 @@
+---
+// The shell: every surface except the letter sits inside a persistent left rail
+// beside a compact bar carrying the wordmark and the cart control.
+import '../styles/global.css';
+import { getCartCount } from '../lib/view-helpers.js';
+
+const { pathname } = Astro.url;
+const count = await getCartCount(Astro.cookies.get('vela_cart')?.value);
+const isCurrent = (href) => (href === '/shop' ? pathname === '/shop' || pathname.startsWith('/shop/') : pathname === href || pathname.startsWith(href + '/'));
+
+const rail = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/downloads', label: 'Downloads' },
+  { href: '/doctor', label: 'Firmware installer' },
+];
+const accountRail = [
+  { href: '/account', label: 'Overview' },
+  { href: '/account/orders', label: 'Orders' },
+  { href: '/account/cameras', label: 'Cameras' },
+];
+
+const shown = pathname.startsWith('/account') ? [...rail.slice(0, 3), ...accountRail] : rail;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vela</title>
+  </head>
+  <body class="shell">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="shell-bar">
+      <a class="wordmark" href="/">vela</a>
+      <a class="cart-link" href="/cart" data-cart-link>
+        Cart
+        <span class="cart-count" data-cart-count aria-hidden="true">{count > 99 ? '99+' : String(count)}</span>
+        <span class="sr-only">{count === 0 ? 'Cart, empty' : `Cart, ${count} item${count === 1 ? '' : 's'}`}</span>
+      </a>
+    </header>
+
+    <div class="shell-body">
+      <nav class="rail" aria-label="Main">
+        {shown.map((item) => (
+          <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
+        ))}
+      </nav>
+
+      <main id="main" class="page">
+        <details class="rail-toggle">
+          <summary aria-label="Open navigation">Menu</summary>
+          <nav class="rail-mobile" aria-label="Main">
+            {shown.map((item) => (
+              <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
+            ))}
+          </nav>
+        </details>
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

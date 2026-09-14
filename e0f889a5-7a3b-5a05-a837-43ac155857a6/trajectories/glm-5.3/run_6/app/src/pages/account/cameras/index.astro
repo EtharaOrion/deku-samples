@@ -1,0 +1,30 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import RegisterRow from '../../../islands/RegisterRow.jsx';
+import CameraGrid from '../../../islands/CameraGrid.jsx';
+import { currentCustomer, formatShortDate } from '../../../lib/session.js';
+import { listDevicesForCustomer } from '../../../lib/devices.js';
+
+export const prerender = false;
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) {
+  return Astro.redirect(`/sign-in?next=${encodeURIComponent('/account/cameras')}`);
+}
+
+const result = await listDevicesForCustomer(customer.id, { pageSize: 100 });
+const devices = result.data;
+---
+
+<Shell title="Cameras" description="Your registered cameras.">
+  <h1 class="page-title">Cameras</h1>
+  <RegisterRow client:load token={null} />
+
+  <CameraGrid client:load devices={devices} />
+</Shell>
+
+<style>
+  .camera-grid { margin-top: calc(var(--step) * 4); }
+  .model { color: var(--ink-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--step); margin-top: var(--step); }
+</style>

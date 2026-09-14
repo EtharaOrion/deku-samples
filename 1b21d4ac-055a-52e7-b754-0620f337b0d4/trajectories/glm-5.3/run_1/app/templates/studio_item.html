@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block well %}
+<main class="route route-studio-item" data-route="studio-item" data-talents='{{ studio_talents|tojson }}' x-data='itemEditor({{ record|tojson }})'>
+  <p class="crumb"><a href="/studio">STUDIO</a> · {{ record.kind|upper }}</p>
+  <h1 class="form-title">{{ record.title }}</h1>
+  <p class="record-state-line">
+    <span x-text="record.published ? 'LIVE AT /works/' : 'UNLISTED' "></span><span x-text="record.slug" x-show="record.published"></span>
+  </p>
+  <form class="studio-form" @submit.prevent="save">
+    <label class="field">
+      <span class="field-label">{{ 'NAME' if record.kind == 'talent' else 'TITLE' }}</span>
+      <input class="field-input" type="text" x-model="form.title" required>
+    </label>
+    <label class="field">
+      <span class="field-label">SLUG</span>
+      <input class="field-input" type="text" x-model="form.slug">
+      <span class="field-help">Changing this leaves the old address redirecting forever.</span>
+    </label>
+    {% if record.kind == 'talent' %}
+    <fieldset class="field fieldset">
+      <span class="field-label">DISCIPLINE</span>
+      <div class="choice-row">
+        {% for d in ['director','photographer','stylist'] %}
+        <label class="choice"><input type="radio" name="discipline" value="{{ d }}" x-model="form.discipline"><span>{{ d|upper }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+    <fieldset class="field fieldset">
+      <span class="field-label">VARIANT</span>
+      <div class="choice-row">
+        {% for v in ['left','right','centre'] %}
+        <label class="choice"><input type="radio" name="variant" value="{{ v }}" x-model="form.variant"><span>{{ v|upper }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endif %}
+    <p class="form-error" role="alert" x-show="error" x-text="error"></p>
+    <p class="form-ok" role="status" x-show="ok" x-text="ok"></p>
+    <div class="button-row">
+      <button class="form-button" type="submit" :disabled="busy">SAVE</button>
+      <button class="form-button form-button-quiet" type="button" :disabled="busy" @click="togglePublish()">
+        <span x-text="record.published ? 'UNLIST' : 'PUBLISH'"></span>
+      </button>
+      <button class="form-button form-button-quiet" type="button" :disabled="busy" @click="mintPreview()">PREVIEW TOKEN</button>
+    </div>
+  </form>
+
+  <section class="studio-section">
+    <h2 class="section-heading">MEDIA</h2>
+    <form class="studio-form studio-form-inline" @submit.prevent="addMedia">
+      <label class="field field-narrow"><span class="field-label">ROLE</span>
+        <select class="field-input" x-model="media.role"><option>poster</option><option>reel</option><option>gallery</option></select>
+      </label>
+      <label class="field field-narrow"><span class="field-label">WIDTH</span><input class="field-input" type="number" x-model.number="media.width"></label>
+      <label class="field field-narrow"><span class="field-label">HEIGHT</span><input class="field-input" type="number" x-model.number="media.height"></label>
+      <label class="field field-grow"><span class="field-label">ALT</span><input class="field-input" type="text" x-model="media.alt" placeholder="A written alternative"></label>
+      <label class="field field-narrow"><span class="field-label">SEED</span><input class="field-input" type="text" x-model="media.seed" placeholder="optional"></label>
+      <button class="form-button" type="submit" :disabled="busy">ADD MEDIA</button>
+    </form>
+    <ul class="media-list">
+      <template x-for="m in record.media" :key="m.id">
+        <li class="media-row">
+          <span class="media-kind" x-text="m.role.toUpperCase()"></span>
+          <span class="media-alt" x-text="m.alt"></span>
+          <span class="media-dim" x-text="m.width + '×' + m.height"></span>
+          <button class="link-button" type="button" @click="removeMedia(m)">REMOVE</button>
+        </li>
+      </template>
+      <li class="empty-state" x-show="record.media.length === 0">No media yet. Publishing needs a poster with an alternative.</li>
+    </ul>
+  </section>
+
+  {% if record.kind == 'work' %}
+  <section class="studio-section">
+    <h2 class="section-heading">CREDITS</h2>
+    <form class="studio-form studio-form-inline" @submit.prevent="addCredit">
+      <label class="field field-narrow"><span class="field-label">ROLE</span><input class="field-input" type="text" x-model="credit.role" placeholder="Director"></label>
+      <label class="field field-grow"><span class="field-label">NAME</span><input class="field-input" type="text" x-model="credit.name" placeholder="A name"></label>
+      <label class="field field-narrow"><span class="field-label">TALENT (OPTIONAL)</span>
+        <select class="field-input" x-model="credit.talent_id">
+          <option value="">none</option>
+          <template x-for="t in talents()" :key="t.id"><option :value="t.id" x-text="t.title"></option></template>
+        </select>
+      </label>
+      <button class="form-button" type="submit" :disabled="busy">ADD CREDIT</button>
+    </form>
+    <ul class="media-list">
+      <template x-for="c in record.credits" :key="c.id">
+        <li class="media-row">
+          <span class="media-kind" x-text="c.role.toUpperCase()"></span>
+          <span class="media-alt" x-text="c.name"></span>
+          <span class="media-dim" x-text="creditTalent(c)"></span>
+          <button class="link-button" type="button" @click="removeCredit(c)">REMOVE</button>
+        </li>
+      </template>
+      <li class="empty-state" x-show="record.credits.length === 0">No credits yet.</li>
+    </ul>
+  </section>
+  {% endif %}
+
+  <p class="studio-foot"><button class="link-button" type="button" @click="signout()">SIGN OUT</button></p>
+</main>
+{% endblock %}

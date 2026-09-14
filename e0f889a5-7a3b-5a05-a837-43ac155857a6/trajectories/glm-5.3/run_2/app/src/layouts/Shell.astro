@@ -1,0 +1,152 @@
+---
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  active?: string;
+  customer?: { email: string; name: string } | null;
+  cartCount?: number;
+  wide?: boolean;
+}
+
+const { title = 'Vela', active = '', customer = null, cartCount = 0 } = Astro.props as Props;
+
+const nav = [
+  { href: '/shop', label: 'Shop', key: 'shop' },
+  { href: '/downloads', label: 'Downloads', key: 'downloads' },
+  { href: '/doctor', label: 'Firmware installer', key: 'doctor' },
+  ...(customer ? [
+    { href: '/account', label: 'Overview', key: 'account' },
+    { href: '/account/orders', label: 'Orders', key: 'orders' },
+    { href: '/account/cameras', label: 'Cameras', key: 'cameras' },
+  ] : []),
+];
+
+const badge = cartCount > 99 ? '99+' : String(cartCount);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title}</title>
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="surface-light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <nav class="rail" aria-label="Primary">
+        <a class="rail-wordmark" href="/">vela</a>
+        <ul class="rail-list">
+          {nav.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                class:list={['rail-link', { 'is-active': active === item.key }]}
+                aria-current={active === item.key ? 'page' : undefined}
+              >
+                <span class="rail-marker" aria-hidden="true"></span>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div class="rail-foot">
+          {customer ? (
+            <form method="post" action="/sign-out">
+              <button class="btn rail-signout" type="submit">Sign out</button>
+            </form>
+          ) : (
+            <a class="btn rail-signout" href="/sign-in">Sign in</a>
+          )}
+        </div>
+      </nav>
+
+      <div class="rail-toggle-wrap">
+        <button class="btn rail-toggle" type="button" aria-expanded="false" aria-controls="rail-nav">
+          <span aria-hidden="true">≡</span>
+          <span class="rail-toggle-label">{active ? (nav.find((n) => n.key === active)?.label ?? 'Menu') : 'Menu'}</span>
+        </button>
+        <nav id="rail-nav" class="rail-nav-collapsed" hidden>
+          <ul>
+            {nav.map((item) => (
+              <li><a href={item.href} aria-current={active === item.key ? 'page' : undefined}>{item.label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+
+      <div class="content">
+        <header class="bar">
+          <a class="bar-wordmark" href="/">vela</a>
+          <a class="bar-cart" href="/cart" aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}>
+            Cart
+            {cartCount > 0 ? <span class="count-badge num" aria-hidden="true">{badge}</span> : null}
+          </a>
+        </header>
+        <main id="main" class="main">
+          <slot />
+        </main>
+      </div>
+    </div>
+    <script>
+      const toggle = document.querySelector('.rail-toggle');
+      const navEl = document.getElementById('rail-nav');
+      toggle?.addEventListener('click', () => {
+        const open = navEl?.hasAttribute('hidden');
+        if (open) { navEl?.removeAttribute('hidden'); toggle.setAttribute('aria-expanded', 'true'); }
+        else { navEl?.setAttribute('hidden', ''); toggle.setAttribute('aria-expanded', 'false'); }
+      });
+    </script>
+  </body>
+</html>
+
+<style>
+  .shell { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
+  .rail { display: none; }
+  .rail-toggle-wrap { padding: calc(var(--unit) * 2) var(--gutter) 0; }
+  .rail-toggle { width: 100%; justify-content: flex-start; }
+  .rail-nav-collapsed ul { list-style: none; margin: calc(var(--unit) * 2) 0 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+  .rail-nav-collapsed a { display: block; padding: calc(var(--unit) * 2); border-radius: var(--radius); text-decoration: none; }
+  .rail-nav-collapsed a[aria-current='page'] { font-weight: 700; border: var(--border-w) solid var(--paper-line); }
+  .content { display: flex; flex-direction: column; }
+  .bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 80px; padding: 0 var(--gutter);
+    background: var(--paper); border-bottom: var(--border-w) solid var(--paper-line);
+  }
+  .bar-wordmark { font-weight: 700; font-size: 40px; line-height: 40px; text-decoration: none; letter-spacing: -0.01em; }
+  .bar-cart { display: inline-flex; align-items: center; gap: calc(var(--unit) * 1); text-decoration: none; padding: calc(var(--unit) * 2); border-radius: var(--radius); border: var(--border-w) solid transparent; }
+  .bar-cart:hover { border-color: var(--paper-line); }
+  .count-badge {
+    display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px;
+    border-radius: 999px; background: var(--ink); color: var(--paper); font-size: 13px;
+  }
+  .main { flex: 1; padding: calc(var(--unit) * 4) var(--gutter) calc(var(--unit) * 8); }
+
+  @media (min-width: 64rem) {
+    .shell { grid-template-columns: 216px 1fr; }
+    .rail {
+      display: flex; flex-direction: column; gap: calc(var(--unit) * 4);
+      position: sticky; top: 0; height: 100vh;
+      padding: calc(var(--unit) * 4) calc(var(--unit) * 2);
+      border-right: var(--border-w) solid var(--paper-line);
+    }
+    .rail-wordmark { font-weight: 700; font-size: 24px; text-decoration: none; padding: 0 calc(var(--unit) * 2); letter-spacing: -0.01em; }
+    .rail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--unit) * 1); }
+    .rail-link {
+      display: flex; align-items: center; gap: calc(var(--unit) * 2);
+      padding: calc(var(--unit) * 2); border-radius: var(--radius); text-decoration: none;
+    }
+    .rail-link:hover { background: var(--paper-raised); }
+    .rail-link.is-active { font-weight: 700; background: var(--paper-raised); }
+    .rail-marker { width: 8px; height: 8px; border-radius: 2px; background: transparent; flex: none; }
+    .rail-link.is-active .rail-marker { background: var(--ink); }
+    .rail-foot { margin-top: auto; }
+    .rail-signout { width: 100%; justify-content: center; }
+    .rail-toggle-wrap { display: none; }
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { releasesPage } from '../lib/releases.js';
+import { formatDate, formatBytes } from '../lib/format.js';
+
+const page = await releasesPage(100, null);
+const releases = page.data;
+const expanded = Astro.url.searchParams.get('version') || releases[0]?.version;
+---
+
+<Shell title="Downloads — Vela" current="downloads">
+  <h1>Downloads</h1>
+
+  <section class="download-primary">
+    <p>Arranger requires macOS 13.0 or later. Download the app below.</p>
+    {releases[0] && (
+      <div class="primary-row">
+        <a class="btn btn-primary" href={`/api/releases/artifact/${releases[0].version}`} data-platform-adaptive download>
+          Download Arranger {releases[0].version}
+        </a>
+        <p class="download-meta">
+          <span class="tnum">{formatBytes(releases[0].size_bytes)}</span>
+          <span class="mono digest" title={releases[0].sha256}>{releases[0].sha256}</span>
+        </p>
+        <p class="platform-note">Arranger is a macOS application.</p>
+      </div>
+    )}
+  </section>
+
+  <section class="firmware-row">
+    <h2>Firmware</h2>
+    <div class="primary-row">
+      <a class="btn" href="/api/firmware/artifact/compact/720">Download Vela Cricket Firmware 7.2</a>
+      <p class="web-path">Only use this if Arranger cannot see your camera. <a href="/doctor">Firmware install (web-based)</a></p>
+    </div>
+  </section>
+
+  <div class="archive">
+    {releases.map((r) => (
+      <article class="release" data-release-version={r.version} data-expanded={expanded === r.version ? 'true' : 'false'}>
+        <div class="release-head">
+          <h3 class="release-title"><a href={`/downloads/${r.version}`}>Arranger {r.version}</a></h3>
+          <p class="release-date">Released on {formatDate(r.released_on)}</p>
+          <a class="btn" href={`/api/releases/artifact/${r.version}`}>Download</a>
+          <details class="release-disclosure" open={expanded === r.version}>
+            <summary>Release notes</summary>
+            <div class="release-notes">
+              {r.notes.map((g) => (
+                <section>
+                  <h4>{g.group}</h4>
+                  <ul>{g.items.map((item) => <li>{item}</li>)}</ul>
+                </section>
+              ))}
+              <p class="release-signoff">The Vela team.</p>
+            </div>
+          </details>
+        </div>
+      </article>
+    ))}
+  </div>
+</Shell>

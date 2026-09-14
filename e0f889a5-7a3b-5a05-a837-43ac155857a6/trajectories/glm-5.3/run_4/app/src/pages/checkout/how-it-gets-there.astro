@@ -1,0 +1,65 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { getOrCreateCart, serializeCart, SHIPPING_METHODS } from '../../lib/cart.js';
+import { money } from '../../lib/format.js';
+
+const token = Astro.cookies.get('vela_cart')?.value || null;
+const cartRow = token ? await getOrCreateCart(token) : null;
+const cart = cartRow ? await serializeCart(cartRow) : null;
+const chosen = cart?.shipping_method || null;
+---
+
+<Shell title="How it gets there — Vela" current="checkout">
+  <h1>Checkout</h1>
+  <ol class="checkout-steps">
+    <li><a href="/checkout/where-it-goes">Where it goes</a></li>
+    <li aria-current="step">How it gets there</li>
+    <li>Payment</li>
+  </ol>
+
+  <div class="checkout-layout">
+    <form class="checkout-form" data-step-form data-next="/checkout/payment" data-method-step>
+      <h2>How it gets there</h2>
+      <fieldset>
+        <legend>Delivery</legend>
+        {Object.entries(SHIPPING_METHODS).map(([name, m]) => (
+          <label class="option">
+            <input type="radio" name="shipping_method" value={name} checked={chosen === name} />
+            <span>{name}</span>
+            <span class="tnum">{m.price_minor === 0 ? 'Free' : money(m.price_minor)}</span>
+            <span class="option-note">{m.days}</span>
+          </label>
+        ))}
+      </fieldset>
+      <p class="feedback" role="alert" data-step-error></p>
+      <a class="btn" href="/checkout/where-it-goes">Back</a>
+      <button class="btn btn-primary" type="submit">Continue</button>
+    </form>
+
+    <aside class="checkout-summary" aria-label="Order summary">
+      <h2>Summary</h2>
+      {cart && cart.lines.length > 0 ? (
+        <fragment>
+          <ul class="summary-lines">
+            {cart.lines.map((l) => (
+              <li><span>{l.product_title} ({l.option_value}) × {l.quantity}</span><span class="tnum">{money(l.line_total_minor)}</span></li>
+            ))}
+          </ul>
+          <dl class="summary-rows">
+            <div><dt>Subtotal</dt><dd class="tnum">{money(cart.subtotal_minor)}</dd></div>
+            <div><dt>Delivery</dt><dd class="tnum">{money(cart.shipping_minor)}</dd></div>
+            <div><dt>Tax</dt><dd class="tnum">{money(cart.tax_minor)}</dd></div>
+            <div class="summary-total"><dt>Total</dt><dd class="tnum">{money(cart.total_minor)}</dd></div>
+          </dl>
+        </fragment>
+      ) : (
+        <p>Your cart is empty.</p>
+      )}
+    </aside>
+  </div>
+
+  <script>
+    import { mountStepForm } from '../../components/checkout.js';
+    mountStepForm(document.querySelector('[data-step-form]'));
+  </script>
+</Shell>

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block route %}
+<section class="talents" x-data="rosterRoute()" x-init="init()"
+         @keydown.arrow-right.prevent="advance(1)" @keydown.arrow-left.prevent="advance(-1)"
+         aria-label="The roster">
+  <div class="roster-filter" role="group" aria-label="Filter the roster by discipline">
+    {% for d in disciplines %}
+    <button type="button" class="filter-btn" :class="{active: active==='{{ d }}'}"
+            data-discipline="{{ d }}" @click="choose('{{ d }}')"
+            :aria-pressed="active==='{{ d }}'">{{ d|upper }}</button>
+    {% endfor %}
+  </div>
+  <div class="roster-set">
+    {% for t in talents %}{% set port = portraits.get(t.slug) %}
+    <article class="roster-entry" data-discipline="{{ t.discipline }}" data-index="{{ loop.index0 }}"
+             :class="{current: isCurrent({{ loop.index0 }})}" :aria-hidden="!isCurrent({{ loop.index0 }})">
+      <h2 class="roster-name" :id="'roster-name-{{ loop.index0 }}'"><a href="/talents/{{ t.slug }}"
+          data-cur="{{ t.title|upper }}" :tabindex="isCurrent({{ loop.index0 }}) ? 0 : -1"
+          :style="nameStyle({{ loop.index0 }})">{{ t.title }}</a></h2>
+      <p class="roster-discipline">{{ t.discipline|upper }}</p>
+      <span class="roster-portrait reveal">
+        {% if port %}<img src="/api/media/{{ port.id }}" alt="{{ port.alt }}" width="{{ port.width }}" height="{{ port.height }}"
+             loading="lazy" decoding="async">{% endif %}
+      </span>
+      <a class="roster-open" href="/talents/{{ t.slug }}" data-cur="OPEN, {{ t.title|upper }}"
+         :tabindex="isCurrent({{ loop.index0 }}) ? 0 : -1">Open {{ t.title }}</a>
+    </article>
+    {% else %}<p class="empty-state">The roster is empty. Nothing is published yet.</p>{% endfor %}
+  </div>
+  <p class="sr-only" role="status" x-text="announce"></p>
+</section>
+{% endblock %}

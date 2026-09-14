@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block well %}
+<div class="studio studio-palette" x-data="palette"
+     @keydown.escape.window="onEscape"
+     @keydown.slash.window.prevent="focusPalette">
+  <h1 class="page-title">Studio</h1>
+  <p class="page-note">One producer per house. Everything starts here.</p>
+
+  <div class="palette" :class="{'palette-open': open}">
+    <button type="button" class="palette-trigger" @click="openPalette()" aria-label="Open the command palette">
+      <span class="label-col">COMMAND</span>
+      <span class="palette-hint">TYPE TO SEARCH THE HOUSE'S RECORDS AND ACTIONS</span>
+    </button>
+    <div class="palette-panel" role="dialog" aria-label="Command palette" x-show="open" x-cloak @keydown.escape.stop="closePalette()">
+      <input class="palette-input" type="text" x-ref="input" x-model="q"
+             placeholder="SEARCH RECORDS AND ACTIONS"
+             aria-label="Search records and actions"
+             @keydown.arrow-down.prevent="move(1)"
+             @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="runSelected()">
+      <ul class="palette-list" role="listbox" aria-label="Results">
+        <template x-for="(r, idx) in results" :key="r.key">
+          <li :class="{'is-selected': idx === sel}" role="option" :aria-selected="idx === sel ? 'true' : 'false'">
+            <button type="button" class="palette-row" @click="run(r)" @mousemove="sel = idx">
+              <span class="palette-kind" x-text="r.kindLabel"></span>
+              <span class="palette-title" x-text="r.title"></span>
+              <span class="palette-slug" x-text="r.slug || ''"></span>
+              <span class="palette-state" x-text="r.stateLabel"></span>
+            </button>
+          </li>
+        </template>
+        <li class="palette-empty" x-show="!results.length">Nothing in this house matches that.</li>
+      </ul>
+    </div>
+  </div>
+
+  <section class="studio-grid" aria-label="Records">
+    <h2 class="label-col">RECORDS</h2>
+    {% if not items %}
+    <p class="empty-state">The house has no records yet. Use the palette to add one.</p>
+    {% endif %}
+    <ul class="cards">
+      {% for it in items %}
+      <li class="card">
+        <a class="card-link" href="/studio/items/{{ it.id }}">
+          <span class="card-title">{{ it.title }}</span>
+          <span class="card-meta">{{ it.slug }}</span>
+          <span class="card-meta">{{ it.kind|upper }}</span>
+          <span class="card-state" data-live="{{ 'true' if it.published else 'false' }}">{{ 'LIVE' if it.published else 'UNLISTED' }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <p class="studio-foot">
+    <button type="button" class="btn btn-quiet" @click="signOut()">SIGN OUT</button>
+  </p>
+</div>
+{% endblock %}

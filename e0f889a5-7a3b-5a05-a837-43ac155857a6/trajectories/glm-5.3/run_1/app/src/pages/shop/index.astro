@@ -1,0 +1,97 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { productsForShop, cartCount, getCustomer } from '../../lib/store.mjs';
+import { usd } from '../../../server/domain.mjs';
+
+const customer = await getCustomer(Astro.request);
+const products = await productsForShop();
+const count = await cartCount(Astro.request);
+
+const cameras = products.filter((p) => p.kind === 'camera');
+const others = products.filter((p) => p.kind !== 'camera');
+const chipLabel = (p) => {
+  if (p.status === 'discontinued') return 'Discontinued';
+  const max = Math.max(...p.variants.map((v) => v.available ?? 0), 0);
+  if (max <= 0) return 'Sold out';
+  return null;
+};
+const priceLabel = (p) => {
+  const prices = p.variants.map((v) => v.price_minor);
+  const min = Math.min(...prices);
+  const uniq = new Set(prices);
+  return (uniq.size > 1 ? 'From ' : '') + usd(min);
+};
+---
+<Shell title="Shop — Vela" current="shop" customer={customer?.customer} cartCount={count}>
+  <h1>Shop</h1>
+  <p class="lede">Cameras built in short runs, and the parts that keep them working.</p>
+
+  {products.length === 0 ? (
+    <div class="empty">
+      <p>Nothing is on the table right now.</p>
+      <p><a href="/downloads">Go to downloads</a></p>
+    </div>
+  ) : (
+    <>
+      <section class="stack" aria-label="Cameras">
+        {cameras.map((p) => (
+          <a class="card product-card camera" href={`/shop/${p.handle}`}>
+            <div class="media" data-kind={p.handle}><span class="vh">{p.title}</span></div>
+            <div class="body">
+              <div class="row between">
+                <h2>{p.title}</h2>
+                {chipLabel(p) && <span class="chip">{chipLabel(p)}</span>}
+              </div>
+              <p class="subtitle">{p.subtitle}</p>
+              <p class="price money tnum">{priceLabel(p)}</p>
+            </div>
+          </a>
+        ))}
+      </section>
+
+      {others.length > 0 && (
+        <section class="dense-grid" aria-label="Accessories and spares">
+          {others.map((p) => (
+            <a class="card product-card small" href={`/shop/${p.handle}`}>
+              <div class="media small" data-kind={p.handle}><span class="vh">{p.title}</span></div>
+              <div class="body">
+                <div class="row between">
+                  <h2>{p.title}</h2>
+                  {chipLabel(p) && <span class="chip">{chipLabel(p)}</span>}
+                </div>
+                <p class="subtitle">{p.subtitle}</p>
+                <p class="price money tnum">{priceLabel(p)}</p>
+              </div>
+            </a>
+          ))}
+        </section>
+      )}
+    </>
+  )}
+</Shell>
+
+<style>
+  h1 { font-size: 28px; line-height: 34px; }
+  .lede { color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 8); }
+  .product-card { display: grid; text-decoration: none; color: inherit; overflow: hidden; }
+  .product-card:hover { border-color: var(--ground-light-fg-muted); }
+  .media {
+    height: 170px;
+    background: linear-gradient(150deg, #e9e4d9 0%, #d6d0c0 100%);
+    border-bottom: var(--border) solid var(--ground-light-line);
+    border-radius: 0;
+  }
+  .media.small { height: 84px; }
+  .media[data-kind="flagship"] { background: linear-gradient(150deg, #ded8ca 0%, #bdb5a1 100%); }
+  .media[data-kind="compact"] { background: linear-gradient(150deg, #dcd6c8 0%, #b7ae99 100%); }
+  .media[data-kind="cable"] { background: linear-gradient(150deg, #e3ded2 0%, #c9c2b1 100%); }
+  .body { padding: calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .row.between { justify-content: space-between; align-items: start; }
+  h2 { font-size: 19px; line-height: 24px; }
+  .subtitle { color: var(--ground-light-fg-muted); font-size: 14px; line-height: 20px; }
+  .price { font-weight: 700; font-size: 17px; }
+  .dense-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: calc(var(--unit) * 4); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .stack { display: grid; gap: calc(var(--unit) * 4); margin-bottom: calc(var(--unit) * 8); }
+  @media (max-width: 40rem) { .dense-grid { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,68 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { orderByNumber, serializeOrder } from '../../lib/orders.js';
+import { money, formatDate } from '../../lib/format.js';
+import { sha256 } from '../../lib/ids.js';
+
+const { number } = Astro.params;
+const order = await orderByNumber(number);
+const accessToken = Astro.url.searchParams.get('access_token');
+
+if (!order) return Astro.rewrite('/404');
+
+const tokenMatches = accessToken && order.access_token_hash && sha256(accessToken) === order.access_token_hash;
+const customer = Astro.locals.customer;
+const ownerMatches = customer && order.customer_id === customer.id;
+
+if (!tokenMatches && !ownerMatches) return Astro.rewrite('/404');
+
+const serialized = await serializeOrder(order);
+---
+
+<Shell title={`Order ${order.number} — Vela`}>
+  <h1 class="mono">{order.number}</h1>
+  <p class="confirmation">
+    Order {order.number} is confirmed. We have emailed {order.email}.
+  </p>
+  <a class="btn" href={`/orders/${order.number}?access_token=${encodeURIComponent(accessToken || '')}`}>
+    Keep track of this order
+  </a>
+
+  <section>
+    <h2>Lines</h2>
+    <ul class="summary-lines">
+      {serialized.lines.map((l) => (
+        <li>
+          <span>{l.title} ({l.option_value}) × {l.quantity}</span>
+          <span class="tnum">{money(l.total_minor)}</span>
+          {l.serials.length > 0 && (
+            <span class="serials">
+              Serials: {l.serials.map((s) => <code class="mono">{s}</code>)}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section>
+    <h2>Totals</h2>
+    <dl class="summary-rows">
+      <div><dt>Subtotal</dt><dd class="tnum">{money(order.subtotal_minor)}</dd></div>
+      <div><dt>Delivery ({order.shipping_method})</dt><dd class="tnum">{money(order.shipping_minor)}</dd></div>
+      <div><dt>Tax</dt><dd class="tnum">{money(order.tax_minor)}</dd></div>
+      <div class="summary-total"><dt>Total</dt><dd class="tnum">{money(order.total_minor)}</dd></div>
+    </dl>
+    {order.placed_at && <p>Placed {formatDate(order.placed_at)}</p>}
+  </section>
+
+  <section>
+    <h2>Address</h2>
+    <address>
+      {order.shipping_address?.name}<br />
+      {order.shipping_address?.line1}{order.shipping_address?.line2 ? `, ${order.shipping_address.line2}` : ''}<br />
+      {order.shipping_address?.city} {order.shipping_address?.region} {order.shipping_address?.postal_code}<br />
+      {order.shipping_address?.country}
+    </address>
+  </section>
+</Shell>

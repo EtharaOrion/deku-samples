@@ -1,0 +1,157 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { sessionCustomer, sessionCart } from '../../server/session.js';
+import { dollars } from '../../server/money.js';
+import { DELIVERY_METHODS } from '../../server/catalogue.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+const { state: cart } = await sessionCart(Astro.cookies, customer);
+const lines = cart?.lines ?? [];
+if (lines.length === 0) return Astro.redirect('/cart');
+const address = (cart as any)?.shipping_address ?? {};
+const email = (cart as any)?.email ?? '';
+if (!email || !address?.line1) return Astro.redirect('/checkout/where-it-goes');
+const chosen = cart?.shipping_method ?? null;
+const rung = cart?.protection_rung ?? null;
+---
+<PageShell title="How it gets there — Vela" heading="Checkout" active="">
+  <div class="checkout">
+    <form class="step" data-step="how">
+      <h2>How it gets there</h2>
+      <ol class="steps" aria-label="Checkout steps">
+        <li><a href="/checkout/where-it-goes">Where it goes</a></li>
+        <li aria-current="step">How it gets there</li>
+        <li>Payment</li>
+      </ol>
+
+      <fieldset class="methods">
+        <legend>Delivery method</legend>
+        <div class="method-grid">
+          {DELIVERY_METHODS.map((m) => (
+            <label class:list={['method', { 'is-selected': chosen === m.name }]} data-method={m.code}>
+              <input type="radio" name="shipping_method" value={m.name} checked={chosen === m.name} data-method-radio />
+              <span class="method__body">
+                <span class="method__name">{m.name}</span>
+                <span class="method__window tnum">{m.min_days === m.max_days ? `${m.max_days} days` : `${m.min_days} to ${m.max_days} days`}</span>
+              </span>
+              <span class="method__price tnum">{m.price_minor === 0 ? 'Free' : dollars(m.price_minor)}</span>
+            </label>
+          ))}
+        </div>
+        <p class="field-hint">No method is selected until you choose one.</p>
+      </fieldset>
+
+      <div class="address card">
+        <h3>Going to</h3>
+        <p>{address.name}<br />{address.line1}{address.line2 ? `, ${address.line2}` : ''}<br />{address.city}, {address.region} {address.postal_code}<br />{address.country}</p>
+        <p class="field-hint">{email}</p>
+        <a class="btn btn--quiet" href="/checkout/where-it-goes">Change</a>
+      </div>
+
+      <button class="btn btn--primary" type="submit" disabled data-continue>Continue to payment</button>
+      <p class="field-hint" data-continue-hint>Choose a delivery method to continue.</p>
+      <p class="status" role="status" aria-live="polite" data-step-status></p>
+    </form>
+
+    <aside class="summary card" aria-label="Order summary">
+      <h2>Summary</h2>
+      <ul class="summary__lines">
+        {lines.map((l) => (<li><span>{l.product_title} — {l.option_value}</span><span class="tnum">×{l.quantity}</span></li>))}
+      </ul>
+      <dl class="tnum">
+        <dt>Subtotal</dt><dd data-summary-subtotal>{dollars(cart!.subtotal_minor)}</dd>
+        {rung && cart!.protection.enabled && (<><dt>Shipment protection</dt><dd data-summary-protection>{dollars(rung.price_minor)}</dd></>)}
+        <dt>Delivery</dt><dd data-summary-shipping>Chosen here</dd>
+        <dt>Tax</dt><dd data-summary-tax>{dollars(cart!.tax_minor)}</dd>
+        <dt>Total</dt><dd class="summary__total" data-summary-total>{dollars(cart!.total_minor)}</dd>
+      </dl>
+    </aside>
+  </div>
+</PageShell>
+
+<script>
+  const form = document.querySelector('[data-step="how"]') as HTMLFormElement | null;
+  const radios = Array.from(form?.querySelectorAll<HTMLInputElement>('[data-method-radio]') ?? []);
+  const continueButton = form?.querySelector('[data-continue]') as HTMLButtonElement | null;
+  const continueHint = form?.querySelector('[data-continue-hint]') as HTMLElement | null;
+  const statusEl = form?.querySelector('[data-step-status]') as HTMLElement | null;
+
+  function cartToken(): string {
+    const m = /(?:^|;\s*)vela_cart=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function money(minor: number): string {
+    const n = Math.trunc(minor);
+    return `${n < 0 ? '-' : ''}$${Math.floor(Math.abs(n) / 100)}.${String(Math.abs(n) % 100).padStart(2, '0')}`;
+  }
+
+  function setSummary(cart: any) {
+    const set = (sel: string, value: string) => { const el = document.querySelector(sel); if (el) el.textContent = value; };
+    set('[data-summary-subtotal]', money(cart.subtotal_minor));
+    set('[data-summary-tax]', money(cart.tax_minor));
+    set('[data-summary-total]', money(cart.total_minor));
+    set('[data-summary-shipping]', cart.shipping_minor > 0 ? money(cart.shipping_minor) : 'Free');
+  }
+
+  radios.forEach((radio) => {
+    radio.addEventListener('change', async () => {
+      if (continueButton) continueButton.disabled = true;
+      if (statusEl) statusEl.textContent = 'Saving your choice.';
+      try {
+        const res = await fetch('/api/cart/delivery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Cart-Token': cartToken() },
+          body: JSON.stringify({ shipping_method: radio.value }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+        setSummary(body);
+        document.querySelectorAll('[data-method]').forEach((el) => el.classList.toggle('is-selected', (el as HTMLElement).dataset.method === radio.value.toLowerCase()));
+        if (continueButton) { continueButton.disabled = false; continueButton.focus(); }
+        if (continueHint) continueHint.textContent = '';
+        if (statusEl) statusEl.textContent = `${radio.value} chosen.`;
+      } catch (err) {
+        radio.checked = false;
+        if (statusEl) statusEl.textContent = err instanceof Error ? err.message : 'That did not work.';
+      }
+    });
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const chosen = radios.find((r) => r.checked);
+    if (!chosen) { if (statusEl) statusEl.textContent = 'Choose a delivery method.'; return; }
+    window.location.href = '/checkout/payment';
+  });
+</script>
+
+<style>
+  .checkout { display: grid; gap: calc(var(--space) * 6); padding: 0 var(--gutter); align-items: start; }
+  .step { display: grid; gap: calc(var(--space) * 4); }
+  .step h2 { margin: 0; font-size: 24px; line-height: 32px; }
+  .steps { display: flex; gap: calc(var(--space) * 3); list-style: none; margin: 0; padding: 0; font-size: 14px; line-height: 21px; color: var(--ink-on-light-muted); }
+  .steps [aria-current='step'] { color: inherit; font-weight: 700; }
+  .methods { border: 0; padding: 0; margin: 0; }
+  .methods legend { font-weight: 700; margin-bottom: var(--space); padding: 0; }
+  .method-grid { display: grid; gap: calc(var(--space) * 3); }
+  .method { display: flex; align-items: center; gap: calc(var(--space) * 3); border: var(--border-w) solid var(--ink-on-light-muted); border-radius: var(--radius); padding: calc(var(--space) * 3); cursor: pointer; }
+  .method.is-selected { border-color: var(--ink-on-light); font-weight: 700; }
+  .method input { width: auto; }
+  .method__body { display: grid; gap: var(--space); flex: 1; }
+  .method__window { color: var(--ink-on-light-muted); font-size: 14px; line-height: 21px; }
+  .method__price { font-weight: 700; }
+  .address { padding: calc(var(--space) * 3); display: grid; gap: calc(var(--space) * 2); }
+  .address h3 { margin: 0; font-size: 16px; line-height: 24px; }
+  .address p { margin: 0; }
+  .summary { position: sticky; top: calc(var(--header-h) + var(--space) * 4); padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .summary h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .summary__lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space); font-size: 14px; line-height: 21px; }
+  .summary__lines li { display: flex; justify-content: space-between; gap: calc(var(--space) * 2); }
+  .summary dl { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .summary dt { color: var(--ink-on-light-muted); }
+  .summary dd { margin: 0; text-align: right; }
+  .summary__total { font-weight: 700; }
+  .status { min-height: 24px; margin: 0; }
+  @media (min-width: 64rem) { .checkout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+</style>

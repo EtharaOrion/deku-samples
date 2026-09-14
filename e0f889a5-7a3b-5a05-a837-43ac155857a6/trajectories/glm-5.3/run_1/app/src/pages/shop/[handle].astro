@@ -1,0 +1,299 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { productByHandle, cartCount, getCustomer } from '../../lib/store.mjs';
+import { usd } from '../../../server/domain.mjs';
+
+const { handle } = Astro.params;
+const customer = await getCustomer(Astro.request);
+const product = await productByHandle(String(handle));
+if (!product) return Astro.redirect('/shop');
+
+const count = await cartCount(Astro.request);
+const variants = product.variants;
+const url = Astro.url;
+const paramSku = url.searchParams.get('variant');
+let selected = variants.find((v) => v.sku.toLowerCase() === String(paramSku || '').toLowerCase());
+if (!selected) selected = variants[0];
+const invalidParam = Boolean(paramSku) && !variants.some((v) => v.sku.toLowerCase() === String(paramSku).toLowerCase());
+
+const isDiscontinued = product.status === 'discontinued';
+const soldOut = !isDiscontinued && (selected.available ?? 0) <= 0 && selected.inventory_policy === 'deny';
+const low = !isDiscontinued && !soldOut && (selected.available ?? 0) > 0 && (selected.available ?? 0) <= 10;
+const maxQty = Math.min(10, Math.max(1, selected.available ?? 1));
+const supportNote = product.blocks.find((b) => b.kind === 'support_note');
+const lede = product.blocks.find((b) => b.kind === 'lede');
+const compat = product.blocks.find((b) => b.kind === 'compatibility');
+const specGroups = product.blocks.filter((b) => b.kind === 'spec_group');
+const inBox = product.blocks.find((b) => b.kind === 'in_the_box');
+const prices = variants.map((v) => v.price_minor);
+const fromPrice = Math.min(...prices);
+const differs = new Set(prices).size > 1;
+---
+<Shell title={`${product.title} — Vela`} current="shop" customer={customer?.customer} cartCount={count}>
+  <nav class="crumb" aria-label="Breadcrumb"><a href="/shop">Shop</a> / <span>{product.title}</span></nav>
+
+  <div class="two-col">
+    <div class="gallery" data-gallery tabindex="0" role="group" aria-label={`${product.title} views`}>
+      <div class="frame main" data-frame="1"></div>
+      <div class="thumbs" role="tablist" aria-label="Views">
+        {[1, 2, 3].map((n) => (
+          <button class="thumb" type="button" role="tab" data-thumb={n} aria-selected={n === 1 ? 'true' : 'false'} aria-label={`View ${n}`}>
+            <span class="vh">View {n}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="buy-col">
+      <h1>{product.title}</h1>
+      <p class="subtitle">{product.subtitle}</p>
+      <p class="price money tnum">{differs ? 'From ' : ''}{usd(selected.price_minor)}</p>
+
+      <p class="availability">
+        {isDiscontinued ? (
+          <span class="chip" data-state="busy">Discontinued</span>
+        ) : soldOut ? (
+          <span class="chip" data-state="bad">Sold out</span>
+        ) : low ? (
+          <span class="chip" data-kind="accent">Only {selected.available} left</span>
+        ) : (
+          <span class="chip" data-state="ok">Available</span>
+        )}
+      </p>
+
+      <form class="buy" data-buy data-sku={selected.sku} action="/cart" method="get">
+        {variants.length > 1 && (
+          <fieldset class="field">
+            <legend>{product.kind === 'camera' ? 'Body' : 'Option'}</legend>
+            <div class="radios" role="radiogroup" aria-label="Option">
+              {variants.map((v, i) => (
+                <label class={`radio mech ${v.id === selected.id ? 'is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="variant"
+                    value={v.sku}
+                    checked={v.id === selected.id}
+                    data-variant-sku={v.sku}
+                    data-variant-price={v.price_minor}
+                    data-variant-available={v.available ?? 0}
+                    data-variant-title={v.option_value}
+                  />
+                  <span class="opt">{v.option_value}</span>
+                  <span class="opt-price money tnum">{usd(v.price_minor)}</span>
+                  {(v.available ?? 0) <= 0 && v.inventory_policy === 'deny' && product.status !== 'discontinued' && (
+                    <span class="chip" data-state="bad">Sold out</span>
+                  )}
+                  {product.status !== 'discontinued' && (v.available ?? 0) > 0 && (v.available ?? 0) < 11 && (
+                    <span class="chip" data-kind="accent">Only {v.available} left</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        <div class="row qty-row">
+          <label class="field qty-field">
+            <span>Quantity</span>
+            <span class="stepper">
+              <button type="button" class="btn btn-secondary btn-sm" data-step="-1" aria-label="Decrease quantity">−</button>
+              <input class="qty tnum" data-qty type="number" inputmode="numeric" min="1" max={maxQty} value="1" aria-label="Quantity" />
+              <button type="button" class="btn btn-secondary btn-sm" data-step="1" aria-label="Increase quantity">+</button>
+            </span>
+          </label>
+        </div>
+
+        <button class="btn" type="submit" data-add
+          disabled={isDiscontinued || soldOut}>
+          {isDiscontinued ? 'Discontinued' : soldOut ? 'Sold out' : 'Add to cart'}
+        </button>
+        <p class="hint" data-buy-hint>
+          {isDiscontinued
+            ? 'We no longer sell this. See the support note below.'
+            : soldOut
+              ? 'This option is sold out. Choose another.'
+              : ''}
+        </p>
+        <p class="hint" role="status" data-buy-status></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="blocks">
+    {lede && <p class="lede">{lede.payload.text}</p>}
+    {specGroups.map((g) => (
+      <section class="block">
+        <h2>{g.payload.heading}</h2>
+        <table class="data">
+          <tbody>
+            {g.payload.rows.map(([k, v]) => (
+              <tr><th scope="row">{k}</th><td>{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+    {inBox && (
+      <section class="block">
+        <h2>What is in the box</h2>
+        <ul class="box-list">
+          {inBox.payload.items.map((i) => <li>{i}</li>)}
+        </ul>
+      </section>
+    )}
+    {compat && (
+      <section class="block">
+        <h2>Compatibility</h2>
+        <p>Minimum operating system: <span class="mono">{compat.payload.os}</span></p>
+        <p>Application version: <span class="mono">{compat.payload.app}</span> or later</p>
+      </section>
+    )}
+    {isDiscontinued && supportNote && (
+      <section class="block">
+        <h2>Support note</h2>
+        <p class="support-note">We no longer sell this. We will support it until September 1, 2029.</p>
+      </section>
+    )}
+  </div>
+</Shell>
+
+<script>
+  // Buy control island: option choice rewrites the address with replaceState.
+  const form = document.querySelector('[data-buy]');
+  if (form) {
+    const qty = form.querySelector('[data-qty]');
+    const addBtn = form.querySelector('[data-add]');
+    const hint = form.querySelector('[data-buy-hint]');
+    const status = form.querySelector('[data-buy-status]');
+    const radios = Array.from(form.querySelectorAll('input[name="variant"]'));
+    const priceEl = document.querySelector('.buy-col .price');
+
+    for (const r of radios) {
+      r.addEventListener('change', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('variant', r.value);
+        window.history.replaceState({}, '', url);
+        for (const l of document.querySelectorAll('.radio')) l.classList.toggle('is-selected', l.contains(r));
+        if (priceEl) priceEl.textContent = fmt(Number(r.dataset.variantPrice));
+        const avail = Number(r.dataset.variantAvailable);
+        const soldOut = avail <= 0;
+        const max = Math.min(10, Math.max(1, avail));
+        if (qty) { qty.max = String(max); if (Number(qty.value) > max) qty.value = String(max); }
+        if (addBtn) {
+          addBtn.disabled = soldOut;
+          addBtn.textContent = soldOut ? 'Sold out' : 'Add to cart';
+        }
+        if (hint) hint.textContent = soldOut ? 'This option is sold out. Choose another.' : '';
+      });
+    }
+
+    form.querySelectorAll('[data-step]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (!qty) return;
+        const cur = Number(qty.value || 1);
+        const next = Math.min(Number(qty.max || 10), Math.max(1, cur + Number(b.dataset.step)));
+        qty.value = String(next);
+      });
+    });
+
+    function fmt(minor) { return '$' + Math.floor(minor / 100) + '.' + String(minor % 100).padStart(2, '0'); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!addBtn || addBtn.disabled) return;
+      const chosen = radios.find((r) => r.checked) || radios[0];
+      const sku = chosen ? chosen.value : form.dataset.sku;
+      const quantity = qty ? Number(qty.value || 1) : 1;
+      addBtn.disabled = true;
+      const prev = addBtn.textContent;
+      addBtn.textContent = 'Adding';
+      if (status) status.textContent = '';
+      try {
+        const res = await fetch('/api/cart/lines', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku, quantity }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (status) status.textContent = body?.error?.message || 'That did not work.';
+          addBtn.disabled = false;
+          addBtn.textContent = prev;
+          return;
+        }
+        const n = (body.lines || []).reduce((s, l) => s + l.quantity, 0);
+        window.location.href = '/cart';
+      } catch {
+        if (status) status.textContent = 'That did not work. Check the connection and try again.';
+        addBtn.disabled = false;
+        addBtn.textContent = prev;
+      }
+    });
+
+    // the gallery is keyboard navigable: arrow keys move the frame
+    const gallery = document.querySelector('[data-gallery]');
+    const thumbs = Array.from(document.querySelectorAll('[data-thumb]'));
+    const frame = document.querySelector('[data-frame]');
+    if (gallery && thumbs.length) {
+      let idx = 0;
+      const select = (i) => {
+        idx = (i + thumbs.length) % thumbs.length;
+        for (const t of thumbs) t.setAttribute('aria-selected', String(Number(t.dataset.thumb) === idx + 1));
+        if (frame) frame.dataset.frame = String(idx + 1);
+      };
+      thumbs.forEach((t, i) => t.addEventListener('click', () => select(i)));
+      gallery.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') { select(idx + 1); e.preventDefault(); }
+        if (e.key === 'ArrowLeft') { select(idx - 1); e.preventDefault(); }
+      });
+    }
+  }
+</script>
+
+<style>
+  .crumb { font-size: 14px; color: var(--ground-light-fg-muted); margin-bottom: calc(var(--unit) * 4); }
+  .crumb a { color: inherit; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--unit) * 8); align-items: start; }
+  @media (max-width: 64rem) { .two-col { grid-template-columns: 1fr; } }
+  .gallery { outline-offset: 4px; }
+  .frame {
+    height: 300px; border-radius: 0;
+    background: linear-gradient(150deg, #ded8ca 0%, #bdb5a1 100%);
+    border: var(--border) solid var(--ground-light-line);
+  }
+  .frame[data-frame="2"] { background: linear-gradient(150deg, #d3ccbc 0%, #a9a28d 100%); }
+  .frame[data-frame="3"] { background: linear-gradient(150deg, #e6e1d5 0%, #c4bdab 100%); }
+  .thumbs { display: flex; gap: calc(var(--unit) * 2); margin-top: calc(var(--unit) * 2); }
+  .thumb {
+    width: 64px; height: 44px; border-radius: 0;
+    border: var(--border) solid var(--ground-light-line);
+    background: linear-gradient(150deg, #d3ccbc 0%, #b3ab96 100%);
+    cursor: pointer;
+  }
+  .thumb[aria-selected="true"] { border-color: var(--ground-light-fg); }
+  h1 { font-size: 30px; line-height: 36px; }
+  .subtitle { color: var(--ground-light-fg-muted); margin-top: calc(var(--unit) * 2); }
+  .price { font-size: 22px; font-weight: 700; margin-top: calc(var(--unit) * 3); }
+  .availability { margin: calc(var(--unit) * 3) 0; }
+  .buy { display: grid; gap: calc(var(--unit) * 4); margin-top: calc(var(--unit) * 4); }
+  fieldset.field { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+  legend { font-weight: 700; font-size: 14px; line-height: 20px; padding: 0; }
+  .radios { display: grid; gap: calc(var(--unit) * 2); }
+  .radio {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: calc(var(--unit) * 2);
+    border: var(--border) solid var(--ground-light-line); border-radius: var(--radius);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3); cursor: pointer;
+  }
+  .radio.is-selected { border-color: var(--ground-light-fg); }
+  .radio input { accent-color: var(--ground-light-fg); }
+  .radio .chip { grid-column: 2; justify-self: start; }
+  .opt-price { font-weight: 700; }
+  .stepper { display: inline-flex; align-items: center; gap: 6px; }
+  .qty { width: 64px; text-align: center; padding: 8px 6px; border: var(--border) solid var(--ground-light-line); border-radius: var(--radius); font: inherit; background: var(--ground-light-card); color: inherit; }
+  .hint { font-size: 13px; color: var(--ground-light-fg-muted); }
+  .blocks { margin-top: calc(var(--unit) * 12); display: grid; gap: calc(var(--unit) * 8); }
+  .block h2 { font-size: 19px; margin-bottom: calc(var(--unit) * 3); }
+  .support-note { font-weight: 700; }
+  .box-list { margin: 0; padding-left: 20px; line-height: 28px; }
+  .lede { font-size: 18px; line-height: 28px; }
+</style>

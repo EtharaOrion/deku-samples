@@ -1,0 +1,53 @@
+---
+import Shell from '../../../layouts/Shell.astro';
+import { currentCustomer, formatShortDate } from '../../../lib/session.js';
+import { listOrdersForCustomer } from '../../../lib/orders.js';
+import { formatUsd } from '../../../lib/money.js';
+
+export const prerender = false;
+
+const customer = await currentCustomer(Astro.request);
+if (!customer) {
+  return Astro.redirect(`/sign-in?next=${encodeURIComponent('/account/orders')}`);
+}
+
+const url = new URL(Astro.request.url);
+const result = await listOrdersForCustomer(customer.id, { pageSize: 20 });
+const orders = result.data;
+---
+
+<Shell title="Orders" description="Your orders.">
+  <h1 class="page-title">Orders</h1>
+  {
+    orders.length === 0 ? (
+      <div class="empty">
+        <p>No orders yet.</p>
+        <p><a href="/shop">Browse the shop</a></p>
+      </div>
+    ) : (
+      <ul class="order-list">
+        {orders.map((order) => (
+          <li class="card order-row">
+            <a class="mono number" href={`/account/orders/${order.number}`}>{order.number}</a>
+            <span class="date">{formatShortDate(order.placed_at)}</span>
+            <span class="first">
+              {order.first_line_title}
+              {order.line_count > 1 ? ` and ${order.line_count - 1} more` : ''}
+            </span>
+            <span class="tnum total">{formatUsd(order.total_minor)}</span>
+            <span class="chip is-neutral">{order.state_chip}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <p class="hint">Newest first.</p>
+</Shell>
+
+<style>
+  .order-list { display: grid; gap: calc(var(--step) * 3); }
+  .order-row { display: grid; gap: calc(var(--step) * 2) calc(var(--step) * 4); grid-template-columns: max-content max-content 1fr max-content; align-items: center; }
+  .order-row .chip { grid-column: 1 / -1; justify-self: start; }
+  .number { font-weight: 700; }
+  .first { color: var(--ink-soft); }
+</style>

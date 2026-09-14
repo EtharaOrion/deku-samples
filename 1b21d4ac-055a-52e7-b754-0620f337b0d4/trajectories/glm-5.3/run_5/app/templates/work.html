@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ work.title }} - Cirrus{% endblock %}
+{% block route %}work{% endblock %}
+{% block well %}
+<article class="work">
+  <header class="work__head">
+    <p class="work__ordinal">{{ '%03d'|format(work.ordinal) if work.ordinal else '—' }}</p>
+    <h1 class="work__title">{{ work.title }}</h1>
+  </header>
+
+  {% if work.credits %}
+  <ul class="work__credits">
+    {% for credit in work.credits %}
+    <li class="creditrow">
+      <span class="creditrow__role">{{ credit.role }}</span>
+      {% if credit.talent %}
+      <a class="creditrow__name" href="/talents/{{ credit.talent.slug }}" data-cursor="{{ credit.talent.title }}">{{ credit.name }}</a>
+      {% else %}
+      <span class="creditrow__name">{{ credit.name }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if work.reel %}
+  <div class="work__reel" data-reel="{{ work.reel.url }}" data-seed="{{ work.reel.seed }}"
+       role="img" aria-label="{{ work.reel.alt }}">
+    <span class="work__reelholder" style="padding-top:{{ (work.reel.height / work.reel.width * 100)|round(3) }}%"></span>
+  </div>
+  {% endif %}
+
+  {% if work.gallery %}
+  <div class="work__gallery">
+    {% for still in work.gallery %}
+    <div class="work__still work__still--{{ ['left','right','centre'][loop.index0 % 3] }}">
+      <div class="tile tile--{{ ['left','right','centre'][loop.index0 % 3] }}"
+           style="--tw:{{ still.width }}px;--th:{{ still.height }}px">
+        <span class="tile__holder" style="padding-top:{{ (still.height / still.width * 100)|round(3) }}%"></span>
+        <span class="tile__media" data-src="{{ still.url }}" data-seed="{{ still.seed }}"
+              role="img" aria-label="{{ still.alt }}"></span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">This film has no stills attached yet.</p>
+  {% endif %}
+
+  <nav class="work__neighbours" aria-label="More work">
+    {% if work.neighbours and work.neighbours.previous %}
+    <a class="work__prev" href="/works/{{ work.neighbours.previous.slug }}"
+       data-cursor="{{ work.neighbours.previous.title }}">
+      <span class="work__nlabel">PREVIOUS {{ '%03d'|format(work.neighbours.previous.ordinal) }}</span>
+      <span class="work__ntitle">{{ work.neighbours.previous.title }}</span>
+    </a>
+    {% endif %}
+    {% if work.neighbours and work.neighbours.next %}
+    <a class="work__next" href="/works/{{ work.neighbours.next.slug }}"
+       data-cursor="{{ work.neighbours.next.title }}">
+      <span class="work__nlabel">NEXT {{ '%03d'|format(work.neighbours.next.ordinal) }}</span>
+      <span class="work__ntitle">{{ work.neighbours.next.title }}</span>
+    </a>
+    {% endif %}
+  </nav>
+</article>
+{% endblock %}

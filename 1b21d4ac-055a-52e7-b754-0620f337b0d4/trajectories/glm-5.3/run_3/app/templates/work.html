@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block well %}
+<article class="work-detail" x-data="detail">
+  <header class="work-head">
+    <p class="work-ordinal">{{ ordinal }}</p>
+    <h1 class="work-title">{{ work.title }}</h1>
+  </header>
+
+  <div class="work-reel">
+    {% if reel %}
+    <div class="reel-wrap" data-width="{{ reel.width }}" data-height="{{ reel.height }}" style="aspect-ratio:{{ reel.width }}/{{ reel.height }}">
+      <img class="reel-still" src="/api/media/{{ poster.id if poster else reel.id }}" alt="{{ reel.alt }}" decoding="async">
+      <canvas class="reel-canvas" width="640" height="360" data-seed="{{ reel.seed }}" aria-hidden="true"></canvas>
+      <button type="button" class="reel-play" data-reel-play>PLAY FILM</button>
+    </div>
+    {% elif poster %}
+    <div class="reel-wrap" style="aspect-ratio:{{ poster.width }}/{{ poster.height }}">
+      <img class="reel-still" src="/api/media/{{ poster.id }}" alt="{{ poster.alt }}" decoding="async">
+    </div>
+    {% endif %}
+  </div>
+
+  <section class="work-credits" aria-label="Credits">
+    <h2 class="label-col">CREDITS</h2>
+    <dl class="credits-list">
+      {% for c in credits %}
+      <div class="credit-pair">
+        <dt class="credit-role">{{ c.role }}</dt>
+        <dd class="credit-name">
+          {% if c.talent_slug and c.talent_published %}
+          <a href="/talents/{{ c.talent_slug }}" data-cursor="{{ c.talent_title }}">{{ c.name }}</a>
+          {% else %}{{ c.name }}{% endif %}
+        </dd>
+      </div>
+      {% endfor %}
+      {% if not credits %}<div class="credit-pair"><dt class="credit-role">FILM</dt><dd class="credit-name">{{ work.title }}</dd></div>{% endif %}
+    </dl>
+  </section>
+
+  <section class="work-gallery" aria-label="Stills">
+    {% for m in gallery %}
+    {% set v = ['left','centre','right'][loop.index0 % 3] %}
+    <figure class="entry-row entry-{{ v }}{% if loop.index0 == 0 %} no-caption{% endif %}">
+      <span class="tile-box reveal" style="aspect-ratio:{{ m.width }}/{{ m.height }}">
+        <img class="tile-still" src="/api/media/{{ m.id }}" width="{{ m.width }}" height="{{ m.height }}" alt="{{ m.alt }}" loading="lazy" decoding="async">
+      </span>
+    </figure>
+    {% endfor %}
+  </section>
+
+  <nav class="work-neighbours" aria-label="More work">
+    <a class="work-prev" href="/works/{{ prev.slug }}" data-cursor="{{ prev.title }}">
+      <span class="label-col">PREVIOUS</span>
+      <span class="neighbour-title">{{ prev.title }}</span>
+    </a>
+    <a class="work-next" href="/works/{{ nxt.slug }}" data-cursor="{{ nxt.title }}">
+      <span class="label-col">NEXT</span>
+      <span class="neighbour-title">{{ nxt.title }}</span>
+    </a>
+  </nav>
+</article>
+  {% include 'partials/_footer.html' %}
+{% endblock %}

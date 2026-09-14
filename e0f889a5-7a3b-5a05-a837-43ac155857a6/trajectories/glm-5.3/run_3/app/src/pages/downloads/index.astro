@@ -1,0 +1,110 @@
+---
+import App from '../../layouts/App.astro';
+import { bytes, longDate } from '../../lib/format';
+import { releasesList, latestRelease, firmwareFor } from '../../lib/queries';
+const releases = await releasesList();
+const latest = releases[0] || null;
+const cricketFirmware = await firmwareFor('compact');
+const newestFw = cricketFirmware[0];
+const expanded = releases.length ? releases[0].version : null;
+const GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];
+const fmtDate = (d) => longDate(String(d).slice(0, 10));
+---
+<App title="Downloads" active="downloads">
+  <h1 class="page-title">Downloads</h1>
+
+  <section class="block">
+    <p class="lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+    {latest && (
+      <div class="latest">
+        <div class="latest-row">
+          <a class="btn btn-primary" href={`/downloads/artifact/${latest.artifact_name}`} data-platform-adaptive>Download Arranger {latest.version}</a>
+          <span class="meta tnum">{bytes(latest.size_bytes)}</span>
+        </div>
+        <p class="digest-row"><span class="digest mono">{latest.sha256}</span></p>
+        <p class="platform-note" data-platform-note hidden>Arranger is a macOS application.</p>
+      </div>
+    )}
+  </section>
+
+  <section class="block">
+    <h2>Camera firmware</h2>
+    {newestFw && (
+      <div class="firmware-row">
+        <div class="latest-row">
+          <a class="btn" href={`/downloads/firmware/${newestFw.product_handle}/${newestFw.version}`}>Download Vela Cricket Firmware {newestFw.version}</a>
+          <a class="quiet-link" href="/doctor">Firmware install (web-based)</a>
+        </div>
+        <p class="meta">Only use this if Arranger cannot see your camera.</p>
+      </div>
+    )}
+  </section>
+
+  <section class="block archive" aria-label="Release archive">
+    <h2>Every release</h2>
+    {releases.map((r, i) => (
+      <article class="release">
+        <div class="release-rule"><hr class="rule-dashed" /></div>
+        <details class="release-details" data-release={r.version} open={r.version === expanded}>
+          <summary>
+            <span class="release-title">Arranger <span class="mono">{r.version}</span></span>
+            <span class="release-date">Released on {fmtDate(r.released_on)}</span>
+            <span class="release-build">build <span class="mono tnum">{r.build}</span></span>
+            <a class="btn btn-sm" href={`/downloads/artifact/${r.artifact_name}`}>Download</a>
+          </summary>
+          <div class="release-body">
+            <p class="release-desc">{r.description}</p>
+            {GROUPS.map((g) => (r.notes && r.notes[g] && r.notes[g].length) && (
+              <section class="note-group">
+                <h3>{g}</h3>
+                <ul>{r.notes[g].map((n) => <li>{n}</li>)}</ul>
+              </section>
+            ))}
+            <p class="release-sign">The Vela team.</p>
+            <p class="digest-row">Digest <span class="digest mono">{r.sha256}</span>, size <span class="tnum">{bytes(r.size_bytes)}</span>.</p>
+          </div>
+        </details>
+      </article>
+    ))}
+    {releases.length === 0 && <p class="empty-note">No releases yet.</p>}
+  </section>
+</App>
+<script>
+  // The primary control adapts to the platform but is never disabled or hidden.
+  const note = document.querySelector('[data-platform-note]');
+  const isMac = /Mac/.test(navigator.platform || '') || /Macintosh/.test(navigator.userAgent);
+  if (note && !isMac) note.hidden = false;
+</script>
+<style>
+  .page-title { font-size: 2rem; }
+  .lede { font-size: 1.0625rem; margin-top: 0; }
+  .block { margin-bottom: calc(var(--unit) * 6); }
+  .block h2 { font-size: 1.125rem; margin-bottom: calc(var(--unit) * 3); }
+  .latest-row { display: flex; align-items: center; gap: calc(var(--unit) * 3); flex-wrap: wrap; }
+  .meta { color: var(--surface-ink-2); font-size: 0.875rem; margin: calc(var(--unit) * 1) 0 0; }
+  .quiet-link { color: var(--surface-ink-2); }
+  .digest-row { font-size: 0.8125rem; color: var(--surface-ink-2); word-break: break-all; margin: calc(var(--unit) * 2) 0 0; }
+  .platform-note { color: var(--surface-ink-2); margin: calc(var(--unit) * 2) 0 0; }
+  .firmware-row { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  .archive h2 { margin-bottom: calc(var(--unit) * 4); }
+  .release { margin: 0; }
+  .release-rule { padding: calc(var(--unit) * 4) 0; }
+  .release-rule .rule-dashed { border-top: 1px dashed var(--surface-ink-2); }
+  .release-details summary {
+    display: flex; align-items: baseline; gap: calc(var(--unit) * 3); cursor: pointer; list-style: none;
+    flex-wrap: wrap; padding: calc(var(--unit) * 2) 0;
+  }
+  .release-details summary::-webkit-details-marker { display: none; }
+  .release-details summary::before {
+    content: "▸"; display: inline-block; width: 1rem; transition: transform 120ms linear; color: var(--surface-ink-2);
+  }
+  .release-details[open] summary::before { transform: rotate(90deg); }
+  .release-title { font-weight: 700; }
+  .release-date, .release-build { color: var(--surface-ink-2); font-size: 0.875rem; }
+  .release-desc { margin-top: calc(var(--unit) * 3); }
+  .note-group { margin-top: calc(var(--unit) * 3); }
+  .note-group h3 { font-size: 0.9375rem; margin-bottom: calc(var(--unit) * 1); }
+  .note-group ul { margin: 0; padding-left: 1.25rem; }
+  .release-sign { margin: calc(var(--unit) * 3) 0 0; color: var(--surface-ink-2); }
+  .empty-note { color: var(--surface-ink-2); }
+</style>

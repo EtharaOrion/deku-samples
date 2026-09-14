@@ -1,0 +1,16 @@
+---
+import CheckoutStep from '../../layouts/CheckoutStep.astro';
+import PlaceOrder from '../../islands/PlaceOrder.jsx';
+import { cartForPage } from '../../lib/session.js';
+
+export const prerender = false;
+
+const { cartView } = await cartForPage(Astro.request);
+if (!cartView.email || !cartView.shipping_address || !cartView.shipping_method) {
+  return Astro.redirect('/checkout/where-it-goes');
+}
+---
+
+<CheckoutStep step="3" heading="Payment">
+  <PlaceOrder slot="form" client:load cart={cartView} />
+</CheckoutStep>

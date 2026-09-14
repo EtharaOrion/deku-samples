@@ -1,0 +1,161 @@
+---
+import PageShell from '../../components/PageShell.astro';
+import { sessionCustomer, sessionCart } from '../../server/session.js';
+import { dollars } from '../../server/money.js';
+
+const customer = await sessionCustomer(Astro.request, Astro.cookies);
+const { state: cart } = await sessionCart(Astro.cookies, customer);
+const address = (cart as any)?.shipping_address ?? {};
+const lines = cart?.lines ?? [];
+if (lines.length === 0) return Astro.redirect('/cart');
+const rung = cart?.protection_rung ?? null;
+const email = (cart as any)?.email ?? customer?.email ?? '';
+---
+<PageShell title="Where it goes — Vela" heading="Checkout" active="">
+  <div class="checkout">
+    <form class="step" method="post" data-step="where">
+      <h2>Where it goes</h2>
+      <ol class="steps" aria-label="Checkout steps">
+        <li aria-current="step">Where it goes</li>
+        <li>How it gets there</li>
+        <li>Payment</li>
+      </ol>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required value={email} autocomplete="email" />
+        <p class="field-hint">We send the order confirmation here.</p>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" name="marketing_consent" />
+        <span>Send me news about firmware and software. Not more than once a month.</span>
+      </label>
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" required value={address.name ?? ''} autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="line1">Address</label>
+        <input id="line1" name="line1" type="text" required value={address.line1 ?? ''} autocomplete="address-line1" />
+      </div>
+      <div class="field">
+        <label for="line2">Address line 2 <span class="optional">optional</span></label>
+        <input id="line2" name="line2" type="text" value={address.line2 ?? ''} autocomplete="address-line2" />
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label for="city">City</label>
+          <input id="city" name="city" type="text" required value={address.city ?? ''} autocomplete="address-level2" />
+        </div>
+        <div class="field">
+          <label for="region">Region</label>
+          <input id="region" name="region" type="text" required value={address.region ?? ''} autocomplete="address-level1" />
+        </div>
+        <div class="field">
+          <label for="postal_code">Postal code</label>
+          <input id="postal_code" name="postal_code" type="text" required value={address.postal_code ?? ''} autocomplete="postal-code" />
+        </div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country" name="country" required autocomplete="country">
+            <option value="US" selected={String(address.country ?? 'US').toUpperCase() === 'US'}>United States</option>
+            <option value="CA" selected={String(address.country ?? '').toUpperCase() === 'CA'}>Canada</option>
+            <option value="GB" selected={String(address.country ?? '').toUpperCase() === 'GB'}>United Kingdom</option>
+            <option value="DE" selected={String(address.country ?? '').toUpperCase() === 'DE'}>Germany</option>
+            <option value="FI" selected={String(address.country ?? '').toUpperCase() === 'FI'}>Finland</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="phone">Phone <span class="optional">optional</span></label>
+        <input id="phone" name="phone" type="tel" value={address.phone ?? ''} autocomplete="tel" />
+      </div>
+
+      <button class="btn btn--primary" type="submit">Continue to delivery</button>
+      <p class="status" role="status" aria-live="polite" data-step-status></p>
+    </form>
+
+    <aside class="summary card" aria-label="Order summary">
+      <h2>Summary</h2>
+      <ul class="summary__lines">
+        {lines.map((l) => (<li><span>{l.product_title} — {l.option_value}</span><span class="tnum">×{l.quantity}</span></li>))}
+      </ul>
+      <dl class="tnum">
+        <dt>Subtotal</dt><dd>{dollars(cart!.subtotal_minor)}</dd>
+        {rung && cart!.protection.enabled && (<><dt>Shipment protection</dt><dd>{dollars(rung.price_minor)}</dd></>)}
+        <dt>Delivery</dt><dd>Chosen next</dd>
+        <dt>Estimated tax</dt><dd>{dollars(cart!.tax_minor)}</dd>
+      </dl>
+      <p class="field-hint">Estimated. We will show the exact amount once we know where it is going.</p>
+    </aside>
+  </div>
+</PageShell>
+
+<script>
+  const form = document.querySelector('[data-step="where"]') as HTMLFormElement | null;
+  const statusEl = document.querySelector('[data-step-status]') as HTMLElement | null;
+
+  function cartToken(): string {
+    const m = /(?:^|;\s*)vela_cart=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const payload: any = {
+      email: String(data.get('email') ?? ''),
+      marketing_consent: !!data.get('marketing_consent'),
+      shipping_address: {
+        name: String(data.get('name') ?? ''),
+        line1: String(data.get('line1') ?? ''),
+        line2: String(data.get('line2') ?? ''),
+        city: String(data.get('city') ?? ''),
+        region: String(data.get('region') ?? ''),
+        postal_code: String(data.get('postal_code') ?? ''),
+        country: String(data.get('country') ?? ''),
+        phone: String(data.get('phone') ?? ''),
+      },
+    };
+    if (statusEl) statusEl.textContent = 'Saving.';
+    try {
+      const res = await fetch('/api/cart/delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Cart-Token': cartToken() },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? 'That did not work.');
+      window.location.href = '/checkout/how-it-gets-there';
+    } catch (err) {
+      if (statusEl) statusEl.textContent = err instanceof Error ? err.message : 'That did not work.';
+    }
+  });
+</script>
+
+<style>
+  .checkout { display: grid; gap: calc(var(--space) * 6); padding: 0 var(--gutter); align-items: start; }
+  .step { display: grid; gap: calc(var(--space) * 4); }
+  .step h2 { margin: 0; font-size: 24px; line-height: 32px; }
+  .steps { display: flex; gap: calc(var(--space) * 3); list-style: none; margin: 0; padding: 0; font-size: 14px; line-height: 21px; color: var(--ink-on-light-muted); }
+  .steps [aria-current='step'] { color: inherit; font-weight: 700; }
+  .field { display: grid; gap: var(--space); }
+  .field-grid { display: grid; gap: calc(var(--space) * 4); grid-template-columns: 1fr; }
+  .optional { color: var(--ink-on-light-muted); font-weight: 400; }
+  .consent { display: flex; gap: calc(var(--space) * 2); font-weight: 400; align-items: flex-start; }
+  .consent input { width: auto; margin-top: calc(var(--space) * 1); }
+  .summary { position: sticky; top: calc(var(--header-h) + var(--space) * 4); padding: calc(var(--space) * 4); display: grid; gap: calc(var(--space) * 3); }
+  .summary h2 { margin: 0; font-size: 16px; line-height: 24px; }
+  .summary__lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space); font-size: 14px; line-height: 21px; }
+  .summary__lines li { display: flex; justify-content: space-between; gap: calc(var(--space) * 2); }
+  .summary dl { display: grid; grid-template-columns: 1fr auto; gap: calc(var(--space) * 2) calc(var(--space) * 4); margin: 0; }
+  .summary dt { color: var(--ink-on-light-muted); }
+  .summary dd { margin: 0; text-align: right; }
+  .status { min-height: 24px; margin: 0; }
+  @media (min-width: 64rem) {
+    .checkout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+    .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>

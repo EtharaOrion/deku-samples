@@ -1,0 +1,91 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import { orderByNumber, orderLines, orderSerials } from '../../lib/orders.js';
+import { sha256 } from '../../lib/store.js';
+import { money, dateLong } from '../../lib/view-helpers.js';
+
+const { number } = Astro.params;
+const token = Astro.url.searchParams.get('access_token');
+const order = await orderByNumber(number);
+
+// Another customer's order, or a wrong token, reads as not found.
+const authorised =
+  order && (token && sha256(token) === order.access_token_hash);
+if (!authorised) return Astro.redirect('/sign-in?next=' + encodeURIComponent(Astro.url.pathname));
+
+const lines = await orderLines(order.id);
+const serials = await orderSerials(order.id);
+const a = order.shipping_address || {};
+const confirmed = order.status === 'confirmed';
+---
+
+<Shell>
+  <section class="confirmation" aria-labelledby="confirm-h">
+    {confirmed ? (
+      <h1 id="confirm-h" class="page-title">
+        Order <span class="mono">{order.number}</span> is confirmed.
+        We have emailed {order.email}.
+      </h1>
+    ) : (
+      <h1 id="confirm-h" class="page-title">Order <span class="mono">{order.number}</span> is pending.</h1>
+    )}
+    {confirmed && <p><a class="btn btn-primary" href={`/account/orders/${order.number}`}>Keep track of this order</a></p>}
+    {!confirmed && <p class="notice notice-error">We could not confirm this order. Nothing has been charged. Contact us with the reference {order.number}.</p>}
+  </section>
+
+  <div class="order-grid">
+    <section>
+      <h2>Lines</h2>
+      <table class="table">
+        <thead><tr><th>Item</th><th>SKU</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr>
+              <td>{l.title_snapshot}</td>
+              <td class="mono">{l.sku_snapshot}</td>
+              <td class="num tnum">{l.quantity}</td>
+              <td class="num money tnum">{money(l.unit_price_minor)}</td>
+              <td class="num money tnum">{money(l.total_minor)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {serials.length > 0 && (
+        <section class="serials">
+          <h3>Serial numbers on this order</h3>
+          {serials.map((s) => <p class="mono serial">{s.serial}</p>)}
+        </section>
+      )}
+    </section>
+
+    <aside>
+      <h2>Totals</h2>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd class="money tnum">{money(order.subtotal_minor)}</dd></div>
+        <div><dt>Delivery</dt><dd class="money tnum">{money(order.shipping_minor)}</dd></div>
+        <div><dt>Tax</dt><dd class="money tnum">{money(order.tax_minor)}</dd></div>
+        <div class="grand"><dt>Total</dt><dd class="money tnum">{money(order.total_minor)}</dd></div>
+      </dl>
+      <h2>Address</h2>
+      <address class="address">
+        {a.name}<br />{a.line1}{a.line2 ? `, ${a.line2}` : ''}<br />{a.city}{a.region ? `, ${a.region}` : ''} {a.postal_code}<br />{a.country}
+      </address>
+      <p class="placed">Placed {dateLong(order.placed_at || order.created_at)}.</p>
+      <p class="chip chip-finished">Confirmed</p>
+    </aside>
+  </div>
+</Shell>
+
+<style is:global>
+  .confirmation { margin-bottom: calc(var(--unit) * 8); display: grid; gap: calc(var(--unit) * 4); }
+  .order-grid { display: grid; gap: calc(var(--unit) * 6); grid-template-columns: 1fr; }
+  @media (min-width: 64rem) { .order-grid { grid-template-columns: 1.6fr 1fr; } }
+  .totals { margin: 0 0 calc(var(--unit) * 4); display: grid; gap: calc(var(--unit) * 2); }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dt { color: var(--muted-light); }
+  .totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: var(--border) solid var(--line-light); padding-top: calc(var(--unit) * 2); font-weight: 700; }
+  .address { font-style: normal; }
+  .placed { color: var(--muted-light); font-size: 14px; }
+  .serials h3 { font-size: 0.9375rem; margin: calc(var(--unit) * 4) 0 calc(var(--unit) * 2); }
+</style>

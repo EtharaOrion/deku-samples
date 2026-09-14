@@ -1,0 +1,299 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 28,
+            "passed": 19,
+            "failed": 9,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788776365.2422814,
+            "stop": 1788776376.7461393
+        },
+        "tests": [
+            {
+                "name": "test_storefront.py::test_health_route_and_reserved_directories_exist",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.17846108300727792,
+                "start": 1788776365.3208907,
+                "stop": 1788776365.520589,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "app_base = 'http://deku-fresh-s_ecomm_comm_hardware-companion__kljqzga-app:4173/api'\nstore = <conftest.Store object at 0xffffb7924fb0>\n\n    def test_health_route_and_reserved_directories_exist(app_base, store):\n        response = httpx.get(f\"{app_base}/health\", timeout=30.0)\n        assert response.status_code == 200, describe(response)\n    \n        listing = httpx.get(f\"{app_base}/products\", timeout=30.0)\n        assert listing.status_code == 200, describe(listing)\n        body = payload_of(listing)\n        assert \"data\" in body, f\"a list response carries a data array: {describe(listing)}\"\n        assert \"next_cursor\" in body, f\"a list response carries next_cursor: {describe(listing)}\"\n        assert \"has_more\" in body, f\"a list response carries has_more: {describe(listing)}\"\n    \n        missing = httpx.get(f\"{app_base}/products/no-such-handle\", timeout=30.0)\n        assert missing.status_code in REFUSAL_STATUSES, describe(missing)\n        error = missing.json()\n>       assert \"request_id\" in error, (\n            f\"an error body carries request_id: {describe(missing)}\")\nE       AssertionError: an error body carries request_id: GET http://deku-fresh-s_ecomm_comm_hardware-companion__kljqzga-app:4173/api/products/no-such-handle -> 404 :: {\"error\":{\"code\":\"unknown_product\",\"message\":\"That page does not exist.\",\"request_id\":\"26816b074e80a81d\"}}\nE       assert 'request_id' in {'error': {'code': 'unknown_product', 'message': 'That page does not exist.', 'request_id': '26816b074e80a81d'}}\n\n/tests/test_storefront.py:134: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_catalogue_rows_exist_as_specified",
+                "status": "passed",
+                "duration": 0.14127054100390524,
+                "start": 1788776365.520716,
+                "stop": 1788776365.6622365,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_devices_and_ownership_rows_exist_as_specified",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.019255582985351793,
+                "start": 1788776365.6624234,
+                "stop": 1788776365.6963353,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\n\n    def test_seeded_devices_and_ownership_rows_exist_as_specified(store):\n        assert store.customer(CUSTOMER_EMAIL) is not None, (\n            f\"{CUSTOMER_EMAIL} is not a seeded customer row\")\n        assert store.customer(CUSTOMER2_EMAIL) is not None, (\n            f\"{CUSTOMER2_EMAIL} is not a seeded customer row\")\n    \n        owned = store.device(SERIAL_OWNED_BY_CUSTOMER)\n        assert owned is not None, f\"{SERIAL_OWNED_BY_CUSTOMER} is not a seeded device\"\n        assert owned[\"status\"] == DEVICE_STATUS_REGISTERED, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} status is {owned['status']!r}\")\n>       assert str(owned[\"firmware_version\"]) == FIRMWARE_CRICKET_MID, (\n            f\"{SERIAL_OWNED_BY_CUSTOMER} reports {owned['firmware_version']!r}\")\nE       AssertionError: VC2609PVDA7Q reports '6.11'\nE       assert '6.11' == '7.0'\nE         \nE         - 7.0\nE         + 6.11\n\n/tests/test_storefront.py:191: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_seeded_releases_and_firmware_rows_exist_as_specified",
+                "status": "passed",
+                "duration": 0.03742020798381418,
+                "start": 1788776365.6964724,
+                "stop": 1788776365.734037,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_seed_is_idempotent_no_duplicate_rows",
+                "status": "passed",
+                "duration": 0.049641416990198195,
+                "start": 1788776365.7341783,
+                "stop": 1788776365.7839525,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_guest_checkout_creates_order_with_pinned_totals",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.8091023750021122,
+                "start": 1788776365.7840903,
+                "stop": 1788776366.6269197,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6c7bda0>\n\n    def test_guest_checkout_creates_order_with_pinned_totals(store, visitor):\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CASE), CUSTOMER_EMAIL)\n        assert placed.status_code in SUCCESS_STATUSES, describe(placed)\n        number = str(field_of(payload_of(placed), \"number\", \"order_number\"))\n    \n>       row = store.order(number)\n              ^^^^^^^^^^^^^^^^^^^\n\n/tests/test_storefront.py:280: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:350: in order\n    rows = self.query('SELECT * FROM \"order\" WHERE number = %s', (number,))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/conftest.py:314: in query\n    return self.backend.query(sql, params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/capabilities.py:84: in query\n    cur.execute(sql, params)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <psycopg.Cursor [closed] [BAD] at 0xffffb6cbeed0>\nquery = 'SELECT * FROM \"order\" WHERE number = %s', params = ('VE-2026-0002',)\n\n    def execute(\n        self,\n        query: Query,\n        params: Params | None = None,\n        *,\n        prepare: bool | None = None,\n        binary: bool | None = None,\n    ) -> Self:\n        \"\"\"\n        Execute a query or command to the database.\n        \"\"\"\n        try:\n            with self._conn.lock:\n                self._conn.wait(\n                    self._execute_gen(query, params, prepare=prepare, binary=binary)\n                )\n        except e._NO_TRACEBACK as ex:\n>           raise ex.with_traceback(None)\nE           psycopg.errors.UndefinedTable: relation \"order\" does not exist\nE           LINE 1: SELECT * FROM \"order\" WHERE number = $1\nE                                 ^\n\n/usr/local/lib/python3.12/site-packages/psycopg/cursor.py:97: UndefinedTable",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_storefront.py::test_order_totals_reconcile_with_stored_lines",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.45876295898051467,
+                "start": 1788776366.6270745,
+                "stop": 1788776367.1163359,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6d57770>\n\n    def test_order_totals_reconcile_with_stored_lines(store, visitor):\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CABLE_2M), probe_email())\n        assert placed.status_code in SUCCESS_STATUSES, describe(placed)\n        number = str(field_of(payload_of(placed), \"number\", \"order_number\"))\n    \n>       row = store.order(number)\n              ^^^^^^^^^^^^^^^^^^^\n\n/tests/test_storefront.py:299: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:350: in order\n    rows = self.query('SELECT * FROM \"order\" WHERE number = %s', (number,))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/conftest.py:314: in query\n    return self.backend.query(sql, params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/capabilities.py:84: in query\n    cur.execute(sql, params)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <psycopg.Cursor [closed] [BAD] at 0xffffb7907c50>\nquery = 'SELECT * FROM \"order\" WHERE number = %s', params = ('VE-2026-0003',)\n\n    def execute(\n        self,\n        query: Query,\n        params: Params | None = None,\n        *,\n        prepare: bool | None = None,\n        binary: bool | None = None,\n    ) -> Self:\n        \"\"\"\n        Execute a query or command to the database.\n        \"\"\"\n        try:\n            with self._conn.lock:\n                self._conn.wait(\n                    self._execute_gen(query, params, prepare=prepare, binary=binary)\n                )\n        except e._NO_TRACEBACK as ex:\n>           raise ex.with_traceback(None)\nE           psycopg.errors.UndefinedTable: relation \"order\" does not exist\nE           LINE 1: SELECT * FROM \"order\" WHERE number = $1\nE                                 ^\n\n/usr/local/lib/python3.12/site-packages/psycopg/cursor.py:97: UndefinedTable",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_invoice_exists_in_billing_platform_for_total",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.46949350100476295,
+                "start": 1788776367.1164975,
+                "stop": 1788776367.613204,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6c78a40>\npayments = <capabilities.KillBill object at 0xffffb6c78320>\n\n    def test_confirmed_order_invoice_exists_in_billing_platform_for_total(store, visitor,\n                                                                         payments):\n        email = probe_email()\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE, SKU_CASE), email)\n        assert placed.status_code in SUCCESS_STATUSES, describe(placed)\n        number = str(field_of(payload_of(placed), \"number\", \"order_number\"))\n>       row = store.order(number)\n              ^^^^^^^^^^^^^^^^^^^\n\n/tests/test_storefront.py:326: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:350: in order\n    rows = self.query('SELECT * FROM \"order\" WHERE number = %s', (number,))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/conftest.py:314: in query\n    return self.backend.query(sql, params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/capabilities.py:84: in query\n    cur.execute(sql, params)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <psycopg.Cursor [closed] [BAD] at 0xffffb6cbfb90>\nquery = 'SELECT * FROM \"order\" WHERE number = %s', params = ('VE-2026-0004',)\n\n    def execute(\n        self,\n        query: Query,\n        params: Params | None = None,\n        *,\n        prepare: bool | None = None,\n        binary: bool | None = None,\n    ) -> Self:\n        \"\"\"\n        Execute a query or command to the database.\n        \"\"\"\n        try:\n            with self._conn.lock:\n                self._conn.wait(\n                    self._execute_gen(query, params, prepare=prepare, binary=binary)\n                )\n        except e._NO_TRACEBACK as ex:\n>           raise ex.with_traceback(None)\nE           psycopg.errors.UndefinedTable: relation \"order\" does not exist\nE           LINE 1: SELECT * FROM \"order\" WHERE number = $1\nE                                 ^\n\n/usr/local/lib/python3.12/site-packages/psycopg/cursor.py:97: UndefinedTable",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_storefront.py::test_repeat_idempotency_key_creates_no_second_order_or_invoice",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.8839456250279909,
+                "start": 1788776367.613319,
+                "stop": 1788776368.5401177,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6bbcd10>\npayments = <capabilities.KillBill object at 0xffffb6c78320>\n\n    def test_repeat_idempotency_key_creates_no_second_order_or_invoice(store, visitor,\n                                                                       payments):\n        email = probe_email()\n        key = idempotency_key()\n        added = visitor.add_line(SKU_CABLE_1M)\n        assert added.status_code in SUCCESS_STATUSES, describe(added)\n        priced = visitor.set_delivery(email)\n        assert priced.status_code in SUCCESS_STATUSES, describe(priced)\n    \n        first = visitor.place_order(key=key)\n        assert first.status_code in SUCCESS_STATUSES, describe(first)\n        number = str(field_of(payload_of(first), \"number\", \"order_number\"))\n    \n        second = visitor.place_order(key=key)\n        assert second.status_code in SUCCESS_STATUSES, describe(second)\n        replayed = str(field_of(payload_of(second), \"number\", \"order_number\"))\n        assert replayed == number, (\n            f\"a replayed idempotency key produced order {replayed} rather than {number}\")\n    \n        settle()\n>       stored = store.orders_for_email(email)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n/tests/test_storefront.py:367: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:354: in orders_for_email\n    return self.query('SELECT * FROM \"order\" WHERE lower(email) = lower(%s)',\n/tests/conftest.py:314: in query\n    return self.backend.query(sql, params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/capabilities.py:84: in query\n    cur.execute(sql, params)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <psycopg.Cursor [closed] [BAD] at 0xffffb6cbf7d0>\nquery = 'SELECT * FROM \"order\" WHERE lower(email) = lower(%s)'\nparams = ('probe-0401e99980@example.com',)\n\n    def execute(\n        self,\n        query: Query,\n        params: Params | None = None,\n        *,\n        prepare: bool | None = None,\n        binary: bool | None = None,\n    ) -> Self:\n        \"\"\"\n        Execute a query or command to the database.\n        \"\"\"\n        try:\n            with self._conn.lock:\n                self._conn.wait(\n                    self._execute_gen(query, params, prepare=prepare, binary=binary)\n                )\n        except e._NO_TRACEBACK as ex:\n>           raise ex.with_traceback(None)\nE           psycopg.errors.UndefinedTable: relation \"order\" does not exist\nE           LINE 1: SELECT * FROM \"order\" WHERE lower(email) = lower($1)\nE                                 ^\n\n/usr/local/lib/python3.12/site-packages/psycopg/cursor.py:97: UndefinedTable",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_storefront.py::test_stock_commit_moves_available_and_committed_on_order",
+                "status": "passed",
+                "duration": 0.8442725849890849,
+                "start": 1788776368.5402474,
+                "stop": 1788776369.3846955,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cart_price_change_is_surfaced_and_order_refused",
+                "status": "passed",
+                "duration": 0.09807524998905137,
+                "start": 1788776369.384891,
+                "stop": 1788776369.4831197,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_checkout_for_last_unit_allows_exactly_one",
+                "status": "passed",
+                "duration": 0.931143041991163,
+                "start": 1788776369.4832702,
+                "stop": 1788776370.414928,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_confirmed_order_email_delivered_to_buyer_only",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.4437724989838898,
+                "start": 1788776370.415477,
+                "stop": 1788776370.8860223,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6b3bc80>\ninbox = <capabilities.HttpInbox object at 0xffffb6bac5c0>\n\n    def test_confirmed_order_email_delivered_to_buyer_only(store, visitor, inbox):\n        email = probe_email()\n        before_others = inbox.count(CUSTOMER2_EMAIL)\n        placed = buy(visitor, (SKU_CRICKET_GRAPHITE,), email)\n        assert placed.status_code in SUCCESS_STATUSES, describe(placed)\n        number = str(field_of(payload_of(placed), \"number\", \"order_number\"))\n    \n        message = poll_until(lambda: inbox.find(email, MAIL_SUBJECT_PREFIX))\n        assert message is not None, (\n            f\"no mail whose subject carries {MAIL_SUBJECT_PREFIX!r} reached {email}\")\n        assert message.subject.startswith(f\"{MAIL_SUBJECT_PREFIX} {number}\"), (\n            f\"the subject reads {message.subject!r}\")\n        assert len(message.to) == 1, (\n            f\"the confirmation reached {message.to}, and it must reach the buyer alone\")\n        assert TITLE_CRICKET in message.body, (\n            f\"the body names no line title: {message.body[:300]!r}\")\n    \n        assert inbox.count(email) == 1, (\n            f\"{inbox.count(email)} messages reached {email} for one order\")\n        assert inbox.count(CUSTOMER2_EMAIL) == before_others, (\n            \"an unrelated address received mail for somebody else's order\")\n    \n>       row = store.order(number)\n              ^^^^^^^^^^^^^^^^^^^\n\n/tests/test_storefront.py:484: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/tests/conftest.py:350: in order\n    rows = self.query('SELECT * FROM \"order\" WHERE number = %s', (number,))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/conftest.py:314: in query\n    return self.backend.query(sql, params)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/tests/capabilities.py:84: in query\n    cur.execute(sql, params)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <psycopg.Cursor [closed] [BAD] at 0xffffb6cbfb90>\nquery = 'SELECT * FROM \"order\" WHERE number = %s', params = ('VE-2026-0008',)\n\n    def execute(\n        self,\n        query: Query,\n        params: Params | None = None,\n        *,\n        prepare: bool | None = None,\n        binary: bool | None = None,\n    ) -> Self:\n        \"\"\"\n        Execute a query or command to the database.\n        \"\"\"\n        try:\n            with self._conn.lock:\n                self._conn.wait(\n                    self._execute_gen(query, params, prepare=prepare, binary=binary)\n                )\n        except e._NO_TRACEBACK as ex:\n>           raise ex.with_traceback(None)\nE           psycopg.errors.UndefinedTable: relation \"order\" does not exist\nE           LINE 1: SELECT * FROM \"order\" WHERE number = $1\nE                                 ^\n\n/usr/local/lib/python3.12/site-packages/psycopg/cursor.py:97: UndefinedTable",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_storefront.py::test_no_email_sent_for_cart_change_or_device_registration",
+                "status": "passed",
+                "duration": 0.5761149169993587,
+                "start": 1788776370.8861375,
+                "stop": 1788776371.4626317,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_device_registration_claims_unowned_serial_and_writes_one_ownership_row",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.13461487500171643,
+                "start": 1788776371.4630299,
+                "stop": 1788776371.614192,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\ncustomer = <conftest.Shopper object at 0xffffb6b8b410>\n\n    def test_device_registration_claims_unowned_serial_and_writes_one_ownership_row(\n            store, customer):\n        response = customer.register_device(SERIAL_UNOWNED)\n>       assert response.status_code in SUCCESS_STATUSES, describe(response)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__kljqzga-app:4173/api/account/devices -> 409 :: {\"error\":{\"code\":\"device_owned\",\"message\":\"That camera is registered to someone else.\",\"request_id\":\"2d5c88d84946c555\"}}\nE       assert 409 in (200, 201, 202)\nE        +  where 409 = <Response [409 Conflict]>.status_code\n\n/tests/test_storefront.py:512: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_registering_serial_owned_by_another_account_denied_and_row_untouched",
+                "status": "passed",
+                "duration": 0.5310960420029005,
+                "start": 1788776371.6143053,
+                "stop": 1788776372.1456282,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_device_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.6233573739737039,
+                "start": 1788776372.1458519,
+                "stop": 1788776372.7694058,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_cross_customer_order_read_denied_at_api",
+                "status": "passed",
+                "duration": 0.14394770900253206,
+                "start": 1788776372.7695713,
+                "stop": 1788776372.9136927,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unauthenticated_account_routes_denied_at_api",
+                "status": "passed",
+                "duration": 0.45819762400060426,
+                "start": 1788776372.9138324,
+                "stop": 1788776373.3724384,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_unknown_and_malformed_serial_refused_before_lookup",
+                "status": "passed",
+                "duration": 0.6052897500048857,
+                "start": 1788776373.3728824,
+                "stop": 1788776373.9785407,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_blocked_device_registration_refused",
+                "status": "passed",
+                "duration": 0.5637027500197291,
+                "start": 1788776373.9789007,
+                "stop": 1788776374.542996,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_concurrent_registration_of_one_serial_allows_exactly_one",
+                "status": "passed",
+                "duration": 0.6426470829901518,
+                "start": 1788776374.5433555,
+                "stop": 1788776375.1861982,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_release_archive_orders_by_build_descending_across_shared_date",
+                "status": "passed",
+                "duration": 0.0473854590090923,
+                "start": 1788776375.1863573,
+                "stop": 1788776375.2338872,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_firmware_manifest_entries_match_stored_rows",
+                "status": "passed",
+                "duration": 0.026947832986479625,
+                "start": 1788776375.2340178,
+                "stop": 1788776375.2610784,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_complete_records_reported_version_not_requested",
+                "status": "passed",
+                "duration": 0.47588229201210197,
+                "start": 1788776375.2611954,
+                "stop": 1788776375.7374008,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_failure_leaves_device_firmware_unchanged",
+                "status": "passed",
+                "duration": 0.47831179200147744,
+                "start": 1788776375.737827,
+                "stop": 1788776376.2163303,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.045740460001979955,
+                "start": 1788776376.2165108,
+                "stop": 1788776376.276576,
+                "retries": 0,
+                "file_path": "test_storefront.py",
+                "trace": "store = <conftest.Store object at 0xffffb7924fb0>\nvisitor = <conftest.Shopper object at 0xffffb6b3b9b0>\n\n    def test_flash_session_downgrade_below_min_firmware_refused_and_device_untouched(\n            store, visitor):\n        serial = SERIAL_OWNED_BY_CUSTOMER\n        before_version = str(store.device(serial)[\"firmware_version\"])\n        before_sessions = len(store.flash_sessions(serial))\n    \n        response = visitor.start_flash(serial, FIRMWARE_CRICKET_OLDEST_BUILD)\n>       assert response.status_code in REFUSAL_STATUSES, describe(response)\nE       AssertionError: POST http://deku-fresh-s_ecomm_comm_hardware-companion__kljqzga-app:4173/api/flash-sessions -> 201 :: {\"id\":5,\"device_id\":1,\"firmware_id\":3,\"state\":\"started\",\"reported_version\":null,\"failure_reason\":null,\"started_at\":\"2026-09-07T10:19:36.259Z\",\"ended_at\":null,\"progress\":0,\"firmware_version\":\"6.11\",\"device_serial\":\"VC2609PVDA7Q\"}\nE       assert 201 in (400, 401, 403, 404, 409, 422)\nE        +  where 201 = <Response [201 Created]>.status_code\n\n/tests/test_storefront.py:793: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_storefront.py::test_flash_session_model_mismatch_refused_and_no_session_row",
+                "status": "passed",
+                "duration": 0.46873808300006203,
+                "start": 1788776376.2767024,
+                "stop": 1788776376.745764,
+                "retries": 0,
+                "file_path": "test_storefront.py"
+            }
+        ]
+    }
+}
