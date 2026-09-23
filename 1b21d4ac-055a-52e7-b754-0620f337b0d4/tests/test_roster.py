@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from _shapes import items
 from appclient import api_base, client, login, seeded_password
 from conftest import (
@@ -82,6 +84,65 @@ def _fail(label, response):
 
 def _slugs(payload) -> list[str]:
     return [str(row.get("slug", "")) for row in items(payload)]
+
+
+def _browser_created(pre_browser: dict, roster) -> int | None:
+    """How many item rows the browser pass added before pytest started.
+
+    Three outcomes, and the difference between the last two is the whole point:
+
+        None  no baseline was taken, so nothing can be said about creations
+        0     a baseline WAS taken and the browser created nothing
+        n     the browser created n rows
+
+    `None` used to be reported as `0`. Both then restored exact equality, so a
+    snapshot that FAILED looked exactly like a browser that created nothing --
+    and the seed-count assertion failed a working app for the rows stage 3 had
+    legitimately added. That is the bug the snapshot exists to prevent,
+    reintroduced by its own failure, announced nowhere.
+
+    `_snapshot_ok` is written by test.sh. It is absent in files produced by an
+    older verifier image; a snapshot carrying real counts is trusted in that
+    case, which keeps this readable against evidence already on disk.
+    """
+    if not pre_browser:
+        return None
+    if pre_browser.get("_snapshot_ok") is False:
+        return None
+    before = pre_browser.get("items")
+    if not isinstance(before, int):
+        return None
+    return max(0, roster.item_count() - before)
+
+
+def _seeded_count(actual: int, seeded: int, created: int, what: str, extra: str = "") -> None:
+    """Assert a published count against the seed, allowing for graded creations.
+
+    test.sh runs the browser pass BEFORE pytest, so a substep that was told to
+    fill a creation form has legitimately added rows by the time this runs. A
+    bare `== seeded` therefore fails an app that WORKED, and a broken creation
+    form would have left the count at the seed value and passed -- the check
+    rewarding the bug it exists to catch (deku-samples/1b21d4ac, opus-5 run_4
+    and run_5).
+
+    Strictness is kept where it can be: with no creations the assertion is still
+    exact equality. Only once the browser has demonstrably written does it
+    relax to a floor, which is the strongest claim the evidence supports, since
+    the snapshot counts rows rather than published-and-in-the-served-house rows.
+    """
+    if created is None:
+        pytest.skip(
+            f"no pre-browser baseline, so {what} cannot be compared against the "
+            f"seed of {seeded} (the browser pass may have created rows)")
+    if created == 0:
+        assert actual == seeded, (
+            f"{what} returned {actual}, the brief pins {seeded} and the browser "
+            f"pass created nothing. {extra}")
+    else:
+        assert actual >= seeded, (
+            f"{what} returned {actual}, fewer than the {seeded} the brief seeds, "
+            f"so a seeded record went missing (the browser pass added {created} "
+            f"row(s), which can only raise this count). {extra}")
 
 
 def _ordinals(payload) -> list[str]:
@@ -192,7 +253,7 @@ def test_signup_creates_viewer_with_no_house(anon_client):
             "conferred more than the viewer role", refused)
 
 
-def test_seeded_corpus_matches_the_pinned_counts(roster):
+def test_seeded_corpus_matches_the_pinned_counts(roster, pre_browser):
     """cov: C-DM-01, C-DM-02, C-DM-03, C-DM-04, C-DM-05, C-DM-06, C-DM-07, C-DM-08, C-DM-09, C-DM-13, C-DM-47, C-DM-48, C-DM-49, C-DM-50, C-DM-51, C-DM-52, C-DM-53, C-DM-54, C-DM-55, C-DM-56, C-DM-57, C-DM-58, C-DM-59, C-DM-60, C-DM-61, C-DM-62, C-DM-63, C-DM-64, C-DM-65, C-DM-66, C-DM-67, C-DM-68, C-DM-69, C-DM-70, C-DM-71, C-DM-72, C-DM-73, C-RL-28, C-RL-29"""
     for slug in (HOUSE_CIRRUS, HOUSE_MERIDIAN):
         assert roster.house_by_slug(slug) is not None, (
@@ -203,9 +264,9 @@ def test_seeded_corpus_matches_the_pinned_counts(roster):
             f"the seeded account {email!r} reached no row in the accounts table")
 
     published = roster.item_count(kind=KIND_WORK, published=True)
-    assert published == PUBLISHED_WORKS + 1, (
-        f"the items table holds {published} published works across both houses, the "
-        f"brief seeds {PUBLISHED_WORKS} in cirrus plus one in meridian")
+    _seeded_count(published, PUBLISHED_WORKS + 1, _browser_created(pre_browser, roster),
+                  "the items table across both houses",
+                  f"the brief seeds {PUBLISHED_WORKS} in cirrus plus one in meridian")
 
     draft_work = roster.item_by_slug(WORK_THE_QUIET_ROOM)
     assert draft_work is not None, (
@@ -233,16 +294,14 @@ def test_seeded_corpus_matches_the_pinned_counts(roster):
         f"ownership boundary has nothing on the other side to ask for")
 
 
-def test_work_index_returns_twelve_published_works(anon_client):
+def test_work_index_returns_twelve_published_works(anon_client, roster, pre_browser):
     """cov: C-UF-27, C-DC-18, C-RL-01, C-CF-07"""
     response = anon_client.get(rel(API_WORKS))
     assert response.status_code == 200, _fail(
         f"the public work index at GET {API_WORKS}", response)
     rows = items(response.json())
-    assert len(rows) == PUBLISHED_WORKS, (
-        f"GET {API_WORKS} returned {len(rows)} works, the brief pins "
-        f"{PUBLISHED_WORKS} published in the served house, payload "
-        f"{response.text[:400]!r}")
+    _seeded_count(len(rows), PUBLISHED_WORKS, _browser_created(pre_browser, roster),
+                  f"GET {API_WORKS}", f"payload {response.text[:400]!r}")
 
 
 def test_unlisted_work_absent_from_the_public_index(anon_client):
@@ -258,15 +317,14 @@ def test_unlisted_work_absent_from_the_public_index(anon_client):
         f"payload, payload {response.text[:400]!r}")
 
 
-def test_unlisted_talent_absent_from_the_roster(anon_client):
+def test_unlisted_talent_absent_from_the_roster(anon_client, roster, pre_browser):
     """cov: C-CF-08, C-CF-11, C-CF-12, C-UF-28"""
     response = anon_client.get(rel(API_TALENTS))
     assert response.status_code == 200, _fail(
         f"the public roster at GET {API_TALENTS}", response)
     rows = items(response.json())
-    assert len(rows) == PUBLISHED_TALENTS, (
-        f"GET {API_TALENTS} returned {len(rows)} talents, the brief pins "
-        f"{PUBLISHED_TALENTS} published in the served house")
+    _seeded_count(len(rows), PUBLISHED_TALENTS, _browser_created(pre_browser, roster),
+                  f"GET {API_TALENTS}")
     assert TALENT_NOOR_VASQUEZ not in _slugs(response.json()), (
         f"the unlisted talent {TALENT_NOOR_VASQUEZ!r} appears on the public roster")
     assert NAME_NOOR_VASQUEZ not in response.text, (
@@ -855,7 +913,7 @@ def test_uppercase_slug_collides_with_its_lowercase_twin(producer_client):
         f"brief decides slug uniqueness after lowercasing", second)
 
 
-def test_seeded_records_survive_a_reread(anon_client, roster):
+def test_seeded_records_survive_a_reread(anon_client, roster, pre_browser):
     """cov: C-DM-74, C-DC-37, C-DC-38, C-DC-39, C-DC-40, C-DC-41"""
     first = roster.item_count(kind=KIND_TALENT)
     second = roster.item_count(kind=KIND_TALENT)
@@ -863,8 +921,9 @@ def test_seeded_records_survive_a_reread(anon_client, roster):
         f"the talent count moved from {first} to {second} between two reads with no "
         f"write in between")
     route = anon_client.get(rel(API_TALENTS))
-    assert len(items(route.json())) == PUBLISHED_TALENTS, (
-        f"the roster read back a different count from the stored rows")
+    _seeded_count(len(items(route.json())), PUBLISHED_TALENTS,
+                  _browser_created(pre_browser, roster),
+                  "the roster read back from the stored rows")
 
 
 def test_rejected_request_changes_no_state(producer_client, roster, new_work):

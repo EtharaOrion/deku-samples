@@ -1,0 +1,239 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import CartSummary from "../../components/CartSummary.astro";
+import CheckoutSteps from "../../components/CheckoutSteps.astro";
+import { readCart, currentCustomer, placedOrderForCart } from "../../components/lib/api";
+
+const cart = await readCart(Astro);
+if (!cart || cart.lines.length === 0) {
+  // A cart that already became an order sends the reader to its review.
+  return Astro.redirect((await placedOrderForCart(Astro)) ? "/checkout/payment" : "/cart");
+}
+
+const customer = await currentCustomer(Astro);
+const held = (cart.shipping_address ?? {}) as Record<string, string>;
+const email = cart.email ?? customer?.email ?? "";
+const priced = Boolean(cart.shipping_method);
+---
+
+<Shell title="Where it goes" current="cart">
+  <div class="stack stack-4">
+    <CheckoutSteps current="where" />
+    <h1 class="page-title">Where it goes</h1>
+  </div>
+
+  <div class="cart-layout">
+    <form class="stack stack-6" data-step-form data-next="/checkout/how-it-gets-there" novalidate>
+      <p class="field__error" data-form-error hidden role="alert"></p>
+
+      <div class="fieldgrid">
+        <div class="field">
+          <label class="field__label" for="email">Email</label>
+          <input
+            class="input field__control"
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            value={email}
+            required
+          />
+          <p class="field__help">We send the order confirmation here.</p>
+        </div>
+
+        <label class="toggle">
+          <input type="checkbox" name="marketing_consent" value="yes" />
+          <span>Send me occasional news about what we are making.</span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="fieldgrid">
+        <div class="field">
+          <label class="field__label" for="name">Full name</label>
+          <input
+            class="input field__control"
+            id="name"
+            name="name"
+            autocomplete="name"
+            value={held.name ?? customer?.name ?? ""}
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="line1">Address</label>
+          <input
+            class="input field__control"
+            id="line1"
+            name="line1"
+            autocomplete="address-line1"
+            value={held.line1 ?? ""}
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="line2">Apartment, suite (optional)</label>
+          <input
+            class="input field__control"
+            id="line2"
+            name="line2"
+            autocomplete="address-line2"
+            value={held.line2 ?? ""}
+          />
+        </div>
+
+        <div class="fieldgrid fieldgrid--3 span-all">
+          <div class="field">
+            <label class="field__label" for="city">City</label>
+            <input
+              class="input field__control"
+              id="city"
+              name="city"
+              autocomplete="address-level2"
+              value={held.city ?? ""}
+              required
+            />
+          </div>
+          <div class="field">
+            <label class="field__label" for="region">State</label>
+            <input
+              class="input field__control"
+              id="region"
+              name="region"
+              autocomplete="address-level1"
+              value={held.region ?? ""}
+              required
+            />
+          </div>
+          <div class="field">
+            <label class="field__label" for="postal_code">Postal code</label>
+            <input
+              class="input field__control"
+              id="postal_code"
+              name="postal_code"
+              autocomplete="postal-code"
+              value={held.postal_code ?? ""}
+              required
+            />
+          </div>
+        </div>
+
+        <div class="fieldgrid fieldgrid--2 span-all">
+          <div class="field">
+            <label class="field__label" for="country">Country</label>
+            <input
+              class="input field__control"
+              id="country"
+              name="country"
+              autocomplete="country"
+              value={held.country ?? "US"}
+              required
+            />
+          </div>
+          <div class="field">
+            <label class="field__label" for="phone">Phone (optional)</label>
+            <input
+              class="input field__control"
+              id="phone"
+              name="phone"
+              type="tel"
+              autocomplete="tel"
+              value={held.phone ?? ""}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="gap: calc(var(--spacing) * 4)">
+        <button class="btn btn--primary" type="submit" data-continue>Continue</button>
+        <a class="btn btn--quiet" href="/cart">Back to the cart</a>
+      </div>
+    </form>
+
+    <aside class="cart-layout__aside">
+      <CartSummary cart={cart as any} priced={priced} />
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("[data-step-form]");
+  if (form) {
+    const KEY = "vela:checkout:where";
+    const failure = form.querySelector<HTMLElement>("[data-form-error]");
+    const submit = form.querySelector<HTMLButtonElement>("[data-continue]");
+
+    // A reload or a back navigation must not cost the reader their typing, so
+    // the draft is mirrored as it is written and restored before first paint.
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(KEY) ?? "{}");
+      for (const [name, value] of Object.entries(draft)) {
+        const field = form.elements.namedItem(name);
+        if (!(field instanceof HTMLInputElement)) continue;
+        if (field.type === "checkbox") field.checked = value === true;
+        else if (typeof value === "string" && value) field.value = value;
+      }
+    } catch {
+      /* a corrupt draft is simply not restored */
+    }
+
+    const remember = () => {
+      const draft: Record<string, unknown> = {};
+      for (const field of form.querySelectorAll<HTMLInputElement>("input[name]")) {
+        draft[field.name] = field.type === "checkbox" ? field.checked : field.value;
+      }
+      sessionStorage.setItem(KEY, JSON.stringify(draft));
+    };
+    form.addEventListener("input", remember);
+    form.addEventListener("change", remember);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const read = (name: string) => String(data.get(name) ?? "").trim();
+
+      failure?.setAttribute("hidden", "");
+      // Only the control that was pressed waits; no other field is disabled.
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = "Saving";
+      }
+
+      try {
+        const response = await fetch("/api/cart/delivery", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: read("email"),
+            marketing_consent: data.get("marketing_consent") === "yes",
+            shipping_address: {
+              name: read("name"),
+              line1: read("line1"),
+              line2: read("line2"),
+              city: read("city"),
+              region: read("region"),
+              postal_code: read("postal_code"),
+              country: read("country").toUpperCase(),
+              phone: read("phone"),
+            },
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+        window.location.assign(form.dataset.next ?? "/checkout/how-it-gets-there");
+      } catch (error) {
+        if (failure) {
+          failure.textContent = error instanceof Error ? error.message : "That did not work.";
+          failure.removeAttribute("hidden");
+        }
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = "Continue";
+        }
+      }
+    });
+  }
+</script>

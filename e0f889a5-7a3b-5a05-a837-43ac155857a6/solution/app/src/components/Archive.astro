@@ -1,0 +1,159 @@
+---
+import ReleaseBlock from "./ReleaseBlock.astro";
+import ProductRender from "./ProductRender.astro";
+import { call, unwrapList, type Result } from "./lib/api";
+import { bytes } from "./lib/format";
+
+interface Props {
+  /** The version to render expanded, or null for the newest. */
+  expanded: string | null;
+}
+
+const { expanded } = Astro.props;
+
+/** The whole archive is in the markup whatever the collapse state, so it is
+ *  walked page by page rather than asked for in one oversized request. */
+async function everyRelease(): Promise<{ ok: boolean; releases: any[] }> {
+  const all: any[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 40; page += 1) {
+    const path: string = `/api/releases?page_size=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const answer: Result<any> = await call<any>(Astro, path);
+    if (!answer.ok) return { ok: false, releases: all };
+    all.push(...unwrapList<any>(answer.data));
+    cursor = answer.data.next_cursor ?? null;
+    if (!cursor) break;
+  }
+  return { ok: true, releases: all };
+}
+
+const [archive, cricketAnswer, flagshipAnswer] = await Promise.all([
+  everyRelease(),
+  call<any>(Astro, "/api/firmware/manifest?model=compact"),
+  call<any>(Astro, "/api/firmware/manifest?model=flagship"),
+]);
+
+const releases = archive.releases;
+const newest = releases[0] ?? null;
+const openVersion = expanded ?? newest?.version ?? null;
+
+// The newest general image per camera is the one the row offers.
+const firmware = [cricketAnswer, flagshipAnswer]
+  .filter((answer) => answer.ok)
+  .map((answer) => ({
+    product: String(answer.data.product),
+    handle: String(answer.data.handle),
+    top: answer.data.entries?.[0],
+  }))
+  .filter((entry) => entry.top);
+---
+
+<div class="stack stack-12">
+  <header class="stack stack-4">
+    <h1 class="page-title">Downloads</h1>
+    <p class="page-lede">Arranger requires macOS 13.0 or later. Download the app below.</p>
+
+    {
+      newest ? (
+        <div class="artifact artifact--app" data-arranger>
+          <img class="app-icon" src="/images/arranger-icon.png" alt="" width="64" height="64" />
+          <div class="stack stack-2">
+          <p class="row" style="gap: calc(var(--spacing) * 4); flex-wrap: wrap">
+            <a
+              class="btn btn--primary"
+              href={`/downloads/${encodeURIComponent(newest.version)}/package`}
+              data-primary-download
+            >
+              Download Arranger {newest.version}
+            </a>
+            <span class="small muted tabular" data-artifact-size>{bytes(newest.size_bytes)}</span>
+          </p>
+          <p class="small muted mono digest" data-artifact-digest>{newest.sha256}</p>
+          <p class="small muted" data-other-platform hidden>
+            Arranger is a macOS application.
+          </p>
+          <p class="small muted">
+            Build {newest.build}, released on {newest.released_on}, as {newest.artifact_name}.
+            The signed package is not bundled in this environment; the control answers with
+            that statement and the release record stays below.
+          </p>
+          </div>
+        </div>
+      ) : (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      )
+    }
+  </header>
+
+  {
+    firmware.length > 0 && (
+      <section class="stack stack-4" aria-labelledby="firmware-title">
+        <h2 class="section-title" id="firmware-title">Firmware</h2>
+        {firmware.map((entry) => (
+          <div class="artifact artifact--firmware" data-firmware={entry.handle}>
+            <span class="artifact__thumb" aria-hidden="true">
+              {entry.handle === "compact" ? (
+                <img src="/images/cricket-photo.png" alt="" width="72" height="72" />
+              ) : (
+                <ProductRender handle="flagship" />
+              )}
+            </span>
+            <div class="stack stack-2">
+            <p class="row" style="gap: calc(var(--spacing) * 4); flex-wrap: wrap">
+              <strong>
+                {entry.product} firmware <span class="mono">{entry.top.version}</span>
+              </strong>
+              <span class="small muted tabular">build {entry.top.build}</span>
+              <span class="small muted tabular">{bytes(entry.top.size_bytes)}</span>
+            </p>
+            <p class="small muted mono digest">{entry.top.sha256}</p>
+            <p class="row" style="gap: calc(var(--spacing) * 4); flex-wrap: wrap">
+              <a
+                class="btn btn--secondary"
+                href={`/downloads/firmware/${entry.top.build}`}
+                data-firmware-download
+              >
+                Download {entry.product} Firmware {entry.top.version}
+              </a>
+            </p>
+            <p class="row" style="gap: calc(var(--spacing) * 3); flex-wrap: wrap">
+              <a class="btn btn--quiet" href="/doctor" data-web-install>
+                Firmware install (web-based)
+              </a>
+              <span class="small muted">Only use this if Arranger cannot see your camera.</span>
+            </p>
+            </div>
+          </div>
+        ))}
+      </section>
+    )
+  }
+
+  <section class="stack stack-4" aria-labelledby="archive-title">
+    <h2 class="section-title" id="archive-title">Every release</h2>
+    <hr class="divider divider--dashed" />
+    {
+      !archive.ok ? (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      ) : (
+        <div data-archive>
+          {releases.map((release) => (
+            <ReleaseBlock release={release} open={release.version === openVersion} />
+          ))}
+        </div>
+      )
+    }
+  </section>
+</div>
+
+<script>
+  // A reader on another platform still gets the working control, and one line.
+  const note = document.querySelector<HTMLElement>("[data-other-platform]");
+  if (note && !/Mac|Macintosh|Mac OS X/i.test(navigator.userAgent)) {
+    note.removeAttribute("hidden");
+  }
+</script>

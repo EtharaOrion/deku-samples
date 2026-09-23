@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{# One card, drawn the same whether it is live or held back.  The publish state
+   is stated in words and carried on a stable DOM hook (data-publish-state) so a
+   reader and a machine read the same fact.  Purely presentational: the preview
+   control is the existing preview-token flow, unchanged. #}
+{% macro record_card(r) %}
+<div class="record-card" data-title="{{ r.title | lower }}" data-slug="{{ r.slug }}"
+     data-publish-state="{{ 'published' if r.published else 'draft' }}">
+  <a class="record-title display" href="/studio/items/{{ r.id }}">{{ r.title }}</a>
+  <div class="record-meta">
+    <span>{{ r.kind }}</span>
+    <span>{{ r.slug }}</span>
+  </div>
+  <div class="record-meta">
+    <span class="record-live" data-live="{{ 'true' if r.published else 'false' }}">{{ 'Published' if r.published else 'Draft — not on the public site' }}{% if r.ordinal %} · {{ r.ordinal }}{% elif r.discipline %} · {{ r.discipline }}{% endif %}</span>
+    <button type="button" class="btn btn--ghost record-preview" @click="preview({{ r.id }})">{{ 'Preview' if r.published else 'Preview draft' }}</button>
+  </div>
+</div>
+{% endmacro %}
+
+{% block route %}
+<div class="route-scroll studio" x-data="palette()" data-bearer="">
+  <style>
+    /* Scoped to this route: the drafts shelf.  Two-colour only, no shadow, no
+       gradient — the house voice.  Distinction is a solid rule and full ink,
+       never colour alone, so the state also reads in words on every card. */
+    .palette-group { margin-bottom: 44px; }
+    .palette-group-head { margin-bottom: 18px; }
+    .palette-group-title {
+      font-family: "Cirrus Display", "Times New Roman", Times, serif;
+      font-weight: 300;
+      font-size: 30px;
+      line-height: 1.05;
+      text-transform: none;
+    }
+    .palette-group-note {
+      font-size: var(--fontXS);
+      letter-spacing: 0.06em;
+      opacity: 0.65;
+      margin-top: 6px;
+    }
+    .palette-group--drafts .record-grid {
+      border-left: 3px solid var(--color-dark);
+    }
+    /* A held-back card states its state at full ink, not the dimmed meta. */
+    .record-card[data-publish-state="draft"] .record-live { opacity: 1; }
+  </style>
+
+  <p class="studio-eyebrow">{{ studio_house.name }} · Studio</p>
+  <h1 class="studio-title display">Palette</h1>
+
+  {# The palette is how work is done here, so the caret waits in it on arrival. #}
+  <input class="palette-search" type="search" placeholder="Type a title or a slug"
+         x-model="q" @input="filter()" aria-label="Filter records by title or slug"
+         autocapitalize="off" spellcheck="false" autofocus>
+
+  <div class="palette-actions">
+    <a class="palette-action" href="/studio/talents/new">New talent</a>
+    <a class="palette-action" href="/studio/works/new">New work</a>
+    <button class="palette-action" type="button" @click="reorder = !reorder" :aria-pressed="reorder ? 'true' : 'false'">Reorder index</button>
+  </div>
+
+  {% set works = records | selectattr('kind', 'equalto', 'work') | list %}
+  {% if works %}
+  <div class="reorder" x-show="reorder" x-cloak>
+    <p class="form-sub-title">Drag by the controls; save writes the new order.</p>
+    <div class="reorder-list">
+      {% for r in works %}
+      <div class="reorder-item" data-id="{{ r.id }}">
+        <span class="reorder-title">{{ r.title }}</span>
+        <span class="reorder-controls">
+          <button type="button" class="btn btn--ghost" @click="move({{ r.id }}, -1)" aria-label="Move {{ r.title }} up">Up</button>
+          <button type="button" class="btn btn--ghost" @click="move({{ r.id }}, 1)" aria-label="Move {{ r.title }} down">Down</button>
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="button" @click="saveOrder()">Save order</button>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if records %}
+  {% set drafts = records | rejectattr('published') | list %}
+  {% set live = records | selectattr('published') | list %}
+
+  {# Drafts first, so a first-time visitor sees within one screen that unlisted
+     records exist and which they are — the seeded draft need never be made by
+     unpublishing a live record. #}
+  {% if drafts %}
+  <section class="palette-group palette-group--drafts" aria-labelledby="drafts-heading">
+    <div class="palette-group-head">
+      <h2 class="palette-group-title display" id="drafts-heading">Drafts</h2>
+      <p class="palette-group-note">Held back from the house — not on the public site until published. Use Preview draft to see one before it goes live.</p>
+    </div>
+    <div class="record-grid">
+      {% for r in drafts %}{{ record_card(r) }}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="palette-group palette-group--published" aria-labelledby="published-heading">
+    <div class="palette-group-head">
+      <h2 class="palette-group-title display" id="published-heading">Published</h2>
+      <p class="palette-group-note">Live on the public site.</p>
+    </div>
+    {% if live %}
+    <div class="record-grid">
+      {% for r in live %}{{ record_card(r) }}{% endfor %}
+    </div>
+    {% else %}
+    <p class="record-empty">Nothing published yet.</p>
+    {% endif %}
+  </section>
+  {% else %}
+  <p class="record-empty">No records yet. Create a talent or a work to begin.</p>
+  {% endif %}
+
+  <form class="form-sub" method="post" action="/studio/logout">
+    <button class="btn btn--ghost" type="submit">Sign out</button>
+  </form>
+</div>
+{% endblock %}

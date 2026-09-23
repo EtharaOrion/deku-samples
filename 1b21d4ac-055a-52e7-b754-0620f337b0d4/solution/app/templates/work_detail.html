@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block route %}
+<div class="route-scroll detail route-pad">
+  <header class="detail-head">
+    <h1 class="detail-title display">{{ work.title }}</h1>
+    <span class="detail-ordinal">{{ work.ordinal }}</span>
+  </header>
+
+  {% if work.credits %}
+  <ul class="detail-credits" data-state="filled">
+    {% for c in work.credits %}
+    <li class="credit-row">
+      <span class="credit-role">{{ c.role }}</span>
+      {% if c.href %}
+      <a class="credit-name" href="{{ c.href }}" data-cursor-label="{{ c.name }}">{{ c.name }}</a>
+      {% else %}
+      <span class="credit-name">{{ c.name }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="detail-credits record-empty" data-state="empty">No one is credited on this film yet.</p>
+  {% endif %}
+
+  {% if work.reel %}
+  <div class="detail-reel">
+    {{ m.media(work.reel, extra="reveal", role="reel", reel=True) }}
+  </div>
+  {% endif %}
+
+  {% if work.stills %}
+  <div class="detail-stills">
+    {% for still in work.stills %}
+      {% set v = "left" if still.width == 598 else ("right" if still.width == 300 else ("centre" if still.width == 1006 else "left")) %}
+      <div class="detail-still detail-still--{{ v }}">
+        {{ m.media(still, extra="tile-colour reveal", role="gallery") }}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <nav class="detail-nav" aria-label="More films">
+    {% if work.previous %}
+    <a class="detail-nav--prev" href="/works/{{ work.previous.slug }}" data-cursor-label="{{ work.previous.title }} {{ work.previous.ordinal }}">
+      <span class="detail-nav-label">Previous</span>
+      <span class="detail-nav-title display">{{ work.previous.title }}</span>
+    </a>
+    {% endif %}
+    {% if work.next %}
+    <a class="detail-nav--next" href="/works/{{ work.next.slug }}" data-cursor-label="{{ work.next.title }} {{ work.next.ordinal }}">
+      <span class="detail-nav-label">Next</span>
+      <span class="detail-nav-title display">{{ work.next.title }}</span>
+    </a>
+    {% endif %}
+  </nav>
+</div>
+{% endblock %}

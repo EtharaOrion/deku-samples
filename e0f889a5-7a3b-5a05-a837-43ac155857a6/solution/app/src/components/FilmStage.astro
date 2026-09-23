@@ -1,0 +1,73 @@
+---
+import { LETTER, LETTER_DATE, LETTER_TITLE } from "./lib/letter";
+
+const driven = [
+  { text: LETTER_TITLE, half: "left" as const },
+  { text: LETTER_DATE, half: "left" as const },
+  ...LETTER.map((paragraph) => ({ text: paragraph.text, half: paragraph.half })),
+];
+---
+
+<div class="stage" id="stage" data-film="pending">
+  <div class="stage__view" aria-hidden="true">
+    <video
+      class="film"
+      id="film"
+      muted
+      loop
+      playsinline
+      preload="none"
+      tabindex="-1"
+      disablepictureinpicture
+      aria-hidden="true"></video>
+    <div class="poster"></div>
+    <div class="grain"></div>
+    <div class="scrim scrim--top"></div>
+    <div class="scrim"></div>
+    <div class="flood"></div>
+  </div>
+
+  <div class="driven" id="driven" aria-hidden="true" inert>
+    {
+      driven.map((block, index) => (
+        <p
+          class:list={["driven__block", block.half === "right" && "driven__block--end"]}
+          style={`top: ${(3 + index * 5.3).toFixed(2)}%`}
+        >
+          {block.text}
+        </p>
+      ))
+    }
+  </div>
+
+  <slot />
+</div>
+
+<style>
+  .poster {
+    background-image:
+      url("/film/first-frame-mobile.jpg"),
+      linear-gradient(145deg, var(--n-16) 0%, var(--n-13) 58%, var(--n-16) 100%);
+    background-image:
+      image-set(
+        url("/film/first-frame-mobile.avif") type("image/avif"),
+        url("/film/first-frame-mobile.jpg") type("image/jpeg")
+      ),
+      linear-gradient(145deg, var(--n-16) 0%, var(--n-13) 58%, var(--n-16) 100%);
+    background-position: center top;
+  }
+
+  @media (min-width: 64rem) {
+    .poster {
+      background-image:
+        url("/film/first-frame-desktop.jpg"),
+        linear-gradient(145deg, var(--n-16) 0%, var(--n-13) 58%, var(--n-16) 100%);
+      background-image:
+        image-set(
+          url("/film/first-frame-desktop.avif") type("image/avif"),
+          url("/film/first-frame-desktop.jpg") type("image/jpeg")
+        ),
+        linear-gradient(145deg, var(--n-16) 0%, var(--n-13) 58%, var(--n-16) 100%);
+    }
+  }
+</style>

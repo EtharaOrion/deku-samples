@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block route %}
+{% set cfg = {
+  "bearer": "",
+  "kind": kind,
+  "id": record.id if record else None,
+  "title": record.title if record else "",
+  "slug": record.slug if record else "",
+  "discipline": record.discipline if record else (disciplines[0] if disciplines else ""),
+  "variant": record.variant if record else "left"
+} %}
+<div class="route-scroll studio form" x-data="studioForm()" data-config='{{ cfg | tojson }}'>
+  <p class="studio-eyebrow">{{ studio_house.name }} · Studio</p>
+  <h1 class="studio-title display">{% if record %}Edit {{ kind }}{% else %}New {{ kind }}{% endif %}</h1>
+
+  <template x-if="reason"><div class="notice" role="alert" x-text="reason"></div></template>
+  <template x-if="note"><div class="notice" x-text="note"></div></template>
+
+  <div class="form-field">
+    <label class="form-label" for="title">Title</label>
+    <input class="form-input" id="title" type="text" x-model="title">
+  </div>
+
+  {% if record %}
+  <div class="form-field">
+    <label class="form-label">Slug</label>
+    <p class="form-static">{{ record.slug }}</p>
+  </div>
+  {% else %}
+  <div class="form-field">
+    <label class="form-label" for="slug">Slug</label>
+    <input class="form-input" id="slug" type="text" x-model="slug" placeholder="lowercase-kebab"
+           autocapitalize="off" spellcheck="false">
+  </div>
+  {% endif %}
+
+  {% if kind == "talent" %}
+  <div class="form-field">
+    <label class="form-label" for="discipline">Discipline</label>
+    <select class="form-select" id="discipline" x-model="discipline">
+      {% for d in disciplines %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <div class="form-field">
+    <label class="form-label" for="variant">Variant</label>
+    <select class="form-select" id="variant" x-model="variant">
+      {% for v in variants %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn" type="button" @click="save()" x-text="cfg.id ? 'Save' : 'Create'">{% if record %}Save{% else %}Create{% endif %}</button>
+    {% if record %}
+    <button class="btn" type="button" @click="mintPreview()">Preview</button>
+    <button class="btn" type="button" @click="publish(true)">Publish</button>
+    <button class="btn btn--ghost" type="button" @click="publish(false)">Unlist</button>
+    {% endif %}
+    <a class="btn btn--ghost" href="/studio">Back to palette</a>
+  </div>
+
+  {% if record %}
+  <div class="form-sub">
+    <p class="form-sub-title">Attach media</p>
+    <div class="form-field">
+      <label class="form-label" for="mrole">Role</label>
+      <select class="form-select" id="mrole" x-model="mediaRole">
+        <option value="poster">poster</option>
+        <option value="reel">reel</option>
+        <option value="gallery">gallery</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="mseed">Seed</label>
+      <input class="form-input" id="mseed" type="text" x-model="mediaSeed" placeholder="optional — defaults from the slug">
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="malt">Alt text (a poster needs one before publishing)</label>
+      <input class="form-input" id="malt" type="text" x-model="mediaAlt">
+    </div>
+    <div class="chip-row">
+      <span class="form-field"><label class="form-label" for="mw">Width</label><input class="form-input" id="mw" type="number" x-model="mediaW"></span>
+      <span class="form-field"><label class="form-label" for="mh">Height</label><input class="form-input" id="mh" type="number" x-model="mediaH"></span>
+    </div>
+    <div class="form-actions"><button class="btn" type="button" @click="addMedia()">Attach media</button></div>
+    {% if record.media %}
+    <ul class="media-list">
+      {% for md in record.media %}
+      <li class="media-row">
+        <img class="media-row-still" src="{{ md.src }}" width="{{ md.width }}" height="{{ md.height }}" alt="{{ md.alt }}" decoding="async">
+        <span class="media-row-fact">{{ md.role }} · {{ md.width }}×{{ md.height }}</span>
+        <span class="media-row-fact">{% if md.alt %}{{ md.alt }}{% else %}No written alternative{% endif %}</span>
+        {% if md.role == "poster" and not md.alt %}
+        <template x-if="posterReason"><p class="media-row-refusal" role="alert" x-text="posterReason"></p></template>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  {% if kind == "work" %}
+  <div class="form-sub">
+    <p class="form-sub-title">Attach credit</p>
+    <div class="form-field">
+      <label class="form-label" for="crole">Role</label>
+      <input class="form-input" id="crole" type="text" x-model="creditRole" placeholder="Director">
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="cname">Name</label>
+      <input class="form-input" id="cname" type="text" x-model="creditName">
+    </div>
+    <div class="form-actions"><button class="btn" type="button" @click="addCredit()">Attach credit</button></div>
+    {% if record.credits %}
+    <div class="chip-row">
+      {% for c in record.credits %}<span class="chip">{{ c.role }} · {{ c.name }}</span>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,2158 @@
+/* ==========================================================================
+   Cirrus — a production house for picture and its makers.
+
+   The whole surface is two warm colours and their opacity states.  No colour
+   is ever authored for text; every ground and every piece of ink is one of the
+   two tokens below, or an opacity state of one of them.
+
+   Custom properties declared here, and nowhere else: the two colour tokens and
+   the four interface-face size tokens.  The display face is set from a ladder
+   that is deliberately not tokenised.
+
+   Motion is eight declared transitions on named selectors, three easing curves
+   (two here, the roster path curve lives in site.js), no keyframes, no shadow,
+   no colour transition, no scale-on-hover.
+   ========================================================================== */
+
+:root {
+  --color-dark: #060403;   /* warm near-black */
+  --color-light: #e9eae4;  /* warm off-white */
+  --fontM: 24px;
+  --fontS: 12px;
+  --fontXS: 10px;
+  --fontXXS: 8px;
+}
+
+/* -- Typefaces: two faces, weight axis 100..900, swapped, carried nowhere -- */
+
+@font-face {
+  font-family: "Cirrus Display";
+  src: local("Times New Roman"), local("Liberation Serif"), local("Tinos"),
+       local("DejaVu Serif"), local("Georgia"), local("serif");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cirrus Text";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans"),
+       local("Arimo"), local("Arial"), local("DejaVu Sans"), local("sans-serif");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* -- Reset ----------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* No scrollbar gutter: the frame is pinned to the window and its marks are
+     measured against the full window width, so a gutter would pull every fixed
+     element off its measured position.  Wheel, keyboard and find-in-page scroll
+     untouched. */
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+/* The single scroll source lives on the document; native scroll returns under
+   reduced motion. */
+html.is-locked,
+html.route-entry,
+html.route-preview {
+  overflow: hidden;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: var(--fontS);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  background: var(--color-light);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Grounds.  Only the entry route is the dark ground; every other route is the
+   pale ground with dark ink. */
+html.route-entry body {
+  color: var(--color-light);
+  background: var(--color-dark);
+}
+
+img,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* -- Faces ----------------------------------------------------------------- */
+
+.display {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-transform: none; /* the display face speaks in sentences; data carries its own case */
+}
+
+.iface {
+  font-family: "Cirrus Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* -- Accessibility helpers ------------------------------------------------- */
+
+.vh {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  padding: 10px 16px;
+  background: var(--color-dark);
+  color: var(--color-light);
+  transform: translateY(-140%);
+}
+
+.skip:focus {
+  transform: translateY(0);
+}
+
+/* Focus is visible on every interactive element and is never the 0.5 hover
+   treatment: an offset outline in the token that contrasts the ground. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--color-dark);
+  outline-offset: 3px;
+}
+
+html.route-entry a:focus-visible,
+html.route-entry button:focus-visible,
+html.route-entry [tabindex]:focus-visible {
+  outline-color: var(--color-light);
+}
+
+/* ==========================================================================
+   The persistent frame.  It is a sibling of the route outlet, never a child,
+   so a full page load produces identical markup to a client-swapped one.
+   ========================================================================== */
+
+.frame {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* The frame's own children, the centre mark, the footer and the counter well
+   take the route-transition fade — sampled at one shared mid-transition opacity.
+   The cursor pair is NOT among them, so it never fades mid-navigation. */
+.frame > *,
+.wordmark,
+.centremark,
+.footer,
+.counter-well {
+  transition: opacity 0.4s;
+}
+
+html.is-navigating .frame > *,
+html.is-navigating .wordmark,
+html.is-navigating .centremark,
+html.is-navigating .footer,
+html.is-navigating .counter-well,
+html.is-navigating #route-outlet {
+  opacity: 0;
+  /* Force the one shared route-transition fade even onto the wordmark and the
+     credit, whose own `opacity 0.2s` hover transition would otherwise desync
+     them from the frame; the frame must cross-fade as one object at 0.4s. */
+  transition: opacity 0.4s;
+}
+
+/* The split characters play a staggered entrance once on first load; without
+   JavaScript they simply sit in place. */
+.js .nav-char {
+  transform: translateY(0.7em);
+}
+
+.js.is-ready .nav-char {
+  transform: translateY(0);
+}
+
+/* The wordmark — one of exactly two difference-composited elements.  Authored
+   in the light token so difference blending renders it legibly over the dark
+   entry ground and the pale routes alike, from a single authored value. */
+.wordmark {
+  position: fixed;
+  top: 26px;
+  left: 40px;
+  z-index: 11;
+  pointer-events: auto;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--color-light);
+  mix-blend-mode: difference;
+  transition: opacity 0.2s ease-out;
+}
+
+.wordmark:hover {
+  opacity: 0.6;
+}
+
+/* Navigation: asymmetric.  WORKS is centred in the window; TALENTS, CONTACT and
+   ABOUT are grouped at the right. */
+.nav {
+  position: fixed;
+  top: 30px;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  pointer-events: none;
+  height: 0;
+}
+
+.nav-item {
+  position: fixed;
+  top: 30px;
+  z-index: 12;
+  pointer-events: auto;
+  display: inline-flex;
+  font-size: var(--fontS);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s ease-out;
+}
+
+.nav-item:hover {
+  opacity: 0.6;
+}
+
+.nav-works {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nav-right {
+  position: fixed;
+  top: 30px;
+  right: 40px;
+  z-index: 12;
+  pointer-events: none;
+  display: flex;
+  gap: 28px;
+}
+
+.nav-right .nav-item {
+  position: static;
+}
+
+.nav-item[aria-current="page"] {
+  opacity: 1;
+}
+
+/* Per-character split for the staggered entrance.  The characters are hidden
+   from assistive technology; the whole word is the accessible name. */
+.nav-char {
+  display: inline-block;
+  transform: translateY(0);
+  transition: transform 0.45s cubic-bezier(0.83, 0.12, 0.35, 0.96);
+}
+
+/* Centre mark: below the frame, above content, so a roster name passes in front
+   of the wordmark and behind nothing else.  Decorative, hidden from AT.
+   The mark is optically centred, not mathematically: it sits 3px above the
+   window's middle, which is where an 18px mark reads as centred on a 900px
+   window (top 438, not 441). */
+.centremark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  pointer-events: none;
+  transform: translate(-50%, calc(-50% - 3px));
+  height: 18px;
+  color: var(--color-dark);
+}
+
+html.route-entry .centremark {
+  color: var(--color-light);
+}
+
+.centremark svg {
+  height: 18px;
+  width: auto;
+  fill: currentColor;
+}
+
+.centremark--about-second,
+.centremark--about-second svg {
+  height: 23px;
+}
+
+/* Corner credit — painted in the route's contrast token (not left invisible),
+   with two outbound arrows, one resting and one arrived. */
+.credit {
+  position: fixed;
+  right: 23px;
+  bottom: 3px;
+  z-index: 11;
+  pointer-events: auto;
+  width: 86px;
+  height: 32px;
+  color: var(--color-dark);
+  transition: opacity 0.2s ease-out;
+}
+
+html.route-entry .credit {
+  color: var(--color-light);
+}
+
+.credit:hover {
+  opacity: 0.5;
+}
+
+.credit-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 60px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.credit-arrow {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  fill: currentColor;
+  transition: transform 0.45s cubic-bezier(0.83, 0.12, 0.35, 0.96);
+}
+
+.credit-arrow--rest {
+  transform: translate(0, 0);
+  opacity: 1;
+}
+
+.credit-arrow--arrive {
+  transform: translate(-8px, 16px);
+  opacity: 0;
+}
+
+.credit:hover .credit-arrow--rest {
+  transform: translate(8px, -16px);
+  opacity: 0;
+}
+
+.credit:hover .credit-arrow--arrive {
+  transform: translate(0, 0);
+  opacity: 1;
+}
+
+/* ==========================================================================
+   The cursor pair — the second difference-composited element.  Parked off
+   screen when inactive so it stays composited.  Hidden on coarse pointers.
+   ========================================================================== */
+
+.cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  pointer-events: none;
+  transform: translate(-999px, -999px);
+  /* Difference blending already forces this element its own compositing layer,
+     so a `will-change` hint here would only stack a second permanent layer on
+     one of the two the blend mode forces.  The parked translation is what keeps
+     it composited and stops it stuttering on the first pointer move. */
+  mix-blend-mode: difference;
+  color: var(--color-light);
+}
+
+.cursor-square {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 6px;
+  height: 6px;
+  background: var(--color-light);
+  opacity: 1;
+  transition: opacity 0.1s;
+}
+
+.cursor.is-suppressed .cursor-square {
+  opacity: 0;
+}
+
+.cursor-label {
+  position: absolute;
+  top: -7px;
+  left: 14px;
+  white-space: nowrap;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cursor--above .cursor-label {
+  top: -150px;
+  left: 0;
+}
+
+@media (pointer: coarse) {
+  .cursor {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   The route outlet.  Route content lives here at depth 0..5.
+   ========================================================================== */
+
+#route-outlet {
+  position: relative;
+  z-index: 0;
+  transition: opacity 0.4s;
+}
+
+.route-scroll {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ==========================================================================
+   The media tile — one component, three width variants, identical behaviour.
+   The <img> is the real element; the <canvas> only enhances it, so the layer
+   degrades by doing nothing.  Space is reserved from stored intrinsics before
+   any pixel arrives.
+   ========================================================================== */
+
+.tile {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.tile-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scale(1.015); /* never animated — hides sub-pixel edges under the wipe */
+}
+
+.tile-img,
+.tile-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile-canvas {
+  z-index: 1;
+}
+
+.tile.is-loading {
+  background: transparent;
+}
+
+/* Colour return: every still rests desaturated and gives its colour back on
+   hover over the slow filter curve.  The trigger is the tile's hittable
+   container (the entry link, the detail still, the tile itself), never the
+   `.reveal` figure alone: a clipped-away figure never receives the pointer, so
+   a `.tile-colour:hover` that depended on it would silently never fire. */
+.tile-colour .tile-media {
+  filter: saturate(0);
+  transition: filter 0.8s cubic-bezier(0.2, 0.65, 0.47, 0.96);
+}
+
+.tile-colour:hover .tile-media,
+.entry:hover .tile-media,
+.detail-still:hover .tile-media,
+a:focus-visible .tile-colour .tile-media,
+.entry:focus-visible .tile-media {
+  filter: saturate(1);
+}
+
+/* Under reduced motion a reel never starts on its own; the still holds and the
+   reel is offered behind this control.  Both tokens, no third colour. */
+.tile-play {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 7px 13px;
+  background: var(--color-light);
+  color: var(--color-dark);
+  font-size: var(--fontS);
+  transition: opacity 0.2s ease-out;
+}
+
+.tile-play:hover {
+  opacity: 0.6;
+}
+
+/* The reveal is a wipe, not a fade: rest fully clipped away with a lateral
+   offset, uncovered from the bottom edge upward while the offset resolves.
+   Gated on `.js` so the site is fully visible with JavaScript disabled. */
+.js .reveal {
+  clip-path: inset(100% 0% 0%);
+  transform: translateX(-123px);
+  transition: transform 0.8s cubic-bezier(0.2, 0.65, 0.47, 0.96),
+    clip-path 0.8s cubic-bezier(0.2, 0.65, 0.47, 0.96);
+}
+
+.js .reveal.is-revealed {
+  clip-path: inset(0% 0% 0%);
+  transform: translateX(0);
+}
+
+/* The caption row: a small filled square, the ordinal at the left edge, the
+   title in the display face flush with the still's right edge. */
+.caption {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.caption-square {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  margin-right: 8px;
+  align-self: center;
+  background: var(--color-dark);
+}
+
+.caption-ordinal {
+  flex: 0 0 auto;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.caption-title {
+  margin-left: auto;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 25.2px;
+  letter-spacing: 0;
+  text-transform: none; /* work index caption titles are title case */
+  text-align: right;
+}
+
+/* ==========================================================================
+   Entry route — the cluster.  Dark ground, no scroll.  A loose cluster of
+   authored, overlapping stills, dense toward the centre, corners empty.
+   ========================================================================== */
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--color-dark);
+  transition: opacity 0.4s;
+}
+
+html:not(.route-entry) .veil {
+  display: none;
+}
+
+.veil.is-cleared {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.counter-well {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 20;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  color: inherit;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.counter-well:not(.is-active) {
+  display: none;
+}
+
+/* On the roster the well tracks position in the set rather than load progress,
+   so it leaves the optical centre — the centre mark sits there — and reads from
+   the right margin, level with the discipline filter on the left. */
+html.route-talents .counter-well {
+  top: 50%;
+  left: auto;
+  right: 40px;
+  font-size: 24px;
+  font-weight: 300;
+}
+
+.entry-cluster {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.still {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  transition: opacity 0.2s ease-out;
+}
+
+/* Pointing at a still fades it to half and nothing else — the caption is the
+   cursor label. */
+.still:hover {
+  opacity: 0.5;
+}
+
+/* The written name, in the position the cursor label would occupy; visible on
+   focus (keyboard) and always visible below the breakpoint (no hover there). */
+.still-cap {
+  position: absolute;
+  top: -6px;
+  left: calc(100% + 14px);
+  white-space: nowrap;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-light);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.still:focus-visible .still-cap {
+  opacity: 1;
+}
+
+/* The only words the entry route ever carries, and only on the way back from a
+   studio a viewer may not have: no headline, no tagline, nothing at rest. */
+.entry-refusal {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  transform: translateY(-74px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+  font-size: var(--fontS);
+  font-weight: 500;
+  line-height: 14.4px;
+  letter-spacing: 0.04em;
+  color: var(--color-light);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Work index — the numbered index.  Pale ground.  An opening screen, then a
+   long page of twelve entries in three authored widths.
+   ========================================================================== */
+
+.route-pad {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.work-open {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 96px;
+}
+
+.work-open-line {
+  max-width: 1360px;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  line-height: normal;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.js .work-open-line.is-soft {
+  filter: blur(10px);
+  transition: filter 0.8s cubic-bezier(0.2, 0.65, 0.47, 0.96);
+}
+
+.js .work-open-line.is-soft.is-sharp {
+  filter: blur(0);
+}
+
+/* The tail closes the index on the measured 7,330px the route scrolls to
+   on a 900px window, once the twelve entries and their gaps are counted. */
+.work-list {
+  position: relative;
+  padding-bottom: 211px;
+}
+
+.entry {
+  position: relative;
+  display: block;
+}
+
+.entry--left {
+  width: 598px;
+  max-width: 100%;
+  margin-right: auto;
+}
+
+.entry--right {
+  width: 300px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-top: 80px;
+}
+
+.entry--centre {
+  width: 1006px;
+  max-width: 100%;
+  margin: 120px auto 0;
+}
+
+/* ==========================================================================
+   Work detail — pale ground.  Title, ordinal, credits, a full-bleed reel, a
+   stills sequence, then next / previous.
+   ========================================================================== */
+
+.detail {
+  padding-top: 160px;
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 64px;
+}
+
+.detail-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 56px;
+  line-height: 61.6px;
+  letter-spacing: 0;
+  text-transform: none;
+  max-width: 60%;
+}
+
+.detail-ordinal {
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding-top: 12px;
+}
+
+.detail-credits {
+  list-style: none;
+  margin: 32px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px 40px;
+  max-width: 900px;
+}
+
+.credit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.credit-role {
+  opacity: 0.6;
+}
+
+.credit-name {
+  transition: opacity 0.2s ease-out;
+}
+
+a.credit-name:hover {
+  opacity: 0.6;
+}
+
+.detail-reel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1006 / 617;
+  margin: 80px 0;
+}
+
+.detail-stills {
+  display: block;
+}
+
+.detail-still {
+  position: relative;
+  display: block;
+}
+
+.detail-still + .detail-still {
+  margin-top: 180px;
+}
+
+.detail-still--left {
+  width: 598px;
+  max-width: 100%;
+  margin-right: auto;
+  aspect-ratio: 598 / 320;
+}
+
+.detail-still--right {
+  width: 300px;
+  max-width: 100%;
+  margin-left: auto;
+  aspect-ratio: 300 / 300;
+}
+
+.detail-still--centre {
+  width: 1006px;
+  max-width: 100%;
+  margin: 0 auto;
+  aspect-ratio: 1006 / 617;
+}
+
+.detail-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  margin: 220px 0 120px;
+}
+
+.detail-nav a {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: opacity 0.2s ease-out;
+}
+
+.detail-nav a:hover {
+  opacity: 0.6;
+}
+
+/* The eyebrow rests at 0.6; without this it would stack with the link's 0.6
+   hover fade to 0.36 (2.42:1). Held at full so it takes the single fade only. */
+.detail-nav a:hover .detail-nav-label {
+  opacity: 1;
+}
+
+.detail-nav--next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.detail-nav-label {
+  font-size: var(--fontXS);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.detail-nav-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  line-height: 1;
+  text-transform: none;
+}
+
+/* ==========================================================================
+   Talent roster — pale ground.  One talent fills the window; no scroll above
+   the breakpoint.  A left-margin discipline filter.
+   ========================================================================== */
+
+.roster {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.roster-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.roster-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.roster-slide.is-current {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Filtered out of the active discipline: gone at every width, so the filter
+   narrows the set below the breakpoint as well as above it. */
+.roster-slide.is-out {
+  display: none;
+}
+
+.roster-name {
+  position: absolute;
+  /* The pin is on the baseline, not the box: at 125px over a 137.5px line the
+     baseline sits 110.67px below the box top, so 139px lands it on y = 250 and
+     keeps the name clear of the discipline label at y = 357. */
+  top: 139px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 125px;
+  line-height: 137.5px;
+  letter-spacing: -0.01em;
+  text-transform: none; /* talent name is title case */
+  white-space: nowrap;
+}
+
+.roster-discipline {
+  position: absolute;
+  top: 357px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.roster-slide-name,
+.roster-slide-discipline {
+  display: none;
+}
+
+.roster-portrait {
+  position: absolute;
+  top: 567px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 246px;
+  aspect-ratio: 246 / 308;
+}
+
+.filter {
+  position: fixed;
+  top: 443px;
+  left: 40px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.filter-btn {
+  position: relative;
+  padding-left: 14px;
+  text-align: left;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  /* An inactive discipline rests at half the ink token, but half of #060403 on
+     #e9eae4 reaches only 3.70:1.  The brief says to raise the resting opacity
+     rather than reach for a colour, and 0.6 reaches 5.20:1. */
+  opacity: 0.6;
+  transition: opacity 0.2s ease-out;
+}
+
+/* This is the one place a hover brightens rather than fades, because the
+   resting state is already faded. */
+.filter-btn:hover {
+  opacity: 1;
+}
+
+.filter-btn[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.filter-btn[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  transform: translateY(-50%);
+  background: var(--color-dark);
+}
+
+/* ==========================================================================
+   Talent detail — the name at the roster's own size, the reel, the selected
+   work reusing the index entry and caption components.
+   ========================================================================== */
+
+.talent-detail {
+  padding-top: 200px;
+}
+
+.talent-detail-name {
+  text-align: center;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 125px;
+  line-height: 137.5px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.talent-detail-discipline {
+  text-align: center;
+  margin-top: 8px;
+  font-size: var(--fontS);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.talent-reel {
+  position: relative;
+  width: 100%;
+  max-width: 1006px;
+  margin: 90px auto;
+  aspect-ratio: 1006 / 617;
+}
+
+.talent-selected {
+  margin-top: 40px;
+}
+
+.talent-selected-head {
+  font-size: var(--fontXS);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-bottom: 60px;
+}
+
+/* ==========================================================================
+   About — pale ground, no media.  A symmetrical figure, a body, a closing
+   lockup, and the scroll-driven blur.
+   ========================================================================== */
+
+.about {
+  /* Three blocks over a little more than three screens: the three sections are
+     a window tall each, and the closing figure is given room to land rather
+     than ending on the last pixel.  253px outside those boxes carries the
+     document to its measured 2,953px on a 900px window. */
+  padding: 0 40px 253px;
+}
+
+.about-figure {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0;
+}
+
+.about-figure-line,
+.about-figure-name {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 100;
+  font-size: 36px;
+  line-height: 34.56px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.about-figure-name {
+  opacity: 0.85;
+}
+
+/* 398px to the right of the route's own centre mark, whose left edge sits at
+   50% - 13.5px (half its 27px width), so the offset from 50% is 398 - 13.5. */
+.about-figure .centremark--about-second {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 385px);
+  transform: translateY(-50%);
+  color: var(--color-dark);
+}
+
+.about-body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.about-para-first {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 21.6px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.about-line {
+  display: block;
+}
+
+.about-para-second {
+  margin-top: 80px;
+  max-width: 620px;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 21.6px;
+  text-transform: none;
+}
+
+.js .about-blur {
+  filter: blur(10px);
+}
+
+/* The closing lockup — a positioned composition, the small words nested into
+   the large ones' negative space. */
+.about-lockup {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lockup {
+  position: relative;
+  width: 520px;
+  max-width: 100%;
+  text-transform: none;
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+}
+
+.lockup-row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+}
+
+.lockup-large {
+  font-size: 58px;
+  font-weight: 400;
+  line-height: 40.6px;
+  letter-spacing: -0.01em;
+}
+
+.lockup-small {
+  font-size: 24.75px;
+  font-weight: 100;
+  line-height: 23.76px;
+}
+
+.lockup-smallest {
+  font-size: 9.75px;
+  font-weight: 100;
+  line-height: 9.36px;
+}
+
+.lockup-row--one {
+  gap: 12px;
+}
+
+.lockup-row--two {
+  gap: 12px;
+  margin-top: 6px;
+  padding-left: 90px;
+}
+
+.lockup-row--three {
+  gap: 10px;
+  margin-top: 6px;
+  padding-left: 40px;
+}
+
+.lockup-mark {
+  display: inline-block;
+  vertical-align: super;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  fill: currentColor;
+}
+
+/* ==========================================================================
+   The footer — four columns, a scrim scaled so it never shows a hard edge.
+   The footer arrival is the site's only scroll-driven positional move.
+   ========================================================================== */
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  pointer-events: none;
+  padding: 40px;
+}
+
+.footer-scrim {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.5);
+  transform-origin: bottom center;
+  /* The footer ink is the dark token, so the scrim is the light token: a solid
+     light ground for the bottom ~72% of its height that softens to nothing at
+     the top edge (no hard line).  This holds the footer at the AA bar over any
+     route ground; the earlier dark scrim dropped dark-on-scrim to ~3.8:1. */
+  background: linear-gradient(0deg, #e9eae4 0%, #e9eae4 72%, #e9eae400 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.footer.is-arrived .footer-scrim {
+  opacity: 1;
+}
+
+/* The entry route carries light ink on the dark ground, so its footer scrim is
+   the dark token instead: the same solid ground, inverted, keeping light-on-dark
+   at the AA bar where the footer meets the cluster. */
+html.route-entry .footer-scrim {
+  background: linear-gradient(0deg, #060403 0%, #060403 72%, #06040300 100%);
+}
+
+.footer-cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  pointer-events: auto;
+  transform: translateY(0); /* visible with JavaScript disabled */
+  transition: transform 0.8s cubic-bezier(0.2, 0.65, 0.47, 0.96);
+}
+
+/* Only once JS drives the arrival does the list start closed from below. */
+.js .footer:not(.is-arrived) .footer-cols {
+  transform: translateY(249.506px);
+}
+
+.js .footer:not(.is-arrived) .footer-scrim {
+  opacity: 0;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fontXS);
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+}
+
+.footer-col--premises {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: start;
+}
+
+/* The district number keeps a column of its own beside the street, set hard
+   against its right edge, with the city running on under the street. */
+.footer-district {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
+}
+
+.footer-col--right {
+  text-align: right;
+}
+
+.footer-link {
+  transition: opacity 0.2s ease-out;
+}
+
+.footer-link:hover {
+  opacity: 0.6;
+}
+
+.footer-char {
+  display: inline-block;
+}
+
+/* ==========================================================================
+   The contact overlay — full-screen, its items parked below their resting
+   position, rising as a stagger with a fade.  Behind the narrow CONTACT label.
+   ========================================================================== */
+
+.contact {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: var(--color-light);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.contact.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.contact-item {
+  transform: translateY(200px);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(0.83, 0.12, 0.35, 0.96), opacity 0.3s;
+}
+
+.contact.is-open .contact-item {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.contact-address {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  text-transform: none;
+  transition: opacity 0.2s ease-out;
+}
+
+.contact-address:hover {
+  opacity: 0.6;
+}
+
+.contact-close {
+  position: fixed;
+  top: 30px;
+  right: 40px;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s ease-out;
+}
+
+.contact-close:hover {
+  opacity: 0.6;
+}
+
+/* ==========================================================================
+   Studio — pale ground, compact.  A command palette, forms, a confirmation.
+   ========================================================================== */
+
+.studio {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 150px 40px 120px;
+}
+
+.studio-eyebrow {
+  font-size: var(--fontXS);
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-bottom: 16px;
+}
+
+.studio-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: 56px;
+  line-height: 1.05;
+  text-transform: none;
+  margin-bottom: 40px;
+}
+
+.palette-search {
+  width: 100%;
+  padding: 16px 0;
+  font-size: var(--fontM);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-dark);
+}
+
+.palette-search::placeholder {
+  color: var(--color-dark);
+  opacity: 0.6;
+}
+
+.palette-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 28px 0 48px;
+}
+
+.palette-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s ease-out;
+}
+
+.palette-action::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  background: var(--color-dark);
+}
+
+.palette-action:hover {
+  opacity: 0.6;
+}
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1px;
+  background: color-mix(in srgb, var(--color-dark) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-dark) 14%, transparent);
+}
+
+.record-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--color-light);
+  transition: opacity 0.2s ease-out;
+}
+
+/* The palette filters by setting the hidden attribute; the display above
+   outranks the user agent's [hidden] rule, so restate it at this weight. */
+.record-card[hidden] {
+  display: none;
+}
+
+.record-card:hover {
+  opacity: 0.6;
+}
+
+/* The meta row rests at 0.7; without this it stacks with the card's 0.6 hover
+   fade to 0.42 (2.88:1). Reset under card hover so it takes the single fade. */
+.record-card:hover .record-meta {
+  opacity: 1;
+}
+
+.record-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 300;
+  font-size: var(--fontM);
+  line-height: 1.05;
+  text-transform: none;
+}
+
+.record-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--fontXS);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.record-live[data-live="true"] {
+  opacity: 1;
+}
+
+.record-empty {
+  padding: 40px 0;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+/* Forms */
+
+.form {
+  max-width: 620px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.form-label {
+  font-size: var(--fontXS);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 12px 0;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-dark);
+}
+
+.form-static {
+  padding: 12px 0;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.reorder {
+  margin: 8px 0 40px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--color-dark) 20%, transparent);
+}
+
+.reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 20px;
+}
+
+.reorder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-dark) 14%, transparent);
+}
+
+.reorder-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-size: var(--fontM);
+  font-weight: 300;
+  text-transform: none;
+}
+
+.reorder-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.published-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 32px;
+  margin: 12px 0 48px;
+}
+
+.published-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-top: 40px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  border: 1px solid var(--color-dark);
+  transition: opacity 0.2s ease-out;
+}
+
+.btn:hover {
+  opacity: 0.6;
+}
+
+/* The preview button lives in the 0.7 meta row; the card fade already signals
+   its hover, so it does not fade again (0.7 x 0.6 = 0.42 would read 2.88:1). */
+.record-meta .btn:hover {
+  opacity: 1;
+}
+
+.btn--ghost {
+  border-color: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.notice {
+  margin: 20px 0;
+  padding: 14px 16px;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  border: 1px solid var(--color-dark);
+}
+
+.form-sub {
+  margin-top: 56px;
+  padding-top: 32px;
+  border-top: 1px solid color-mix(in srgb, var(--color-dark) 20%, transparent);
+}
+
+.form-sub-title {
+  font-size: var(--fontXS);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin-bottom: 20px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chip {
+  padding: 8px 12px;
+  font-size: var(--fontXS);
+  letter-spacing: 0.06em;
+  border: 1px solid color-mix(in srgb, var(--color-dark) 30%, transparent);
+}
+
+.media-list {
+  margin-top: 20px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.media-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  column-gap: 16px;
+  row-gap: 6px;
+  align-items: start;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--color-dark) 20%, transparent);
+}
+
+.media-row-still {
+  grid-row: 1 / span 3;
+  width: 96px;
+  height: auto;
+  display: block;
+}
+
+.media-row-fact {
+  grid-column: 2;
+  font-size: var(--fontXS);
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.media-row-refusal {
+  grid-column: 2;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border: 1px solid var(--color-dark);
+}
+
+/* Auth pages */
+
+.auth {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 180px 40px 120px;
+}
+
+.auth-title {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  text-transform: none;
+  margin-bottom: 32px;
+}
+
+.auth-alt {
+  margin-top: 28px;
+  font-size: var(--fontS);
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  transition: opacity 0.2s ease-out;
+}
+
+/* The line already rests at the 0.7 dim, so its link brightens the whole line
+   to full ink on hover rather than fading further: a 0.6 fade would stack with
+   the 0.7 to 0.42 (2.88:1). Same brighten-when-dimmed rule as the filter. */
+.auth-alt:hover {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Preview harness — full chrome, no scroll, a persistent unmissable marker.
+   ========================================================================== */
+
+.preview-marker {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 13;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  font-size: var(--fontXS);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-light);
+  background: var(--color-dark);
+}
+
+.preview-stage {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  padding-top: 130px;
+}
+
+/* ==========================================================================
+   Not found — pale ground, dark ink, one line at the optical centre.
+   ========================================================================== */
+
+.notfound {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notfound-line {
+  font-family: "Cirrus Display", "Times New Roman", Times, serif;
+  font-weight: 200;
+  font-size: 40px;
+  letter-spacing: 0;
+  text-transform: none; /* title case, as authored */
+  transform: translateY(-9px); /* the optical raise the marks use */
+}
+
+/* ==========================================================================
+   Responsive — one narrow layout, reached two ways.  The real breakpoint is
+   768px wide; a viewport shorter than 500px is treated as narrow whatever its
+   width, so a phone held in landscape does not get the wide roster in a short
+   window.
+   ========================================================================== */
+
+@media (max-width: 768px), (max-height: 500px) {
+  .wordmark {
+    top: 18px;
+    left: 20px;
+    font-size: 22px;
+  }
+
+  .nav-works {
+    left: auto;
+    right: 20px;
+    transform: none;
+  }
+
+  .nav-right {
+    right: 20px;
+    top: 54px;
+    gap: 18px;
+  }
+
+  /* Frame retraction on scroll, built as a threshold rather than a scrub. */
+  html.is-retracted .wordmark,
+  html.is-retracted .nav-item,
+  html.is-retracted .nav-right {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .route-pad,
+  .about,
+  .studio,
+  .auth {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  /* Every hover-only affordance gets a touch equivalent: the work stills carry
+     their colour, not a hover that cannot happen. */
+  .tile-colour .tile-media {
+    filter: saturate(1);
+  }
+
+  .credit-arrow {
+    transition: none;
+  }
+
+  .credit:hover .credit-arrow--rest {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+
+  .credit:hover .credit-arrow--arrive {
+    transform: translate(-8px, 16px);
+    opacity: 0;
+  }
+
+  .entry--left,
+  .entry--right,
+  .entry--centre {
+    width: 100%;
+    margin: 0 0 72px;
+  }
+
+  /* Full width makes the aspect-ratio 300/300 right tiles ~728px squares, pushing
+     the narrow /works document past the 8000px full-page screenshot ceiling; cap
+     the right column at a 360px square so the document stays under it. */
+  .entry--right {
+    width: 360px;
+    max-width: 100%;
+  }
+
+  .work-open-line {
+    font-size: 40px;
+  }
+
+  /* Entry cluster stills carry visible captions rather than the cursor label.
+     The caption sits over the stills here, so the light ink is given the dark
+     token as a snug ground: invisible where it falls on the dark route ground,
+     a legible backing wherever it crosses a still. */
+  .still-cap {
+    opacity: 1;
+    position: static;
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 7px;
+    background: var(--color-dark);
+  }
+
+  /* The right group drops level with the cluster on narrow windows and can cross
+     a still; the same solid dark ground holds it at the AA bar. */
+  html.route-entry .nav-right .nav-item {
+    padding: 3px 8px;
+    background: var(--color-dark);
+  }
+
+  /* The roster becomes a scroll-driven sequence, one talent per screenful:
+     the stage flows so the document scrolls through the whole set, and each
+     talent's name travels with its own block instead of one shared heading. */
+  html.route-talents,
+  html.route-talents body {
+    overflow: auto;
+  }
+
+  .roster {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.route-talents .counter-well {
+    right: 20px;
+    font-size: 18px;
+  }
+
+  .roster-stage {
+    position: static;
+  }
+
+  .roster-slide {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    pointer-events: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .roster-name,
+  .roster-discipline {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .roster-slide-name {
+    display: block;
+    font-family: "Cirrus Display", "Times New Roman", Times, serif;
+    font-weight: 300;
+    font-size: 56px;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .roster-slide-discipline {
+    display: block;
+    margin-top: 12px;
+    font-size: var(--fontS);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .roster-portrait {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    margin: 40px auto 0;
+  }
+
+  .filter {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 16px 20px;
+    z-index: 8;
+    background: var(--color-light);
+  }
+
+  .detail-title {
+    font-size: 36px;
+    line-height: 1.1;
+    max-width: 100%;
+  }
+
+  .detail-nav-title,
+  .contact-address,
+  .talent-detail-name {
+    font-size: 36px;
+    line-height: 1.05;
+  }
+
+  .talent-detail-name {
+    font-size: 56px;
+  }
+
+  /* The about opening figure keeps its mirror, reduced in size. */
+  .about-figure-line,
+  .about-figure-name {
+    font-size: 22px;
+    line-height: 0.96;
+  }
+
+  .about-figure .centremark--about-second {
+    display: none;
+  }
+
+  /* Below the breakpoint the authored line breaks are dropped; the paragraph
+     wraps normally, and the blur is not scrubbed. */
+  .about-line {
+    display: inline;
+  }
+
+  .js .about-blur {
+    filter: none;
+  }
+
+  /* The closing lockup stacks to two sizes, keeps the ratio, abandons nesting. */
+  .lockup {
+    width: 100%;
+  }
+
+  .lockup-row--two,
+  .lockup-row--three {
+    padding-left: 0;
+  }
+
+  /* Two sizes, not three: the smallest word rises to the small size so the
+     ratio between the remaining pair stays 58 / 24.75. */
+  .lockup-smallest {
+    font-size: 24.75px;
+    line-height: 23.76px;
+  }
+
+  .lockup-mark {
+    vertical-align: baseline;
+  }
+
+  .footer {
+    padding: 20px;
+  }
+
+  .footer-cols {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .studio-title {
+    font-size: 40px;
+  }
+
+  .record-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Reduced motion — smoothing off, every scrubbed effect resolves to its end
+   state, the colour return STILL applies on hover because it carries meaning.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal {
+    clip-path: inset(0% 0% 0%);
+    transform: none;
+    transition: none;
+  }
+
+  .js .work-open-line.is-soft {
+    filter: none;
+    opacity: 1;
+    transition: none;
+  }
+
+  .js .about-blur {
+    filter: none;
+  }
+
+  .roster-slide {
+    transition: none;
+  }
+
+  .footer-cols {
+    transition: none;
+    transform: translateY(0);
+  }
+
+  .footer-scrim {
+    transition: none;
+  }
+
+  /* The colour return still applies on hover, over 0.01s, because it is a colour
+     change carrying information rather than a motion. Removing it would tell this
+     visitor less about the work rather than more. */
+  .tile-colour .tile-media {
+    transition: filter 0.01s;
+  }
+
+  .cursor {
+    display: none;
+  }
+
+  .contact-item {
+    transition: none;
+    transform: none;
+  }
+}

@@ -1,0 +1,272 @@
+---
+import Shell from "../../../layouts/Shell.astro";
+import NotFound from "../../../components/NotFound.astro";
+import CameraCard from "../../../components/CameraCard.astro";
+import { call, currentCustomer } from "../../../components/lib/api";
+
+const customer = await currentCustomer(Astro);
+if (!customer) {
+  return Astro.redirect(
+    `/sign-in?next=${encodeURIComponent(`${Astro.url.pathname}${Astro.url.search}`)}`,
+  );
+}
+
+const { serial } = Astro.params;
+// Another customer's camera reads as not found, never as forbidden.
+const answer = await call<any>(Astro, `/api/account/devices/${encodeURIComponent(serial ?? "")}`);
+if (!answer.ok) Astro.response.status = answer.status === 404 ? 404 : answer.status;
+const device = answer.ok ? answer.data : null;
+---
+
+{
+  !device ? (
+    <NotFound />
+  ) : (
+    <Shell title={device.nickname || device.model} current="cameras">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/account/cameras">Your cameras</a> <span aria-hidden="true">/</span>{" "}
+        <span>{device.nickname || device.model}</span>
+      </nav>
+
+      <div class="cart-layout" data-camera-detail data-serial={device.serial}>
+        <div class="stack stack-6">
+          <CameraCard device={device} detailed>
+            <p class="small muted">
+              {device.firmware_version
+                ? "Last heard from on firmware " + device.firmware_version + "."
+                : "This camera has not reported in yet."}
+            </p>
+          </CameraCard>
+
+          <section class="card stack stack-4">
+            <h2 class="section-title">Name</h2>
+            <form class="stack stack-3" data-rename>
+              <div class="field">
+                <label class="field__label" for="nickname">
+                  What you call this camera
+                </label>
+                <input
+                  class="input field__control"
+                  id="nickname"
+                  name="nickname"
+                  value={device.nickname ?? ""}
+                  maxlength="60"
+                />
+              </div>
+              <div>
+                <button class="btn btn--secondary" type="submit">
+                  Save the name
+                </button>
+              </div>
+              <p class="notice notice--transient" data-rename-done hidden role="status">
+                Saved.
+              </p>
+              <p class="field__error" data-rename-error hidden role="alert"></p>
+            </form>
+          </section>
+        </div>
+
+        <aside class="stack stack-5">
+          <section class="card stack stack-3">
+            <h2 class="section-title">Firmware</h2>
+            <p class="muted">
+              {device.update_available
+                ? "There is a newer version than the one on this camera."
+                : "Nothing newer to install just now."}
+            </p>
+            <p>
+              <a class="btn btn--secondary" href="/doctor">
+                Open the firmware installer
+              </a>
+            </p>
+          </section>
+
+          {/* Removing and handing over are different acts, and the copy keeps
+              them apart rather than folding one into the other. */}
+          <section class="card stack stack-4">
+            <h2 class="section-title">Let this camera go</h2>
+
+            <div class="stack stack-2">
+              <p class="small muted">
+                <strong>Remove from my account</strong> releases the camera and gives it
+                to nobody. It is what you do when you sell it to a stranger.
+              </p>
+              <button class="btn btn--danger" type="button" data-release>
+                Remove from my account
+              </button>
+            </div>
+
+            <div class="stack stack-2">
+              <p class="small muted">
+                <strong>Hand this camera to someone else</strong> names the person who
+                gets it, so the camera moves from your account to theirs in one step.
+              </p>
+              <button class="btn btn--secondary" type="button" data-hand-over>
+                Hand this camera to someone else
+              </button>
+            </div>
+
+            <p class="field__error" data-release-error hidden role="alert"></p>
+          </section>
+        </aside>
+      </div>
+
+      <dialog
+        class="card stack stack-4"
+        data-hand-over-dialog
+        aria-labelledby="hand-over-title"
+      >
+        <h2 class="section-title" id="hand-over-title">Hand this camera to someone else</h2>
+        <form class="stack stack-4" method="dialog" data-hand-over-form>
+          <div class="field">
+            <label class="field__label" for="new-owner">
+              The email of the person taking it
+            </label>
+            <input
+              class="input field__control"
+              id="new-owner"
+              name="email"
+              type="email"
+              required
+            />
+            <p class="field__help">
+              They must already have an account with us. The camera leaves yours the
+              moment they take it.
+            </p>
+          </div>
+          <p class="field__error" data-hand-over-error hidden role="alert"></p>
+          <div class="row" style="gap: calc(var(--spacing) * 3)">
+            <button class="btn btn--primary" type="button" data-hand-over-yes>
+              Hand it over
+            </button>
+            <button class="btn btn--quiet" type="button" data-hand-over-no>
+              Keep it
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog class="card stack stack-4" data-confirm aria-labelledby="remove-camera-title">
+        <h2 class="section-title" id="remove-camera-title">Remove this camera</h2>
+        <p>
+          This releases <span class="mono">{device.serial}</span> from your account and
+          gives it to nobody. You can register it again later.
+        </p>
+        <div class="row" style="gap: calc(var(--spacing) * 3)">
+          <button class="btn btn--danger" type="button" data-confirm-yes>
+            Remove from my account
+          </button>
+          <button class="btn btn--quiet" type="button" data-confirm-no>
+            Keep it
+          </button>
+        </div>
+      </dialog>
+    </Shell>
+  )
+}
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-camera-detail]");
+  if (root) {
+    const serial = root.dataset.serial!;
+
+    const rename = root.querySelector<HTMLFormElement>("[data-rename]");
+    rename?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const field = rename.querySelector<HTMLInputElement>("#nickname")!;
+      const done = rename.querySelector<HTMLElement>("[data-rename-done]")!;
+      const failure = rename.querySelector<HTMLElement>("[data-rename-error]")!;
+      failure.setAttribute("hidden", "");
+      try {
+        const response = await fetch(`/api/account/devices/${encodeURIComponent(serial)}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ nickname: field.value.trim() }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+        done.removeAttribute("hidden");
+        window.setTimeout(() => done.setAttribute("hidden", ""), 5000);
+      } catch (error) {
+        failure.textContent = error instanceof Error ? error.message : "That did not work.";
+        failure.removeAttribute("hidden");
+      }
+    });
+
+    // Handing over is a transfer and is confirmed on its own terms.
+    const handOver = document.querySelector<HTMLDialogElement>("[data-hand-over-dialog]");
+    root.querySelector<HTMLButtonElement>("[data-hand-over]")?.addEventListener("click", () =>
+      handOver?.showModal(),
+    );
+    handOver
+      ?.querySelector<HTMLButtonElement>("[data-hand-over-no]")
+      ?.addEventListener("click", () => handOver.close());
+    handOver
+      ?.querySelector<HTMLButtonElement>("[data-hand-over-yes]")
+      ?.addEventListener("click", async () => {
+        const field = handOver.querySelector<HTMLInputElement>("#new-owner")!;
+        const failure = handOver.querySelector<HTMLElement>("[data-hand-over-error]")!;
+        failure.setAttribute("hidden", "");
+        const email = field.value.trim();
+        if (!email) {
+          failure.textContent = "Name the person taking it.";
+          failure.removeAttribute("hidden");
+          return;
+        }
+        try {
+          const response = await fetch(
+            `/api/account/devices/${encodeURIComponent(serial)}/hand-over`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ email }),
+            },
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+          window.location.assign("/account/cameras");
+        } catch (error) {
+          failure.textContent = error instanceof Error ? error.message : "That did not work.";
+          failure.removeAttribute("hidden");
+        }
+      });
+
+    // Anything destructive is confirmed first, and Escape closes the overlay.
+    const dialog = document.querySelector<HTMLDialogElement>("[data-confirm]");
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      for (const overlay of [dialog, handOver]) {
+        if (overlay?.open) {
+          event.preventDefault();
+          overlay.close();
+        }
+      }
+    });
+    root.querySelector<HTMLButtonElement>("[data-release]")?.addEventListener("click", () => {
+      dialog?.showModal();
+    });
+    dialog?.querySelector<HTMLButtonElement>("[data-confirm-no]")?.addEventListener("click", () =>
+      dialog.close(),
+    );
+    dialog?.querySelector<HTMLButtonElement>("[data-confirm-yes]")?.addEventListener(
+      "click",
+      async () => {
+        const failure = root.querySelector<HTMLElement>("[data-release-error]")!;
+        try {
+          const response = await fetch(`/api/account/devices/${encodeURIComponent(serial)}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.message ?? "That did not work.");
+          }
+          window.location.assign("/account/cameras");
+        } catch (error) {
+          dialog.close();
+          failure.textContent = error instanceof Error ? error.message : "That did not work.";
+          failure.removeAttribute("hidden");
+        }
+      },
+    );
+  }
+</script>

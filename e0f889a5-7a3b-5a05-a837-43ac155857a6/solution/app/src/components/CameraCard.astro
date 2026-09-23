@@ -1,0 +1,56 @@
+---
+import ProductRender from "./ProductRender.astro";
+import { groupSerial, longDate, isExpired, isRenderable } from "./lib/format";
+
+interface Props {
+  device: any;
+  detailed?: boolean;
+}
+
+const { device, detailed = false } = Astro.props;
+
+// An expired warranty is not a problem, so it reads as a plain neutral state.
+const expired = isExpired(device.warranty_until);
+const warranty = !device.warranty_until
+  ? "No warranty on record"
+  : expired
+    ? "Warranty ended " + longDate(device.warranty_until)
+    : "In warranty until " + longDate(device.warranty_until);
+
+const firmware = device.firmware_version
+  ? device.update_available
+    ? "Update available"
+    : "Up to date on " + device.firmware_version
+  : "Not yet connected";
+---
+
+<article class:list={["camera-card", detailed && "camera-card--detailed"]} data-camera={device.serial}>
+  <span class="camera-card__figure" aria-hidden="true">
+    {isRenderable(device.handle) && <ProductRender handle={device.handle} />}
+  </span>
+
+  <div class="camera-card__body stack stack-3">
+    <header class="stack stack-2">
+      <h3 class="product-card__title">{device.nickname || device.model}</h3>
+      {device.nickname && <p class="small muted">{device.model}</p>}
+      <p class="camera-card__serial mono tabular">{groupSerial(device.serial)}</p>
+    </header>
+
+    <div class="row" style="gap: calc(var(--spacing) * 2); flex-wrap: wrap">
+      <span class={device.update_available ? "chip chip--working" : "chip"}>{firmware}</span>
+      <span class="chip">{warranty}</span>
+    </div>
+
+    {
+      detailed ? (
+        <slot />
+      ) : (
+        <p>
+          <a class="btn btn--quiet" href={`/account/cameras/${device.serial}`}>
+            Open this camera
+          </a>
+        </p>
+      )
+    }
+  </div>
+</article>

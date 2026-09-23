@@ -290,12 +290,9 @@ CLAIM_MASS_BALANCE = "mass_balance"
 
 CERT_WITHDRAWN = "CERT-PILOT-000001"
 CERT_ISSUED = "CERT-PILOT-000002"
-CERT_FIRST_DEMO = "CERT-DEMO-000001"
 CERT_UNKNOWN = "CERT-DEMO-999999"
 CERT_WITHDRAWN_ON = "2026-04-18"
 CERT_WITHDRAWN_REASON = "A collector category was corrected after acceptance"
-SCHEME = "RCS-2026"
-REGISTRATION = "REG-RAVEL-0042"
 HOST = "ravel.example.com"
 
 RESOLUTION_OUTCOMES = ("reissued", "withdrawn", "unaffected")

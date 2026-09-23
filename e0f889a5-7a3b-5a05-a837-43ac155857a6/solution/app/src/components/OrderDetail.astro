@@ -1,0 +1,149 @@
+---
+import ProductRender from "./ProductRender.astro";
+import { usd, longDate, groupSerial, handleForSku, materialStyle } from "./lib/format";
+
+interface Props {
+  order: any;
+  canRegister?: boolean;
+}
+
+const { order, canRegister = false } = Astro.props;
+const address = (order.shipping_address ?? {}) as Record<string, string>;
+const serials: any[] = order.serials ?? [];
+
+/** A serial belongs to the line that sold it, which is how a reader looks for it. */
+const serialsFor = (sku: string) => serials.filter((entry) => entry.sku === sku);
+---
+
+<div class="stack stack-8">
+  <div class="row" style="gap: calc(var(--spacing) * 3); flex-wrap: wrap">
+    <span class="chip chip--strong">{order.chip}</span>
+    <span class="small muted">Placed on {longDate(order.placed_at)}</span>
+  </div>
+
+  <section class="stack stack-3">
+    <h2 class="section-title">What you bought</h2>
+    <ul>
+      {
+        order.lines.map((line: any) => {
+          const allocated = serialsFor(line.sku);
+          const handle = handleForSku(line.sku);
+          return (
+            <li class="cart-line">
+              <span class="cart-line__thumb" aria-hidden="true" style={materialStyle(line.option)}>
+                {handle && <ProductRender handle={handle} />}
+              </span>
+              <div class="stack stack-3">
+                <div class="cart-line__head">
+                  <div class="stack stack-2">
+                    <strong>{line.title}</strong>
+                    {line.option && <span class="small muted">{line.option}</span>}
+                    <span class="small muted tabular">
+                      {line.quantity} &times; {usd(line.unit_price_minor)}
+                    </span>
+                  </div>
+                  <span class="tabular">{usd(line.total_minor)}</span>
+                </div>
+
+                {allocated.length > 0 && (
+                  <ul class="stack stack-2" data-serials>
+                    {allocated.map((entry: any) => (
+                      <li class="checkline" data-serial={entry.serial}>
+                        <span class="mono">{groupSerial(entry.serial)}</span>
+                        {entry.registered ? (
+                          <span class="chip chip--done">Registered</span>
+                        ) : canRegister ? (
+                          <button class="btn btn--quiet" type="button" data-register>
+                            Register to my account
+                          </button>
+                        ) : (
+                          <span class="small muted">Not registered</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+
+  <div class="cart-layout">
+    <section class="card stack stack-3">
+      <h2 class="section-title">Totals</h2>
+      <dl class="stack stack-2">
+        <div class="checkline">
+          <dt>Subtotal</dt>
+          <dd class="tabular">{usd(order.subtotal_minor)}</dd>
+        </div>
+        <div class="checkline">
+          <dt>Delivery</dt>
+          <dd class="tabular">{usd(order.shipping_minor)}</dd>
+        </div>
+        <div class="checkline">
+          <dt>Tax</dt>
+          <dd class="tabular">{usd(order.tax_minor)}</dd>
+        </div>
+        <div class="checkline checkline--total">
+          <dt><strong>Total</strong></dt>
+          <dd class="tabular">
+            <strong>{usd(order.total_minor)}</strong>
+            <span class="small muted"> {String(order.currency ?? "usd").toUpperCase()}</span>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card stack stack-3">
+      <h2 class="section-title">Where it went</h2>
+      <p class="stack stack-2">
+        <span>{address.name}</span>
+        <span class="muted">{address.line1}</span>
+        {address.line2 && <span class="muted">{address.line2}</span>}
+        <span class="muted">{address.city}, {address.region} {address.postal_code}</span>
+        <span class="muted">{address.country}</span>
+      </p>
+      <p class="small muted">Sent by {order.shipping_method}.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-serials]").forEach((list) => {
+    list.addEventListener("click", async (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-register]");
+      if (!button) return;
+      const row = button.closest<HTMLElement>("[data-serial]");
+      const serial = row?.dataset.serial;
+      if (!serial) return;
+
+      button.disabled = true;
+      const before = button.textContent;
+      button.textContent = "Registering";
+      try {
+        const response = await fetch("/api/account/devices", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ serial }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+        const chip = document.createElement("span");
+        chip.className = "chip chip--done";
+        chip.textContent = "Registered";
+        button.replaceWith(chip);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = before;
+        const note = document.createElement("span");
+        note.className = "field__error";
+        note.setAttribute("role", "alert");
+        note.textContent = error instanceof Error ? error.message : "That did not work.";
+        row.append(note);
+      }
+    });
+  });
+</script>

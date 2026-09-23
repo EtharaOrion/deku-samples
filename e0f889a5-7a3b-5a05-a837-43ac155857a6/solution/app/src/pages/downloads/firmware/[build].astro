@@ -1,0 +1,101 @@
+---
+import Shell from "../../../layouts/Shell.astro";
+import NotFound from "../../../components/NotFound.astro";
+import { call } from "../../../components/lib/api";
+import { bytes, longDate } from "../../../components/lib/format";
+
+const { build } = Astro.params;
+const wanted = Number(build);
+
+const [compact, flagship] = await Promise.all([
+  call<any>(Astro, "/api/firmware/manifest?model=compact"),
+  call<any>(Astro, "/api/firmware/manifest?model=flagship"),
+]);
+
+let product: string | null = null;
+let entry: any = null;
+for (const answer of [compact, flagship]) {
+  if (!answer.ok) continue;
+  const found = (answer.data.entries ?? []).find((item: any) => Number(item.build) === wanted);
+  if (found) {
+    product = String(answer.data.product);
+    entry = found;
+    break;
+  }
+}
+if (!entry) Astro.response.status = 404;
+---
+
+{
+  !entry ? (
+    <NotFound />
+  ) : (
+    <Shell title={`${product} firmware ${entry.version}`} current="downloads">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/downloads">Downloads</a> <span aria-hidden="true">/</span>{" "}
+        <span>
+          {product} firmware {entry.version}
+        </span>
+      </nav>
+
+      <header class="stack stack-3">
+        <h1 class="page-title">
+          {product} firmware {entry.version}
+        </h1>
+        <p class="page-lede" data-package-status>
+          The signed image is not bundled in this environment, so there is nothing here to
+          save. This is its record, and the installer at <a href="/doctor">/doctor</a> writes
+          against it.
+        </p>
+      </header>
+
+      <table class="table">
+        <caption>What the image is</caption>
+        <tbody>
+          <tr>
+            <th scope="row">Camera</th>
+            <td>{product}</td>
+          </tr>
+          <tr>
+            <th scope="row">Version</th>
+            <td class="mono">{entry.version}</td>
+          </tr>
+          <tr>
+            <th scope="row">Build</th>
+            <td class="mono">{entry.build}</td>
+          </tr>
+          <tr>
+            <th scope="row">Needs</th>
+            <td>
+              {entry.min_firmware
+                ? `Firmware ${entry.min_firmware} or later`
+                : "No earlier firmware"}
+              , Arranger {entry.min_app_version} or later
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Released on</th>
+            <td>{longDate(entry.released_on)}</td>
+          </tr>
+          <tr>
+            <th scope="row">Size</th>
+            <td class="tabular">{bytes(entry.size_bytes)}</td>
+          </tr>
+          <tr>
+            <th scope="row">SHA-256</th>
+            <td class="mono digest">{entry.sha256}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="row" style="gap: calc(var(--spacing) * 3)">
+        <a class="btn btn--secondary" href="/doctor">
+          Firmware install (web-based)
+        </a>
+        <a class="btn btn--quiet" href="/downloads">
+          Back to downloads
+        </a>
+      </p>
+    </Shell>
+  )
+}

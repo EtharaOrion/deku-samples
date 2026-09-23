@@ -1,16 +1,7 @@
 #!/bin/bash
-# Verifier entrypoint. Orchestrates both graders and writes the reward.
-#
-# NO `set -e`. A failing pytest is a SCORE, not a harness error -- aborting here
-# would strand the reward file at 0.0 and hide the browser result. A verifier that
-# exits without a reward file raises RewardFileNotFoundError and the trial is LOST,
-# not scored zero (PLAN.md 2.4, 4.5).
 
 mkdir -p /logs/verifier
 
-# 1. Zero reward FIRST. Every exit path from here on already has a reward file.
-#    Single key only: Harbor registers every top-level key here as its own reward
-#    stream, so diagnostics belong in workflows.json, never in this file.
 cat > /logs/verifier/reward.json <<'EOF'
 {"reward": 0.0}
 EOF
@@ -19,14 +10,56 @@ EOF
 APP_PUBLIC_URL="${APP_PUBLIC_URL%/}"
 export APP_PUBLIC_URL
 
-# 2. Deploy gate. A deploy failure is a hard zero with no partial credit.
-# /api/health is THE contract -- every spec says it returns 200 once the app is
-# ready. It used to be `curl /api/health || curl /`, and that fallback accepted an
-# app whose health endpoint was actively failing: on 2026-08-07 an app returned 503
-# on /api/health for the entire wait ("will self-provision when the database is
-# available") while serving its static frontend on /, so the gate recorded
-# deployed:1.0 and graded 45 substeps against an app that had told us it was not
-# ready. Gate on the contract, and record the status actually observed.
+: "${APP_PUBLIC_PORT:=4173}"
+export APP_PUBLIC_PORT
+APP_LOG=/logs/verifier/app.log
+: "${DOCKER_HOST:=tcp://dockerd:2375}"
+export DOCKER_HOST
+APP_ENV_VARS="APP_PUBLIC_PORT DB_URL DATABASE_URL AUTH_ISSUER_URL AUTH_CLIENT_ID AUTH_CLIENT_SECRET SMTP_HOST SMTP_PORT PORT"
+if curl -s -o /dev/null --max-time 3 "${APP_PUBLIC_URL}/api/health" 2>/dev/null; then
+  echo "app already serving at ${APP_PUBLIC_URL}; not starting it" >&2
+elif [ -f /app/Dockerfile ] && command -v docker >/dev/null 2>&1 \
+     && docker info >/dev/null 2>&1; then
+  echo "building /app/Dockerfile on ${DOCKER_HOST} (log: /logs/verifier/app_build.log)" >&2
+  if docker build -t deku-app /app >/logs/verifier/app_build.log 2>&1; then
+    APP_PUBLIC_URL="http://dockerd:${APP_PUBLIC_PORT}"
+    export APP_PUBLIC_URL
+    ENV_FLAGS="-e APP_PUBLIC_URL"
+    for v in $APP_ENV_VARS; do
+      eval "val=\${$v:-}"
+      [ -n "$val" ] && ENV_FLAGS="$ENV_FLAGS -e $v"
+    done
+    docker run -d --name deku-app --network host $ENV_FLAGS deku-app >>"$APP_LOG" 2>&1 \
+      || echo "  docker run failed; see ${APP_LOG}" >&2
+    trap 'docker logs deku-app >>"$APP_LOG" 2>&1 || true' EXIT
+    echo "  app container started; grading ${APP_PUBLIC_URL}" >&2
+  else
+    echo "  docker build of /app failed; see /logs/verifier/app_build.log" >&2
+  fi
+elif [ -f /app/run.json ]; then
+  echo "starting the app from /app/run.json (log: ${APP_LOG})" >&2
+  manifest() { python3 -c 'import json,sys; print(json.load(open("/app/run.json")).get(sys.argv[1]) or "")' "$1"; }
+  INSTALL="$(manifest install)"; BUILD="$(manifest build)"; SERVE="$(manifest serve)"
+  if [ -n "$INSTALL" ]; then
+    (cd /app && sh -c "$INSTALL") >>"$APP_LOG" 2>&1 || echo "  install step failed; see ${APP_LOG}" >&2
+  fi
+  if [ -n "$BUILD" ]; then
+    (cd /app && sh -c "$BUILD") >>"$APP_LOG" 2>&1 || echo "  build step failed; see ${APP_LOG}" >&2
+  fi
+  if [ -n "$SERVE" ]; then
+    (cd /app && setsid sh -c "$SERVE" >>"$APP_LOG" 2>&1 < /dev/null &)
+  else
+    echo "  /app/run.json has no serve command" >&2
+  fi
+elif [ -f /app/start.sh ]; then
+  echo "starting the app from /app/start.sh (log: ${APP_LOG})" >&2
+  (cd /app && setsid bash /app/start.sh >>"$APP_LOG" 2>&1 < /dev/null &)
+else
+  echo "nothing serves ${APP_PUBLIC_URL} and /app has no Dockerfile (with a daemon), run.json" >&2
+  echo "or start.sh to start it" >&2
+  echo "the deploy gate below will record the app as not deployed." >&2
+fi
+
 DEPLOYED=0.0
 HEALTH_CODE=""
 for _ in $(seq 1 30); do
@@ -39,9 +72,6 @@ for _ in $(seq 1 30); do
   sleep 5
 done
 
-# A task whose spec genuinely exposes no /api/health would 404 forever. Fall back
-# to `/` ONLY for that case, and say so -- a 503, 500 or 502 is the app reporting
-# its own failure and must never be read as deployed.
 if [ "$DEPLOYED" != "1.0" ] && [ "$HEALTH_CODE" = "404" ]; then
   echo "no /api/health endpoint (404); falling back to GET / for the deploy gate" >&2
   if curl -fsS --max-time 10 "${APP_PUBLIC_URL}/" > /dev/null 2>&1; then
@@ -54,153 +84,114 @@ fi
 
 if [ "$DEPLOYED" != "1.0" ]; then
   echo "app never became reachable at ${APP_PUBLIC_URL} - scoring 0" >&2
-  # Route through score.py so reward.json + workflows.json carry the deploy
-  # failure marker; a bare stub is indistinguishable from a legitimate agent 0.
-  /tests/score.py \
-    --workflows /tests/workflows.yaml \
-    --pytest /nonexistent-ctrf.json \
-    --browser /nonexistent-browser.json \
-    --deployed 0.0 \
-    --out /logs/verifier/reward.json || {
-      echo '{"reward": 0.0}' > /logs/verifier/reward.json
-      printf '{"summary": {"reward": 0.0, "invalid": ["deploy_failed", "scorer_crashed"]}}\n' \
-        > /logs/verifier/workflows.json
-    }
+  printf '{"summary": {"reward": 0.0, "invalid": ["deploy_failed"]}}\n' \
+    > /logs/verifier/workflows.json
+  python3 /tests/score.py --deploy-failed \
+    --rubric     /tests/rubric.json \
+    --workflows  /tests/workflows.yaml \
+    --out        /logs/verifier/final_score.json \
+    --reward-out /logs/verifier/reward.json
   exit 0
 fi
 
-# 3. Browser pass -- drives the UI through real user actions. Runs FIRST so the
-#    pytest pass only ever sees state a user actually created (PLAN.md 4.5).
-# /logs/verifier is COLLECTED; /tmp is not. This file carries the only record of
-# WHY grading failed -- meta.grader_model / meta.grader_provider, and the
-# per-substep `note` holding the actual exception text. Parking it in /tmp meant
-# every grader fault reduced to a bare `invalid` reason code with the diagnosis
-# thrown away, so a 401, a bad request and a transport timeout were
-# indistinguishable after the run (2026-08-05: `grader_llm_error` on all 7
-# substeps, cause unrecoverable).
-BROWSER_RESULTS=/logs/verifier/browser_results.json
-if [ -x /tests/run_workflows.py ]; then
-  RESUME_ARGS=""
-  if [ -n "${RESUME_FROM:-}" ] && [ -f "$RESUME_FROM" ]; then
-    RESUME_ARGS="--resume-from $RESUME_FROM"
-    echo "resume mode: reusing already-graded substeps from $RESUME_FROM" >&2
-  fi
-  # --screenshot-dir: one frame per substep, AFTER the action ran. The rubric
-  # judge's own sweep only navigates -- it never clicks -- so a criterion phrased
-  # "doing X changes Y" has no still that can settle it and comes back at ~0.3
-  # confidence. Measured on coffee-brand-storefront run_2: R5 ("filtering updates
-  # the address") was unanimous-False at [0.30, 0.40] with both judges writing
-  # "no post-filter screenshot exists" -- while the browser grader HAD filtered
-  # the collection and thrown the frame away. These are harness-produced, so
-  # unlike anything under /app they are admissible as evidence.
-  # Create it here, not in run_workflows.py: that caller wraps the save in a
-  # bare `except Exception: pass`, so a missing directory would drop every frame
-  # without printing anything and the rubric judge would go on being blind with
-  # no sign of why. run_rubric.py mkdirs its own shot dir (cap_screenshot);
-  # run_workflows.py does not.
-  mkdir -p /logs/verifier/flow-shots
-  /tests/run_workflows.py \
-    --workflows /tests/workflows.yaml \
-    --url "$APP_PUBLIC_URL" \
-    --out "$BROWSER_RESULTS" \
-    --screenshot-dir /logs/verifier/flow-shots \
-    $RESUME_ARGS
-  echo "flow frames saved: $(ls -1 /logs/verifier/flow-shots 2>/dev/null | wc -l)" >&2
-else
-  echo "no browser executor in this image - pytest substeps only" >&2
+python3 - >/logs/verifier/pre_browser_counts.json 2>>/logs/verifier/pre_browser_snapshot.err <<'SNAPSHOT' || true
+import json, os, sys
+sys.path.insert(0, "/tests")
+try:
+    from capabilities import make_backend
+    b = make_backend()
+    counts = {}
+    names = []
+    if hasattr(b, "query"):
+        try:
+            names = [
+                r.get("table_name") if isinstance(r, dict) else r[0]
+                for r in b.query(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema='public' AND table_type='BASE TABLE'")
+            ]
+        except Exception:
+            names = []
+    if not names:
+        names = [t for t in os.environ.get("DEKU_SNAPSHOT_TABLES", "").split(",") if t.strip()]
+    for t in names:
+        try:
+            counts[t.strip()] = b.count(t.strip())
+        except Exception:
+            pass
+
+    rows = {}
+    if hasattr(b, "query"):
+        cap = int(os.environ.get("DEKU_SNAPSHOT_ROW_CAP", "500"))
+        for t in names:
+            t = t.strip()
+            if not t or counts.get(t, cap + 1) > cap:
+                continue
+            try:
+                got = b.query("SELECT * FROM %s" % t)
+            except Exception:
+                continue
+            out = []
+            for r in got or []:
+                if isinstance(r, dict):
+                    out.append({k: (v if isinstance(v, (int, float, bool, type(None)))
+                                    else str(v)) for k, v in r.items()})
+            rows[t] = out
+    if rows:
+        counts["_rows"] = rows
+    counts["_snapshot_ok"] = True
+    json.dump(counts, sys.stdout)
+except Exception as exc:
+    json.dump({"_snapshot_ok": False,
+               "_snapshot_error": f"{exc.__class__.__name__}: {exc}"[:300]},
+              sys.stdout)
+SNAPSHOT
+if [ -s /logs/verifier/pre_browser_snapshot.err ]; then
+  echo "  [snapshot] stderr while taking the pre-browser baseline:" >&2
+  sed 's/^/    /' /logs/verifier/pre_browser_snapshot.err >&2
+fi
+if ! grep -q '"_snapshot_ok": *true' /logs/verifier/pre_browser_counts.json 2>/dev/null; then
+  echo "  [snapshot] NO pre-browser baseline; seed-count assertions will SKIP" >&2
+  echo "             rather than compare against a number nobody measured." >&2
 fi
 
-# 4. pytest pass -- asserts the side effects those actions should have produced.
 pytest /tests -rA --ctrf /logs/verifier/ctrf.json || true
 
-# A collection-time error (bad import, missing driver, broken conftest) exits
-# before any report is written. score.py would then read an empty result map, fail
-# every pytest substep, and emit a reward:0.0 indistinguishable from an app that
-# genuinely passed nothing. Surface it instead.
 if [ ! -s /logs/verifier/ctrf.json ]; then
   echo "PYTEST WROTE NO CTRF REPORT - collection failed before running any test." >&2
   echo "The reward below is a harness fault, not an agent score." >&2
   printf '{"error": "ctrf_missing"}\n' > /logs/verifier/ctrf-error.json
 fi
 
-# 5. Rubric judge -- UI/UX, motion, accessibility, instruction-following.
-#    ADVISORY ONLY (PLAN.md 1.4): it writes its own judge.json and its score is
-#    copied into reward.json as a diagnostic. It never moves the reward, because
-#    a judge-only reward is trivially gamed.
-JUDGE_RESULTS=/logs/verifier/judge.json
-# The judge is advisory only (PLAN.md 1.4) but is ~64% of the LLM call surface,
-# so on a capacity-constrained run it can starve the browser grader, whose result
-# DOES set the reward. DEKU_SKIP_RUBRIC lets a smoke/CI task spend its inference
-# budget on the signal that actually scores.
-if [ "${DEKU_SKIP_RUBRIC:-0}" = "1" ]; then
-  echo "DEKU_SKIP_RUBRIC=1 - skipping the advisory rubric judge" >&2
-  printf '{"judge_score": null, "dimensions": {}, "meta": {"skipped": "DEKU_SKIP_RUBRIC"}}\n' > "$JUDGE_RESULTS"
-elif [ -x /tests/run_rubric.py ] && [ -f /tests/instruction.md ]; then
-  # A task-authored rubric (tests/rubric.json) replaces the seven generic
-  # dimensions with criteria written for THIS product. Optional: tasks without
-  # one keep the generic read. Advisory either way -- score.py never reads
-  # judge.json into `reward` (PLAN.md 1.4).
-  RUBRIC_FLAG=""
-  if [ -f /tests/rubric.json ]; then
-    RUBRIC_FLAG="--rubric /tests/rubric.json"
-    echo "task rubric found - grading tests/rubric.json instead of the generic dimensions" >&2
-  fi
-  # Failures here are tolerated because the judge is advisory: an LLM error, a
-  # timeout or a browser crash must not lose a run whose reward is already
-  # decided by workflows + pytest.
-  #
-  # Exit 2 is the ONE exception. run_rubric.py returns it only when
-  # tests/rubric.json is unreadable, which used to fall back to the generic
-  # dimensions -- grading the app against seven generic questions instead of the
-  # task's own, while still emitting a normal-looking judge_score. That is a
-  # silently DIFFERENT measurement, not a degraded one, so it is recorded rather
-  # than swallowed with everything else.
-  set +e
-  # The evidence-first judge reads the observations the browser grader and pytest
-  # already paid for rather than re-deriving them from a screenshot sweep:
-  # --browser-results is the per-substep record (which routes were reached, what
-  # was asserted) and --ctrf the pytest verdicts. Both are optional -- run_rubric
-  # falls back to these same paths -- but passing them keeps the contract visible
-  # here instead of buried in a default.
-  #
-  # NOT --flow-shots: that flag belonged to the screenshot-judging rubric this
-  # replaced, and the evidence-first run_rubric rejects it. Passing it exits 2,
-  # which the branch below reports as "tests/rubric.json is unreadable" -- an
-  # argparse error wearing a task defect's error message.
-  /tests/run_rubric.py \
-    --instruction /tests/instruction.md \
-    --url "$APP_PUBLIC_URL" \
-    --screenshot-dir /logs/verifier/shots \
-    --browser-results "$BROWSER_RESULTS" \
-    --ctrf /logs/verifier/ctrf.json \
-    $RUBRIC_FLAG \
-    --out "$JUDGE_RESULTS"
-  RUBRIC_RC=$?
-  set -e
-  if [ "$RUBRIC_RC" -eq 2 ]; then
-    echo "RUBRIC FATAL: tests/rubric.json is unreadable; this task's own criteria were never graded." >&2
-    printf '{"judge_score": null, "dimensions": {}, "meta": {"fatal": "rubric_unreadable"}}\n' > "$JUDGE_RESULTS"
-  elif [ "$RUBRIC_RC" -ne 0 ]; then
-    echo "rubric judge exited $RUBRIC_RC - advisory only, continuing" >&2
-  fi
+INVALID=""
+if [ ! -s /logs/verifier/ctrf.json ]; then
+  INVALID="ctrf_missing"
 else
-  echo "no rubric judge in this image (or no instruction.md) - skipping" >&2
+  grep -q '"tests"[[:space:]]*:[[:space:]]*0[^0-9]' /logs/verifier/ctrf.json \
+    && INVALID="no_tests_collected"
+  # A skip leaves the pytest denominator, so a snapshot the verifier failed to
+  # take would raise the score instead of lowering it. That is a harness fault.
+  if [ -z "$INVALID" ] \
+     && ! grep -q '"_snapshot_ok": *true' /logs/verifier/pre_browser_counts.json 2>/dev/null \
+     && grep -q '"skipped"[[:space:]]*:[[:space:]]*[1-9]' /logs/verifier/ctrf.json; then
+    INVALID="snapshot_failed"
+  fi
 fi
 
-# 6. Aggregate, applying the 90% + critical rule.
-# If score.py itself crashes, the zero-preamble reward.json is left in place with
-# no invalid marker -- indistinguishable from an honest agent 0. Mark it.
-if ! /tests/score.py \
-    --workflows /tests/workflows.yaml \
-    --pytest /logs/verifier/ctrf.json \
-    --browser "$BROWSER_RESULTS" \
-    --judge "$JUDGE_RESULTS" \
-    --deployed "$DEPLOYED" \
-    --out /logs/verifier/reward.json; then
-  echo "score.py crashed - emitting invalid marker so this run is not read as an agent score" >&2
-  echo '{"reward": 0.0}' > /logs/verifier/reward.json
-  printf '{"summary": {"reward": 0.0, "invalid": ["scorer_crashed"]}}\n' \
-    > /logs/verifier/workflows.json
+python3 /tests/score.py \
+  --pytest    /logs/verifier/ctrf.json \
+  --browser   /logs/verifier/browser_results.json \
+  --judge     /logs/verifier/judge.json \
+  --rubric    /tests/rubric.json \
+  --workflows /tests/workflows.yaml \
+  --out       /logs/verifier/final_score.json \
+  --reward-out /logs/verifier/reward.json \
+  --invalid   "$INVALID"
+
+if [ -n "$INVALID" ]; then
+  echo "VERIFIER FAULT: $INVALID - this run is not an agent score" >&2
 fi
+
+echo "score: $(cat /logs/verifier/reward.json)" >&2
 
 exit 0

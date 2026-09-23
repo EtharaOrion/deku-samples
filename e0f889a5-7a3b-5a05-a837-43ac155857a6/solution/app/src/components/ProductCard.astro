@@ -1,0 +1,49 @@
+---
+import ProductRender from "./ProductRender.astro";
+import { isRenderable, longDate, usd } from "./lib/format";
+import type { Product } from "./lib/types";
+
+interface Props {
+  product: Product & {
+    from_price_minor: number;
+    price_varies: boolean;
+    availability: string;
+  };
+  compact?: boolean;
+}
+
+const { product, compact = false } = Astro.props;
+const soldOut = product.availability === "sold_out";
+const discontinued = product.status === "discontinued";
+const low = product.availability === "low" && product.kind === "camera";
+---
+
+<a
+  class:list={["product-card", compact && "product-card--compact"]}
+  href={`/shop/${product.handle}`}
+  data-card={product.handle}
+>
+  <span class="product-card__figure" aria-hidden="true">
+    {isRenderable(product.handle) && <ProductRender handle={product.handle} />}
+  </span>
+  <span class="product-card__body">
+    <span class="product-card__title">{product.title}</span>
+    {product.subtitle && <span class="muted small product-card__subtitle">{product.subtitle}</span>}
+    {
+      discontinued && product.support_until ? (
+        <span class="chip">Supported until {longDate(product.support_until)}</span>
+      ) : soldOut ? (
+        <span class="chip">Sold out</span>
+      ) : low ? (
+        <span class="chip">Low stock</span>
+      ) : null
+    }
+    <span class="product-card__foot">
+      <span class="product-card__price tabular">
+        {product.price_varies ? "From " : ""}
+        {usd(product.from_price_minor)}
+      </span>
+      <span class="small muted product-card__cta">View</span>
+    </span>
+  </span>
+</a>

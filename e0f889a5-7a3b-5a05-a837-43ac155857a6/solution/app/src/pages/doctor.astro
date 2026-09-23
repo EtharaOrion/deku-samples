@@ -1,0 +1,167 @@
+---
+import Shell from "../layouts/Shell.astro";
+import ProductRender from "../components/ProductRender.astro";
+import { call } from "../components/lib/api";
+import { bytes } from "../components/lib/format";
+
+// The manifests are read here so the images on record read without scripting,
+// and the island offers the same records once a camera is identified.
+const [compact, flagship] = await Promise.all([
+  call<any>(Astro, "/api/firmware/manifest?model=compact"),
+  call<any>(Astro, "/api/firmware/manifest?model=flagship"),
+]);
+const manifests = [compact, flagship]
+  .filter((answer) => answer.ok)
+  .map((answer) => answer.data);
+
+const WARNING =
+  "This replaces the software inside your camera. It takes about ninety seconds. Do not unplug the camera and do not let your computer go to sleep. If you are on a laptop, plug it in.";
+---
+
+<Shell
+  title="Firmware installer"
+  description="Write firmware to a Vela camera that Arranger cannot see."
+  current="doctor"
+>
+  <header class="stack stack-3">
+    <h1 class="page-title">Firmware installer</h1>
+    <p class="page-lede">
+      For a camera Arranger cannot see. Four steps, and nothing is written to the camera
+      until the last one. You can leave at any point before the write with nothing changed.
+    </p>
+  </header>
+
+  <div class="stack stack-6" data-installer data-manifests={JSON.stringify(manifests)}>
+    <p class="notice" role="status" aria-live="polite" data-live>
+      Step 1 of 4. Checking whether this browser can talk to a camera.
+    </p>
+
+    <ol class="installer stack stack-6">
+      <li class="installer-step" data-step="browser">
+        <h2 class="section-title">1. This browser</h2>
+        <p data-capability>Checking whether this browser can talk to a camera.</p>
+        <noscript>
+          <p>Without scripting this page cannot reach a camera. Use Arranger instead.</p>
+        </noscript>
+        <p class="small muted" data-capability-note hidden></p>
+        <p>
+          <a class="btn btn--secondary" href="/downloads" data-arranger hidden>Get Arranger</a>
+        </p>
+      </li>
+
+      <li class="installer-step" data-step="warning">
+        <h2 class="section-title">2. Read this before you connect</h2>
+        <p class="notice notice--danger" tabindex="0" data-warning>{WARNING}</p>
+        <p class="row" style="gap: calc(var(--spacing) * 4)">
+          <button class="btn btn--primary" type="button" data-accept aria-pressed="false">
+            I understand
+          </button>
+          <span class="small" data-accepted hidden></span>
+        </p>
+      </li>
+
+      <li class="installer-step" data-step="connect">
+        <h2 class="section-title">3. Connect the camera</h2>
+        <div class="field">
+          <label class="field__label" for="bench-serial">Serial of the camera on the bench</label>
+          <input
+            class="input field__control mono"
+            id="bench-serial"
+            name="serial"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="14"
+            placeholder="VC26 09PV DA7Q"
+            aria-describedby="bench-serial-help"
+            data-serial
+          />
+          <p class="field__help" id="bench-serial-help">
+            Twelve characters, engraved on the underside. Ownership and warranty are not
+            conditions of repair.
+          </p>
+          <p class="field__error" data-connect-error hidden></p>
+        </div>
+        <p class="row" style="gap: calc(var(--spacing) * 4)">
+          <button class="btn btn--primary" type="button" data-connect disabled hidden>
+            Connect the camera
+          </button>
+          <span class="small muted" data-connect-why>
+            Unavailable until the warning above is accepted.
+          </span>
+        </p>
+        <p class="tabular" data-identity hidden></p>
+        <figure class="bench" aria-hidden="true">
+          <span class="bench__slot" data-bench-slot>
+            <img src="/images/cricket-photo.png" alt="" data-bench-photo hidden />
+            <span class="bench__render" data-bench-render hidden>
+              <ProductRender handle="flagship" />
+            </span>
+          </span>
+        </figure>
+        <p>
+          <button class="btn btn--quiet" type="button" data-unplug hidden>
+            Unplug the camera
+          </button>
+        </p>
+      </li>
+
+      <li class="installer-step" data-step="image">
+        <h2 class="section-title">4. Choose an image and write it</h2>
+        <p class="small muted" data-image-why>Connect a camera first.</p>
+        <fieldset class="optionset stack stack-3" data-images hidden></fieldset>
+        <p class="field__error" data-refusal hidden></p>
+        <p>
+          <button class="btn btn--primary" type="button" data-write disabled>Write</button>
+        </p>
+        <div class="stack stack-2" data-progress hidden>
+          <p data-progress-line>Writing, 0%. Do not unplug your camera.</p>
+          <div class="meter" aria-hidden="true">
+            <div class="meter__fill" data-meter></div>
+          </div>
+          <p class="small muted">There is no cancel. A write that is stopped leaves a camera that does not start.</p>
+        </div>
+        <p data-outcome hidden></p>
+      </li>
+    </ol>
+  </div>
+
+  <section class="stack stack-4">
+    <h2 class="section-title">Images on record</h2>
+    <p class="small muted">
+      Every image the installer can offer, per camera. A digest names the signed image the
+      camera checks before it takes a single byte.
+    </p>
+    {
+      manifests.map((manifest) => (
+        <table class="table">
+          <caption>{manifest.product}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Version</th>
+              <th scope="col" class="num">Build</th>
+              <th scope="col">Needs</th>
+              <th scope="col" class="num">Size</th>
+              <th scope="col">Digest</th>
+            </tr>
+          </thead>
+          <tbody>
+            {manifest.entries.map((entry: any) => (
+              <tr>
+                <td class="mono">{entry.version}</td>
+                <td class="num mono">{entry.build}</td>
+                <td>{entry.min_firmware ? `${entry.min_firmware} or later` : "Nothing earlier"}</td>
+                <td class="num">{bytes(entry.size_bytes)}</td>
+                <td class="mono digest">{entry.sha256}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ))
+    }
+  </section>
+</Shell>
+
+<script>
+  import "../components/islands/doctor";
+</script>

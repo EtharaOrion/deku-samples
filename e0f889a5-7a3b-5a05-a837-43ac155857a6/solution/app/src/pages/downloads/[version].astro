@@ -1,0 +1,27 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import NotFound from "../../components/NotFound.astro";
+import Archive from "../../components/Archive.astro";
+import { call } from "../../components/lib/api";
+import { ARRANGER_ART } from "../../components/lib/format";
+
+const { version } = Astro.params;
+// A release has its own address, which renders it expanded with the rest closed.
+const answer = await call<any>(Astro, `/api/releases/${encodeURIComponent(version ?? "")}`);
+if (!answer.ok) Astro.response.status = answer.status === 404 ? 404 : answer.status;
+---
+
+{
+  !answer.ok ? (
+    <NotFound />
+  ) : (
+    <Shell
+      title={`Arranger ${answer.data.version}`}
+      description={answer.data.description}
+      current="downloads"
+      image={ARRANGER_ART}
+    >
+      <Archive expanded={answer.data.version} />
+    </Shell>
+  )
+}

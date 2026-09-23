@@ -1,0 +1,50 @@
+{# Shared media and caption components — one media tile with width variants,
+   one caption row.  The <img> is the real element the browser paints; site.js
+   layers a <canvas> over it and the tile degrades by doing nothing. #}
+
+{% macro media(d, extra="", role="poster", reel=False) -%}
+<figure class="tile is-loading {{ extra }}" data-media data-media-state="pending"
+        data-stops="{{ d.stops | join(',') }}"
+        data-angles="{{ d.angles | join(',') }}"
+        data-drift="{{ d.drift }}"
+        data-phase="{{ d.phase }}"
+        data-w="{{ d.width }}"
+        data-h="{{ d.height }}"
+        data-role="{{ role }}"
+        {% if reel %}data-reel{% endif %}
+        style="aspect-ratio: {{ d.width }} / {{ d.height }}">
+  <span class="tile-media">
+    <img class="tile-img" src="{{ d.src }}" width="{{ d.width }}" height="{{ d.height }}"
+         alt="{{ d.alt }}" loading="lazy" decoding="async">
+  </span>
+</figure>
+{%- endmacro %}
+
+{% macro caption(ordinal, title) -%}
+<div class="caption">
+  <span class="caption-square" aria-hidden="true"></span>
+  <span class="caption-ordinal">{{ ordinal }}</span>
+  <span class="caption-title">{{ title }}</span>
+</div>
+{%- endmacro %}
+
+{% macro entry(work) -%}
+<a class="entry entry--{{ work.variant }}" href="{{ work.href }}"
+   data-cursor-label="{{ work.title }} {{ work.ordinal }}"
+   aria-label="{{ work.title }}, film {{ work.ordinal }}">
+  {% if work.poster %}{{ media(work.poster, extra="tile-colour reveal") }}{% endif %}
+  {{ caption(work.ordinal, work.title) }}
+</a>
+{%- endmacro %}
+
+{# Per-character split for the mail address so each glyph is addressable, kept
+   invisible to assistive technology (the parent link carries the whole address
+   as its accessible name).  Separators stay literal, so PROD@EXAMPLE.COM yields
+   fourteen character elements. #}
+{% macro splitchars(text) -%}
+<span aria-hidden="true">
+{%- for ch in text -%}
+{%- if ch not in ' @.' -%}<span class="footer-char">{{ ch }}</span>{%- else -%}{{ ch }}{%- endif -%}
+{%- endfor -%}
+</span>
+{%- endmacro %}

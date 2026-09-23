@@ -1,0 +1,90 @@
+---
+import Shell from "../layouts/Shell.astro";
+import { call, setAuthCookie, setCartCookie, currentCustomer } from "../components/lib/api";
+
+const safeNext = (value: string | null) =>
+  value?.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+    ? value
+    : "/account";
+const next = safeNext(Astro.url.searchParams.get("next"));
+const suggested = Astro.url.searchParams.get("email") ?? "";
+const order = Astro.url.searchParams.get("order") ?? "";
+const orderAccessToken = Astro.url.searchParams.get("order_access_token") ?? "";
+const signUpHref = `/sign-up?${new URLSearchParams({
+  next,
+  ...(suggested ? { email: suggested } : {}),
+  ...(order ? { order } : {}),
+  ...(orderAccessToken ? { order_access_token: orderAccessToken } : {}),
+})}`;
+let failure: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const answer = await call<{ access_token: string; cart_token?: string }>(
+    Astro,
+    "/api/auth/login",
+    {
+      method: "POST",
+      body: {
+        email: String(form.get("email") ?? "").trim(),
+        password: String(form.get("password") ?? ""),
+      },
+    },
+  );
+  if (answer.ok) {
+    setAuthCookie(Astro, answer.data.access_token);
+    // The cart this person left behind comes back with them.
+    if (answer.data.cart_token) setCartCookie(Astro, answer.data.cart_token);
+    return Astro.redirect(safeNext(String(form.get("next") || next)));
+  }
+  failure = answer.error.message ?? "That did not work.";
+} else if (await currentCustomer(Astro)) {
+  return Astro.redirect(next);
+}
+---
+
+<Shell title="Sign in">
+  <div class="auth-card">
+    <header class="stack stack-2">
+      <h1 class="page-title">Sign in</h1>
+      <p class="muted">Your orders and your cameras live behind this.</p>
+    </header>
+
+    {failure && <p class="field__error" role="alert">{failure}</p>}
+
+    <form class="stack stack-5" method="post">
+      <input type="hidden" name="next" value={next} />
+
+      <div class="field">
+        <label class="field__label" for="email">Email</label>
+        <input
+          class="input field__control"
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          value={suggested}
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="password">Password</label>
+        <input
+          class="input field__control"
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+
+      <button class="btn btn--primary btn--wide" type="submit">Sign in</button>
+    </form>
+
+    <p class="small muted">
+      No account yet? <a href={signUpHref}>Make one</a>.
+    </p>
+  </div>
+</Shell>

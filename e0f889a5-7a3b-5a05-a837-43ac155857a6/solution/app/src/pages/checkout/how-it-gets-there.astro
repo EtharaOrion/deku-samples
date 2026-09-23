@@ -1,0 +1,127 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import CartSummary from "../../components/CartSummary.astro";
+import CheckoutSteps from "../../components/CheckoutSteps.astro";
+import { readCart, placedOrderForCart } from "../../components/lib/api";
+import { usd } from "../../components/lib/format";
+import { DELIVERY_METHODS } from "../../server/money";
+
+const cart = await readCart(Astro);
+if (!cart || cart.lines.length === 0) {
+  // A cart that already became an order sends the reader to its review.
+  return Astro.redirect((await placedOrderForCart(Astro)) ? "/checkout/payment" : "/cart");
+}
+if (!cart.shipping_address || !cart.email) {
+  return Astro.redirect("/checkout/where-it-goes");
+}
+
+// The fixed server-owned methods render with neither preselected.
+const methods = DELIVERY_METHODS;
+const chosen = cart.shipping_method ?? "";
+---
+
+<Shell title="How it gets there" current="cart">
+  <div class="stack stack-4">
+    <CheckoutSteps current="how" />
+    <h1 class="page-title">How it gets there</h1>
+  </div>
+
+  <div class="cart-layout">
+    <form class="stack stack-6" data-step-form novalidate>
+      <p class="field__error" data-form-error hidden role="alert"></p>
+
+      <fieldset class="optionset stack stack-3">
+        <legend class="optionset__legend">Delivery</legend>
+        <div class="stack stack-3">
+          {
+            methods.map((method) => (
+              <label class="toggle">
+                <input
+                  type="radio"
+                  name="shipping_method"
+                  value={method.name}
+                  checked={chosen === method.name}
+                  required
+                />
+                <span class="stack stack-2" style="width: 100%">
+                  <span class="checkline">
+                    <strong>{method.name}</strong>
+                    <span class="tabular">{usd(method.priceMinor)}</span>
+                  </span>
+                  <span class="small muted">Arrives in {method.window}</span>
+                </span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <div class="row" style="gap: calc(var(--spacing) * 4)">
+        <button class="btn btn--primary" type="submit" data-continue>Continue</button>
+        <a class="btn btn--quiet" href="/checkout/where-it-goes">Back</a>
+      </div>
+    </form>
+
+    <aside class="cart-layout__aside">
+      <CartSummary cart={cart as any} priced={Boolean(cart.shipping_method)} />
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("[data-step-form]");
+  if (form) {
+    const KEY = "vela:checkout:how";
+    const failure = form.querySelector<HTMLElement>("[data-form-error]");
+    const submit = form.querySelector<HTMLButtonElement>("[data-continue]");
+
+    const held = sessionStorage.getItem(KEY);
+    if (held && !form.querySelector<HTMLInputElement>("input:checked")) {
+      const field = form.querySelector<HTMLInputElement>(`input[value="${held}"]`);
+      if (field) field.checked = true;
+    }
+
+    form.addEventListener("change", () => {
+      const picked = form.querySelector<HTMLInputElement>("input:checked");
+      if (picked) sessionStorage.setItem(KEY, picked.value);
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const picked = form.querySelector<HTMLInputElement>("input:checked");
+      if (!picked) {
+        if (failure) {
+          failure.textContent = "Choose how it gets there.";
+          failure.removeAttribute("hidden");
+        }
+        return;
+      }
+
+      failure?.setAttribute("hidden", "");
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = "Saving";
+      }
+
+      try {
+        const response = await fetch("/api/cart/delivery", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ shipping_method: picked.value }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+        window.location.assign("/checkout/payment");
+      } catch (error) {
+        if (failure) {
+          failure.textContent = error instanceof Error ? error.message : "That did not work.";
+          failure.removeAttribute("hidden");
+        }
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = "Continue";
+        }
+      }
+    });
+  }
+</script>

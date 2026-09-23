@@ -1,0 +1,414 @@
+/* The letter. The only editorial surface in the product.
+   Stacking, in full, and nothing may add a layer:
+   1 film, 2 still frame, 3 grain, 4 scrims, 10 flood,
+   20 writing and footer, 30 wordmark. */
+
+.letter {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* The mark is set in the ground's own foreground and the difference blend does
+   the rest: it reads dark over the lit film and white over the black ground
+   with no script running. At the foot of the document it retreats by exactly
+   its own height as the footer's mark arrives in the same place. */
+.letter__head {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 30;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--page-gutter);
+  pointer-events: none;
+  mix-blend-mode: difference;
+  transform: translateY(calc(var(--retreat, 0) * var(--header-height) * -1));
+}
+
+.letter__head .wordmark {
+  pointer-events: auto;
+  color: var(--n-0);
+}
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  background: var(--color-background);
+}
+
+.stage__view {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.film,
+.poster,
+.grain,
+.scrim,
+.flood {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+/* The still frame and the film are the same 16:9 picture. Both are pinned to
+   the viewport in one box, so the dissolve between them lines up and the
+   letter scrolls over them. */
+.film,
+.poster {
+  position: fixed;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
+}
+
+.film {
+  z-index: 1;
+  display: block;
+  object-fit: cover;
+}
+
+/* The still frame dissolves into the film once there is enough footage to
+   play: quickly where the film is a backdrop, slowly where it is the page. */
+.poster {
+  z-index: 2;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--color-background);
+  filter: brightness(1.07);
+  opacity: 1;
+  transition: opacity 0.5s var(--ease-control);
+}
+
+.stage[data-film="playing"] .poster {
+  opacity: 0;
+}
+
+.grain {
+  z-index: 3;
+  opacity: 0.04;
+  background-image: url("/film/grain.png");
+  background-image: image-set(
+    url("/film/grain.avif") type("image/avif"),
+    url("/film/grain.png") type("image/png")
+  );
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  animation: grain-jitter 400ms steps(1) infinite;
+}
+
+@keyframes grain-jitter {
+  0% {
+    background-position: 0 0;
+  }
+  10% {
+    background-position: -50px -80px;
+  }
+  20% {
+    background-position: -120px 30px;
+  }
+  30% {
+    background-position: 60px -150px;
+  }
+  40% {
+    background-position: -40px 160px;
+  }
+  50% {
+    background-position: -130px 80px;
+  }
+  60% {
+    background-position: 140px 10px;
+  }
+  70% {
+    background-position: 20px 120px;
+  }
+  80% {
+    background-position: 30px -90px;
+  }
+  90% {
+    background-position: -90px 70px;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.scrim {
+  z-index: 4;
+  inset: auto 0 0 0;
+  height: 75svh;
+  background: linear-gradient(to top, var(--color-background), transparent);
+  opacity: var(--scrim, 0);
+}
+
+/* A second, fixed scrim keeps the title legible against a bright film at the
+   top of a narrow screen. On a wide one the title sits over dark footage. */
+.scrim--top {
+  inset: 0 0 auto 0;
+  height: 300px;
+  opacity: 0.6;
+  background: linear-gradient(to bottom, var(--color-background), transparent);
+}
+
+.flood {
+  z-index: 10;
+  background: var(--color-background);
+  opacity: var(--flood, 0);
+}
+
+.stage[data-flooded] :is(.film, .poster, .grain, .scrim) {
+  visibility: hidden;
+}
+
+.driven {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  user-select: none;
+}
+
+.driven__block {
+  position: absolute;
+  width: 50vw;
+  padding-inline: var(--page-gutter);
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  opacity: 0;
+  color: var(--color-foreground);
+}
+
+.driven__block--end {
+  right: 0;
+}
+
+.writing {
+  position: relative;
+  z-index: 20;
+  padding-block: calc(var(--header-height) + 12vh) 22vh;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+.writing__title {
+  font-size: var(--display-fs);
+  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  text-transform: lowercase;
+}
+
+/* The title arrives one character at a time, quickly enough to read as one
+   movement. Without scripting or under reduced motion it is simply there. */
+.writing__title .char {
+  white-space: pre;
+  animation: char-in 240ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 24ms);
+}
+
+@keyframes char-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.writing__dateline {
+  margin-top: 0.75em;
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  color: var(--color-foreground);
+  opacity: 0.72;
+  animation: line-in 300ms var(--ease-out) both;
+  animation-delay: 260ms;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.72;
+  }
+}
+
+.writing__p {
+  font-size: var(--body-fs);
+  line-height: 1.1;
+  margin-block: 1em;
+}
+
+.writing__p--closing {
+  color: var(--color-accent);
+}
+
+/* Below the one breakpoint the letter is a different page: each paragraph is a
+   half-width block, the blocks alternate, and each fades in step with scroll. */
+@media (max-width: 63.999rem) {
+  .writing {
+    padding-inline: 0;
+  }
+
+  .writing__title,
+  .writing__dateline,
+  .writing__p {
+    width: 50vw;
+    padding-inline: var(--page-gutter);
+    margin-inline: 0;
+    opacity: var(--reveal, 1);
+  }
+
+  .writing__p--right {
+    margin-left: 50vw;
+  }
+
+  .writing__dateline {
+    margin-left: 0;
+    opacity: calc(var(--reveal, 1) * 0.72);
+    animation: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  /* The driven duplicate is only the narrow-layout scroll layer. Wide writing
+     stays still and fully opaque beside the film. */
+  .driven,
+  .scrim--top {
+    display: none;
+  }
+
+  .poster {
+    filter: none;
+    transition-duration: 1.5s;
+  }
+
+  .scrim {
+    height: 50%;
+  }
+
+  .writing {
+    width: 25vw;
+    margin-inline: auto;
+    padding-block: 26vh 30vh;
+  }
+
+  .writing__title {
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .writing__p,
+  .writing__dateline {
+    letter-spacing: var(--tracking-open);
+  }
+}
+
+@media (min-width: 1550px) {
+  .writing__title {
+    letter-spacing: var(--tracking-tighter);
+  }
+}
+
+/* The footer. Its main content is a drawing that carries no information. */
+
+.letter-footer {
+  position: relative;
+  z-index: 20;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  padding: 24px var(--page-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 6);
+}
+
+.matrix {
+  --matrix-rest: var(--n-15);
+  --matrix-lit: var(--n-2);
+  display: block;
+  width: 100%;
+  height: clamp(180px, 46vw, 666px);
+  border-radius: 0;
+  cursor: crosshair;
+  background: var(--color-background);
+}
+
+.matrix[hidden] {
+  display: none;
+}
+
+.footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--spacing) * 4);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: var(--tracking-open);
+}
+
+.footer-row__rights {
+  color: var(--n-11);
+}
+
+.footer-row__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--spacing) * 5);
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: normal;
+}
+
+.footer-row__links span {
+  color: var(--n-11);
+}
+
+/* A link rests on a faint rule; on hover a full-strength rule grows from the
+   left over it, at the one transition speed. */
+.footer-row__links a {
+  position: relative;
+  color: var(--color-foreground);
+  text-decoration: none;
+  border-bottom: var(--border-width) solid var(--n-11);
+}
+
+.footer-row__links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--border-width) * -1);
+  height: var(--border-width);
+  background: var(--color-foreground);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration) var(--motion-ease);
+}
+
+.footer-row__links a:hover::after,
+.footer-row__links a:focus-visible::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    animation: none;
+  }
+
+  .poster {
+    transition: none;
+  }
+
+  .writing__title .char,
+  .writing__dateline {
+    animation: none;
+  }
+}

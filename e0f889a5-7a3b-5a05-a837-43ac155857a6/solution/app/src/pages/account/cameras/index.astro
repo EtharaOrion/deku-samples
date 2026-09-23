@@ -1,0 +1,210 @@
+---
+import Shell from "../../../layouts/Shell.astro";
+import CameraCard from "../../../components/CameraCard.astro";
+import ProductRender from "../../../components/ProductRender.astro";
+import { call, currentCustomer, unwrapList } from "../../../components/lib/api";
+
+const customer = await currentCustomer(Astro);
+if (!customer) {
+  return Astro.redirect(
+    `/sign-in?next=${encodeURIComponent(`${Astro.url.pathname}${Astro.url.search}`)}`,
+  );
+}
+
+const answer = await call<unknown>(Astro, "/api/account/devices?page_size=50");
+const devices = answer.ok ? unwrapList<any>(answer.data) : [];
+---
+
+<Shell title="Your cameras" current="cameras">
+  <header class="stack stack-2">
+    <h1 class="page-title">Your cameras</h1>
+    <p class="page-lede">A camera outlives the order that bought it.</p>
+  </header>
+
+  <div class="stack stack-6" data-cameras>
+    {/* Registration happens in place, at the top of the grid. */}
+    <form class="register-row" data-register-form novalidate>
+      <div class="field">
+        <label class="field__label" for="serial">Add a camera by serial</label>
+        <input
+          class="input field__control mono"
+          id="serial"
+          name="serial"
+          inputmode="text"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="14"
+          placeholder="VA26 09KT MHX4"
+          aria-describedby="serial-help"
+        />
+        <p class="field__help" id="serial-help">
+          Twelve characters, engraved on the underside.
+        </p>
+        <p class="field__error" data-register-error hidden role="alert"></p>
+      </div>
+      <div>
+        <button class="btn btn--primary" type="submit" data-register-submit disabled>
+          Register this camera
+        </button>
+      </div>
+      <p class="notice notice--transient" data-register-done hidden role="status"></p>
+    </form>
+
+    {
+      !answer.ok ? (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      ) : devices.length === 0 ? (
+        <p class="empty" data-empty>
+          No cameras registered yet.
+        </p>
+      ) : null
+    }
+
+    <ul class="grid-cards" data-camera-grid>
+      {
+        devices.map((device) => (
+          <li>
+            <CameraCard device={device} />
+          </li>
+        ))
+      }
+    </ul>
+
+    {/* A card added in place after a registration takes its render from here. */}
+    <template data-render="flagship"><ProductRender handle="flagship" /></template>
+    <template data-render="compact"><ProductRender handle="compact" /></template>
+  </div>
+</Shell>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("[data-register-form]");
+  if (form) {
+    const field = form.querySelector<HTMLInputElement>("#serial")!;
+    const submit = form.querySelector<HTMLButtonElement>("[data-register-submit]")!;
+    const failure = form.querySelector<HTMLElement>("[data-register-error]")!;
+    const done = form.querySelector<HTMLElement>("[data-register-done]")!;
+    const grid = document.querySelector<HTMLUListElement>("[data-camera-grid]")!;
+
+    const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const SHAPE = new RegExp(
+      `^(VA|VC)[0-9]{2}(0[1-9]|[1-4][0-9]|5[0-2])[${ALPHABET}]{6}$`,
+    );
+
+    /** Grouped for reading, stored unformatted. */
+    const strip = (value: string) => value.toUpperCase().replace(/\s+/g, "").slice(0, 12);
+    const group = (value: string) => value.replace(/(.{4})(?=.)/g, "$1 ");
+
+    function addCamera(device: Record<string, unknown>) {
+      const serial = String(device.serial ?? "");
+      if (!serial || document.querySelector(`[data-camera="${serial}"]`)) return;
+
+      const item = document.createElement("li");
+      const card = document.createElement("article");
+      card.className = "camera-card";
+      card.dataset.camera = serial;
+
+      const figure = document.createElement("span");
+      figure.className = "camera-card__figure";
+      figure.setAttribute("aria-hidden", "true");
+      const render = document.querySelector<HTMLTemplateElement>(
+        `template[data-render="${String(device.handle ?? "")}"]`,
+      );
+      if (render) figure.append(render.content.cloneNode(true));
+
+      const body = document.createElement("div");
+      body.className = "camera-card__body stack stack-3";
+
+      const header = document.createElement("header");
+      header.className = "stack stack-2";
+      const title = document.createElement("h3");
+      title.className = "product-card__title";
+      title.textContent = String(device.nickname || device.model || "Camera");
+      header.append(title);
+      if (device.nickname) {
+        const model = document.createElement("p");
+        model.className = "small muted";
+        model.textContent = String(device.model ?? "");
+        header.append(model);
+      }
+      const serialLine = document.createElement("p");
+      serialLine.className = "camera-card__serial mono tabular";
+      serialLine.textContent = group(serial);
+      header.append(serialLine);
+
+      const states = document.createElement("div");
+      states.className = "row";
+      states.style.gap = "calc(var(--spacing) * 2)";
+      states.style.flexWrap = "wrap";
+      const firmware = document.createElement("span");
+      firmware.className = device.update_available ? "chip chip--working" : "chip";
+      firmware.textContent = String(device.firmware_state ?? "Not yet connected");
+      const warranty = document.createElement("span");
+      warranty.className = "chip";
+      warranty.textContent = String(device.warranty_state ?? "No warranty on record");
+      states.append(firmware, warranty);
+
+      const action = document.createElement("p");
+      const link = document.createElement("a");
+      link.className = "btn btn--quiet";
+      link.href = `/account/cameras/${encodeURIComponent(serial)}`;
+      link.textContent = "Open this camera";
+      action.append(link);
+
+      body.append(header, states, action);
+      card.append(figure, body);
+      item.append(card);
+      grid.append(item);
+      document.querySelector("[data-empty]")?.remove();
+    }
+
+    field.addEventListener("input", () => {
+      const bare = strip(field.value);
+      field.value = group(bare);
+      // The shape is judged here; the store is only asked once it could be real.
+      const wellFormed = SHAPE.test(bare);
+      submit.disabled = !wellFormed;
+      if (bare.length === 12 && !wellFormed) {
+        failure.textContent = "That is not a Vela serial number.";
+        failure.removeAttribute("hidden");
+      } else {
+        failure.setAttribute("hidden", "");
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const serial = strip(field.value);
+      if (!SHAPE.test(serial)) return;
+
+      failure.setAttribute("hidden", "");
+      submit.disabled = true;
+      submit.textContent = "Registering";
+
+      try {
+        const response = await fetch("/api/account/devices", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ serial }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+
+        addCamera(payload.device ?? payload);
+        // A confirmation of something that went right may fade on its own.
+        done.textContent = "That camera is on your account now.";
+        done.removeAttribute("hidden");
+        window.setTimeout(() => done.setAttribute("hidden", ""), 6000);
+        field.value = "";
+        submit.disabled = true;
+        submit.textContent = "Register this camera";
+      } catch (error) {
+        failure.textContent = error instanceof Error ? error.message : "That did not work.";
+        failure.removeAttribute("hidden");
+        submit.disabled = false;
+        submit.textContent = "Register this camera";
+      }
+    });
+  }
+</script>

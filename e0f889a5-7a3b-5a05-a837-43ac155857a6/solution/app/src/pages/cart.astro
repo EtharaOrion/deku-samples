@@ -1,0 +1,289 @@
+---
+import Shell from "../layouts/Shell.astro";
+import CartSummary from "../components/CartSummary.astro";
+import ProductRender from "../components/ProductRender.astro";
+import { readCart } from "../components/lib/api";
+import { isRenderable, materialStyle, usd } from "../components/lib/format";
+
+const cart = await readCart(Astro);
+const lines = cart?.lines ?? [];
+const notices = cart?.notices ?? [];
+const rung = cart?.protection_rung as
+  | { sku: string; price_minor: number; label?: string }
+  | null
+  | undefined;
+const protectionLabel =
+  rung?.label ??
+  "Protect this shipment against loss, theft and damage for " + usd(rung?.price_minor ?? 0);
+---
+
+<Shell title="Cart" description="Your cart at Vela." current="cart">
+  <h1 class="page-title">Cart</h1>
+
+  {
+    lines.length === 0 ? (
+      <div class="empty stack stack-4">
+        <p>Your cart is empty.</p>
+        <p>
+          <a class="btn btn--secondary" href="/shop">
+            Go to the shop
+          </a>
+        </p>
+      </div>
+    ) : (
+      <div class="cart-layout" data-cart>
+        <div class="stack stack-5">
+          {/* A price or availability change survives being ignored: it sits
+              above the lines and carries no dismissal. */}
+          {notices.map((notice) => (
+            <p class="notice notice--price" role="status">
+              {notice.message}
+            </p>
+          ))}
+
+          <p class="field__error" data-cart-error hidden role="alert"></p>
+
+          <ul>
+            {lines.map((line: any) => (
+              <li
+                class="cart-line"
+                data-line={line.id}
+                data-title={line.title}
+                data-available={line.available}
+                data-unit={line.unit_price_minor}
+              >
+                <span class="cart-line__thumb" aria-hidden="true" style={materialStyle(line.option)}>
+                  {isRenderable(line.handle) && <ProductRender handle={line.handle} />}
+                </span>
+                <div>
+                  <div class="cart-line__head">
+                    <div class="stack stack-2">
+                      <a href={`/shop/${line.handle}`}>
+                        <strong>{line.title}</strong>
+                      </a>
+                      {line.option && <span class="small muted">{line.option}</span>}
+                      <span class="small muted tabular">
+                        {usd(line.unit_price_minor)} each
+                      </span>
+                    </div>
+                    <span class="tabular" data-line-total>
+                      {usd(line.line_total_minor)}
+                    </span>
+                  </div>
+
+                  <div class="cart-line__controls">
+                    <div class="stepper" data-line-stepper>
+                      <button type="button" data-step="-1" aria-label={`One fewer ${line.title}`}>
+                        &minus;
+                      </button>
+                      <output
+                        class="stepper__value"
+                        data-quantity
+                        aria-label={`Quantity of ${line.title}`}
+                      >
+                        {line.quantity}
+                      </output>
+                      <button type="button" data-step="1" aria-label={`One more ${line.title}`}>
+                        +
+                      </button>
+                    </div>
+                    <button class="btn btn--quiet" type="button" data-remove>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <aside class="cart-layout__aside stack stack-5">
+          <label class="toggle">
+            <input
+              type="checkbox"
+              data-protection
+              checked={Boolean(cart?.protection_enabled)}
+            />
+            <span>{protectionLabel}</span>
+          </label>
+
+          <CartSummary cart={cart as any} priced={false} />
+
+          <a class="btn btn--primary btn--wide" href="/checkout/where-it-goes">
+            Go to checkout
+          </a>
+        </aside>
+
+        <dialog class="card stack stack-4" data-remove-dialog aria-labelledby="remove-line-title">
+          <h2 class="section-title" id="remove-line-title">Remove this item</h2>
+          <p>
+            Remove <strong data-remove-title>this item</strong> from the cart?
+          </p>
+          <div class="row" style="gap: calc(var(--spacing) * 3)">
+            <button class="btn btn--danger" type="button" data-remove-yes>Remove</button>
+            <button class="btn btn--quiet" type="button" data-remove-no>Keep it</button>
+          </div>
+        </dialog>
+      </div>
+    )
+  }
+</Shell>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-cart]");
+  if (root) {
+    const summary = document.querySelector<HTMLElement>("[data-summary]");
+    const failure = root.querySelector<HTMLElement>("[data-cart-error]");
+    const removeDialog = root.querySelector<HTMLDialogElement>("[data-remove-dialog]");
+    const removeTitle = removeDialog?.querySelector<HTMLElement>("[data-remove-title]");
+    let removeRow: HTMLElement | null = null;
+
+    const money = (minor: number) => {
+      if (!Number.isSafeInteger(minor)) throw new Error("money must use integer minor units");
+      const digits = String(Math.abs(minor)).padStart(3, "0");
+      const whole = digits.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return `${minor < 0 ? "-" : ""}$${whole}.${digits.slice(-2)}`;
+    };
+
+    function figure(name: string, minor: number | null | undefined) {
+      const cell = summary?.querySelector<HTMLElement>(`[data-figure="${name}"]`);
+      if (cell) cell.textContent = money(Number(minor ?? 0));
+    }
+
+    /** The totals, not the number the reader just moved, carry the wait. */
+    function pending(on: boolean) {
+      summary?.classList.toggle("pending", on);
+      summary?.setAttribute("aria-busy", on ? "true" : "false");
+      const status = summary?.querySelector<HTMLElement>("[data-summary-status]");
+      status?.toggleAttribute("hidden", !on);
+    }
+
+    function repaint(cart: any) {
+      figure("subtotal", cart.subtotal_minor);
+      figure("protection", cart.protection_minor);
+      figure("shipping", cart.shipping_minor);
+      figure("tax", cart.tax_minor);
+      figure("total", cart.total_minor);
+      for (const line of cart.lines ?? []) {
+        const row = root!.querySelector<HTMLElement>(`[data-line="${line.id}"]`);
+        if (!row) continue;
+        row.dataset.available = String(line.available);
+        const total = row.querySelector<HTMLElement>("[data-line-total]");
+        if (total) total.textContent = money(line.line_total_minor);
+        const count = row.querySelector<HTMLElement>("[data-quantity]");
+        if (count) count.textContent = String(line.quantity);
+      }
+      window.dispatchEvent(new CustomEvent("vela:cart", { detail: cart }));
+    }
+
+    function say(message: string | null) {
+      if (!failure) return;
+      if (!message) {
+        failure.setAttribute("hidden", "");
+        failure.textContent = "";
+        return;
+      }
+      failure.textContent = message;
+      failure.removeAttribute("hidden");
+    }
+
+    async function send(path: string, method: string, body?: unknown) {
+      const request: RequestInit = { method };
+      if (body !== undefined) {
+        request.headers = { "content-type": "application/json" };
+        request.body = JSON.stringify(body);
+      }
+      const response = await fetch(path, request);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+      return payload;
+    }
+
+    root.addEventListener("click", async (event) => {
+      const target = event.target as HTMLElement;
+      const row = target.closest<HTMLElement>("[data-line]");
+      if (!row) return;
+      const id = row.dataset.line!;
+      const count = row.querySelector<HTMLElement>("[data-quantity]")!;
+      const before = Number(count.textContent);
+
+      if (target.closest("[data-remove]")) {
+        removeRow = row;
+        if (removeTitle) removeTitle.textContent = row.dataset.title ?? "this item";
+        removeDialog?.showModal();
+        return;
+      }
+
+      const step = target.closest<HTMLElement>("[data-step]");
+      if (!step) return;
+      const next = before + Number(step.dataset.step);
+      if (next < 1) return;
+
+      // The number moves at once; the server decides whether it stays.
+      say(null);
+      count.textContent = String(next);
+      pending(true);
+      try {
+        repaint(await send(`/api/cart/lines/${id}`, "PATCH", { quantity: next }));
+      } catch (error) {
+        count.textContent = String(before);
+        say(error instanceof Error ? error.message : "That did not work.");
+      } finally {
+        pending(false);
+      }
+    });
+
+    removeDialog?.querySelector("[data-remove-no]")?.addEventListener("click", () => {
+      removeDialog.close();
+      removeRow = null;
+    });
+    removeDialog?.addEventListener("cancel", () => {
+      removeRow = null;
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !removeDialog?.open) return;
+      event.preventDefault();
+      removeDialog.close();
+      removeRow = null;
+    });
+    removeDialog?.querySelector("[data-remove-yes]")?.addEventListener("click", async () => {
+      const row = removeRow;
+      if (!row) return;
+      const id = row.dataset.line!;
+      removeDialog.close();
+      say(null);
+      pending(true);
+      row.setAttribute("hidden", "");
+      try {
+        repaint(await send(`/api/cart/lines/${id}`, "DELETE"));
+        row.remove();
+        if (!root.querySelector("[data-line]")) window.location.reload();
+      } catch (error) {
+        row.removeAttribute("hidden");
+        say(error instanceof Error ? error.message : "That did not work.");
+      } finally {
+        removeRow = null;
+        pending(false);
+      }
+    });
+
+    root.querySelector<HTMLInputElement>("[data-protection]")?.addEventListener(
+      "change",
+      async (event) => {
+        const box = event.currentTarget as HTMLInputElement;
+        say(null);
+        pending(true);
+        try {
+          const cart = await send("/api/cart/protection", "POST", { enabled: box.checked });
+          repaint(cart);
+          window.location.reload();
+        } catch (error) {
+          box.checked = !box.checked;
+          say(error instanceof Error ? error.message : "That did not work.");
+        } finally {
+          pending(false);
+        }
+      },
+    );
+  }
+</script>

@@ -1,7 +1,4 @@
 {
-  "judge_score": 0.402778,
-  "advisory": true,
-  "note": "Diagnostic only. PLAN.md 1.4: judge_score never drives training. A judge-only reward is trivially gamed. The binary substep grader owns the RL reward; this score is for human review only.",
   "dimensions": {
     "R1_instruction_following": {
       "number": "R1",
@@ -13,19 +10,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.013888888888888888,
-      "rationale": "Parsing the delivered markup at `/` shows every one of the sixteen letter paragraphs present exactly twice, with no paragraph appearing once or three times. The first copy sits in normal document flow inside `div.prose` in correct reading order; the second sits inside `div.driven` carrying aria-hidden=\"true\", making it inert to assistive technology. ScrollDriver.jsx sets the driven layer's opacity from getBoundingClientRect() against scroll offset, so it is scroll-driven rather than timed, and it is never the only copy. Both halves of the criterion hold.",
+      "weight": 0.013889,
+      "rationale": "All letter paragraphs are present exactly twice in the delivered markup: once in the ordinary prose within the letter\u2019s main content and once as a matching paragraph in an `aria-hidden` duplicate layer. The layer\u2019s script explicitly drives paragraph opacity from scroll position, and scrolling produced the expected progression.",
       "evidence": [
-        "no deterministic probe for composite; browser specialist required",
-        "On route `/`, browser text extraction returned the letter\u2019s paragraphs as one continuous sequence; no duplicate paragraph sequence was exposed by the accessibility/text snapshot.",
-        "Scrolling from the top through PageDown and End traversed the letter, but motion capture reported `animation_count: 0`.",
-        "The available observations did not expose paragraph-level DOM structure, parent layers, inert/aria-hidden state, or occurrence counts in delivered markup."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "The raw HTTP response for `/` contains a normal-flow `<div class=\"prose\">` inside `<main id=\"letter\">` with 17 letter paragraphs: 16 body paragraphs plus the closing \u201cSee you soon.\u201d",
+        "The same delivered HTML then contains `<div class=\"driven\" aria-hidden=\"true\">` with 17 corresponding `<p class=\"driven-para\" data-driven-para>` elements. Every paragraph text, including \u201cSee you soon.\u201d, matches the normal-flow copy once and appears once in this accessibility-inert layer.",
+        "The delivered stylesheet defines `.driven { display:none }` by default and, below 64rem, makes it a positioned visual layer with tall `.driven-row` sections; the normal prose remains the source/document copy and is visually clipped under scripted narrow layouts.",
+        "The delivered ScrollDriver JavaScript selects all `[data-driven-para]` elements and recalculates each element\u2019s opacity from its viewport position on every scroll/resize, directly establishing that the duplicate layer is scroll-driven.",
+        "At a 390\u00d7844 viewport, the first duplicated paragraph was visibly presented in the left half; after scrolling 650px, the next duplicated paragraph appeared in the right half, confirming the driven layer responds to scrolling."
+      ]
     },
     "R2_instruction_following": {
       "number": "R2",
@@ -37,18 +30,16 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.84,
-      "weight": 0.041666666666666664,
-      "rationale": "Direct runtime animation evidence confirms the required persistent animated speckle on the letter. Its effect ordering relative to the later opacity animations supports the specified layer order beneath the darkening panels, while the simultaneously visible and readable letter content shows the overlay does not obscure the writing.",
+      "weight": 0.041667,
+      "rationale": "All required parts were verified on the letter route: the faint speckle exists, covers the film stage, animates, is stacked above the film and still frame, and is below the darkening layer without obscuring the writing.",
       "evidence": [
-        "On route `/`, direct CDP Animation-domain capture observed a running animation named `speckle-shift` with linear easing, 1200 ms duration, and unlimited iterations, directly confirming the faint speckle effect is animated and persists over the letter stage.",
-        "The same capture listed `speckle-shift` before two separate later `opacity` effects (120 ms and 240 ms), consistent with the speckle layer being painted below the subsequent darkening/transition panels rather than over them.",
-        "The letter remained visibly readable in the browser snapshot and text extraction while the `speckle-shift` animation was running: the heading `the table`, date `June 1, 2026`, and body paragraphs were exposed normally, with no indication that the effect obscured the writing."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "The served markup for `/` places the stage layers in this order: `<video class=\"film\">`, `<div class=\"still\">`, `<div class=\"speckle\">`, then `<div class=\"darken\">`.",
+        "The served stylesheet assigns `.film` z-index 1, `.still` z-index 2, `.speckle` z-index 3, and `.darken` z-index 4, directly establishing that the speckle is above both the film and still frame and below the darkening panel.",
+        "The speckle covers the stage because it shares the full-stage layer rule `position:absolute; inset:0; width:100%; height:100%`, while the stage itself is fixed to the viewport with `inset:0`.",
+        "The speckle is faint: its rendered stylesheet rule uses `opacity:.055` with `mix-blend-mode:overlay`.",
+        "A reload under normal motion preference produced a direct CDP animation capture showing `speckle-shift` running, with 1200 ms duration and infinite iterations; the stylesheet changes its background position in stepped keyframes.",
+        "The visible screenshot shows the letter writing remaining clearly legible over the textured stage. This is also structurally supported by the letter content at z-index 6, above the stage's speckle at z-index 3 and darken at z-index 4."
+      ]
     },
     "R3_instruction_following": {
       "number": "R3",
@@ -60,20 +51,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.013888888888888888,
-      "rationale": "The shop presents exactly five products in one stable, non-price and non-name order. No search, filter, or sort mechanism appears on the catalogue page in either desktop or mobile navigation, so the fixed editorial arrangement requirement is met.",
+      "weight": 0.013889,
+      "rationale": "The catalogue has exactly five products in a fixed, non-name, non-price editorial sequence. Both rendered desktop/mobile states and served markup show no alternate-arrangement controls, search field, filters, or sorting UI, so the stated sole editorial arrangement is directly supported.",
       "evidence": [
-        "On the authenticated Shop page at /shop, the catalogue visibly contains exactly five product links, in this order: Vela A1, Vela Cricket, Monitor Mount, Travel Case, Replacement Cable.",
-        "The displayed prices in that order are $899.00, $299.00, $49.00, $79.00, and From $19.00. This is neither ascending nor descending by price; the product names are also neither alphabetical ascending nor descending.",
-        "At desktop width, the complete interactive-element inventory contained navigation/account controls and the five product links only; it exposed no search field, filter control, or sort control.",
-        "At 390px mobile width, the catalogue retained the same five-product order. Opening the responsive Sections menu revealed only site/account navigation and Sign out, with no search, filter, sort, or alternate catalogue arrangement control.",
-        "A direct reload of /shop preserved the same product sequence, supporting that the page presents a fixed editorial order."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Following the visible Shop link from `/` reached `/shop`, where the complete catalogue presented exactly five product links in this order: Vela A1 ($899), Vela Cricket ($299), Monitor Mount ($49), Travel Case ($79), Replacement Cable (from $19).",
+        "The visible interactive-element inventory on the shop page contained navigation/cart/account controls and the five product links, but no search field, filter control, or sort control.",
+        "The served `/shop` HTML contains the same five products in fixed list markup and includes no catalogue search, filter, or sort UI; its only client script controls the responsive Sections rail.",
+        "The order is neither alphabetical (it begins with the two Vela products, then Monitor, Travel, Replacement) nor price-based (899, 299, 49, 79, 19 is neither ascending nor descending).",
+        "At a 375\u00d7812 mobile viewport, the catalogue retained the same five-item order and still exposed no search, filter, or sort control."
+      ]
     },
     "R4_instruction_following": {
       "number": "R4",
@@ -85,19 +71,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.93,
-      "weight": 0.013888888888888888,
-      "rationale": "Direct inspection of two shop product pages shows a clearly labelled Specifications section organized into consistent two-column label/value rows. Numeric figures occupy the value column rather than being embedded in prose or ragged standalone text, satisfying the required tabular alignment.",
+      "weight": 0.013889,
+      "rationale": "Both inspected shop product pages render specifications as semantic, labelled tables. Screenshot geometry at desktop and mobile shows a consistent right-aligned value column rather than ragged prose, and the exact table/value CSS directly explains and enforces that alignment.",
       "evidence": [
-        "On the Vela A1 product page at /shop/flagship, the rendered Specifications section presents repeated label/value rows: Sensor \u2014 61 MP full-frame CMOS; Pixel pitch \u2014 3.76 \u00b5m; ISO range \u2014 64 to 25,600; Dimensions \u2014 128 \u00d7 97 \u00d7 74 mm; Weight \u2014 682 g with battery; and additional rows.",
-        "On the Vela Cricket product page at /shop/compact, the same labelled tabular structure appears, with values forming a consistent second column: Sensor \u2014 26 MP APS-C CMOS; Pixel pitch \u2014 3.9 \u00b5m; ISO range \u2014 160 to 12,800; Dimensions \u2014 112 \u00d7 66 \u00d7 38 mm; Weight \u2014 244 g with battery.",
-        "Browser text extraction preserves a tab separator between each specification label and value rather than presenting the specifications as running prose, and full-page screenshots were captured at 1440\u00d7900 and 1920\u00d71200 for the product pages.",
-        "At the 390\u00d7844 mobile viewport, the Cricket page still exposes each specification as a distinct label/value row, indicating the table structure remains intact responsively."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the rendered /shop/compact product page, the full-page 1440px screenshot shows a clearly labelled \u201cSpecifications\u201d section composed of two row-based tables (\u201cSensor and image\u201d and \u201cBody\u201d). Each row has a bold label on the left and its figure/value in a consistently right-aligned column on the right.",
+        "The raw served markup for /shop/compact confirms semantic table structure rather than running prose: `<table class=\"table spec\">`, captions, row headers as `<th scope=\"row\">`, and values as `<td class=\"num\">` for all specification rows.",
+        "The shared rendered stylesheet defines `.table{width:100%;border-collapse:collapse}`, consistent cell padding, and specifically `.table td.num,.table th.num{text-align:right;font-variant-numeric:tabular-nums}`. Thus all specification figures occupy one table column, share a common right edge, and use tabular numerals.",
+        "A second product page, /shop/flagship, independently shows the same result. At a 390px viewport its full-page screenshot shows all Sensor/Image and Body values aligned to the same right boundary (approximately x=358px) opposite the left-hand labels, with horizontal rules preserving the row geometry. The page remains a two-column labelled table even at this narrow width.",
+        "The served /shop/flagship markup likewise contains two labelled `.table.spec` elements and numeric value cells with class `num`, including \u201c61 MP full-frame CMOS\u201d, \u201c3.76 \u00b5m\u201d, \u201c64 to 25,600\u201d, \u201c128 \u00d7 97 \u00d7 74 mm\u201d, and \u201c740\u201d."
+      ]
     },
     "R5_functionality": {
       "number": "R5",
@@ -105,24 +87,18 @@
       "evaluation_rule": "Answer yes when changing a quantity on the cart updates the number at once, marks the totals as pending, and reverts the number with a stated reason when the server rejects the change. Answer no when the page reloads to change a quantity, or when a rejected change leaves the wrong number in place.",
       "dimension": "functionality",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.0,
-      "weight": 0.041666666666666664,
-      "rationale": "Three of the rule's four clauses hold: the quantity updates optimistically via setOptimistic() before fetch, no page reload is involved, and a rejected change reverts the number and states the reason in a role=\"alert\" notice, confirmed live by a PATCH that returned 'Quantity must be a whole number between 1 and 10.' and left the quantity at 1. The clause requiring the totals to show a pending state does not hold. The only pending affordance in the cart island is `.line-total.pending { opacity: 0.5 }` on the per-line figure; the Summary block carrying Subtotal, Estimated delivery, Estimated tax and Total renders with no pending branch at all, so during the in-flight window the shopper sees a new quantity beside a stale, undimmed Total that reads as authoritative. Those are precisely the server-computed amounts a pending state exists to qualify, so the criterion is only partially satisfied.",
+      "weight": 0.041667,
+      "rationale": "The cart does edit quantities optimistically in place and reverts after an API rejection, but it does not mark totals as pending while the server response is outstanding. Instead it presents recalculated totals as normal and leaves checkout active. Because pending totals are a required conjunct, criterion R5 is not satisfied. The rejection message is also generic rather than explaining why the change failed.",
       "evidence": [
-        "no deterministic probe for composite; browser specialist required",
-        "On /cart, the Travel Case and Vela Cricket had in-place minus/plus quantity controls and displayed current quantities and totals without a page-level submit control.",
-        "A Vela Cricket fixture was added at its full available stock of 10; the cart showed quantity 10, line total $2,990.00, subtotal $3,069.00, tax $306.90, and total $3,375.90.",
-        "Attempting to increase the Vela Cricket above stock could not exercise the rejection flow because the '+ One more Vela Cricket' button was disabled; the click timed out while repeatedly reporting that the element was not enabled.",
-        "No direct observation captured an accepted quantity update's immediate/pending states, nor a server-rejected update reverting with a stated reason."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "On /cart, clicking \u201c+ One more Travel Case\u201d changed the displayed line quantity immediately from 5 to 6 and recalculated the line price and summary in place, without navigation or page reload.",
+        "With all /api/ responses delayed by 5 seconds, the immediate in-flight snapshot showed quantity 6, line total $474.00, subtotal $474.00, tax $47.40, and total $521.40 as ordinary finalized values. No pending/loading text or status was shown; checkout remained an active link with computed opacity 1 and pointer-events auto.",
+        "With all /api/ requests forced to return HTTP 409, clicking \u201c\u2212 One fewer Travel Case\u201d optimistically changed the quantity, then reverted it to 5 after rejection. The page displayed an alert reading \u201cThat did not work.\u201d and restored the prior $395.00 line/subtotal and $434.50 total.",
+        "After clearing the failure interceptor, a reload confirmed the rejected value had not persisted: the cart still showed quantity 5 before subsequent cleanup."
+      ]
     },
     "R6_functionality": {
       "number": "R6",
@@ -134,18 +110,13 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.013888888888888888,
-      "rationale": "The discontinued Monitor Mount directly states both that it is no longer sold and the exact date through which support continues, satisfying R6.",
+      "weight": 0.013889,
+      "rationale": "The discontinued Monitor Mount product page explicitly says the product is no longer sold and names the exact support end date, satisfying both required parts of the criterion.",
       "evidence": [
-        "On the authenticated Shop page (/shop), the Monitor Mount product card is explicitly labeled \u201cDiscontinued.\u201d",
-        "Opening that product at /shop/mount renders the product-page note: \u201cWe no longer sell this. We will support it until September 1, 2029.\u201d",
-        "The product page also shows both variants as \u201cSold out\u201d and the purchase control as a disabled button labeled \u201cDiscontinued,\u201d corroborating that it is not rendered as an ordinary available product."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "The shop listing at /shop identifies \u201cMonitor Mount\u201d as \u201cDiscontinued.\u201d",
+        "On the product page /shop/mount, the purchase control is labelled \u201cDiscontinued\u201d and the page states \u201cWe no longer sell this.\u201d",
+        "The same discontinued-product note states: \u201cWe no longer sell this. We will support it until September 1, 2029.\u201d"
+      ]
     },
     "R7_functionality": {
       "number": "R7",
@@ -153,23 +124,19 @@
       "evaluation_rule": "Answer yes when the installer, in a browser lacking the device capability, renders a full explanation naming the browsers that work and offers the in-application path with no connect control shown. Answer no when a connect control is rendered that cannot function, or when the page renders empty.",
       "dimension": "functionality",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.041666666666666664,
-      "rationale": "The browser-name explanation and Arranger path are present, but the criterion requires the explanation to appear in place of any connect control. A nonfunctional disabled Connect control is still rendered, which the evaluation rule explicitly classifies as a failure.",
+      "weight": 0.041667,
+      "rationale": "The rule asks no connect control to be shown when device capability is absent, and the rule explicitly says to answer no if a connect control is rendered that cannot function. Although the browser explanation, supported-browser names, and Arranger alternative are all present, the visible disabled Connect button is a direct counterexample.",
       "evidence": [
-        "On /doctor, the firmware installer explicitly states: \u201cThis browser cannot talk to a camera. Chrome, Edge and Opera on a desktop can.\u201d",
-        "The same capability explanation offers the in-application alternative: \u201cYou can also use Arranger, which does the same job,\u201d with a \u201cGet Arranger\u201d link whose href is /downloads.",
-        "Despite the absent browser capability, the page renders a \u201cConnect\u201d submit button in the \u201cFind your camera\u201d section. Its disabled attribute was present before acknowledgement.",
-        "After activating \u201cI understand\u201d (which changed to \u201cUnderstood\u201d), the \u201cConnect\u201d submit button remained rendered and still had its disabled attribute present."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On /doctor, the installer explicitly reports the absent capability: \u201cThis browser cannot talk to a camera.\u201d",
+        "The explanation names supported browsers: \u201cChrome, Edge and Opera on a desktop can.\u201d",
+        "The page offers the alternate in-application path: \u201cYou can also use Arranger, which does the same job,\u201d with a visible \u201cGet Arranger\u201d link whose href is /downloads.",
+        "Despite the absent capability, a visible Connect control is still rendered. Its served DOM is `<button type=\"submit\" class=\"btn\" disabled=\"\">Connect</button>`, and its observed box is 95\u00d742 px with display:flex, visibility:visible, opacity:0.55.",
+        "After choosing \u201cI understand,\u201d the Connect button remains visibly rendered and disabled, so the explanation is not shown in place of the nonfunctional control."
+      ]
     },
     "R8_ux_flow": {
       "number": "R8",
@@ -181,19 +148,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.013888888888888888,
-      "rationale": "The cart explicitly labels both delivery and tax as estimates and places a note beneath the totals stating that the exact amount will be shown once the destination is known. Validation and continuation through the address flow confirm the timing required by R8.",
+      "weight": 0.013889,
+      "rationale": "The pre-address cart explicitly labels both delivery and tax as estimates and carries the required sentence explaining that exact amounts follow once the destination is known. The completed address flow also confirms the labels become final/unqualified afterward, matching the criterion\u2019s timing.",
       "evidence": [
-        "On /cart before any delivery address was entered, the Summary displayed \u201cEstimated delivery $0.00\u201d and \u201cEstimated tax $7.90\u201d.",
-        "Directly below the cart totals, the cart displayed: \u201cEstimated. We will show the exact amount once we know where it is going.\u201d",
-        "Submitting the blank address form produced \u201cAddress is required.\u201d while the summary continued to show the estimated labels and exact-amount-after-destination sentence, confirming this was the pre-address state.",
-        "After entering reversible fixture address data and proceeding to Payment, the summary labels changed to \u201cdelivery\u201d and \u201ctax\u201d without \u201cEstimated,\u201d corroborating that estimates are used until the address is known."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Constructed a fresh cart with one Travel Case and directly observed the cart summary before any delivery address was entered: Subtotal $79.00, \u201cEstimated delivery\u201d $0.00, \u201cEstimated tax\u201d $7.90, and Total $86.90.",
+        "Directly below those totals, the cart states: \u201cEstimated. We will show the exact amount once we know where it is going.\u201d",
+        "Submitted the empty address form to verify the address was not known; the page produced \u201cAddress is required.\u201d while its summary still showed the estimated labels and exact-amount sentence.",
+        "After entering a US delivery address and proceeding through Standard delivery to Payment, the summary changed to unqualified \u201cdelivery\u201d and \u201ctax\u201d labels and no longer displayed the estimate sentence, confirming that the note/estimate treatment applies until the address is known.",
+        "Returned to the cart and removed the reversible test item afterward."
+      ]
     },
     "R9_ux_flow": {
       "number": "R9",
@@ -202,22 +165,16 @@
       "dimension": "ux_flow",
       "importance": "important",
       "satisfied": true,
-      "passed": false,
+      "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.9,
-      "weight": 0.041666666666666664,
-      "rationale": "Human audit, browser-verified. The criterion concerns how an ENDED warranty is marked. seed-data.js gives every seeded camera a warranty date in 2027-2029 or null, and /account/cameras renders only 'Under warranty until ...' for both seeded accounts. No expired warranty exists in the delivered app, so the state cannot be reached through the UI and the neutral treatment is never demonstrated to a user.",
+      "weight": 0.041667,
+      "rationale": "The expired condition is not present in the currently seeded customer data (the visible warranty ends in 2028), but the exact server-rendered grid component condition is directly inspectable: `warranty_active` changes only the wording, not the element or classes. Consequently, when the date has ended the grid displays \u201cWarranty ended [date]\u201d with the same neutral `chip` treatment used for ordinary information, not warning/error styling.",
       "evidence": [
-        "no deterministic probe for form_flow; browser specialist required",
-        "The account camera grid for customer@example.com showed two cameras, with warranties ending February 14, 2028 and May 19, 2028.",
-        "The account camera overview/detail for customer2@example.com showed one camera, with warranty ending March 2, 2028.",
-        "No observed camera had an expired warranty, so the required expired-warranty treatment could not be directly evaluated."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "browser_audit",
-      "voters": 1
+        "On the authenticated account camera grid at /account/cameras, the warranty is rendered as a plain `chip`; the served HTML for the current camera shows `<span class=\"chip\">Warranty to February 14, 2028</span>`, while the separate update status uses the non-neutral `chip chip-progress` treatment.",
+        "The delivered grid-card source `src/components/CameraCard.astro` explicitly renders both warranty outcomes inside the same `<span class=\"chip\">`: active produces `Warranty to \u2026`, and inactive/expired produces `Warranty ended \u2026`. The expired branch adds no danger, warning, progress, alert, or error class.",
+        "The delivered shared styles define `.chip` as ordinary muted information (`color: var(--fg-muted)`, standard rule border, raised background), whereas warning/error semantics require the distinct `.chip-danger` / `.notice-danger` classes and danger colors. Thus the expired label follows the ordinary informational treatment."
+      ]
     },
     "R10_ui_visual": {
       "number": "R10",
@@ -225,24 +182,18 @@
       "evaluation_rule": "Answer yes when the shop, the cart, the account and the download page present tightly set information with no decorative imagery or oversized hero composition. Answer no when any of those surfaces carries a marketing hero, a decorative illustration or generous editorial whitespace.",
       "dimension": "ui_visual",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.91,
-      "weight": 0.06944444444444445,
-      "rationale": "The requirement applies conjunctively to the shop, cart, account, and download surfaces. Although cart, account, and downloads are dense and unornamented, the shop\u2019s exceptionally tall 403\u2013437px product tiles for only a few lines of text create generous merchandising space and fail the tightly set requirement. Because one required surface violates the rule, the criterion is not satisfied.",
+      "weight": 0.069444,
+      "rationale": "The requirement applies conjunctively to the shop, cart, account, and download surfaces. Although account and downloads are dense and restrained, the shop uses very large illustration-led product cards and the cart has extensive empty whitespace. Because at least one\u2014and here two\u2014of the required surfaces violates the no-ornament/no-generous-whitespace rule, the criterion is not satisfied.",
       "evidence": [
-        "On /shop, the product-list surface is not tightly set: the Vela A1 product link measured 402.875px high and the Vela Cricket link measured 436.875px high, despite each containing only a product name, price, and one short description/status line.",
-        "The /shop viewport exposed only five products with very short descriptions, while individual product tiles consumed more than 400px vertically; this is direct evidence of generous merchandising/editorial space rather than dense information.",
-        "The cart flow was exercised by adding a Travel Case. The app displayed the inline confirmation \u201cAdded to your cart. Go to your cart,\u201d and /cart then showed the line item, quantity controls, subtotal, delivery, tax, total, protection option, and checkout link in a compact information-oriented layout.",
-        "The authenticated /account surface presented cameras, warranties, recent orders, and software release information as compact text/table data; inspected elements had no background image and zero margins.",
-        "The /downloads surface presented download metadata, hashes, firmware links, release notes, improvements, fixes, and known issues as dense text. Its primary download control measured 42px high with 8px 16px padding and no background image; the release-link styling also had no background image and zero padding/margin."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On /shop, the full-page screenshot shows five oversized product cards dominated by large stylized camera/accessory illustrations; the imagery occupies substantially more area than the tightly set product names, prices, and descriptions.",
+        "On /cart, the authenticated customer's empty-cart state places only \u201cYour cart is empty\u201d and a Shop link in a shallow card, leaving most of the main content area as generous blank whitespace.",
+        "On /account, the surface is comparatively information-dense, with camera cards, a recent-orders table, and software/version details, and no decorative imagery.",
+        "On /downloads, release metadata, hashes, firmware controls, release notes, and archive rows are tightly arranged without decorative imagery or a marketing hero."
+      ]
     },
     "R11_ui_visual": {
       "number": "R11",
@@ -254,17 +205,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.041666666666666664,
-      "rationale": "Every surface declares its own ground explicitly rather than inheriting one, and the live body class on each route matches the criterion exactly: `/` serves ground-dark while /shop, /cart and /account serve ground-light. The token values confirm the contrast direction, with ground-dark pairing --bg hsl(28 10% 9%) with --fg hsl(38 22% 94%) and ground-light pairing --bg hsl(40 12% 97%) with --fg hsl(30 8% 12%). The letter's footer re-declares ground-dark explicitly, so it does not invert at the foot of the page, and 'ground-light' occurs zero times in the letter's delivered HTML. No surface uses the other ground.",
+      "weight": 0.041667,
+      "rationale": "All four required surfaces exhibit the specified polarity: the letter and footer use light type on a dark ground, while shop, cart, and authenticated account use dark type on light grounds. This is supported by direct screenshots plus computed colors and rendered-element geometry.",
       "evidence": [
-        "no deterministic probe for composite; browser specialist required",
-        "LLM error: Client error '400 Bad Request' for url 'http://host.docker.internal:8790/responses'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "The full-page screenshot of `/` shows the entire letter\u2014including its footer\u2014on a dark brown/near-black ground with light text. Measured styles on the letter route confirm light text `rgb(243, 241, 236)` and a dark ground `rgb(39, 35, 32)`; the footer Shop link also observed `rgb(243, 241, 236)`.",
+        "The `/shop` screenshot shows the catalogue, navigation, and product cards on an off-white/light ground with dark type. Measured shop elements use dark `rgb(33, 31, 28)` text; the active Shop item has light `rgb(239, 238, 235)` background, and the page light ground observed `rgb(253, 253, 252)`.",
+        "The `/cart` screenshot shows the cart surface on a white/off-white ground with dark type. The Cart control and empty-cart Shop link observed `rgb(33, 31, 28)`; the Cart control background observed `rgb(239, 238, 235)`.",
+        "The authenticated `/account` screenshot shows account cards, orders, and software surfaces on a light ground with dark type. Account links observed `rgb(33, 31, 28)`, while the selected Overview item uses the light `rgb(239, 238, 235)` background.",
+        "Bounding boxes confirmed measurements were taken from rendered UI elements, including the letter footer Shop link (x=1061, y=3551, 34\u00d715), a shop product card (x=253, y=203, 574\u00d7403), the cart control (x=1363, y=20, 57\u00d740), and account content links."
+      ]
     },
     "R12_ui_visual": {
       "number": "R12",
@@ -272,25 +221,17 @@
       "evaluation_rule": "Answer yes when a single saturated accent hue appears at most once per screen and is used as type or as a mark rather than as a background behind text. Answer no when the accent appears more than once on one screen, or when text sits on the accent.",
       "dimension": "ui_visual",
       "importance": "important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.041666666666666664,
-      "rationale": "The entire delivered stylesheet contains exactly one accent declaration, `color:var(--accent-on-dark)`, and it is a color property rather than a background, so the accent is used as type and no text sits on it. It matches a single element, the letter's closing line, giving one accent occurrence on the letter and zero on the shop, the cart and the account, which satisfies 'at most once per screen' on every named surface; at both widths only one copy of that line is visible. The blue camera lens in the shop art is hsl(200 30% 42%), an unsaturated illustration fill rather than the accent hue. One noted risk: the account screen carries two saturated blue chip-progress chips with text on a tinted blue ground, and although the design defines --progress as a semantic meaning distinct from the single accent, a judge treating any saturated hue as the accent would reach the opposite verdict.",
+      "score": 0.0,
+      "weight": 0.041667,
+      "rationale": "A single shop screen provides a decisive counterexample: the same blue accent mark is rendered twice at once. The rule explicitly requires answering no when the accent appears more than once on one screen, so checking additional screens cannot restore compliance.",
       "evidence": [
-        "style criterion has no objective selector",
-        "On the letter route `/`, measured visible navigation/link text used rgb(243, 241, 236) on a dark rgb(39, 35, 32) surface; no saturated accent was established by the measured elements.",
-        "On `/shop`, all five measured product-card links used neutral rgb(33, 31, 28) text with transparent backgrounds.",
-        "On `/shop/compact`, the measured Add to cart control used light text rgb(248, 248, 246) on a muted gray rgb(103, 97, 91), while the measured variant links and radio controls were also neutral.",
-        "The supplied deterministic measurement explicitly reported that the style criterion had no objective selector, and direct measurements did not expose styles for nested status text such as \u201cOnly 10 left\u201d or establish a page-wide inventory of accent-colored marks/type.",
-        "Cart and account screens were not directly inspected before evidence collection ended."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "The 1440\u00d7900 screenshot of /shop shows the blue accent simultaneously in both visible camera illustrations: once in the Vela A1 lens and again in the Vela Cricket lens.",
+        "The served markup for the Vela A1 card contains a lens-center mark `<circle ... fill=\"hsl(200 30% 42%)\">`; the served markup for the Vela Cricket card contains a second lens-center mark with the exact same `fill=\"hsl(200 30% 42%)\"`. Thus the same accent hue occurs at least twice on one shop screen.",
+        "Measured card bounds confirm both repeated marks are concurrently on-screen: Vela A1 is x=253\u2013827, y=203\u2013606 and Vela Cricket is x=845\u20131419, y=203\u2013606 within the 1440\u00d7900 viewport. Their links themselves have transparent backgrounds and dark text (`background-color: rgba(0,0,0,0)`, `color: rgb(33,31,28)`), while the repeated blue is used as an SVG mark rather than behind text."
+      ]
     },
     "R13_motion": {
       "number": "R13",
@@ -302,17 +243,16 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.041666666666666664,
-      "rationale": "Motion is expressed through two tokens, --speed .12s and --ease linear, and every transition delivered on the shop, the cart and the account resolves to that token pair without exception, so no two controls move at visibly different speeds. The shipped CSS contains no cubic-bezier, no ease-in or ease-out and no spring, which rules out overshoot and bounce entirely. The only other duration in the build is a 240ms opacity transition on the letter's film stage, outside the three named surfaces and still linear, and prefers-reduced-motion collapses all durations to 0.001ms.",
+      "weight": 0.041667,
+      "rationale": "Direct CDP captures covered the required hover behavior plus press, focus, selection, navigation, and disclosure interactions across the shop, cart, and authenticated account. Every observed moving transition used the same short 120 ms linear timing, with no spring-like behavior or overshoot.",
       "evidence": [
-        "motion inventory captured; interaction is required to settle behavior",
-        "LLM error: Client error '400 Bad Request' for url 'http://host.docker.internal:8790/responses'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "On the shop, hovering the Cart control produced a CDP-captured background-color transition of 120 ms with linear easing.",
+        "On the Vela Cricket product page, hovering Add to cart produced 120 ms linear background-color transitions; pressing the quantity control likewise produced 120 ms linear transitions; changing the selected colour produced a 120 ms linear background-color transition.",
+        "Rendered styles on shop/cart/account controls consistently used 0.12s linear transitions: Cart used background-color; Sign out and account navigation used background-color/color; quantity controls and Add to cart used the same timing.",
+        "A keyboard focus change on the account camera page produced a CDP-captured top transition of 120 ms with linear easing.",
+        "Opening the account camera removal confirmation (a disclosure change) produced only 120 ms linear background-color transitions, and the revealed \u201cYes, remove it\u201d control computed to 0.12s linear for both background-color and color.",
+        "Across all directly triggered shop, cart, and account captures, no spring easing, overshoot, bounce, or alternate moving duration was observed."
+      ]
     },
     "R14_accessibility": {
       "number": "R14",
@@ -320,23 +260,18 @@
       "evaluation_rule": "Answer yes when a success, a failure and an in-progress state each carry a written label beside whatever colour marks them. Answer no when any of those states is signalled by colour or by movement alone.",
       "dimension": "accessibility",
       "importance": "important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.9,
-      "weight": 0.041666666666666664,
-      "rationale": "The directly observed success, failure/unavailable, and in-progress states all had visible written status text rather than relying on colour or movement alone. This establishes the positive requirement for the sampled shop and authenticated account workflows without making a broader WCAG-conformance claim.",
+      "score": 0.0,
+      "weight": 0.041667,
+      "rationale": "The success and failure examples carry written labels, but the cart\u2019s in-progress state is conveyed only by reduced opacity on the total, with no written label beside it. Under the rule, one state signalled visually without words is sufficient to answer no.",
       "evidence": [
-        "Shop success state after adding Vela A1 displayed the explicit text \u201cAdded to your cart. Go to your cart\u201d on /shop/flagship?variant=VELA-A1-GRAPHITE.",
-        "Account success state after saving the camera nickname displayed the explicit text \u201cSaved.\u201d on /account/cameras/VC2609PVDA7Q.",
-        "Firmware-installer failure/unavailable state displayed \u201cThis browser cannot talk to a camera. Chrome, Edge and Opera on a desktop can.\u201d and the blocked action guidance \u201cRead the warning above and choose \u2018I understand\u2019 first.\u201d on /doctor.",
-        "Account in-progress states were stated in words: orders showed \u201cConfirmed, on its way,\u201d while cameras showed \u201cUpdate available\u201d and \u201cNot yet connected.\u201d"
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On /shop/flagship, a successful add displayed the written status \u201cAdded to your cart. Go to your cart\u201d in a role=status region.",
+        "On /shop/cable, forcing the add request to return HTTP 500 displayed the written failure \u201cWe could not add that item.\u201d in a role=status region.",
+        "On /cart, I delayed PATCH /api/cart/lines/{id} by 5 seconds and increased the quantity. During the in-progress interval, the quantity and line total changed optimistically, but the visible page had no written state such as \u201cUpdating\u201d or \u201cSaving\u201d; the snapshot only showed the updated values.",
+        "Delivered source src/islands/CartControls.jsx confirms this pending presentation: send() sets pending=true, the line total receives class `pending`, and `.line-total.pending { opacity: 0.5; }`. No pending label or live/status text is rendered. The source comment explicitly describes the totals as showing the pending state."
+      ]
     },
     "R15_responsiveness": {
       "number": "R15",
@@ -348,20 +283,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.97,
-      "weight": 0.041666666666666664,
-      "rationale": "Direct wide-versus-phone geometry establishes that the persistent 203px left rail collapses into exactly one top control on narrow layouts. Interaction verifies that this control expands to the original rail destinations, and its presence was directly observed on both shop and cart; the account destination was accessible through that same responsive navigation.",
+      "weight": 0.041667,
+      "rationale": "The shop, cart, and account all exhibit the required responsive transformation: wide layouts use a persistent left rail, while phone-width layouts collapse that rail into one operable \u201cSections\u201d control above the content. Opening the control reveals the same rail destinations, and resizing back to desktop restores the rail.",
       "evidence": [
-        "At 1440\u00d7900 on /shop, the persistent navigation/account rail was visible as separate controls aligned at x=20 with width=203: Shop y=96, Overview y=288, Orders y=332, Cameras y=376, and Sign out y=820; shop content began separately at x=253.",
-        "After resizing to 390\u00d7844 and refreshing the snapshot on /shop, the individual rail controls were absent and replaced by one button labeled \u201cSections\u201d at x=212, y=20, size 89\u00d740. Main product content began below it (first product x=21, y=227, width=348), with no observed horizontal clipping.",
-        "Activating \u201cSections\u201d on narrow /shop exposed the same rail destinations (Shop, Downloads, Firmware installer, Overview, Orders, Cameras, Sign out), establishing that the single control is the rail replacement rather than unrelated navigation.",
-        "On narrow /cart, the same single \u201cSections\u201d control appeared at x=212, y=20, size 89\u00d740; activating it exposed the same complete navigation/account set.",
-        "From the narrow cart menu, selecting Overview navigated toward the account area, showing the replacement control provides access across shop, cart, and account navigation."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "At 1440\u00d7900 on /shop, the persistent navigation rail was visible to the left of the catalogue: Shop and Overview rail links both began at x=20 with width 203px, while the first product began at x=253.",
+        "At 390\u00d7844 on /shop, the rail links were absent in the collapsed state and replaced by one visible \u201cSections\u201d button at the top (x=212, y=20, 89\u00d740), above catalogue content whose first product began at y=227. The button markup had aria-expanded=\"false\" and aria-controls=\"rail-panel\".",
+        "Activating \u201cSections\u201d on narrow /shop changed aria-expanded to true and revealed the former rail entries as a full-width panel (Shop at x=20, y=92, width 350), demonstrating that the single control is the rail\u2019s replacement rather than unrelated UI.",
+        "On /cart at 390\u00d7844, the same single collapsed \u201cSections\u201d control appeared at x=212, y=20 with aria-expanded=\"false\"; at 1440\u00d7900 it disappeared and the left rail returned (Shop and Overview at x=20, width 203, alongside cart content starting around x=277).",
+        "On /account at 390\u00d7844\u2014and again at 320\u00d7700\u2014the same single \u201cSections\u201d control appeared at the top while rail links were absent. At 320px, the top controls remained contained within the viewport (vela x=20\u201358, Sections x=142\u2013231, Cart x=243\u2013300). Opening it revealed rail entries in a 280px-wide panel below; resizing back to 1440\u00d7900 removed the control and restored the 203px-wide persistent left rail beside account content."
+      ]
     },
     "R16_functionality": {
       "number": "R16",
@@ -369,27 +299,19 @@
       "evaluation_rule": "Answer yes when a notice about a price or availability change on the cart fades away or dismisses itself without the reader acting. Answer no when that notice stays in place until the reader resolves it. Yes records a defect.",
       "dimension": "functionality",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": true,
       "is_positive": false,
       "score": 1.0,
-      "confidence": 0.95,
-      "weight": 0.041666666666666664,
-      "rationale": "A genuine price-change notice was triggered on the running app by adding VELA-CRICKET-GRAPHITE at $299.00 and raising the catalogue price to $319.00, then observed to persist across seven cart reads over roughly 35 seconds and in the server-rendered /cart HTML without any reader action. noticesFor() in server/lib/cart.mjs recomputes the notice on every cart read by comparing the snapshotted line price to the current price, so it is derived state rather than an ephemeral client toast, and no setTimeout, animation, fade or dismiss control exists for it anywhere. It cleared only once the underlying price difference was resolved. The notice therefore never disappears on its own, so the defect this criterion records is absent.",
+      "weight": 0.041667,
+      "rationale": "The negative anti-pattern is not present. Once a price/availability notice exists in cart state, CartControls continuously renders it with no timer, fade animation, dismiss action, or read-acknowledgement path. It can disappear only after an explicit cart mutation/server response resolves the underlying condition, not on its own.",
       "evidence": [
-        "Triggered live: POST /api/cart/lines {sku: VELA-CRICKET-GRAPHITE} snapshotted unit_price_minor 29900; catalogue price then set to 31900.",
-        "GET /api/cart returned notice kind 'price_changed': 'The price of Vela Cricket changed from $299.00 to $319.00 since you added it.'",
-        "Notice present in the server-rendered /cart HTML, so it is painted on first load rather than injected as a transient client toast.",
-        "Persistence probe: 7 cart reads at 5s intervals over ~35s all returned exactly 1 price_changed notice; it never self-cleared.",
-        "server/lib/cart.mjs noticesFor() recomputes the notice on EVERY cart read by comparing snapshotted unit_price_minor to current_price_minor - it cannot expire on a timer.",
-        "src/islands/CartControls.jsx:90 comment: 'A price or availability change renders above the lines as a persistent notice that cannot be dismissed.'",
-        "No setTimeout, setInterval, @keyframes, animation, fade or dismiss/close affordance exists for .notice / .notices in CartControls.jsx, cart.astro or global.css.",
-        "Notice cleared only after the cause was resolved (price reverted to 29900), confirming it tracks real state rather than a timer."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "The delivered cart UI (`src/islands/CartControls.jsx`) renders every `cart.notices` entry above the cart lines and explicitly describes it as a \u201cpersistent notice that cannot be dismissed.\u201d There is no dismiss control or state that removes notices.",
+        "The cart component's only state changes come from completed cart mutations (`setCart(body)` after quantity/removal/protection requests). Source-wide searches of JSX found no `setTimeout`, `clearTimeout`, or `setInterval` in CartControls; the only JSX timer is in unrelated Doctor/RegisterRow components. Thus the notice cannot fade or dismiss itself with time.",
+        "A source search found no CSS animation/transition attached to notices. The notice is a normal `<li class=\"notice notice-danger\">` and remains rendered while it is present in the authoritative cart response.",
+        "Server code (`server/lib/cart.mjs`) recomputes price and availability notices on every cart read by comparing the snapshotted line price with the current variant price and inventory. Nothing acknowledges or expires a notice merely because it was displayed.",
+        "I exercised the live cart flow by adding and then removing a last-stock Vela A1 Yellow line. The deployed environment exposes no customer/admin operation that can change a variant price, and the source confirms there is no API route for doing so; therefore a moved-price fixture could not be created through the public workflow. The implementation evidence nevertheless directly settles auto-dismiss behavior for all cart notices, including `price_changed`."
+      ]
     },
     "R17_ui_visual": {
       "number": "R17",
@@ -401,19 +323,14 @@
       "passed": false,
       "is_positive": false,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.06944444444444445,
-      "rationale": "The criterion says any navigation element other than the wordmark and footer row is a defect. The letter page directly exposes a functional, keyboard-accessible `Skip to the letter` navigation link in addition to the `vela` wordmark and footer Shop link, so the negative anti-pattern is observed.",
+      "weight": 0.069444,
+      "rationale": "The criterion describes a defect if any price, form field, or navigation element beyond the wordmark/footer is present. The focusable `Skip to the letter` anchor is such an additional navigation element, so the negative anti-pattern is directly observed.",
       "evidence": [
-        "On route `/`, the interactive-element inventory contains three links: `Skip to the letter`, the `vela` wordmark, and `Shop`. Thus there is a navigation element beyond the wordmark and Shop/footer link.",
-        "The extra `Skip to the letter` link has `href=\"#letter\"`; its geometry is initially off-screen at y=-100, but it is present and keyboard-accessible.",
-        "After pressing Tab, focus moved to `Skip to the letter`; it became visible at x=20, y=8 with a solid 2px focus outline. Pressing Enter navigated to `/#letter` and focused `<main id=\"letter\">`, directly confirming the link's navigation behavior.",
-        "The full letter text showed no separate form-field or displayed product-price control; the observed defect is specifically the additional skip-navigation element."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On `/`, the rendered interactive-element inventory contained `Skip to the letter`, the `vela` wordmark, and the footer `Shop` link. Thus there is a navigation element outside the expressly allowed wordmark and footer row.",
+        "Keyboard traversal confirmed `Skip to the letter` is an actual focusable anchor: after pressing Tab it received focus with a visible 2px outline; the next focus targets were the `vela` wordmark and then footer `Shop`.",
+        "The full-page rendering showed the letter title `the table`, dateline `June 1, 2026`, body paragraphs, closing `See you soon.`, and footer. No price or form control appeared on the letter, but the extra skip-navigation link is sufficient because the criterion is disjunctive.",
+        "The served markup for `/` begins the body with `<a class=\"skip-link\" href=\"#letter\">Skip to the letter</a>` before the wordmark and letter, directly confirming the additional navigation element is outside the footer."
+      ]
     },
     "R18_scope_discipline": {
       "number": "R18",
@@ -425,21 +342,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.013888888888888888,
-      "rationale": "The complete source contains storefront, checkout, customer-account, downloads, and firmware routes, but no staff console, returns/warranty workflow, jobs listing, or legal-document library. Warranty information is only displayed as device metadata, not exposed as a claim, return, or warranty handler. Crucially, the footer renders Terms, Privacy, and Jobs as plain text; only Shop receives an anchor and route.",
+      "weight": 0.013889,
+      "rationale": "The delivered source's complete page-module inventory, API-handler inventory, and schema table inventory were checked directly. They contain the brief's storefront/account/download/installer functionality and no staff console, returns workflow, jobs listing, legal document library, or backing table for any such feature. Copy-only footer labels do not count as modules under the criterion's explicit rule.",
       "evidence": [
-        "src/components/Footer.astro: `const entries = ['Shop', 'Support', 'Terms', 'Privacy', 'Jobs', 'Contact'];`",
-        "src/components/Footer.astro: `{entry === 'Shop' ? <a href=\"/shop\">Shop</a> : <span>{entry}</span>}`",
-        "src/components/Footer.astro comment: `Only Shop is a link, because this brief carries no support surface, no legal document library and no jobs page for the others to reach.`",
-        "src/pages/account/cameras/[serial].astro only displays warranty metadata: `<th scope=\"row\">Warranty</th>` and `{device.warranty_until ? formatDate(device.warranty_until) : 'None on record'}`",
-        "server/api.mjs route definitions cover auth, catalogue, cart, orders, account devices/orders, releases/downloads, and firmware/flash sessions; there are no staff, returns, warranty-claim, jobs, terms, privacy, or legal-document handlers.",
-        "Complete file tree under `src/pages/` has no staff, returns, warranty, jobs, terms, privacy, or legal-library page path."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "A complete source-tree listing found 21 page files under src/pages: only error pages plus the letter (/), shop/product, cart, three checkout steps, order-by-number, downloads archive/release, doctor installer, sign-in/sign-out/sign-up, and account overview/camera/order routes. No staff/admin, returns/RMA, careers/jobs, or legal-document page module exists.",
+        "The server tree contains only server/api.mjs, server/index.mjs, and supporting libraries. Direct inspection of server/api.mjs and route searches enumerated handlers for health/readiness, authentication, catalogue/products, cart/delivery, orders, account orders/devices/overview, releases/downloads, and firmware/flash sessions, plus the catch-all. No forbidden workflow handler was present.",
+        "Direct inspection of server/lib/schema.mjs, corroborated by an exhaustive CREATE TABLE search, found 20 tables: customer, auth_token, product, variant, inventory_level, product_block, cart, cart_line, order_number_seq, order, order_line, idempotency_key, device, device_ownership, app_release, firmware, flash_session, shipping_zone, shipping_method, and account_seen_release. None backs staff/admin, returns/RMA, jobs/careers, or legal documents.",
+        "Targeted source searches found no route-like quoted path for returns, RMA, jobs, legal, terms, or privacy; no href/action targeting any forbidden area; and no CREATE TABLE statement containing return, RMA, job, career, legal, terms, privacy, staff, or admin.",
+        "The only relevant copy occurrence is src/components/Footer.astro: it explicitly says there is no legal document library or jobs page, and renders Terms, Privacy, and Jobs as inert <span> text; only Shop is an <a href>. Under the rule, these words in copy are not modules."
+      ]
     },
     "R19_scope_discipline": {
       "number": "R19",
@@ -451,18 +362,13 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 1.0,
-      "weight": 0.013888888888888888,
-      "rationale": "The complete runtime dependency block contains application/framework packages plus only the permitted backing-service clients: `pg` for PostgreSQL and `nodemailer` for SMTP. It declares no Redis, MongoDB, or MySQL client, no object-store SDK, no queue client, and no hosted-mail-vendor SDK. The billing integration uses the platform-provided `fetch` rather than declaring an additional SDK.",
+      "weight": 0.013889,
+      "rationale": "The criterion is specifically about packages named in the runtime dependency block of the app manifest. The complete `dependencies` block was inspected directly and every listed package falls into an allowed category or is a direct framework/integration requirement; none belongs to any prohibited datastore, object store, cache, queue, or mail-vendor SDK category.",
       "evidence": [
-        "package.json, `dependencies`: `\"nodemailer\": \"^7.0.9\"` and `\"pg\": \"^8.16.3\"` are the only declared backing-service clients",
-        "package.json, complete remaining runtime dependencies: `\"@astrojs/node\"`, `\"@astrojs/preact\"`, `\"@hono/node-server\"`, `\"astro\"`, `\"hono\"`, and `\"preact\"`",
-        "server/lib/killbill.mjs, `kbFetch`: `return await fetch(`${cfg.base}${path}`, {`"
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "Directly read /app/package.json. Its runtime `dependencies` block contains exactly: `@astrojs/node`, `@astrojs/preact`, `@hono/node-server`, `astro`, `hono`, `nodemailer`, `pg`, and `preact`.",
+        "The declared packages are limited to Astro and its Node/Preact integrations, Hono and its Node server integration, the Preact framework required by the Astro integration, PostgreSQL driver `pg`, and SMTP client `nodemailer`.",
+        "The runtime dependency block declares no MySQL, SQLite, MongoDB, Redis, object-store, queue, cache, or third-party mail-vendor SDK package."
+      ]
     },
     "R20_scope_discipline": {
       "number": "R20",
@@ -470,24 +376,18 @@
       "evaluation_rule": "A client-side module is a component hydrated with a client directive or otherwise shipped to the browser as a mounted framework component, not an inline script that only wires up a form. Yes if the only hydrated islands are the front page scroll driver, the cart quantity controls, the doctor firmware installer and the register row on the cameras page, and every other route is server-rendered markup complete on first paint. No if the catalogue, a product page, a checkout step, the downloads archive or an account list is hydrated as a client component, or if the whole app is mounted as one client-side root.",
       "dimension": "scope_discipline",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 1.0,
-      "weight": 0.06944444444444445,
-      "rationale": "The allowed four client islands are not the only hydrated components. Most decisively, the payment checkout step hydrates `PlaceOrder`, which directly meets the rule\u2019s no condition that \u201ca checkout step ... is hydrated as an island.\u201d Product purchasing and the footer also hydrate additional islands beyond the permitted scroll driver, cart controls, installer, and register row. Although the release archive itself is server-rendered through `ReleaseBlock.astro`, the extra checkout hydration is sufficient to fail.",
+      "weight": 0.069444,
+      "rationale": "The requirement is not met because direct served-markup inspection found extra hydrated framework components beyond the allowed four, most decisively `BuyControls` on a product route\u2014an explicit failure condition in the rule. `FooterField` is an additional extra hydrated island on the front page. The expected allowed islands and several server-rendered routes were also verified, but the extra islands settle the criterion as false.",
       "evidence": [
-        "src/pages/checkout/payment.astro: `<PlaceOrder client:load idempotencyKey={idempotencyKey} total={cart.total_minor} />`",
-        "src/pages/checkout/payment.astro: `import PlaceOrder from '../../islands/PlaceOrder.jsx';`",
-        "src/islands/PlaceOrder.jsx: `export default function PlaceOrder({ idempotencyKey })` builds the checkout placement control client-side and calls `fetch('/api/orders', ...)`",
-        "src/pages/shop/[handle].astro: `<BuyControls client:load product={clientProduct} initialSku={selected?.sku} />` is another client directive outside the four named modules",
-        "src/components/Footer.astro: `<FooterField client:visible />` is another client directive outside the four named modules"
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "Raw HTTP source for /shop/compact contains an Astro hydrated island with `component-url=\"/_astro/BuyControls.DQCp5O2H.js\"` and `client=\"load\"`, mounting product options, quantity controls, and Add to cart on the product page. The rule explicitly says a product page must not be hydrated as a client component.",
+        "Raw HTTP source for / contains the expected `ScrollDriver` hydrated island, but also another hydrated `FooterField` island (`client=\"visible\"`), so the scroll driver is not the sole front-page client module.",
+        "Raw HTTP source confirms expected islands on /cart (`CartControls`), /doctor (`Doctor`), and /account/cameras (`RegisterRow`).",
+        "Raw HTTP source for /shop, /downloads, and /account/orders contains their complete catalogue, release archive, and order-list content directly in the server response, with no mounted Astro island for those route bodies; their small inline scripts only wire the rail/platform behavior and do not count under the rule."
+      ]
     },
     "R21_scope_discipline": {
       "number": "R21",
@@ -499,22 +399,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.013888888888888888,
-      "rationale": "The complete source contains no third-party analytics dependency, external analytics script, consent banner, or outbound tracking beacon. Browser-side requests target same-origin `/api/...` endpoints, while the only server-side outbound integrations are the explicitly named backing services for payments and SMTP mail; local `CustomEvent` dispatches update UI state and do not transmit data.",
+      "weight": 0.013889,
+      "rationale": "Direct network observation after hydration, scrolling, and navigation found only the app origin. Raw delivered markup and the relevant client bundles likewise showed only first-party assets/API calls and no analytics, session replay, consent/cookie-notice module, or outbound tracking endpoint. This satisfies all three conjunctive parts of R21.",
       "evidence": [
-        "package.json dependencies list only Astro, Preact, Hono, nodemailer, and pg; no analytics or consent package is declared.",
-        "src/layouts/Base.astro `<head>` contains only metadata plus local `/fonts/archivo-400.woff2` and `/favicon.svg` links, with no external script tag.",
-        "src/islands/BuyControls.jsx: `fetch('/api/cart/lines', ...)` and `window.dispatchEvent(new CustomEvent('vela:cart-changed', { detail: body }))` are same-origin/local operations.",
-        "src/islands/Doctor.jsx uses only same-origin paths such as `fetch('/api/flash-sessions', ...)` and `/api/firmware/device/...`.",
-        "server/lib/killbill.mjs derives outbound URLs from the named payment backing-service variable: `const base = process.env.PAYMENTS_API_URL;`.",
-        "server/lib/mail.mjs sends order confirmation through the named SMTP backing service: `const host = process.env.SMTP_HOST;` and `nodemailer.createTransport({ host, port, ... })`.",
-        "src/pages/checkout/where-it-goes.astro has an ordinary optional marketing checkbox (`name=\"marketing_consent\"`), not an analytics/cookie consent banner, and no code transmits it to a third-party host."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "Loaded the candidate route `/`, waited for network idle, scrolled to the footer to trigger its lazy client component, and rechecked the request log. Across the workflow the browser recorded 32 requests from exactly one origin: `http://deku-fresh-run_4-app:4173`; no outbound host or tracking beacon appeared.",
+        "Continued through visible first-party navigation to `/shop` and `/doctor`; after those pages hydrated, the cumulative request log contained 43 requests and still exactly one origin, the app itself.",
+        "Inspected the raw served HTML for `/`, `/shop`, `/downloads`, `/doctor`, `/account`, and `/cart`. Script, stylesheet, font, icon, download, form, and API references in the delivered markup were relative same-origin URLs; no analytics/session-replay script, external event endpoint, consent banner, cookie notice, or consent module declaration was present.",
+        "Inspected the client JavaScript delivered by `/` (`Stage`, `ScrollDriver`, `FooterField`, and the Astro client runtime). These modules implement generated film, scroll effects, canvas interaction, and hydration; they contain no analytics or consent integration and no external beacon endpoint.",
+        "Inspected interactive application bundles for the firmware installer and cart. Their `fetch` calls target relative same-origin `/api/...` URLs with `credentials: \"same-origin\"`; no page-view/event posting or external analytics endpoint was present."
+      ]
     },
     "R22_internal_consistency": {
       "number": "R22",
@@ -522,24 +415,20 @@
       "evaluation_rule": "Money is any usd figure this app stores, computes or renders -- a variant price, a cart line unit price, an order subtotal, shipping, tax, discount and the order total. Yes if every one of those is carried as an integer count of minor units in every layer including the browser island code, and a decimal appears only where a figure is formatted for display or sent to killbill as the invoice amount. No if a schema column or a field declares money as a float, real, double or decimal type, if a price is divided into a float to be added or taxed, if tax is taken with a floating point rate rather than integer arithmetic truncated toward zero, or if a figure is parsed back out of a formatted string such as \"$415.80\".",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.06944444444444445,
-      "rationale": "The tree violates the rule in multiple concrete ways. Tax calculation performs division and explicitly rounds with `Math.trunc`, while the browser formatter also truncates incoming money rather than requiring an integer. In addition, the Kill Bill decimal is converted to a JavaScript `Number` and then persisted in an application-level decimal database field, so the decimal representation does not remain confined to serialization at the invoice boundary. These satisfy the rule\u2019s explicit no conditions for float arithmetic/rounding and for holding money in a non-minor-unit representation.",
+      "weight": 0.069444,
+      "rationale": "The criterion is conjunctive and explicitly says No when a schema money column is float/real/double/decimal. `killbill_invoice_amount numeric(12,2)` is a persisted decimal USD amount populated from the billing result. Although conversion to a decimal at the outbound Kill Bill boundary is permitted, retaining that amount in a decimal application column violates the requirement that every stored/computed/rendered money value be carried as integer minor units outside the stated boundary. One direct schema/storage counterexample resolves the positive requirement as false.",
       "evidence": [
-        "server/lib/money.mjs, `taxOn`: `return Math.trunc((subtotalMinor * TAX_NUMERATOR) / TAX_DENOMINATOR);`",
-        "src/lib/format.js, `formatMinor`: `const abs = Math.abs(Math.trunc(n));`",
-        "server/lib/killbill.mjs, `createInvoice`: `body: JSON.stringify([{ accountId, amount: Number(amount), currency: 'USD', description }])`",
-        "server/lib/schema.mjs, `order.killbill_invoice_amount`: `killbill_invoice_amount numeric(12,2)`",
-        "server/lib/orders.mjs persists the decimal provider amount: `killbill_invoice_amount = $4` with parameter `billing.amount`"
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "Direct source evidence in server/lib/schema.mjs: the `order` table declares `killbill_invoice_amount numeric(12,2)`, a decimal/numeric money column rather than an integer minor-unit column. The same schema stores all other order money as integer fields (`subtotal_minor`, `shipping_minor`, `tax_minor`, `discount_minor`, `total_minor`), making this exception explicit.",
+        "Direct source evidence in server/lib/orders.mjs: after billing, the app persists `billing.amount` into `killbill_invoice_amount` via `UPDATE \"order\" ... killbill_invoice_amount = $4`; this is stored application money, not merely the outbound Kill Bill invoice payload.",
+        "Direct source evidence in server/lib/seed.mjs: seeded order VE-2026-0001 writes `killbill_invoice_amount` as the decimal literal `328.90`.",
+        "The permitted Kill Bill boundary is otherwise explicit in server/lib/money.mjs and server/lib/killbill.mjs: `minorToDecimalString(amountMinor)` creates the decimal invoice amount and `createInvoice` sends it to Kill Bill. Persisting that decimal afterward in the app's order schema exceeds the stated exception that decimals may appear only for display or when sent to Kill Bill.",
+        "The rest of the inspected money path uses integer minor units: variant/cart/order/shipping schema columns are integers; cart totals are integer addition/multiplication; `taxOn` uses `Math.trunc((subtotalMinor * 1) / 10)`; browser CartControls multiplies `unit_price_minor * shown`; renderers call `formatMinor`. Searches found no `parseFloat`, `Number.parseFloat`, or parsing of formatted dollar strings in server, browser JS/JSX, or Astro source.",
+        "Completed a live checkout flow with reversible fixture data: Travel Case displayed $79.00; cart showed subtotal $79.00, tax $7.90, total $86.90; Express checkout showed delivery $25.00 and total $111.90; confirmed order VE-2026-0002 showed unit/line $79.00, subtotal $79.00, delivery $25.00, tax $7.90, total $111.90. These values are consistent with the integer computations, but do not cure the decimal schema/storage counterexample."
+      ]
     },
     "R23_internal_consistency": {
       "number": "R23",
@@ -547,22 +436,18 @@
       "evaluation_rule": "An account-scoped query is any read or write restricted to the signed-in customer -- their orders, their cameras, their ownership rows, their account page. Yes if one shared helper or middleware resolves the acting customer from the bearer token and every account-scoped handler obtains the customer identity through it. No if two or more handlers each decode the token themselves, or each write their own customer_id filter inline, so that a new handler could be added with the filter forgotten and nothing in the source would catch it.",
       "dimension": "internal_consistency",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.98,
-      "weight": 0.041666666666666664,
-      "rationale": "Although `requireCustomer(c)` is a shared helper that resolves the authenticated customer and is called by every `/api/account` handler, the `/api/account/overview` handler performs an account-scoped ownership filter inline. It directly queries `account_seen_release` with `WHERE customer_id = $1` and supplies `customer.id`, which meets the rule\u2019s explicit no condition that an account handler re-derives its own `customer_id` filter inline.",
+      "weight": 0.041667,
+      "rationale": "Although bearer/session-token decoding ultimately reaches one shared `customerForToken` function, the criterion explicitly fails when two or more account handlers write their own customer ownership filters such that a new handler could omit one. The delivered source has several independent API and SSR account handlers issuing their own customer-scoped SQL/predicate calls, with no middleware or repository abstraction that automatically applies the acting customer's scope to every account query. Therefore the full positive requirement is not met.",
       "evidence": [
-        "server/api.mjs, `requireCustomer(c)`: `const customer = await authService.customerForToken(token);`",
-        "server/api.mjs, `api.get('/account/overview', ...)`: `const customer = await requireCustomer(c);`",
-        "server/api.mjs, `/account/overview` inline query: `SELECT build FROM account_seen_release WHERE customer_id = $1`, with parameters `[customer.id]`"
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "`server/lib/auth.mjs` does provide a shared low-level `customerForToken(token)` resolver, and `server/api.mjs` routes call it through `requireCustomer(c)`/`optionalCustomer(c)`; Astro pages call it through `currentCustomer(Astro)` in `src/lib/server.js`. Source searches found no other query against `auth_token`, so token-to-customer lookup itself is centralized.",
+        "Ownership scoping is nevertheless repeated in multiple account handlers. `server/api.mjs` `/account/orders` constructs and runs `SELECT * FROM \"order\" WHERE ${orderService.ACCOUNT_ORDER_PREDICATE}` with `[customer.id, customer.email]`; `/account/overview` separately runs another order query using the same predicate and separately queries `account_seen_release WHERE customer_id = $1`.",
+        "The SSR handlers repeat those restrictions again: `src/pages/account/index.astro` directly queries orders with `ACCOUNT_ORDER_PREDICATE` and directly queries `account_seen_release WHERE customer_id = $1`; `src/pages/account/orders/index.astro` independently builds another scoped order query from `ACCOUNT_ORDER_PREDICATE`. Thus multiple handlers are responsible for remembering to include and parameterize the ownership predicate.",
+        "Camera ownership is scoped in service functions such as `listDevicesForCustomer(customerId)` and `getOwnedDevice(serial, customerId)` in `server/lib/devices.mjs`, but callers still explicitly pass `customer.id`; this does not establish a single mechanism that automatically scopes every account query to the acting customer."
+      ]
     },
     "R24_internal_consistency": {
       "number": "R24",
@@ -570,50 +455,41 @@
       "evaluation_rule": "Seeding is the code that inserts the fixture rows the brief pins -- the two customers, the five catalogue products with their variants and inventory, the shipment protection rungs, the four devices, the four Arranger releases and the four firmware entries. Yes if a single seeding routine owns all of that and every insert is written so a second run adds no row, through an upsert, a conflict clause on the unique key or an existence check. No if seed rows are written from more than one place, such as a migration and a separate seed script both inserting products, or if any insert would duplicate a row on restart because it carries no conflict handling.",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.98,
-      "weight": 0.06944444444444445,
-      "rationale": "Although a single exported `seed(client)` routine owns products/variants, devices, releases, and firmware, it is not written so that a second run inserts nothing. For every product, the routine deletes all existing catalogue blocks and then inserts them again, so every rerun performs fresh `product_block` inserts. In addition, firmware images are upserted on `(product_id, build)`, while the contract specifically requires version-keyed seeding; the schema does not make firmware `version` unique. These behaviors fail the rule\u2019s explicit second-run and keying requirements.",
+      "weight": 0.069444,
+      "rationale": "The catalogue/devices/releases/firmware fixtures are centrally owned by one seeding routine, but the requirement is conjunctive and explicitly requires every fixture insert to be written so a second run inserts no row. Catalogue product blocks are replaced by unconditional deletion followed by plain insertion on every run. That directly violates the second-run condition even though it avoids duplicate rows at rest.",
       "evidence": [
-        "server/lib/seed.mjs, `export async function seed(client)` contains the loops over `PRODUCTS`, `RELEASES`, `FIRMWARE`, and `DEVICES`",
-        "server/lib/seed.mjs: `await client.query('DELETE FROM product_block WHERE product_id = $1', [prod.id]);` followed by `INSERT INTO product_block (product_id, kind, position, payload) VALUES ($1,$2,$3,$4)`",
-        "server/lib/seed.mjs firmware upsert: `ON CONFLICT (product_id, build) DO UPDATE SET version=EXCLUDED.version`",
-        "server/lib/schema.mjs firmware definition: `version text NOT NULL` and `UNIQUE (product_id, build)`\u2014there is no unique constraint on firmware version",
-        "server/lib/seed.mjs correctly keys other principal rows with `ON CONFLICT (handle)`, `ON CONFLICT (sku)`, `ON CONFLICT (version)`, and `ON CONFLICT (upper(serial))`, but that does not prevent the catalogue block reinserts"
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "Direct source inspection of server/lib/seed.mjs shows one exported seed(client) routine containing the fixture definitions and insertion loops for both customers; the five visible catalogue products plus hidden shipment-protection product and its four rungs; all variants and inventory; four Arranger releases; four firmware images; and four devices.",
+        "A source-tree search for the fixture collections found PRODUCTS, RELEASES, FIRMWARE, and DEVICES only in server/lib/seed.mjs. Searches for fixture-specific product titles, release artifact names, firmware hashes, and device serials likewise found the database fixture definitions in seed.mjs rather than a second migration/seed routine. server/index.mjs imports this one seed function and invokes it during migrate().",
+        "Most seed writes are restart-safe without adding rows: customers/products/variants/releases/firmware/devices use ON CONFLICT; inventory uses ON CONFLICT DO NOTHING; the seeded order and its line are guarded by an existence check; device ownership is gated on the device insert result and also uses ON CONFLICT DO NOTHING.",
+        "However, server/lib/seed.mjs unconditionally executes `DELETE FROM product_block WHERE product_id = $1` for every seeded product and then executes plain `INSERT INTO product_block ...` for every block, with no upsert, conflict clause, or existence check. Thus a second seed run deletes and inserts all catalogue block fixture rows again rather than inserting nothing, contrary to the criterion's explicit rerun requirement.",
+        "Source search for `INSERT INTO product_block` across /app returned exactly one insertion site, at server/lib/seed.mjs:215, confirming that this is the owning routine but also confirming the unconditional delete-and-reinsert behavior."
+      ]
     },
     "R25_internal_consistency": {
       "number": "R25",
       "criterion": "Every host, port and credential the app needs is read through one configuration module that reads the environment, with no literal host or port elsewhere in the source.",
-      "evaluation_rule": "Configuration is every host, port, URL and credential the app needs -- DATABASE_URL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, PAYMENTS_API_URL, PAYMENTS_API_KEY, PAYMENTS_API_SECRET, PAYMENTS_ADMIN_USER and PAYMENTS_ADMIN_PASSWORD. Yes if one configuration module reads the environment for all of them and every other module takes its values from that module. No if a handler, a database client or a mail client reads the environment directly for one of those values outside that module, or if a literal host, port or credential -- localhost, 127.0.0.1, a bare 5432 or 8080, an SMTP password -- appears in application code anywhere but that module's own defaults.",
+      "evaluation_rule": "Configuration is every host, port, URL and credential the app needs -- DATABASE_URL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, PAYMENTS_API_URL, PAYMENTS_API_KEY, PAYMENTS_API_SECRET, PAYMENTS_APP_USER and PAYMENTS_APP_PASSWORD. Yes if one configuration module reads the environment for all of them and every other module takes its values from that module. No if a handler, a database client or a mail client reads the environment directly for one of those values outside that module, or if a literal host, port or credential -- localhost, 127.0.0.1, a bare 5432 or 8080, an SMTP password -- appears in application code anywhere but that module's own defaults.",
       "dimension": "internal_consistency",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.041666666666666664,
-      "rationale": "Environment configuration is scattered across service modules rather than read through one shared configuration module, and connection-related code includes literal port and host defaults. `DATABASE_URL` is read directly in the database module, SMTP variables in the mail module, payment variables in the Kill Bill module, and the listening host/port in the server entry point; no centralized public URL setting is present. This directly meets the rule\u2019s no condition for distributed `process.env` reads and literal hosts/ports beside connection calls.",
+      "weight": 0.041667,
+      "rationale": "The criterion is false. Required connection values are read directly by the database, mail, payment, and server modules instead of through one environment-reading configuration module. Literal host/port defaults also appear in those application modules, and the payment application credential names required by the rule are not implemented (ADMIN names are used instead).",
       "evidence": [
-        "server/lib/db.mjs: `const connectionString = process.env.DATABASE_URL;` and `max: Number(process.env.PG_POOL_MAX || 10)`",
-        "server/lib/mail.mjs, `transport()`: `const host = process.env.SMTP_HOST;`, `const port = Number(process.env.SMTP_PORT || 1025);`, `const user = process.env.SMTP_USER;`, and `const pass = process.env.SMTP_PASS;`",
-        "server/lib/killbill.mjs, `config()`: directly reads `process.env.PAYMENTS_API_URL`, `PAYMENTS_API_KEY`, `PAYMENTS_API_SECRET`, `PAYMENTS_ADMIN_USER`, and `PAYMENTS_ADMIN_PASSWORD`",
-        "server/index.mjs: `const PORT = Number(process.env.PORT || 4173);` and `const HOST = process.env.HOST || '0.0.0.0';`, later passed to `serve({ fetch: app.fetch, port: PORT, hostname: HOST }, ...)`",
-        "server/lib/tokens.mjs: `export const TOKEN_TTL_HOURS = Number(process.env.AUTH_TOKEN_TTL_HOURS || 72);`",
-        "Dockerfile health connection embeds `http://127.0.0.1:` and fallback port `4173`: `fetch('http://127.0.0.1:'+(process.env.PORT||4173)+'/api/health')`"
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "A source-wide `process.env` search over all 22 `.mjs` files found environment reads spread across multiple application modules rather than one configuration module: `server/lib/db.mjs`, `server/lib/mail.mjs`, `server/lib/killbill.mjs`, and `server/index.mjs` (plus unrelated TTL configuration in `server/lib/tokens.mjs`).",
+        "`server/lib/db.mjs` directly reads `process.env.DATABASE_URL` when constructing the PostgreSQL pool.",
+        "`server/lib/mail.mjs` directly reads `process.env.SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASS` when constructing the Nodemailer transport. It also contains the literal SMTP port default `1025`.",
+        "`server/lib/killbill.mjs` directly reads `process.env.PAYMENTS_API_URL`, `PAYMENTS_API_KEY`, and `PAYMENTS_API_SECRET`. It reads `PAYMENTS_ADMIN_USER` and `PAYMENTS_ADMIN_PASSWORD`, not the criterion-required `PAYMENTS_APP_USER` and `PAYMENTS_APP_PASSWORD`; a source-wide `.mjs` search found no occurrence of either required APP variable.",
+        "`server/index.mjs` directly reads `process.env.PORT` and `process.env.HOST`, with literal defaults `4173` and `0.0.0.0`. A literal search confirmed these values occur in that application module outside any centralized configuration module.",
+        "A source search for imports from a config/environment module found no application configuration module; the sole match was Astro's framework-level `defineConfig` import in `astro.config.mjs`.",
+        "Source-wide searches found no `localhost`, `127.0.0.1`, bare `5432`, or bare `8080` in application JS/MJS/JSX/Astro files, and no application HTTP/SMTP/PostgreSQL URL literals (the only Astro URL match was the SVG XML namespace). These negative checks do not cure the directly observed centralization and naming failures."
+      ]
     },
     "R26_internal_consistency": {
       "number": "R26",
@@ -621,45 +497,21 @@
       "evaluation_rule": "The four release note groups are Newly Added, Improvements, Bug Fixes and Known Issues, in that fixed order and with none invented beyond them. Yes if those four labels and their order are declared once as a single ordered constant and every module that reads or writes notes -- the seed, the downloads archive, the per-version route -- references that constant. No if the labels are spelled out again in a second module, if the seed and the renderer each carry their own copy of the ordering, or if a fifth group name appears anywhere in the source.",
       "dimension": "internal_consistency",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.041666666666666664,
-      "rationale": "The four labels are defined as the ordered `NOTE_GROUPS` constant, but the seed does not import that constant and instead repeats the group names as inline object keys, which directly triggers the rule\u2019s no condition. The API and archive pages also consume shaped release data through service functions rather than importing `NOTE_GROUPS` themselves, so the required import pattern is not met.",
+      "weight": 0.041667,
+      "rationale": "R26 is not met. Although the canonical four-item ordered constant exists and the service uses it for shaping release data, the seed module independently spells out those labels rather than referencing the constant. The rule explicitly makes such a second-module copy (and failure of the seed to reference the constant) a No; this counterexample resolves the positive criterion as false.",
       "evidence": [
-        "server/lib/releases.mjs: `export const NOTE_GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];`",
-        "server/lib/seed.mjs imports only `hashPassword` and `hashToken`; it does not import `NOTE_GROUPS`.",
-        "server/lib/seed.mjs, `RELEASES`: inline note keys include `'Newly Added'`, `Improvements`, `'Bug Fixes'`, and `'Known Issues'`.",
-        "server/api.mjs: `import * as releaseService from './lib/releases.mjs';` and release endpoints call `releaseService.listReleases`/`getRelease`, without importing `NOTE_GROUPS`.",
-        "src/pages/downloads/index.astro: `import { listReleases, newestFirmware, getProductByHandle } from '../../lib/server.js';`\u2014the archive page does not import `NOTE_GROUPS`."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "source_audit",
-      "voters": 1
+        "`server/lib/releases.mjs` declares `export const NOTE_GROUPS = ['Newly Added', 'Improvements', 'Bug Fixes', 'Known Issues'];` and uses it in `shape()` to filter/map note groups in the fixed order.",
+        "A source-wide search for the four labels found 12 matches: besides the constant declaration, `server/lib/seed.mjs` spells the group names out again as keys in its seeded `notes` objects (`Newly Added`, `Improvements`, `Bug Fixes`, and `Known Issues`). Thus the labels are not declared/referenced solely through the ordered constant.",
+        "`server/lib/seed.mjs` imports only `hashPassword` and `hashToken`; it does not import or reference `NOTE_GROUPS`, even though it writes release notes into `app_release`.",
+        "A source-wide search for `NOTE_GROUPS` found only three occurrences: its declaration and use in `server/lib/releases.mjs`, plus a re-export from `src/lib/server.js`. Neither `src/pages/downloads/index.astro` nor `src/pages/downloads/[version].astro` references it; both obtain already-shaped releases through `listReleases`, and `ReleaseBlock.astro` iterates `release.notes`.",
+        "Targeted searches show the release-note read/write sites: `server/lib/releases.mjs` reads/shapes notes, `server/lib/seed.mjs` writes seeded notes, and `src/components/ReleaseBlock.astro` renders `release.notes`. The seed's duplicated literal keys are a direct counterexample to the requirement."
+      ]
     }
   },
-  "missing_features": [
-    "/account",
-    "/account/cameras",
-    "/account/cameras/<serial>",
-    "/account/orders",
-    "/account/orders/<number>",
-    "/cart",
-    "/checkout/how-it-gets-there",
-    "/checkout/payment",
-    "/checkout/where-it-goes",
-    "/doctor",
-    "/downloads",
-    "/downloads/<version>",
-    "/orders/<number>",
-    "/orders/VE-2026-0002",
-    "/shop/<handle>",
-    "/sign-in",
-    "/sign-up"
-  ],
   "console_errors": [
     "Failed to load resource: the server responded with a status of 404 (Not Found)"
   ],
@@ -672,153 +524,66 @@
     "/logs/verifier/shots/01_shop_390x844.png"
   ],
   "meta": {
-    "grader_model": "gpt-5.6-sol",
-    "url": "http://deku-fresh-s_ecomm_comm_hardware-companion__4ztfkix-app:4173",
+    "url": "http://app:4173",
     "viewports": [
       "1920x1200",
       "768x1024",
       "390x844"
     ],
     "instruction": "/tests/instruction.md",
-    "started_at": "2026-09-05T16:46:47+00:00",
-    "harness": "run_rubric.py",
+    "started_at": "2026-09-18T07:40:12+00:00",
     "rubric_source": "/tests/rubric.json",
     "rubric_criteria": 26,
-    "evidence_first": true,
-    "probe_login_status": "logged in as customer@example.com",
-    "routing_plan": {
-      "total_criteria": 17,
-      "by_resolution": {
-        "active_acquisition": 17
-      },
-      "by_specialist": {
-        "navigation": 3,
-        "visual": 3,
-        "forms": 8,
-        "motion": 1,
-        "accessibility": 1,
-        "responsive": 1
-      },
-      "needs_active": 17,
-      "probe_settled": 0
+    "rubric_resume": {
+      "source": "/logs/verifier/prior_evidence_bundle.json",
+      "carried_forward": 16,
+      "regraded": 10,
+      "carried_criteria": [
+        "R1",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R15",
+        "R17",
+        "R2",
+        "R20",
+        "R21",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8"
+      ]
     },
-    "active_acquisition": {
-      "steps_spent": 435,
-      "total_budget": 750,
-      "remaining": 315,
-      "circuit_broken": false,
-      "criteria_acquired": 17
-    },
-    "resolution_breakdown": {
-      "human_eval": 6,
-      "active_acquisition": 10,
-      "source_audit": 10
-    },
-    "machine_resolution": {
-      "counts": {
-        "PASS": 7,
-        "FAIL": 3,
-        "INSUFFICIENT_EVIDENCE": 7,
-        "EVALUATOR_ERROR": 0
-      },
-      "criteria_total": 17,
-      "criteria_resolved": 10,
-      "criteria_unresolved": 7,
-      "coverage": 0.5882352941176471,
-      "weighted_coverage": 0.6349206349206349
-    },
-    "finished_at": "2026-09-05T17:12:04+00:00",
+    "finished_at": "2026-09-18T08:04:22+00:00",
     "routes_visited": [
       "/",
       "/account",
       "/account/cameras",
-      "/account/cameras/VA2609NRWB2Z",
-      "/account/cameras/VC2609PVDA7Q",
-      "/account/orders",
-      "/account/orders/VE-2026-0001",
-      "/account/orders/VE-2026-0004",
       "/cart",
       "/checkout/how-it-gets-there",
       "/checkout/payment",
       "/checkout/where-it-goes",
       "/doctor",
-      "/downloads",
+      "/downloads.",
       "/orders/VE-2026-0002",
+      "/orders/VE-2026-0002?access_token=hHjM9DDYBv5i3vUaB9-h0Dfvt2JMXKoG",
       "/shop",
+      "/shop/accessory-cable",
+      "/shop/cable",
+      "/shop/cable?variant=VELA-CABLE-1M",
       "/shop/case",
       "/shop/compact",
-      "/shop/compact?variant=VELA-CRICKET-GRAPHITE",
-      "/shop/cricket",
       "/shop/flagship",
       "/shop/flagship?variant=VELA-A1-GRAPHITE",
-      "/shop/mount",
-      "/shop/mount?variant=VELA-MOUNT-CLAMP",
-      "/sign-in"
+      "/shop/flagship?variant=VELA-A1-YELLOW"
     ],
-    "login_status": "logged in as customer@example.com",
-    "judge_panel": [
-      "evidence_first_specialists",
-      "machine_adjudicator"
-    ],
-    "judge_panel_source": "evidence_first_pipeline",
-    "usage": {
-      "calls": 348,
-      "model_name": "gpt-5.6-sol",
-      "input_tokens": 483229,
-      "output_tokens": 30829,
-      "cache_read_input_tokens": 740480,
-      "cache_creation_input_tokens": 0
-    },
-    "source_audit_pass": {
-      "harness": "judge_source.py (offline source audit)",
-      "grader_model": "gpt-5.6-sol",
-      "transport": "run_rubric._make_judge_llm -> JudgeCodexResponses (Codex OAuth bridge)",
-      "criteria_judged": 9,
-      "criteria": [
-        "R18",
-        "R19",
-        "R20",
-        "R21",
-        "R22",
-        "R23",
-        "R24",
-        "R25",
-        "R26"
-      ],
-      "evidence": "run app/ source tree; no browser, DOM, screenshot or console evidence",
-      "counts": {
-        "PASS": 3,
-        "FAIL": 6,
-        "INSUFFICIENT_EVIDENCE": 0
-      },
-      "resolved_by": "source_audit",
-      "completed_at": "2026-09-07T13:10:28+00:00",
-      "note": "These criteria ask about the source, which run_rubric.py cannot see, so they were graded offline against app/. judge_score is therefore not comparable to pre-merge runs for this task."
-    }
+    "login_status": "logged in as customer@example.com"
   },
   "criteria_total": 26,
-  "criteria_passed": 15,
-  "criteria_failed": 11,
-  "criteria_unresolved": 0,
-  "machine_resolution": {
-    "counts": {
-      "PASS": 15,
-      "FAIL": 11,
-      "INSUFFICIENT_EVIDENCE": 0,
-      "EVALUATOR_ERROR": 0
-    },
-    "criteria_total": 26,
-    "criteria_resolved": 26,
-    "criteria_unresolved": 0,
-    "coverage": 1.0,
-    "weighted_coverage": 1.0
-  },
-  "machine_unresolved": [],
-  "needs_human_eval": 0,
-  "evidence_first": true,
-  "review_queue": {
-    "count": 0,
-    "criteria": []
-  },
-  "needs_review": []
+  "criteria_passed": 14,
+  "criteria_failed": 12,
+  "criteria_unresolved": 0
 }

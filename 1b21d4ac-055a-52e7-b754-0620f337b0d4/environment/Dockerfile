@@ -37,7 +37,6 @@ RUN set -eux \
     && pip install --no-cache-dir \
        pytest==8.4.1 \
        pytest-json-ctrf==0.3.5 \
-      "headroom-ai>=0.24,<0.25" \
        httpx==0.28.1 \
        pyyaml==6.0.2 \
        playwright==1.49.1 \

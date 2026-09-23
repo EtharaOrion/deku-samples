@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block route %}
+{% set ns = namespace(first=None) %}
+{% for t in talents %}{% if ns.first is none and t.discipline == active_discipline %}{% set ns.first = t %}{% endif %}{% endfor %}
+{% if ns.first is none and talents %}{% set ns.first = talents[0] %}{% endif %}
+<div class="roster" x-data="roster()" data-active="{{ active_discipline or '' }}">
+
+  {% if disciplines %}
+  <div class="filter" role="group" aria-label="Filter by discipline">
+    {% for d in disciplines %}
+    <button type="button" class="filter-btn iface"
+            @click="setDiscipline('{{ d }}')"
+            :aria-pressed="active === '{{ d }}' ? 'true' : 'false'"
+            aria-pressed="{{ 'true' if d == active_discipline else 'false' }}">{{ d }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h1 class="roster-name display" x-text="currentName">{{ ns.first.name if ns.first else '' }}</h1>
+  <p class="roster-discipline" x-text="currentDiscipline">{{ ns.first.discipline if ns.first else '' }}</p>
+  <p class="roster-empty record-empty" data-state="empty" x-show="count === 0" x-cloak
+     style="text-align:center;padding-top:40vh">No talent in this discipline yet.</p>
+
+  {% if talents %}
+  <div class="roster-stage">
+    {% for t in talents %}
+    <article class="roster-slide{% if ns.first and t.id == ns.first.id %} is-current{% endif %}"
+             {% if not (ns.first and t.id == ns.first.id) %}inert aria-hidden="true"{% endif %}
+             data-discipline="{{ t.discipline }}" data-name="{{ t.name }}">
+      <div class="roster-slide-name display" aria-hidden="true">{{ t.name }}</div>
+      <p class="roster-slide-discipline" aria-hidden="true">{{ t.discipline }}</p>
+      <a class="roster-portrait" href="{{ t.href }}"
+         data-cursor-label="{{ t.name }}" aria-label="{{ t.name }}, {{ t.discipline }}">
+        {% if t.poster %}{{ m.media(t.poster, extra="reveal") }}{% endif %}
+      </a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="record-empty" data-state="empty" style="text-align:center;padding-top:40vh">No talent is on the roster yet.</p>
+  {% endif %}
+
+  <div class="vh" aria-live="polite" x-text="announce"></div>
+</div>
+{% endblock %}

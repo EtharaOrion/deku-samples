@@ -1,0 +1,41 @@
+---
+import Shell from "../../../layouts/Shell.astro";
+import NotFound from "../../../components/NotFound.astro";
+import OrderDetail from "../../../components/OrderDetail.astro";
+import { call, currentCustomer } from "../../../components/lib/api";
+
+const customer = await currentCustomer(Astro);
+if (!customer) {
+  return Astro.redirect(
+    `/sign-in?next=${encodeURIComponent(`${Astro.url.pathname}${Astro.url.search}`)}`,
+  );
+}
+
+const { number } = Astro.params;
+const answer = await call<any>(
+  Astro,
+  `/api/account/orders/${encodeURIComponent(number ?? "")}`,
+);
+if (!answer.ok) Astro.response.status = answer.status === 404 ? 404 : answer.status;
+const order = answer.ok ? answer.data : null;
+---
+
+{
+  !order ? (
+    <NotFound />
+  ) : (
+    <Shell title={`Order ${order.number}`} current="orders">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/account/orders">Your orders</a> <span aria-hidden="true">/</span>{" "}
+        <span class="mono">{order.number}</span>
+      </nav>
+
+      <header class="stack stack-2">
+        <h1 class="page-title mono">{order.number}</h1>
+        <p class="page-lede">Sent to {order.email}.</p>
+      </header>
+
+      <OrderDetail order={order} canRegister={true} />
+    </Shell>
+  )
+}

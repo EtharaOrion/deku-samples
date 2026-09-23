@@ -1,0 +1,68 @@
+---
+import Shell from "../../../layouts/Shell.astro";
+import { call, currentCustomer } from "../../../components/lib/api";
+import { usd, longDate } from "../../../components/lib/format";
+
+const customer = await currentCustomer(Astro);
+if (!customer) {
+  return Astro.redirect(
+    `/sign-in?next=${encodeURIComponent(`${Astro.url.pathname}${Astro.url.search}`)}`,
+  );
+}
+
+const cursor = Astro.url.searchParams.get("cursor");
+const answer = await call<any>(
+  Astro,
+  `/api/account/orders?page_size=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+);
+const orders = answer.ok ? (answer.data.data ?? []) : [];
+const nextCursor = answer.ok ? answer.data.next_cursor : null;
+---
+
+<Shell title="Your orders" current="orders">
+  <header class="stack stack-2">
+    <h1 class="page-title">Your orders</h1>
+    <p class="page-lede">Newest first.</p>
+  </header>
+
+  {
+    !answer.ok ? (
+      <p class="notice notice--danger" role="status">
+        That did not work.
+      </p>
+    ) : orders.length === 0 ? (
+      <p class="empty">No orders yet.</p>
+    ) : (
+      <ul>
+        {orders.map((order: any) => (
+          <li class="order-row">
+            <span class="stack stack-2">
+              <a class="mono" href={`/account/orders/${order.number}`}>
+                {order.number}
+              </a>
+              <span class="small muted">{longDate(order.placed_at)}</span>
+            </span>
+            <span class="stack stack-2">
+              <span>{order.summary}</span>
+              <span class="chip">{order.chip}</span>
+            </span>
+            <span class="tabular">
+              {usd(order.total_minor)}
+              <span class="small muted"> {String(order.currency).toUpperCase()}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  {
+    nextCursor && (
+      <p>
+        <a class="btn btn--secondary" href={`/account/orders?cursor=${encodeURIComponent(nextCursor)}`}>
+          Older orders
+        </a>
+      </p>
+    )
+  }
+</Shell>

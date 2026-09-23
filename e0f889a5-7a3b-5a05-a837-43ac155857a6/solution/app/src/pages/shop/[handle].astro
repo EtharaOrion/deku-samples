@@ -1,0 +1,410 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import NotFound from "../../components/NotFound.astro";
+import ProductRender from "../../components/ProductRender.astro";
+import { call } from "../../components/lib/api";
+import { usd, longDate, isRenderable, materialFor, materialStyle } from "../../components/lib/format";
+import type { Product, Variant, ProductBlock } from "../../components/lib/types";
+
+const { handle } = Astro.params;
+const wanted = Astro.url.searchParams.get("variant");
+const path = `/api/products/${encodeURIComponent(handle ?? "")}${
+  wanted ? `?variant=${encodeURIComponent(wanted)}` : ""
+}`;
+
+type Detail = Product & {
+  selected_variant: string;
+  variant_recognised: boolean;
+  availability: string;
+  variants: (Variant & { available: number; availability: string; price: string })[];
+  blocks: ProductBlock[];
+};
+
+const answer = await call<Detail>(Astro, path);
+
+if (!answer.ok && answer.status === 404) {
+  Astro.response.status = 404;
+}
+
+const product = answer.ok ? answer.data : null;
+// An address parameter naming a variant we do not sell falls back to the
+// default rather than erroring, and the address is corrected on arrival.
+const selected =
+  product?.variants.find((variant) => variant.sku === product.selected_variant) ??
+  product?.variants[0] ??
+  null;
+
+const lede = product?.blocks.find((block) => block.kind === "lede");
+const specs = product?.blocks.filter((block) => block.kind === "spec_group") ?? [];
+const inTheBox = product?.blocks.find((block) => block.kind === "in_the_box");
+const compatibility = product?.blocks.find((block) => block.kind === "compatibility");
+const supportNote = product?.blocks.find((block) => block.kind === "support_note");
+
+const choiceCount = product?.variants.length ?? 0;
+const asRadios = choiceCount > 1 && choiceCount <= 5;
+
+const discontinuedNote = supportNote
+  ? String(supportNote.payload.text ?? "")
+  : "We support it until " + longDate(product?.support_until) + ".";
+
+const remaining = selected?.available ?? 0;
+const stockLine = remaining > 0 && remaining <= 10 ? "Only " + remaining + " left" : "";
+const discontinued = product?.status === "discontinued";
+const buyLabel = discontinued ? "No longer sold" : remaining > 0 ? "Add to cart" : "Sold out";
+const visualDescriptions: Record<string, string> = {
+  flagship: "A wide camera body with a large circular lens and a small status light",
+  compact: "A compact camera body with a circular lens centred in its face",
+  mount: "A monitor clamp drawn as a solid upright bracket",
+  case: "A hard travel case with a raised carrying handle",
+  cable: "A coiled braided cable ending in a rectangular connector",
+};
+const visualDescription =
+  visualDescriptions[product?.handle ?? ""] ?? "A generated product render";
+const renderHandle = product && isRenderable(product.handle) ? product.handle : null;
+const finishLabel = selected?.option_value ?? "the default finish";
+
+type ViewKey = "front" | "quarter" | "detail" | "photo";
+const VIEWS: { key: ViewKey; label: string }[] = [
+  { key: "front", label: "Front" },
+  { key: "quarter", label: "Three-quarter" },
+  { key: "detail", label: "Detail" },
+  ...(renderHandle === "compact" ? [{ key: "photo" as const, label: "Photograph" }] : []),
+];
+const PHOTO_ALT = "The Vela Cricket photographed on its stand, seen from the front";
+---
+
+{
+  !product ? (
+    <NotFound />
+  ) : (
+    <Shell title={product.title} description={product.subtitle} current="shop">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/shop">Shop</a> <span aria-hidden="true">/</span> <span>{product.title}</span>
+      </nav>
+
+      <div
+        class="detail"
+        data-product
+        data-handle={product.handle}
+        data-default-variant={product.variants[0]?.sku}
+        data-default-available={selected?.available ?? 0}
+        data-recognised={String(product.variant_recognised)}
+        data-discontinued={String(discontinued)}
+      >
+        <div
+          class="detail__gallery"
+          data-gallery
+          data-description={visualDescription}
+          data-option={String(selected?.option_value ?? "").toLowerCase()}
+          style={materialStyle(selected?.option_value)}
+        >
+          <div class="detail__figure">
+            {renderHandle ? (
+              VIEWS.map((view) => (
+                <div class="detail__view" data-view={view.key}>
+                  {view.key === "photo" ? (
+                    <img src="/images/cricket-photo.png" alt={PHOTO_ALT} width="240" height="240" />
+                  ) : (
+                    <ProductRender
+                      handle={renderHandle}
+                      view={view.key}
+                      label={`${visualDescription}, ${view.label.toLowerCase()} view, shown in ${finishLabel}`}
+                    />
+                  )}
+                </div>
+              ))
+            ) : (
+              <span class="small muted">{visualDescription}</span>
+            )}
+          </div>
+          {renderHandle && (
+            <fieldset class="thumbs">
+              <legend class="visually-hidden">Views</legend>
+              {VIEWS.map((view, index) => (
+                <label class="thumb">
+                  <input type="radio" name="view" value={view.key} checked={index === 0} />
+                  <span class="thumb__face" aria-hidden="true">
+                    {view.key === "photo" ? (
+                      <img src="/images/cricket-photo.png" alt="" width="240" height="240" />
+                    ) : (
+                      <ProductRender handle={renderHandle} view={view.key} />
+                    )}
+                  </span>
+                  <span class="visually-hidden">{view.label} view</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+
+        <div class="detail__body stack stack-8">
+          {lede && <p class="page-lede">{String(lede.payload.text ?? "")}</p>}
+
+          {specs.map((block) => (
+            <section class="stack stack-3">
+              <h2 class="section-title">{String(block.payload.title ?? "Specifications")}</h2>
+              <table class="spec-table">
+                <tbody>
+                  {(block.payload.rows as [string, string][]).map(([label, value]) => (
+                    <tr>
+                      <th scope="row">{label}</th>
+                      <td class="tabular">{value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ))}
+
+          {inTheBox && (
+            <section class="stack stack-3">
+              <h2 class="section-title">In the box</h2>
+              <ul class="stack stack-2">
+                {(inTheBox.payload.items as string[]).map((item) => (
+                  <li class="checkline">{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {compatibility && (
+            <section class="stack stack-3">
+              <h2 class="section-title">Compatibility</h2>
+              <p class="muted">{String(compatibility.payload.text ?? "")}</p>
+            </section>
+          )}
+        </div>
+
+        <div class="detail__buy stack stack-6">
+          <header class="stack stack-2">
+            <h1 class="page-title">{product.title}</h1>
+            {product.subtitle && <p class="muted">{product.subtitle}</p>}
+            <p class="product-card__price tabular" data-price style="font-size: 24px">
+              {usd(selected?.price_minor ?? 0)}
+            </p>
+          </header>
+
+          {product.status === "discontinued" && (
+            <p class="notice">
+              <span class="notice__title">{discontinuedNote}</span>
+            </p>
+          )}
+
+          {product.variants.length > 1 && (
+            <fieldset class="optionset">
+              <legend class="optionset__legend">
+                {materialFor(product.variants[0]?.option_value) ? "Finish" : "Option"}
+              </legend>
+              <div class="optionset__row" role={asRadios ? undefined : "group"}>
+                {product.variants.map((variant) => {
+                  const material = materialFor(variant.option_value);
+                  return (
+                    <label class="swatch">
+                      <input
+                        type="radio"
+                        name="variant"
+                        value={variant.sku}
+                        checked={variant.sku === selected?.sku}
+                        data-variant
+                        data-price-minor={variant.price_minor}
+                        data-available={Number(variant.available ?? 0)}
+                        data-option={variant.option_value}
+                        data-material={material ?? undefined}
+                      />
+                      <span class="swatch__face">
+                        {material && (
+                          <span class="swatch__dot" style={`--dot: ${material}`} aria-hidden="true" />
+                        )}
+                        {variant.option_value ?? variant.title}
+                        {Number(variant.available ?? 0) <= 0 && (
+                          <span class="small muted">Sold out</span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+
+          <div class="stack stack-3">
+            <span class="optionset__legend" id="quantity-label">
+              Quantity
+            </span>
+            <div class="row" style="gap: calc(var(--spacing) * 4)">
+              <div class="stepper" data-stepper>
+                <button type="button" data-step="-1" aria-label="One fewer">
+                  &minus;
+                </button>
+                <output class="stepper__value" data-quantity aria-labelledby="quantity-label">
+                  1
+                </output>
+                <button type="button" data-step="1" aria-label="One more">
+                  +
+                </button>
+              </div>
+              <p class="small muted" data-stock aria-live="polite">{stockLine}</p>
+            </div>
+          </div>
+
+          <button
+            class="btn btn--primary btn--wide"
+            type="button"
+            data-add
+            disabled={discontinued || remaining <= 0}
+          >
+            {buyLabel}
+          </button>
+
+          <p class="notice notice--transient" data-added hidden role="status">
+            Added to your cart. <a href="/cart">Go to the cart</a>
+          </p>
+          <p class="field__error" data-buy-error hidden role="alert"></p>
+
+          <p class="small muted">
+            Delivery is estimated at checkout once we know where it goes.
+          </p>
+        </div>
+      </div>
+    </Shell>
+  )
+}
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-product]");
+  if (root) {
+    const productDiscontinued = root.dataset.discontinued === "true";
+    const radios = [...root.querySelectorAll<HTMLInputElement>("[data-variant]")];
+    const price = root.querySelector<HTMLElement>("[data-price]");
+    const stock = root.querySelector<HTMLElement>("[data-stock]");
+    const quantityOut = root.querySelector<HTMLElement>("[data-quantity]");
+    const stepper = root.querySelector<HTMLElement>("[data-stepper]");
+    const add = root.querySelector<HTMLButtonElement>("[data-add]");
+    const added = root.querySelector<HTMLElement>("[data-added]");
+    const failed = root.querySelector<HTMLElement>("[data-buy-error]");
+    const gallery = root.querySelector<HTMLElement>("[data-gallery]");
+
+    let quantity = 1;
+
+    const money = (minor: number) => {
+      if (!Number.isSafeInteger(minor)) throw new Error("money must use integer minor units");
+      const digits = String(Math.abs(minor)).padStart(3, "0");
+      const whole = digits.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return `${minor < 0 ? "-" : ""}$${whole}.${digits.slice(-2)}`;
+    };
+
+    const chosen = () => radios.find((radio) => radio.checked) ?? radios[0];
+    const availableFor = (variant: HTMLInputElement | undefined) =>
+      Number(variant?.dataset.available ?? root.dataset.defaultAvailable ?? 0);
+
+    /** The stepper never offers more than ten, and never more than we hold. */
+    const ceiling = () => {
+      const available = availableFor(chosen());
+      return Math.max(0, Math.min(10, available));
+    };
+
+    function paint() {
+      const variant = chosen();
+      const available = availableFor(variant);
+      const top = ceiling();
+      quantity = Math.min(Math.max(1, quantity), Math.max(1, top));
+
+      if (variant && price) price.textContent = money(Number(variant.dataset.priceMinor ?? 0));
+      if (variant && gallery) {
+        const option = variant.dataset.option ?? "the default finish";
+        gallery.dataset.option = option.toLowerCase();
+        if (variant.dataset.material) {
+          gallery.style.setProperty("--product-material", variant.dataset.material);
+        } else {
+          gallery.style.removeProperty("--product-material");
+        }
+        const description = gallery.dataset.description ?? "A generated product render";
+        for (const view of gallery.querySelectorAll<HTMLElement>(".detail__view")) {
+          const name = view.dataset.view === "quarter" ? "three-quarter" : (view.dataset.view ?? "front");
+          view.querySelector("svg")?.setAttribute(
+            "aria-label",
+            `${description}, ${name} view, shown in ${option}`,
+          );
+        }
+      }
+      if (quantityOut) quantityOut.textContent = String(quantity);
+      if (stock) {
+        stock.textContent =
+          available > 0 && available <= 10 ? `Only ${available} left` : "";
+      }
+      if (add) {
+        add.textContent = productDiscontinued
+          ? "No longer sold"
+          : available > 0
+            ? "Add to cart"
+            : "Sold out";
+        add.disabled = productDiscontinued || available <= 0;
+      }
+      stepper?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+        const delta = Number(button.dataset.step);
+        button.disabled =
+          productDiscontinued ||
+          available <= 0 ||
+          (delta < 0 ? quantity <= 1 : quantity >= top);
+      });
+    }
+
+    function writeAddress(sku: string | null) {
+      const url = new URL(window.location.href);
+      if (sku) url.searchParams.set("variant", sku);
+      else url.searchParams.delete("variant");
+      // Choosing a finish is not a new place to come back to.
+      window.history.replaceState(window.history.state, "", url);
+    }
+
+    radios.forEach((radio) =>
+      radio.addEventListener("change", () => {
+        quantity = 1;
+        writeAddress(radio.value);
+        paint();
+      }),
+    );
+
+    stepper?.addEventListener("click", (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-step]");
+      if (!button) return;
+      quantity += Number(button.dataset.step);
+      paint();
+    });
+
+    add?.addEventListener("click", async () => {
+      const variant = chosen();
+      const sku = variant?.value ?? root.dataset.defaultVariant;
+      if (!sku || !add) return;
+      add.disabled = true;
+      add.textContent = "Adding";
+      failed?.setAttribute("hidden", "");
+      try {
+        const response = await fetch("/api/cart/lines", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sku, quantity }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? "That did not work.");
+        added?.removeAttribute("hidden");
+        window.dispatchEvent(new CustomEvent("vela:cart", { detail: payload }));
+      } catch (error) {
+        if (failed) {
+          failed.textContent = error instanceof Error ? error.message : "That did not work.";
+          failed.removeAttribute("hidden");
+        }
+      } finally {
+        add.disabled = false;
+        paint();
+      }
+    });
+
+    // An unrecognised variant parameter falls back silently and is dropped.
+    if (root.dataset.recognised === "false" && root.dataset.defaultVariant) {
+      writeAddress(null);
+    }
+
+    paint();
+  }
+</script>

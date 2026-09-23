@@ -1,0 +1,128 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import CameraCard from "../../components/CameraCard.astro";
+import { call, currentCustomer, unwrapList } from "../../components/lib/api";
+import { usd, longDate } from "../../components/lib/format";
+
+const customer = await currentCustomer(Astro);
+if (!customer) {
+  return Astro.redirect(
+    `/sign-in?next=${encodeURIComponent(`${Astro.url.pathname}${Astro.url.search}`)}`,
+  );
+}
+
+// Each block is fetched on its own so one failing does not empty the page.
+const [devicesAnswer, ordersAnswer, releaseAnswer] = await Promise.all([
+  call<unknown>(Astro, "/api/account/devices?page_size=6"),
+  call<unknown>(Astro, "/api/account/orders?page_size=2"),
+  call<any>(Astro, "/api/releases?page_size=1"),
+]);
+
+const devices = devicesAnswer.ok ? unwrapList<any>(devicesAnswer.data) : [];
+const orders = ordersAnswer.ok ? unwrapList<any>(ordersAnswer.data) : [];
+const newest = releaseAnswer.ok ? unwrapList<any>(releaseAnswer.data)[0] : null;
+const lastSeen = (customer as any).last_seen_app_version ?? null;
+const behind = Boolean(newest && lastSeen && newest.version !== lastSeen);
+---
+
+<Shell title="Your account" current="account">
+  <header class="stack stack-2">
+    <h1 class="page-title">Your account</h1>
+    <p class="page-lede">{customer.email}</p>
+  </header>
+
+  {/* Cameras first, deliberately not a shop's order. */}
+  <section class="stack stack-4">
+    <div class="checkline">
+      <h2 class="section-title">Your cameras</h2>
+      <a class="btn btn--quiet" href="/account/cameras">All cameras</a>
+    </div>
+
+    {
+      !devicesAnswer.ok ? (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      ) : devices.length === 0 ? (
+        <p class="empty">No cameras registered yet.</p>
+      ) : (
+        <ul class="grid-cards">
+          {devices.map((device) => (
+            <li>
+              <CameraCard device={device} />
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+
+  <section class="stack stack-4">
+    <div class="checkline">
+      <h2 class="section-title">Recent orders</h2>
+      <a class="btn btn--quiet" href="/account/orders">All orders</a>
+    </div>
+
+    {
+      !ordersAnswer.ok ? (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      ) : orders.length === 0 ? (
+        <p class="empty">No orders yet.</p>
+      ) : (
+        <ul>
+          {orders.map((order) => (
+            <li class="order-row">
+              <span class="stack stack-2">
+                <a class="mono" href={`/account/orders/${order.number}`}>
+                  {order.number}
+                </a>
+                <span class="small muted">{longDate(order.placed_at)}</span>
+              </span>
+              <span class="stack stack-2">
+                <span>{order.summary}</span>
+                <span class="chip">{order.chip}</span>
+              </span>
+              <span class="tabular">
+                {usd(order.total_minor)}
+                <span class="small muted"> {String(order.currency).toUpperCase()}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+
+  <section class="stack stack-4">
+    <h2 class="section-title">Arranger</h2>
+    {
+      !releaseAnswer.ok || !newest ? (
+        <p class="notice notice--danger" role="status">
+          That did not work.
+        </p>
+      ) : (
+        <div class="card stack stack-3">
+          <img class="app-icon" src="/images/arranger-icon.png" alt="" width="64" height="64" />
+          <p>
+            The current version is <span class="mono">{newest.version}</span>, released on{" "}
+            {longDate(newest.released_on)}.
+          </p>
+          <p class="muted">
+            {lastSeen
+              ? behind
+                ? "This account last saw " + lastSeen + ", so there is a newer one."
+                : "This account is on the current version."
+              : "This account has not opened Arranger yet."}
+          </p>
+          <p>
+            <a class="btn btn--secondary" href="/downloads">
+              Go to downloads
+            </a>
+          </p>
+        </div>
+      )
+    }
+  </section>
+</Shell>

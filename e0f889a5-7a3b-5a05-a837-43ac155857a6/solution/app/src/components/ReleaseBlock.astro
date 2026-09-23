@@ -1,0 +1,70 @@
+---
+import { longDate, bytes } from "./lib/format";
+import { NOTE_GROUPS } from "./lib/types";
+
+interface Props {
+  release: any;
+  open: boolean;
+}
+
+const { release, open } = Astro.props;
+const notes = (release.notes ?? {}) as Record<string, string[]>;
+const noteParts = (note: string) => note.split(/(VE-\d+)/g);
+---
+
+<article class="release" data-release={release.version}>
+  <div class="release__top">
+    <details class="release__disclosure" open={open}>
+      <summary>
+        <span class="stack stack-2">
+          <span class="release__version">Arranger {release.version}</span>
+          <span class="small muted">Released on {longDate(release.released_on)}</span>
+        </span>
+      </summary>
+
+      <div class="release__body stack stack-4">
+        {release.description && <p class="muted">{release.description}</p>}
+        <p class="row" style="gap: calc(var(--spacing) * 4); flex-wrap: wrap">
+          <span class="small muted tabular">build {release.build}</span>
+          <span class="small muted tabular">{bytes(release.size_bytes)}</span>
+          <span class="small muted mono digest">{release.sha256}</span>
+        </p>
+
+        {
+          NOTE_GROUPS.map((group) =>
+            notes[group]?.length ? (
+              <section class="notes-group">
+                <h3 class="notes-group__title">{group}</h3>
+                <ul>
+                  {notes[group].map((note) => (
+                    <li>
+                      {noteParts(note).map((part) =>
+                        /^VE-\d+$/.test(part) ? (
+                          <span class="mono issue-reference">{part}</span>
+                        ) : (
+                          part
+                        ),
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null,
+          )
+        }
+
+        <p class="muted">The Vela team.</p>
+      </div>
+    </details>
+
+    <p class="release__download">
+      <a
+        class="btn btn--secondary"
+        href={`/downloads/${encodeURIComponent(release.version)}/package`}
+        data-release-download
+      >
+        Download Arranger {release.version}
+      </a>
+    </p>
+  </div>
+</article>

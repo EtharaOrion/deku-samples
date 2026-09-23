@@ -1,0 +1,112 @@
+/* One reveal, one distance, one curve. Nothing loops and nothing waits on a scroll to exist. */
+
+.reveal {
+  display: block;
+}
+
+.reveal--pending {
+  opacity: 0.08;
+  filter: blur(var(--reveal-blur));
+  transform: translateY(var(--reveal-rise));
+}
+
+.reveal--armed {
+  transition-property: opacity, filter, transform;
+  transition-duration: var(--duration-short), var(--duration-long), var(--duration-long);
+  transition-timing-function: var(--ease);
+}
+
+.reveal--resolved {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+/* The one piece of decorative motion that stays: an arrow that travels once on press. */
+.submit .mark__glyph,
+.button-quiet .mark__glyph {
+  transition-property: transform;
+  transition-duration: var(--duration-short);
+  transition-timing-function: var(--ease);
+}
+
+.submit:active .mark__glyph,
+.button-quiet:active .mark__glyph {
+  transform: translateX(var(--space-hair));
+}
+
+/* Page to page: the leaving page settles out and the arriving page resolves in, once each,
+   while the top bar stays pinned. The html class is set by script before first paint and
+   cleared on the first frame; without script nothing is ever hidden. */
+.route-public > main,
+.route-public > .site-footer,
+.route-console > main,
+.route-console > .site-footer {
+  transition-property: opacity, filter, transform;
+  transition-duration: var(--duration-page);
+  transition-timing-function: var(--ease);
+}
+
+.page-arriving .route-public > main,
+.page-arriving .route-public > .site-footer,
+.page-arriving .route-console > main,
+.page-arriving .route-console > .site-footer {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transform: translateY(var(--reveal-rise));
+}
+
+.page-leaving .route-public > main,
+.page-leaving .route-public > .site-footer,
+.page-leaving .route-console > main,
+.page-leaving .route-console > .site-footer {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transform: translateY(calc(-1 * var(--reveal-rise)));
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: none;
+    animation: none;
+    scroll-behavior: auto;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .reveal--pending,
+  .reveal--armed,
+  .reveal--resolved {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+
+  .hero__media,
+  .hero__film {
+    transform: none;
+  }
+
+  .hero__copy {
+    opacity: 1;
+  }
+
+  .page-arriving .route-public > main,
+  .page-arriving .route-public > .site-footer,
+  .page-arriving .route-console > main,
+  .page-arriving .route-console > .site-footer,
+  .page-leaving .route-public > main,
+  .page-leaving .route-public > .site-footer,
+  .page-leaving .route-console > main,
+  .page-leaving .route-console > .site-footer {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}

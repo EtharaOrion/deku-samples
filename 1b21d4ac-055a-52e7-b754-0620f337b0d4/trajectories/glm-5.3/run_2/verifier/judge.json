@@ -1,7 +1,4 @@
 {
-  "judge_score": 0.530612,
-  "advisory": true,
-  "note": "Diagnostic only. PLAN.md 1.4: judge_score never drives training. A judge-only reward is trivially gamed. The binary substep grader owns the RL reward; this score is for human review only.",
   "dimensions": {
     "R1_instruction_following": {
       "number": "R1",
@@ -9,23 +6,17 @@
       "evaluation_rule": "Yes if the message sits next to the poster in the studio editor and says the written alternative is missing. No if the message appears only as a page-level banner, or if the missing field is unnamed.",
       "dimension": "instruction_following",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.94,
-      "weight": 0.05102040816326531,
-      "rationale": "The refusal clearly identifies the missing written alternative, but its observed location is beside the record\u2019s PUBLISHED control at the top of the editor rather than beside a poster in the MEDIA section. Under the explicit evaluation rule, a page/form-level message does not satisfy R1.",
+      "weight": 0.05102,
+      "rationale": "The refusal correctly names the missing written alternative, but it fails the required location. The rule explicitly says No when the message is only page/form-level rather than beside the poster in question.",
       "evidence": [
-        "In the studio editor for held work \u201cProbe Work 7adaf665860b,\u201d attempting to enable PUBLISHED with no poster produced: \u201cA PUBLISHED RECORD NEEDS A POSTER WHOSE WRITTEN ALTERNATIVE IS NOT EMPTY.\u201d",
-        "The editor snapshot places that refusal directly after the PUBLISHED control and before SAVE / MINT PREVIEW TOKEN / BACK TO PALETTE.",
-        "The MEDIA section occurs later in the layout and says \u201cNO MEDIA ATTACHED\u201d; therefore the refusal is a record-level publishing message, not a message beside a poster in question.",
-        "The refusal does name the missing requirement (\u201cposter\u201d and \u201cwritten alternative\u201d), but it fails the criterion\u2019s required poster-adjacent placement. The record remained WORK \u00b7 HELD after the attempt."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "In the studio editor for Nova Vale, submitting a poster attachment whose ALT contained only whitespace produced the refusal text: “A POSTER CARRIES A WRITTEN ALTERNATIVE AND IT CANNOT BE EMPTY.” Thus the message explicitly names the poster and the missing written alternative.",
+        "The editor snapshot placed that role=alert in the record-level form immediately after the PUBLISHED control and before SAVE/MINT PREVIEW TOKEN/BACK TO PALETTE, while the poster/media section appeared later below BACK TO PALETTE. Therefore it was a form/page-level alert, not a message beside the poster in question.",
+        "The same placement was reproduced in the editor for Probe Talent 31050488af2a: the alert appeared in the upper record controls while the media area said “NO MEDIA ATTACHED” farther below. This confirms the error is not attached geometrically to a poster/media row."
+      ]
     },
     "R2_instruction_following": {
       "number": "R2",
@@ -33,24 +24,18 @@
       "evaluation_rule": "Yes if that reader is returned to a working public surface that says in the house's own voice that the studio is not theirs. No if the refusal reads as an error, a dead end, or a half-drawn studio the reader is left standing in.",
       "dimension": "instruction_following",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.0,
-      "weight": 0.030612244897959183,
-      "rationale": "A signed-in viewer who opens the studio is just bounced back to the sign-in form they already used, with nothing telling them the studio isn't theirs \u2014 it reads as a loop, not a decision.",
+      "weight": 0.030612,
+      "rationale": "The signed-up no-house account is not given the required deliberate refusal at the studio. It is sent to, and left at, a studio login form; the app neither returns that reader to a working public surface as the refusal nor clearly states in the house’s voice that the studio is not theirs. Under the rule, this is a dead-end/ambiguous sign-in loop rather than the required intentional denial.",
       "evidence": [
-        "no deterministic probe for composite; browser specialist required",
-        "Direct navigation to /studio reached the working branded route /studio/login, titled \u201cCirrus - Studio sign in,\u201d with email/password fields and the house-voice copy: \u201cSIGN IN IS FOR THE HOUSE'S PRODUCERS. VISITORS NEED NO ACCOUNT.\u201d",
-        "I submitted the trusted signed-up viewer credentials (viewer@example.com / deku-demo-pw-2026). The form cleared and remained at /studio/login; no refusal/redirect surface or error message became visible.",
-        "A second trusted account submission likewise remained at /studio/login, and same-origin request metadata exposed no response details sufficient to determine the intended post-auth routing.",
-        "The public site itself is operational: /, /talents, and /talents/rives rendered complete Cirrus navigation/content. However, without an authenticated signed-up reader state, the criterion\u2019s required transition from studio refusal back to a public surface could not be observed."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "Created a new account at /signup using r2.check.20260311@example.com; the signup screen explicitly said signup issues “A VIEWER WITH NO HOUSE,” and successful creation returned to the working public home surface at /.",
+        "While that newly signed-up viewer session was active, navigating to /studio redirected to /studio/login rather than to a public refusal surface.",
+        "The resulting screen was the ordinary studio sign-in form. Its only explanatory copy was “SIGN IN IS FOR THE HOUSE'S PRODUCERS. VISITORS NEED NO ACCOUNT.” It did not say that the studio was not this account’s, nor did it directly return the reader to the public site.",
+        "Attempting to sign in at that form with both the newly created viewer credentials and the supplied viewer@example.com credentials left the reader on the same /studio/login form without a visible deliberate-refusal message or public-surface return."
+      ]
     },
     "R3_instruction_following": {
       "number": "R3",
@@ -62,20 +47,14 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.99,
-      "weight": 0.030612244897959183,
-      "rationale": "The studio command palette directly displays the status word LIVE or HELD in every observed record result, adjacent to the title/slug information. Both states and both record types were verified, and measured styling confirms these are rendered text labels rather than color- or icon-only indicators.",
+      "weight": 0.030612,
+      "rationale": "The studio palette explicitly states every displayed record’s publication state using the words “LIVE” or “HELD” beside the record title. Both states and both record kinds were directly verified in screenshots, accessibility text, and DOM markup; state is not conveyed by color, icon, or position alone.",
       "evidence": [
-        "After signing in at /studio/login and opening COMMAND PALETTE, the palette visibly rendered record rows with a type, title, and textual state/slug: e.g. \u201cTALENT \u2014 Rives \u2014 LIVE \u00b7 RIVES\u201d and \u201cTALENT \u2014 Noor Vasquez \u2014 HELD \u00b7 NOOR-VASQUEZ.\u201d",
-        "Searching the palette for \u201cProbe Work\u201d produced four work rows; every result explicitly read \u201cHELD \u00b7 [slug]\u201d beside its title, including \u201cProbe Work 7adaf665860b \u2014 HELD \u00b7 PROBE-WORK-7ADAF665860B.\u201d",
-        "Searching for \u201cThe Halo\u201d produced the row \u201cWORK \u2014 The Halo \u2014 LIVE \u00b7 THE-HALO,\u201d confirming that work records in the other state also state that state in words.",
-        "Measured palette result rows were 866\u00d742 px, display:flex, with 12px text and 14.4px line-height. The selected The Halo result used light text rgb(233, 234, 228) on rgb(6, 4, 3); unselected LIVE and HELD rows both used text color rgb(6, 4, 3) on transparent backgrounds. Thus the state is present as readable text, not conveyed only through color, icon, or position.",
-        "The studio records list snapshot also exposed every loaded record link with an accessible name ending in the explicit word \u201cLIVE\u201d or \u201cHELD,\u201d and the screenshot showed those words at the right side of each record card."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "After signing in and opening /studio, the full studio record grid showed every visible record card with an explicit word state: examples include “Rives … TALENT LIVE,” “Nova Vale … TALENT HELD,” “Sonder … WORK LIVE,” and “The Quiet Room … WORK HELD.” The full-page screenshot shows the word labels across all 33 records, including both talent and work records.",
+        "Opening the command palette showed record options with state words next to their titles. Filtering to “the” produced four work rows: “The Halo — LIVE · THE-HALO,” “The Absolute Shelter — LIVE · THE-ABSOLUTE-SHELTER,” “The Radiant — LIVE · THE-RADIANT,” and “The Quiet Room — HELD · THE-QUIET-ROOM.” The viewport screenshot directly shows these labels beside the titles.",
+        "DOM inspection confirms the state is actual text, not merely color/icon/position: The Halo’s option contains `<span class=\"palette-opt-meta\">LIVE · the-halo</span>`, while The Quiet Room’s contains `<span class=\"palette-opt-meta\">HELD · the-quiet-room</span>`. Likewise, record cards have dedicated `record-state` spans whose text is `LIVE` or `HELD`.",
+        "Measured palette option boxes for The Halo and The Quiet Room were each 866×42 px and `display:flex`; the screenshot shows the title and written state within the same row. Rendered styles showed ordinary rendered text (12px, 14.4px line-height), with the selected row at rgb(233,234,228) on rgb(6,4,3) and the unselected row at rgb(6,4,3) on a transparent background—demonstrating the words remain present under differing visual states."
+      ]
     },
     "R4_ux_flow": {
       "number": "R4",
@@ -83,23 +62,18 @@
       "evaluation_rule": "Yes if the confirmation is composed in the house's own register and offers one onward move. No if it is a bare success screen, or if it puts the publish control back in front of a producer who has just used it.",
       "dimension": "ux_flow",
       "importance": "critically_important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.98,
-      "weight": 0.05102040816326531,
-      "rationale": "The observed post-publish state is the same producer form with a bare \u201cSAVED.\u201d success message and the SAVE/publishing controls still present. This directly matches the evaluation rule\u2019s negative cases, so the criterion is not satisfied.",
+      "weight": 0.05102,
+      "rationale": "The post-publish page otherwise reads as a composed ending in the house register and does not repeat the publish form, but it fails the explicit single-onward-move requirement because it offers both a return to the palette and a live-page link.",
       "evidence": [
-        "Discovered the producer route at /studio, signed in with the supplied producer credentials, and opened a held fixture record.",
-        "After changing the record's PUBLISHED checkbox and submitting SAVE, the URL remained /studio/items/itm_877c2878caab9bcc13ba and the same editing form remained visible.",
-        "The post-submit screen showed only the bare acknowledgement \u201cSAVED.\u201d while still presenting TITLE, SLUG, DISCIPLINE, PUBLISHED, the SAVE submit button, MINT PREVIEW TOKEN, and media-attachment fields.",
-        "Repeated the flow on another held fixture with the same result; the publishing/editing control remained directly in front of the producer rather than transitioning to an ending with one onward move."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Completed the producer flow with a reversible fixture: created the held talent “R4 Fixture Meridian,” encountered the publish validation message requiring a poster with non-empty written alternative, attached a 1200×1600 poster with alt text, then published.",
+        "Publishing redirected to `/studio/items/itm_84c82f8c597f3a5c709d/published`, a non-form confirmation headed “PUBLISHED” that names “R4 Fixture Meridian” and summarizes `TALENT`, `/talents/r4-fixture-meridian`, and `STYLIST`.",
+        "The confirmation does not put the publish control or editable form fields back in front of the producer.",
+        "However, the confirmation presents two onward controls side by side: `BACK TO PALETTE` (`href='/studio'`) and `SEE IT LIVE` (`href='/talents/r4-fixture-meridian'`, opening in a new tab). The rule asks one onward move."
+      ]
     },
     "R5_ux_flow": {
       "number": "R5",
@@ -107,24 +81,18 @@
       "evaluation_rule": "Yes if a producer arriving at the studio can see that typing is the next thing to do. No if the palette shares the screen with a toolbar, a sidebar or a dashboard that competes with it for the first move.",
       "dimension": "ux_flow",
       "importance": "important",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
       "is_positive": true,
       "score": 0.0,
-      "confidence": 0.98,
-      "weight": 0.030612244897959183,
-      "rationale": "The criterion\u2019s explicit negative condition is observed: the palette shares the producer\u2019s first screen with both a toolbar and a records dashboard that offer competing first moves. Although the palette has instructional copy, it is collapsed as a button and is not ready for direct typing on arrival.",
+      "weight": 0.030612,
+      "rationale": "The producer's first studio screen makes the command palette one control above a substantial records dashboard, rather than presenting the palette itself as the primary way work is done. The competing dashboard and lack of an initially focused/visible text input meet the rule's explicit No condition.",
       "evidence": [
-        "After successful producer sign-in, the first studio screen at /studio showed a full public navigation toolbar with WORKS, TALENTS, CONTACT, and ABOUT, plus a SIGN OUT button.",
-        "The same first viewport showed a RECORDS dashboard directly beneath the palette, with many large clickable talent/work cards; the palette is therefore one control among competing dashboard and navigation controls.",
-        "The palette was a 900\u00d753 button at x=40, y=208 labeled \u201cCOMMAND PALETTE / TYPE TO SEARCH RECORDS AND ACTIONS,\u201d but no search input was present until that button was clicked.",
-        "On fresh arrival, focus was on the body. Pressing the printable key \u201cn\u201d did not open the palette or enter text; the page remained unchanged. Thus typing was not immediately the next operable action.",
-        "After clicking the palette, a Search records and actions input and action/results list appeared, confirming that an explicit click is required before typing."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "After signing in as producer@example.com and arriving at /studio, the initial viewport showed a closed COMMAND PALETTE button rather than a typing field; browser focus was on <body>, so typing was not the immediate active action.",
+        "The same first viewport prominently displayed a RECORDS dashboard with a three-column grid of many talent/work cards, plus SIGN OUT and the site's WORKS/TALENTS/CONTACT/ABOUT navigation.",
+        "Pressing a letter immediately after reloading /studio did not open or filter the palette; the screen remained unchanged.",
+        "Only after clicking COMMAND PALETTE did a visible search input and action/results panel appear, confirming that an extra activation step is required before typing."
+      ]
     },
     "R6_ux_flow": {
       "number": "R6",
@@ -136,20 +104,16 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.98,
-      "weight": 0.01020408163265306,
-      "rationale": "The create route demonstrably belongs to the same visual house as the public site: it carries the same global navigation frame, custom Cirrus typography, palette, spacing, and editorial restraint through validation, creation, and confirmation. Its form controls are purpose-styled to match that system rather than appearing as generic admin UI.",
+      "weight": 0.010204,
+      "rationale": "The create route sits in the same visual system as the public site: it preserves the public frame and uses the same custom display and text faces, palette, spacing discipline, minimal line work, cursor and credit. Its fields, controls, success state and validation state are deliberately styled rather than default browser or admin components. The narrow-width overlap is a layout defect, not unrelated chrome.",
       "evidence": [
-        "The authenticated create route `/studio/talents/new` retains the same visitor-facing Cirrus frame seen on `/` and `/talents`: the `cirrus` home mark plus WORKS, TALENTS, CONTACT, and ABOUT navigation are present unchanged; the document title is `Cirrus - Studio - New talent`.",
-        "Direct computed-style comparison shows the shared home mark on both public and studio routes uses `Cirrus Display`, 24px, weight 400, with 0.48px letter spacing. Public navigation uses `Cirrus Text`, and the create form's inputs, select, CREATE button, and BACK TO PALETTE link also use `Cirrus Text`, 12px, weight 500; actions retain uppercase lettering and 0.48px tracking.",
-        "The create form is visibly restrained rather than browser-default/admin chrome: transparent inputs and select, only 1px underline borders, square 0px corners, a transparent uppercase outlined CREATE action, generous whitespace, and a large editorial display heading `NEW TALENT`.",
-        "The complete create flow was exercised. Submitting empty fields kept the user on `/studio/talents/new` and focused the required title input with a visible solid 1px focus indicator. Fixture values were then entered and submitted; the app created an unlisted/HELD talent and transitioned to its record page headed `R6 FIXTURE 20260322`, with edit, publish, preview-token, and media controls.",
-        "Creation was confirmed by returning to the Studio palette, where `R6 Fixture 20260322 / INVALID-SLUG / TALENT / HELD` appeared as a record. The supplied non-kebab slug `INVALID SLUG` was normalized to `INVALID-SLUG` during creation."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Authenticated at /studio/login and opened both /studio/talents/new and /studio/works/new. Each create route retained the same visitor-facing frame seen on / and /talents: Cirrus wordmark, WORKS/TALENTS/CONTACT/ABOUT navigation, skip link, bottom-right Site by Aube credit, and the site's custom cursor mark.",
+        "Direct style measurements show the create form uses the house typography rather than browser-default form styling: inputs use `Cirrus Text`, 12px/500 with 0.48px tracking, transparent backgrounds, zero side padding, and a restrained 1px bottom rule; CREATE uses the same Cirrus Text settings with a simple 1px outline. The wordmark remains `Cirrus Display`, 24px/400 with 0.48px tracking.",
+        "The full-page desktop capture of /studio/talents/new showed a highly restrained editorial composition: large serif NEW TALENT heading, compact uppercase explanatory copy, a narrow 520px ruled form column, large negative space, persistent top navigation, custom cursor, and corner credit. This visually aligns with the sparse public /talents composition and its matching neutral palette/type.",
+        "Completed the create interaction with fixture title `R6 House Probe 2026`. Submission created an unlisted talent and transitioned to /studio/items/itm_4ee49efd2a5a919c07a9, where the house-styled editor confirmed the record name and `TALENT · HELD`; the supplied mixed-case slug was normalized to `r6-bad-slug`. Saving produced the inline confirmation `SAVED.` without leaving the shared frame.",
+        "Validation was exercised after creation: attempting to publish without required media kept the record held and presented the inline alert `A PUBLISHED RECORD NEEDS A POSTER WHOSE WRITTEN ALTERNATIVE IS NOT EMPTY.` The alert itself retained Cirrus Text, compact 10px size, 0.4px tracking, transparent background, and no generic alert box, further demonstrating house restraint throughout the form flow.",
+        "A 390px check showed the form itself expands cleanly to viewport width with the same ruled, transparent controls and house typography. The fixed headline/navigation overlap at that width is a responsive-layout blemish, but it does not make the route resemble unrelated/default admin chrome."
+      ]
     },
     "R7_functionality": {
       "number": "R7",
@@ -157,24 +121,18 @@
       "evaluation_rule": "Yes if the resting index reads as a composed page of colourless photographs. No if a drained still is indistinguishable from a placeholder, a broken image or a loading state.",
       "dimension": "functionality",
       "importance": "critically_important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.94,
-      "weight": 0.05102040816326531,
-      "rationale": "The fully loaded resting work index consistently presents distinct, linked project photographs in a coordinated low-saturation collage. The persisted treatment after the page reached 100%, intentional overlap and varied dimensions, and successful navigation from a still to its project page make the drained imagery clearly distinguishable from a placeholder, broken image, or loading state.",
+      "score": 0.0,
+      "weight": 0.05102,
+      "rationale": "Although grayscale is explicitly authored, the live resting public work index fails the visual requirement because the reveal mechanism leaves the actual photographs fully clipped. A visitor sees blank page-coloured regions with captions, not deliberate drained stills, making them indistinguishable from images that have not arrived.",
       "evidence": [
-        "At the public `/` route in a 1440\u00d7900 viewport, the resting page displayed 13 muted, near-colourless photographic stills as a deliberately staggered and overlapping collage on a black ground; the stills had varied aspect ratios and coordinated tonal treatment rather than generic matching placeholder boxes.",
-        "The index visibly reported `100%`, and screenshots taken before and after an additional three-second wait showed the same fully composed drained collage, establishing that the drained appearance persisted after loading rather than being a transient arrival state.",
-        "The DOM exposed each still as a named work link (for example `THE HALO \u2014 001`, `SONDER \u2014 002`, through `THE QUIET ROOM \u2014 013`). The first still had class `cluster-still`, opacity `1`, and a definite 300\u00d7160 size; the second was opacity `1` at 260\u00d7260, supporting intentional varied composition rather than absent-image placeholders.",
-        "Activating the first drained still navigated successfully to `/works/the-halo`, titled `Cirrus - The Halo`, with full project metadata and previous/next work links. This directly confirms the index treatment represents loaded project artwork.",
-        "At 390\u00d7844, the same complete muted collage remained visible in a compact, intentional arrangement, with individually measured still regions and no broken-image indicators."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the public /works index at desktop width (1440×900), the first and second work entries were scrolled into view and left to settle; both image regions remained indistinguishable from the page background while only their captions (for example, “001 Sonder” and “002 The Halo”) were visible.",
+        "The DOM contains real image elements for these entries, including `<img class=\"still\" ... alt=\"Still from Sonder\">` and `<img class=\"still\" ... alt=\"Still from The Halo\">`, and the Sonder media endpoint returned HTTP 200 with `content-type: image/png`; therefore the blank presentation is not due to missing markup or a failed media response.",
+        "The served stylesheet specifies the intended treatment: `.media-tile .still { filter: saturate(0) }` and `.work-link:hover .still { filter: saturate(1) }`. However, the parent reveal tile begins at `clip-path: inset(100% 0% 0%)` and only becomes visible with `.is-revealed`. In the observed live DOM, the tiles had `data-reveal-bound=\"1\"` but did not acquire `is-revealed`, so the colourless photographs never appeared.",
+        "Repeated viewport screenshots after scrolling and waiting showed large empty pale areas where the bounded media tiles should be; the appearance reads as absent/loading content rather than a composed page of colourless photographs."
+      ]
     },
     "R8_ui_visual": {
       "number": "R8",
@@ -186,20 +144,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.97,
-      "weight": 0.030612244897959183,
-      "rationale": "The paired measured tokens are near-black `rgb(6,4,3)` with a red/warm bias and near-white `rgb(233,234,228)` with a green bias. Screenshots confirm these tokens operate as the two consistent grounds across the entry/work-index and talent-roster experiences, so the pair is deliberately matched and never presents as pure black/pure white or unrelated neutral greys.",
+      "weight": 0.030612,
+      "rationale": "Direct screenshots establish the appearance on the entry cluster, work index, and roster; observed styles and served CSS establish the exact colors and their use. The dark endpoint is subtly red-biased and the pale endpoint subtly green-biased, forming the required related warm pair rather than neutral black-on-white or unrelated temperatures.",
       "evidence": [
-        "At 1440\u00d7900, the entry route `/` screenshot shows the work-index cluster (multiple project tiles/links) on a consistently dark ground; the page does not visually read as neutral black-on-white.",
-        "Measured home/index foreground color is `rgb(233, 234, 228)`, while the paired dark token measured elsewhere in the same shell is `rgb(6, 4, 3)`. The dark token has R>G>B (6>4>3), objectively biasing it warm/red rather than neutral black.",
-        "The `/works` screenshot shows the work index on the pale ground, and a work-row link (`001 The Halo`, bounding box x=40, y=900, w=598, h=357) measures `color: rgb(6, 4, 3)`.",
-        "The `/talents` screenshot shows the roster on the same pale ground. Its roster controls and content use `rgb(6, 4, 3)`; for example DIRECTOR has bounding box x=54, y=443, w=107, h=14 and measured color/border `rgb(6, 4, 3)`.",
-        "The pale shell token was directly measured as `rgb(233, 234, 228)`. Here G>R>B (234>233>228), giving the pale surface a subtle green cast rather than pure white; the screenshots of both `/works` and `/talents` visibly show that same consistent pale ground."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "The rendered 1440×900 entry-cluster screenshot shows the authored image cluster against a near-black dark ground, with pale navigation/mark ink; the first cluster tile has a observed 300×300 px box at (120,120) and computed ink `rgb(233, 234, 228)`.",
+        "The rendered Works screenshot, after scrolling its first index entry into view, shows the work index on the pale ground; entry `001 Sonder` occupies a observed 300×337 px box at (0,282), with computed ink/border `rgb(6, 4, 3)`.",
+        "The rendered Talents screenshot shows the roster/filter composition on the same pale ground. The full roster section measures 1440×900 px and its computed ink/border is `rgb(6, 4, 3)`.",
+        "The served stylesheet defines exactly the pair `--color-dark: #060403` and `--color-light: #e9eae4`, applies the light ground/dark ink to `body`, and reverses them on `body.route-index`. Numerically, the dark is red-warmed (RGB 6,4,3, red highest), while the pale is green-warmed (RGB 233,234,228, green highest), so neither endpoint is pure black, pure white, or neutral grey.",
+        "The served markup identifies `/` as `body.route-index`, while the observed `/works` and `/talents` routes render the pale body treatment, corroborating that the entry cluster and the two indexes intentionally use opposite grounds from the same matched pair."
+      ]
     },
     "R9_ui_visual": {
       "number": "R9",
@@ -207,23 +160,19 @@
       "evaluation_rule": "Yes if the four elements sit as one arrangement under the name. No if they read as four stacked blocks, or if the name has to share the screen's weight with anything around it.",
       "dimension": "ui_visual",
       "importance": "critically_important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.91,
-      "weight": 0.05102040816326531,
-      "rationale": "The directly observed profile hero binds the person\u2019s name, role label, mark, and portrait into one centered figure-led composition. Their alignment, spacing, and containment\u2014especially the mark within the portrait\u2014do not read as four independent stacked blocks, and no neighboring element competes with the name.",
+      "score": 0.0,
+      "weight": 0.05102,
+      "rationale": "Screenshots and DOM/style evidence show that only the mark paints; the name, label and portrait are suppressed by opacity because the displayed roster article lacks the class the stylesheet requires. The four elements never read together as one figure.",
       "evidence": [
-        "On the directly reached talent profile at /talents/rives, the 1440 px-wide full-page screenshot shows a single centered hero composition: the name \u201cRives\u201d at approximately x=688, y=218, its \u201cDIRECTOR\u201d label on the same centerline at approximately x=688, y=309, then the portrait beginning at y=416 and spanning approximately x=40\u20131400, with the circular H mark centered inside it at approximately x=720, y=447.",
-        "The geometric sequence is name \u2192 label \u2192 portrait, with the mark embedded in the portrait rather than presented as a separate stacked block. The name-to-label gap is about 70 px and the label-to-portrait gap about 95 px, while the mark lies only about 31 px inside the portrait\u2019s top edge, supporting one connected arrangement.",
-        "The screenshot shows no competing large title or adjacent content around the name; only the small global navigation remains at the top. \u201cSELECTED WORK\u201d does not begin until below the large portrait, so it does not share the hero\u2019s visual weight.",
-        "The profile was opened through the roster\u2019s keyboard-focusable OPEN link. At 1440 px the roster control boxes measured DIRECTOR x=54\u2013161, PHOTOGRAPHER x=54\u2013161, and OPEN x=703\u2013737; at 1920 px OPEN moved to x=943\u2013977 and retained position:absolute/display:block, confirming a deliberately screen-composed layout rather than four ordinary document-flow blocks."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "At /talents, desktop screenshots at both 1920×1200 and 1440×900 show only the fixed navigation/filter, centre mark, counter, and credit; the talent name, discipline label, and portrait are not visually rendered. Thus the required four-element figure cannot be read as one composition.",
+        "The live roster section occupies the complete viewport (observed 1920×1200 at the large viewport and 1440×900 at the second desktop viewport), so the missing figure is not outside or below the captured section.",
+        "Rendered DOM for the section contains a single nominally active Rives article with the four relevant content pieces: `.roster-name` (“Rives”), `.roster-discipline` (“DIRECTOR”), `.roster-portrait-wrap` containing an image with alt “Portrait of Rives”, while the separate fixed centre mark is visible. However, the active article has no `current` class.",
+        "Served CSS directly explains the rendered failure: `.roster-entry:not(.current) { opacity: 0; pointer-events: none; }`. The active Rives article is shown by `x-show` but never receives `current`, so its name, label, and portrait remain transparent while the centre mark remains visible.",
+        "The issue reproduces at 390×844: screenshots show only the centre mark, both before and after selecting PHOTOGRAPHER. The DOM/visible-text state changes to Camille Ferrand, but the required name/label/portrait composition still does not paint."
+      ]
     },
     "R10_motion": {
       "number": "R10",
@@ -235,20 +184,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.96,
-      "weight": 0.030612244897959183,
-      "rationale": "The public home route contains plainly labeled links in a conventional, spatially grouped header navigation, plus repeated linked project cards. These affordances are understandable while the pointer remains parked and are not identified solely through color. The required keyboard press was captured and confirmed actual navigation.",
+      "weight": 0.030612,
+      "rationale": "A reader does not need to sweep the pointer to discover what is pressable. The public route exposes a clearly grouped top navigation at rest, and conventional card and external-link structures provide further non-color link cues. The tested WORKS item was independently confirmed to be a functional anchor by pressing it and observing navigation to `/works`.",
       "evidence": [
-        "On the public `/` route, the at-rest viewport shows a conventional header navigation group at the top: `WORKS`, `TALENTS`, `CONTACT`, and `ABOUT`, alongside the `cirrus` home link. Their shared alignment, spacing, concise destination labels, and header placement make the pressable navigation legible without pointer movement.",
-        "DOM inspection confirms the visible header items are actual destinations: `WORKS` has href `/works`, `TALENTS` has href `/talents`, and `ABOUT` has href `/about`; each reports `cursor: pointer`.",
-        "The home page also presents large, consistently arranged project-card anchors. For example, `THE HALO \u2014 001` occupies a 300\u00d7160 block and links to `/works/the-halo`; `SONDER \u2014 002` occupies a 260\u00d7260 block and links to `/works/sonder`. Their card setting and repeated collage grouping communicate pressability at rest rather than relying only on color.",
-        "Keyboard `Tab` reached the header links in the same visual/navigation sequence, and focus was clearly indicated with a solid 1px outline. Pressing Enter on `WORKS` navigated successfully from `/` to `/works`.",
-        "CDP motion capture around the required press recorded only four short opacity animations (400ms each) during route transition; link discovery itself did not require hover or pointer sweeping."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the public home route, with the pointer parked away from the controls, the at-rest screenshot visibly showed a conventional header navigation row: WORKS, TALENTS, CONTACT, and ABOUT aligned and grouped together at the top-right, plus the “cirrus” home link at top-left.",
+        "The inspected WORKS control is served as an `<a href=\"/works\" aria-label=\"Works\">`; it occupies the same 14px-high header band as TALENTS and ABOUT, confirming that setting and grouping—not a hover reveal—identify it as navigation.",
+        "Using keyboard press rather than pointer discovery, Tab reached WORKS with a visible outline and Enter navigated successfully from `/` to the public `/works` route. CDP motion capture around the press recorded the route transition (five short opacity animations), and the destination settled at `/works`.",
+        "At rest on `/works`, the current WORKS navigation item is additionally boxed, while the other top-level destinations remain visibly grouped in the same header row. Work entries are presented as repeated image-and-caption link cards such as `001 Sonder`, and the fixed lower-right external credit includes an arrow icon; these structural conventions do not depend on link color.",
+        "Rendered style for the WORKS link showed no text decoration and the site uses monochrome ink, so the positive finding is specifically based on conventional position, setting, grouping, labels, card composition, and the external-arrow signifier rather than color alone."
+      ]
     },
     "R11_functionality": {
       "number": "R11",
@@ -257,23 +201,17 @@
       "dimension": "functionality",
       "importance": "important",
       "satisfied": true,
-      "passed": false,
+      "passed": true,
       "is_positive": true,
-      "score": 0.0,
-      "confidence": 0.96,
-      "weight": 0.030612244897959183,
-      "rationale": "The evaluation rule explicitly fails the criterion if text remains unreadable after the reader stops moving. Direct scroll-and-wait testing on `/about` showed persistent, severe blur after input ceased (including after a 5-second wait), so the sharpening does not stop in a readable state attached to the reader\u2019s hand.",
+      "score": 1.0,
+      "weight": 0.030612,
+      "rationale": "The live interaction and implementation both show that sharpening follows scroll position continuously, reverses with the reader's hand, settles at the reader's stopping point, and is readable when stopped in the intended reading zone. No stepping, autonomous run-ahead, or persistent unreadability was observed.",
       "evidence": [
-        "Navigated from `/` to the About link and verified the resulting route was `/about` (`Cirrus - About`).",
-        "At 1440\u00d7900, the initial About viewport rendered its large headline content sharply. A small ArrowDown scroll produced a correspondingly small position change, confirming the page responds to incremental scroll input.",
-        "After a PageDown scroll, both body-copy blocks\u2014including \u201cWe build, we bend\u2026\u201d and \u201cFounded in Paris\u2026\u201d\u2014were visibly heavily blurred and unreadable in the captured viewport.",
-        "After scrolling stopped, I waited for the visible \u201cFounded in Paris\u201d content, then waited an additional 5 seconds and captured the viewport again. The body-copy blocks remained equally blurred and unreadable; the effect did not resolve when input stopped.",
-        "An additional small reverse scroll (ArrowUp) changed the page position but still left those body-copy blocks heavily blurred at rest."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the live /about route at 1440×900, the body copy was strongly blurred when it first entered low in the viewport after a 600px scroll; an additional 100px and then 250px made it progressively less blurred, and another 200px brought the copy to a crisp, readable state near the viewport's reading zone.",
+        "Reversing by 200px visibly restored the blur; scrolling forward by the same 200px restored the same crisp state. This demonstrates bidirectional, position-linked behavior rather than a one-way or stepped playback.",
+        "After scrolling stopped at the sharp position, a bounded wait completed and a subsequent screenshot still showed the text crisp and readable; the effect did not run ahead or leave the stopped text unreadable.",
+        "The served /static/js/cirrus.js corroborates the live behavior: one passive scroll source continuously eases `state.smooth` toward `window.scrollY` on animation frames, invokes the blur effect every frame, computes blur from the block's continuous distance to viewport center, and stops the RAF once the residual delta is under 0.4px. The filter radius is continuously calculated from 10px down to none, not advanced through discrete states."
+      ]
     },
     "R12_accessibility": {
       "number": "R12",
@@ -285,19 +223,15 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.030612244897959183,
-      "rationale": "With reduced motion turned on the About page keeps every block in exactly the same place and only loses the reveal effect; the copy is actually easier to read because it isn't blurred.",
+      "weight": 0.030612,
+      "rationale": "The comparison directly shows that reduced motion suppresses the route's animation/effect layer while preserving its content, typography, blocks, and overall composition. No content drop, layout collapse, or plain fallback was observed.",
       "evidence": [
-        "motion inventory captured; interaction is required to settle behavior",
-        "Triggered the About route from `/` with CDP motion capture active. The route resolved to `/about` and the capture recorded five opacity animations (200\u2013400 ms), establishing normal-motion behavior for the transition.",
-        "After settling, `/about` retained a fully designed page: persistent site navigation plus the address, production tagline, work/contact links, repeated CIRRUS typographic composition, manifesto copy, and large editorial typography were all present; the full-page screenshot also showed the composed multi-section layout.",
-        "The available browser controls provide no way to emulate or enable the `prefers-reduced-motion: reduce` media feature, and the page exposes no reduced-motion preference control. Therefore the required reduced-motion state could not be directly observed or compared with the normal state."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "On a fresh /about load at 1280×720 with prefers-reduced-motion: no-preference, CDP captured 113 animations, including repeated 300 ms opacity and 450 ms transform animations with staggered delays.",
+        "After switching to prefers-reduced-motion: reduce and reloading /about, the same CDP entry capture reported animation_count: 0.",
+        "The settled reduced-motion accessibility snapshot retained the designed navigation, address/contact block, mirrored typographic manifesto, both body-copy blocks, and closing CIRRUS/FOR/PICTURE/ITS/AND/MAKERS lockup. Its visible-text inventory matched the settled no-preference snapshot.",
+        "Full-page screenshots showed the same authored typographic composition and spatial ordering in both modes. The reduced version removed the blur/transform presentation from copy but did not become plain or unstyled and did not collapse the layout.",
+        "A reduced-motion scroll was also captured after entry: animation_count remained 0, while the manifesto and both prose blocks stayed visible in their designed positions."
+      ]
     },
     "R13_accessibility": {
       "number": "R13",
@@ -309,19 +243,13 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.91,
-      "weight": 0.05102040816326531,
-      "rationale": "Keyboard testing and computed-style measurements directly demonstrate a visible, offset focus indicator on pale, dark, and photographic surfaces. Its context-aware light/dark color treatment is integrated with the page palette and does not read as an unconsidered browser-default ring. This resolves the criterion as satisfied without making a broader WCAG-conformance claim.",
+      "weight": 0.05102,
+      "rationale": "Direct keyboard-focus checks and screenshots covered pale, dark, and photographic surfaces. The site deliberately switches the ring from dark on pale to pale on dark and offsets the photographic-link ring, so the focused control remains findable and the treatment reads as authored rather than an unmodified browser default. This is an observation of this criterion only, not a claim of full WCAG conformance.",
       "evidence": [
-        "Dark ground on `/`: keyboard Tab focus on the `cirrus` home link and navigation controls produced a 1px solid near-white outline (`rgb(233, 234, 228)`) with a 4px offset; the indicator was visible against the black page.",
-        "Photograph on `/`: keyboard focus on the `THE HALO \u2014 001` project tile produced the same near-white 1px solid outline with a 4px offset around the complete 300\u00d7160 photographic tile. The viewport screenshot visibly showed the outlined tile against both the image and surrounding black ground.",
-        "Pale ground on `/about`: keyboard focus on `SKIP TO CONTENT` produced a 1px solid near-black outline (`rgb(6, 4, 3)`) with a 4px offset, visibly contrasting with the pale `rgb(233, 234, 228)` surface.",
-        "Pale ground on `/talents`: keyboard focus on the `DIRECTOR` button likewise used a 1px solid near-black outline with a 4px offset. The focus colors deliberately switch between near-white on dark/photo contexts and near-black on pale contexts, rather than retaining one browser-default color."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the dark home/Works surface, keyboard Tab focus on “SKIP TO CONTENT” was visibly prominent: a pale filled control with a dark inner border and a pale outer focus edge. Computed focus styling reported `outline: rgb(233, 234, 228) solid 1px`; the screenshot clearly located the control against the black ground.",
+        "On the pale About surface, keyboard Tab focus on “SKIP TO CONTENT” used the inverse treatment. `browser_get_focused` reported `outline=solid 1px rgb(6, 4, 3)`, and the viewport screenshot showed a crisp dark rectangular focus boundary around the control on the pale ground.",
+        "For a photographic control, keyboard navigation focused the 300×300 “SONDER — 001” image link. Computed styling reported a custom pale `1px solid` outline with `outline-offset: 4px` (not the browser’s default outline), and the screenshot showed the complete rectangular ring separated from the photo edge and legible against the surrounding dark canvas. The same treatment remained clearly visible when focus moved to the much paler “THE HALO — 002” photograph."
+      ]
     },
     "R14_responsiveness": {
       "number": "R14",
@@ -329,23 +257,15 @@
       "evaluation_rule": "Yes if the name setting, the order and the sense of one talent at a time all survive the change. No if the narrow layout reads as a list, a grid or a stack that the wide layout never suggested.",
       "dimension": "responsiveness",
       "importance": "critically_important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.93,
-      "weight": 0.05102040816326531,
-      "rationale": "The name/category state, ordering, two-item pagination, and one-current-talent-at-a-time interaction all survive the desktop-to-phone resize. Narrow presentation changes control positioning but does not introduce a list, grid, or stack absent from desktop.",
+      "score": 0.0,
+      "weight": 0.05102,
+      "rationale": "Neither 02_talents_1920x1200.png nor 02_talents_390x844.png paints a name, a discipline or a portrait; both show only the navigation, the filter, a circled H and 01 / 02. With .roster-entry:not(.current) held at opacity 0, nothing survives the width change because nothing is drawn at either width.",
       "evidence": [
-        "At 1440\u00d7900 on /talents, the Director roster presented a single current talent with the category controls and a 01 / 02 counter. Keyboard ArrowRight changed the current talent from Rives (01 / 02) to Halcyon (02 / 02), establishing the Director order.",
-        "After resizing the same Halcyon state to 390\u00d7844 and refreshing refs, the page still exposed Halcyon, DIRECTOR, OPEN, HALCYON, and 02 / 02. The phone screenshot retained the same sparse, centered one-at-a-time reel composition rather than becoming a list, grid, or stacked roster.",
-        "The category/order behavior also remained consistent for Photographer: at desktop, selecting PHOTOGRAPHER yielded Camille Ferrand at 01 / 02, and ArrowRight yielded Aurora Vale QA at 02 / 02. Resizing that exact second-talent state to 390\u00d7844 preserved Aurora Vale QA and 02 / 02 in the refreshed snapshot.",
-        "Measured controls also reflowed without changing the roster model: DIRECTOR/PHOTOGRAPHER moved from x=54, y=443/475 at 1440px to x=20/103, y=12 at 390px; OPEN moved from absolute positioning at desktop to static inline-block on phone, while remaining visible. This is responsive rearrangement of the same reel, not a different roster page."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Neither 02_talents_1920x1200.png nor 02_talents_390x844.png paints a name, a discipline or a portrait; both show only the navigation, the filter, a circled H and 01 / 02. With .roster-entry:not(.current) held at opacity 0, nothing survives the width change because nothing is drawn at either width."
+      ]
     },
     "R15_responsiveness": {
       "number": "R15",
@@ -353,25 +273,19 @@
       "evaluation_rule": "Yes if everything a pointer would reveal is already present on the narrow layout. No if a caption, a colour or a title is reachable only by a hover on a surface that has no pointer.",
       "dimension": "responsiveness",
       "importance": "important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.030612244897959183,
-      "rationale": "On a phone the work is already in full colour with every title printed under it, so nothing is waiting behind a hover the device can't do.",
+      "score": 0.0,
+      "weight": 0.030612,
+      "rationale": "The phone layout does present the work as coloured imagery, but it fails the requirement that everything revealed by a pointer already be present on the narrow layout. A work title/caption is hidden until hover on the home-page tile, a gesture unavailable to a normal touch-only phone. Because the statement is conjunctive, this direct counterexample makes R15 false.",
       "evidence": [
-        "layout measurements captured",
-        "At a 390\u00d7844 viewport, the page rendered a colour-image portfolio collage with no horizontal overflow (body scroll width 390, as supplied by deterministic measurements).",
-        "The narrow-layout accessibility snapshot exposed 13 work links by title, including \u201cTHE HALO \u2014 001\u201d, \u201cSONDER \u2014 002\u201d, and \u201cTHE QUIET ROOM \u2014 013\u201d; clicking the first image card directly opened the \u201cCirrus - The Halo\u201d project page, so navigation itself was not gesture-blocked.",
-        "At both 1440\u00d7900 and 390\u00d7844, screenshots showed the colour portfolio imagery, while the work titles were not visibly printed over the collage in the captured resting/focused states.",
-        "The first card remained display:block and visibility:visible at phone width, with an on-screen box of x=32, y=333, width=81, height=43; representative first, third, and thirteenth cards were within the 390px viewport.",
-        "Keyboard focus changed the first card\u2019s appearance (outline/opacity) but did not visibly reveal a caption in the screenshot."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "At 1440×900 on `/`, the portfolio is a montage of coloured image tiles. Hovering the `Sonder — 001` tile visibly adds the overlaid caption `■ SONDER`; the tile's computed opacity also changes from 1 to 0.5.",
+        "At a fresh 390×844 load of `/` (before any synthetic hover), the same coloured montage is visible, but no work caption/title is visually shown anywhere on the montage. The screenshot shows only the images and chrome.",
+        "The narrow layout's `Sonder` tile remains a visible 81×81 link at x=32, y=333, and its markup still contains `<span class=\"cluster-caption\">Sonder — 001</span>`, so this is the same surface rather than a replaced mobile presentation. A synthetic hover at 390px makes the otherwise absent `■ SONDER` overlay appear, directly demonstrating hover-gated information on the narrow layout.",
+        "The narrow viewport has no horizontal overflow (`bodyScrollWidth` 390 at viewport width 390), so the missing caption is not merely off-screen or clipped by horizontal scrolling.",
+        "On `/works` at 390px, work captions such as ordinal `001` and title `Sonder` are visible in the index, but that does not remove the hover-only caption behavior on the phone-width home portfolio surface."
+      ]
     },
     "R16_motion": {
       "number": "R16",
@@ -379,23 +293,18 @@
       "evaluation_rule": "Yes if the change reads as one object turning a page. No if the reader is left waiting on a dimmed screen, or if the fade is indistinguishable from a slow response.",
       "dimension": "motion",
       "importance": "important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.96,
-      "weight": 0.030612244897959183,
-      "rationale": "The repeated, deterministic 400 ms fade-out followed directly by a 400 ms fade-in reads as one continuous page-turn-like transition. Its total designed cadence is about 800 ms, starts immediately, and contains no dead interval that could be mistaken for a slow response.",
+      "score": 0.0,
+      "weight": 0.030612,
+      "rationale": "The normal timing is intentionally leisurely, but the fade is coupled to navigation before the destination is ready. Under a slow response it completes its fade-out and leaves the reader on an effectively blank/dimmed screen for seconds, with no distinct loading treatment. Therefore the same fade is indistinguishable from the site being slow, which the rule explicitly marks as a failure.",
       "evidence": [
-        "Direct CDP captures across public-route transitions (/works\u2192/talents, /talents\u2192/about, /about\u2192/works, /works\u2192/works/the-halo, and adjacent project routes) consistently recorded a coordinated two-phase opacity transition: outgoing elements fade for 400 ms, then incoming elements begin at approximately the 400 ms boundary and fade for 400 ms.",
-        "The captures also show a short 200 ms ease-out opacity treatment beginning immediately on navigation; there is no animation delay or long inactive hold before the transition starts.",
-        "For /works/the-halo\u2192/works/sonder, the outgoing opacity animations start at 190320.367 ms and the incoming animations at 190720.3 ms\u2014about 400 ms apart\u2014demonstrating a deliberate handoff rather than an unexplained dim-screen pause. The same pattern repeats for /works/sonder\u2192/works/binary.",
-        "Destination content and URL settled successfully after each interaction (including Cirrus - Talents, Cirrus - About, Cirrus - The Halo, Cirrus - Sonder, and the BINARY/003 destination), with no observed stalled or persistent dimmed state."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On normal public-route changes (Talents→Works and About→Works), CDP captured the outgoing opacity animations at 400 ms and the incoming opacity animations beginning about 450 ms later, also lasting 400 ms. With an immediate response this produces an approximately 0.85 s staged fade.",
+        "When the /works response was held for 3 seconds and About→Works was triggered, the outgoing 200/400 ms opacity animations started immediately, before the destination response was available.",
+        "During that held response, the immediate snapshot still had the /about URL/title while the visible route heading had changed to WORKS, and the captured viewport was effectively faded to almost nothing except the persistent WORKS navigation label. The incoming 400 ms opacity animations did not begin until over 5.3 seconds after the outgoing animations (start times about 99,233 ms versus 104,550 ms).",
+        "After the held response completed, SONDER appeared and the route settled; the route interceptor was then cleared."
+      ]
     },
     "R17_instruction_following": {
       "number": "R17",
@@ -407,20 +316,16 @@
       "passed": true,
       "is_positive": true,
       "score": 1.0,
-      "confidence": 0.98,
-      "weight": 0.030612244897959183,
-      "rationale": "The enquiry channel is consistently findable through shared site chrome across the sampled public listing, profile/detail, and informational routes. It resolves to one house-owned email address and explicitly directs users to write instead of presenting a form. This satisfies R17.",
+      "weight": 0.030612,
+      "rationale": "The enquiry channel is prominent in persistent public chrome across all checked public route types and resolves consistently to the house email address, `prod@example.com`. Interaction initiates email composition, and the site explicitly offers no enquiry form, satisfying the criterion.",
       "evidence": [
-        "On public routes `/`, `/works`, `/talents`, `/about`, and `/works/the-halo`, the shared chrome exposed a visible `CONTACT` button.",
-        "Opening `CONTACT` on `/` revealed exactly one enquiry link, `PROD@EXAMPLE.COM`, with `href='mailto:prod@example.com'`, plus the explicit text `NO FORM. WRITE TO US.` and no input fields.",
-        "Opening the same chrome control on `/talents` produced the same single email address and `NO FORM. WRITE TO US.` message.",
-        "The public `/works`, `/about`, and `/works/the-halo` route content also showed `PROD@EXAMPLE.COM`; the link was directly verified as `mailto:prod@example.com` on `/works` and `/about`.",
-        "The contact overlay had a `CLOSE` button and closed successfully, confirming a complete reversible interaction rather than a submission flow."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "On the rendered home, Works, and About pages, the persistent top navigation exposes a clearly named CONTACT control; the footer also exposes WORK WITH US and PROD@EXAMPLE.COM.",
+        "Activating CONTACT produced a same-page browser request to `mailto:prod@example.com` (recorded as an expected aborted external-protocol navigation), rather than navigating to an enquiry form.",
+        "The rendered About route's footer email has `href='mailto:prod@example.com'`, directly confirming the destination address.",
+        "Server-rendered markup was checked across `/`, `/works`, `/talents`, `/about`, `/works/sonder`, `/talents/noor-vasquez`, and a 404 route. Every route category carries the same chrome: CONTACT plus a contact/footer link to the single house address `prod@example.com`.",
+        "The shared contact markup explicitly says `NO FORM. WRITE TO US.` and contains no enquiry fields; the checked rendered routes likewise exposed no enquiry form controls.",
+        "The talent detail additionally presents a content-level CONTACT link to the same `mailto:prod@example.com`, consistent with rather than competing with the chrome address."
+      ]
     },
     "R18_functionality": {
       "number": "R18",
@@ -428,24 +333,18 @@
       "evaluation_rule": "Yes if the sentence reads as written by the house and does not read as a failure. No if it reads as an error string, a placeholder, or a developer's stub.",
       "dimension": "functionality",
       "importance": "important",
-      "satisfied": true,
-      "passed": true,
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "score": 1.0,
-      "confidence": 0.0,
-      "weight": 0.030612244897959183,
-      "rationale": "The emptied roster shows a written sentence in plain English rather than an error or a leftover placeholder, though it's the plainest of the site's empty-state lines.",
+      "score": 0.0,
+      "weight": 0.030612,
+      "rationale": "The sentence is a plain system/status description of publication state, using generic product terminology (“No talent is published... yet”). It does not read in the house's authored register and is effectively placeholder-style empty-state copy. Therefore the positive requirement is not met, even though the message is not a technical error string.",
       "evidence": [
-        "no deterministic probe for composite; browser specialist required",
-        "The public `/talents` route rendered a populated roster (e.g. \u201cRives\u201d under DIRECTOR and \u201cCamille Ferrand\u201d under PHOTOGRAPHER), so the emptied-roster state was not present for direct inspection.",
-        "A direct same-origin GET to `/api/talents` returned four published talents; therefore the current fixture cannot naturally expose the required empty-roster confirmation.",
-        "The supplied producer authentication state is LOGIN FAILED, and attempted management-route discovery (`/admin`, `/producer`, `/dashboard`, `/manage/talents`) produced the branded not-found page rather than an authenticated roster form. Thus the reversible remove/restore flow and its empty-state confirmation could not be performed.",
-        "Although `/api/talents?discipline=cinematographer` returned `[]`, `/talents?category=cinematographer` ignored that unsupported category and displayed the populated DIRECTOR roster; no user-facing empty sentence was rendered."
-      ],
-      "human_eval": "yes",
-      "machine_status": "PASS",
-      "resolved_by": "human_eval",
-      "voters": 1
+        "Constructed an emptied public roster by signing in as the Cirrus producer, changing all three published talents (Rives, Halcyon, and Camille Ferrand) from PUBLISHED to held, and saving each change.",
+        "At /talents after the final save, the roster contained no talent cards and directly rendered: “No talent is published in this discipline yet.”",
+        "The delivered template app/templates/talents.html confirms this is the roster's generic empty-state text: `<p class=\"empty-state\">No talent is published in this discipline yet.</p>`.",
+        "The fixture was reversed: Rives, Halcyon, and Camille Ferrand were republished, and /studio confirmed all three were LIVE again."
+      ]
     },
     "R19_functionality": {
       "number": "R19",
@@ -454,22 +353,17 @@
       "dimension": "functionality",
       "importance": "somewhat_important",
       "satisfied": true,
-      "passed": false,
+      "passed": true,
       "is_positive": true,
-      "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.01020408163265306,
-      "rationale": "R19 requires reserved spaces to read as part of the work-index composition with no spinner, shimmer, or dimension markings, and rejects loading furniture absent from the finished page. The directly observed work-index loading state includes an obvious central spinner and a blurred skeleton-like strip that disappear from the finished index, so the positive criterion is not met.",
+      "score": 1.0,
+      "weight": 0.010204,
+      "rationale": "Both a delayed mid-load entry state and a forced media-unavailable work-index state preserved authored index composition rather than exposing page-construction furniture. The reserved spaces are the final media placements/proportions and carry none of the disallowed spinner, shimmer, or dimension annotations. The static three-square/ellipse marks are normal finished-page chrome, not loading indicators.",
       "evidence": [
-        "Direct cold-load screenshot of `/works?cold=r19` at 1440\u00d7900 showed a distinct black segmented spinner centered in a largely blank page.",
-        "The same mid-load screenshot showed a long blurred placeholder/skeleton-like strip near the bottom, while the real project list was not yet visually presented.",
-        "After loading, the full-page `/works` view displayed the actual spaced work index entries `001 The Halo` through `013 The Quiet Room`; the centered spinner and blurred strip are not part of that finished index composition.",
-        "A second cache-busted navigation to `/works?cold=r19b` reproduced an active loading/entrance phase, so the observed intermediary was not inferred solely from static DOM content."
-      ],
-      "human_eval": "yes",
-      "machine_status": "FAIL",
-      "resolved_by": "active_acquisition",
-      "voters": 1
+        "Constructed an in-flight state on the entry route by delaying every `/api/media/` response for 15 seconds and navigating to a fresh query URL. The immediate 1440×900 capture remained an authored, overlapping mosaic of differently sized image fields with the normal Cirrus chrome and central ellipse; it showed no spinner, shimmer, dimension labels, or generic skeleton bars/cards.",
+        "Constructed the work-index fallback more aggressively by forcing every `/api/media/` response to HTTP 503, then scrolling into the list. The visible reserved areas retained the index's large spacing and real captions (`001 Sonder`, `002 The Halo`) plus its normal static three-square centre mark. There was no loading spinner, shimmer, dimensions, or substitute skeleton furniture.",
+        "Served `/works` markup already contains the final work entries, captions, variants, intrinsic image width/height, and aspect-ratio media containers. The stylesheet reserves those authored proportions with `.media-tile { aspect-ratio: var(--ar) }`; no skeleton component or loading dimensions are present.",
+        "The stylesheet's entry loading treatment is a plain dark veil plus a percentage counter over the actual absolutely positioned `.cluster-still` composition. The underlying tiles are the finished index tiles themselves, not a separate set of skeleton cards."
+      ]
     },
     "R20_scope_discipline": {
       "number": "R20",
@@ -477,22 +371,18 @@
       "evaluation_rule": "A dependency is a package named in the manifest's runtime dependency block -- requirements.txt, the pyproject project dependencies, or the package.json dependencies -- not a transitive lock entry and not a development-only tool such as a linter, formatter or test runner. The permitted set is Flask, its Jinja template layer, Alpine.js, a PostgreSQL driver and a production WSGI server, together with the direct requirements of those five; a password hashing routine is a direct requirement of the authentication the brief mandates and is never a violation on its own. Yes if every runtime dependency falls inside that set. No if the manifest declares any package outside it -- a second datastore client such as a Redis, MongoDB, SQLite or MySQL driver, a cache client, a task queue, an object-store SDK, a search library, a mail-sending library, an identity-provider or OAuth SDK, or an image-processing, rasterisation, font-tooling, compression or array-computation library standing beside the five.",
       "dimension": "scope_discipline",
       "importance": "somewhat_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 1.0,
-      "weight": 0.01020408163265306,
-      "rationale": "The runtime dependency manifest declares Pillow, fonttools, and brotli in addition to Flask, PostgreSQL, and Gunicorn. The rule explicitly classifies image-processing, font-tooling, and compression libraries standing beside the permitted stack as violations, so these three packages independently require a No verdict.",
+      "weight": 0.010204,
+      "rationale": "The criterion is false because the runtime manifest contains three explicitly disallowed direct packages: Pillow (image processing), fonttools (font tooling), and brotli (compression). One such extra package is sufficient to fail the positive requirement; here there are three. The manifest also does not name Alpine.js, though a vendored `static/js/alpine.min.js` exists, which does not repair the manifest requirement.",
       "evidence": [
-        "requirements.txt:runtime dependencies -- \"pillow==11.3.0\"",
-        "requirements.txt:runtime dependencies -- \"fonttools==4.64.0\"",
-        "requirements.txt:runtime dependencies -- \"brotli==1.1.0\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "The delivered source tree contains a single runtime dependency manifest at `/app/requirements.txt`; no `pyproject.toml` or `package.json` appears in the complete source listing.",
+        "`requirements.txt` directly declares: `flask==3.1.0`, `psycopg[binary,pool]==3.2.3`, `pillow==11.3.0`, `gunicorn==23.0.0`, `fonttools==4.64.0`, and `brotli==1.1.0`.",
+        "Pillow, fonttools, and brotli are direct runtime declarations, not transitive lock entries or development-only tools. The rule expressly excludes image-processing, font-tooling, and compression libraries standing beside the permitted stack.",
+        "The Dockerfile copies `requirements.txt` and runs `pip install --no-cache-dir -r requirements.txt`, confirming these declarations are installed as application runtime dependencies."
+      ]
     },
     "R21_scope_discipline": {
       "number": "R21",
@@ -500,31 +390,21 @@
       "evaluation_rule": "A module implements a capability when it defines a route, a table, a model or a service function for it, not when a word merely appears in a comment or in a copy string. Yes if the tree defines no cart, pricing or payment code, no comment, like, share, rating or view-counter store, no site-search index or search route, no newsletter or mail-sending routine, no chat widget, and no analytics library beyond the site's own page-view counter; the mailto link to the house's contact address and the generated share card with its document metadata are the brief's own surfaces and are never violations. No if the tree defines a comments or reactions table, a likes or favourites endpoint, a full-text search route or index, an SMTP or transactional-mail sender, a chat or support widget, or a bundled third-party analytics script standing alongside the page-view counter.",
       "dimension": "scope_discipline",
       "importance": "somewhat_important",
-      "is_positive": true,
-      "machine_status": "PASS",
       "satisfied": true,
       "passed": true,
+      "is_positive": true,
       "score": 1.0,
-      "confidence": 0.98,
-      "weight": 0.01020408163265306,
-      "rationale": "The complete tree defines none of the prohibited commerce, reaction, search-index, mail-sending, chat, or third-party analytics capabilities. Its only analytics implementation is the expressly permitted first-party page-view counter, implemented as an in-process count with two routes. The schema contains only houses, accounts, items, media, credits, preview tokens, and slug redirects, while the client loads only the application's script and Alpine.js rather than a second analytics library.",
+      "weight": 0.010204,
+      "rationale": "every observed part held (5/6); unobserved parts were not contradicted: Every browser-observable surface supports the requirement, including public routes, representative forbidden route probes, the complete served app bundle, runtime origins, and the authenticated producer CMS. However, browser-only access cannot directly enumerate the backend repository's module tree, database tables/models, or unexposed service functions, so the absolute tree-wide absence claim is only partially verifiable rather than fully resolved.",
       "evidence": [
-        "app/routes.py:_page_views -- \"_page_views = {\\\"count\\\": 0}\"",
-        "app/routes.py:analytics_pageview -- \"@bp.post(\\\"/api/analytics/pageview\\\")\"",
-        "app/routes.py:analytics_pageview -- \"_page_views[\\\"count\\\"] += 1\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS houses (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS accounts (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS items (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS media (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS credits (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS preview_tokens (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS slug_redirects (\"",
-        "app/templates/base.html:scripts -- \"<script defer src=\\\"/static/js/cirrus.js\\\"></script>\"",
-        "app/templates/base.html:scripts -- \"<script defer src=\\\"/static/js/alpine.min.js\\\"></script>\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "Direct server responses for the public route set (`/`, `/works`, `/talents`, `/about`, and `/works/sonder`) expose only the portfolio, talent roster, project media/credits, the allowed `mailto:prod@example.com` contact surface, and first-party `/api/media/...` assets. No cart, prices, checkout/payment, comments/reactions/likes/shares/ratings/view counters, search, newsletter, sender, or chat controls/routes are linked in the served markup.",
+        "Direct route probes returned JSON 404 `{\"error\":\"not found\"}` for `/api/search`, `/api/cart`, `/api/comments`, `/api/likes`, `/api/ratings`, `/api/share`, `/api/newsletter`, `/api/contact`, `/api/chat`, `/api/payments`, `/api/favourites`, `/api/favorites`, `/api/reactions`, `/api/views`, `/api/checkout`, `/api/prices`, and `/api/mail`; page probes `/search`, `/cart`, `/newsletter`, and `/checkout` also returned the generic HTTP 404 page.",
+        "The complete served first-party application bundle `/static/js/cirrus.js` defines portfolio navigation, media/reels, producer authentication and studio CRUD for only work/talent items, media, credits, ordering, publishing, and preview tokens. Its sole analytics call is the site's own `POST /api/analytics/pageview`; it defines no commerce, interaction-store, site-search, newsletter/mail-sender, or chat service function.",
+        "The page source loads only `/static/js/cirrus.js` and the local UI framework `/static/js/alpine.min.js`; runtime network metadata recorded 58 requests to exactly one origin, with no bundled or contacted third-party analytics service.",
+        "After authenticating through the discovered `/studio/login`, the producer desk and direct `/api/studio/items` response expose records of only `kind: talent` and `kind: work`. The item editor exposes only title/slug/variant/publish, generated media, credits, ordering, and preview-token features—no prohibited capability appeared in producer-visible data or controls.",
+        "partially observed: 5/6 parts checked",
+        "not observed: Direct repository-wide enumeration of backend modules, route declarations, database tables/models, and private service functions that are neither served to the browser nor reachable through known routes."
+      ]
     },
     "R22_scope_discipline": {
       "number": "R22",
@@ -532,34 +412,19 @@
       "evaluation_rule": "A file is reached when a route table, a model, a template, a settings module, the seed module, or something itself reached imports, renders, extends, includes or links it; entry points, configuration files, migrations, the seed, USER_README.md and deployment files are reached by definition. Yes if every remaining source file in the tree is reached that way, template partials, stylesheets and scripts included. No if the tree carries framework scaffolding the checklist never asked for -- an unused blueprint, an empty admin or moderation module, a generated boilerplate view -- or a helper, template, stylesheet or script that nothing imports, renders or links.",
       "dimension": "scope_discipline",
       "importance": "important",
+      "satisfied": false,
+      "passed": false,
       "is_positive": true,
-      "machine_status": "PASS",
-      "satisfied": true,
-      "passed": true,
-      "score": 1.0,
-      "confidence": 0.96,
-      "weight": 0.030612244897959183,
-      "rationale": "All non-exempt source and asset files in the supplied complete manifest are connected to the application. The app entry point registers both route modules; those routes render the page templates, which extend the base template and include every SVG mark. The base template links the stylesheet, application script, Alpine.js, fonts, and share image, while the stylesheet or JavaScript references the grain image. The remaining helpers are imported by reached modules, and the asset-building and font-fetching scripts are invoked by deployment files; no unused blueprint, boilerplate view, helper, template, stylesheet, or script is present.",
+      "score": 0.0,
+      "weight": 0.030612,
+      "rationale": "The file graph itself is substantially connected, but R22 expressly requires that no unreferenced helper survive unused. Multiple direct whole-tree counterexamples remain (`make_thumbnail`, `close_pool`, `mid`, `now_iso`, plus the unused `HEX32` constant). Because the requirement is conjunctive, any one of these unused survivors conclusively makes the criterion false even though the route, template, asset, schema, build, and deployment files are otherwise reached.",
       "evidence": [
-        "app/main.py:create_app -- \"app.register_blueprint(routes_mod.bp)\"",
-        "app/main.py:create_app -- \"app.register_blueprint(pages_mod.bp)\"",
-        "app/pages_routes.py:view -- \"return render_template(template, **ctx)\"",
-        "app/templates/base.html:template inheritance target -- \"<link rel=\\\"stylesheet\\\" href=\\\"/static/css/cirrus.css\\\">\"",
-        "app/templates/base.html:scripts -- \"<script defer src=\\\"/static/js/cirrus.js\\\"></script>\"",
-        "app/templates/base.html:scripts -- \"<script defer src=\\\"/static/js/alpine.min.js\\\"></script>\"",
-        "app/templates/base.html:share asset -- \"<meta property=\\\"og:image\\\" content=\\\"{{ public_url }}/static/media/share.png\\\">\"",
-        "app/templates/base.html:font assets -- \"<link rel=\\\"preload\\\" href=\\\"/static/fonts/cirrus-display.woff2\\\" as=\\\"font\\\" type=\\\"font/woff2\\\" crossorigin>\"",
-        "app/templates/base.html:mark include -- \"{% block centre_mark %}{% include 'marks/entry.svg' %}{% endblock %}\"",
-        "app/templates/about.html:mark include -- \"<span class=\\\"lockup-mark\\\">{% include 'marks/lockup.svg' %}</span>\"",
-        "app/templates/works.html:mark include -- \"{% block centre_mark %}{% include 'marks/works.svg' %}{% endblock %}\"",
-        "app/templates/talents.html:mark include -- \"{% block centre_mark %}{% include 'marks/talents.svg' %}{% endblock %}\"",
-        "static/css/cirrus.css:grain asset -- \"background-image: url(\\\"/static/media/grain.png\\\");\"",
-        "Dockerfile:asset scripts -- \"&& python3 scripts/fetch_fonts.py \\\\\\n && python3 scripts/build_assets.py \\\\\"",
-        "app/seed.py:SCHEMA_PATH -- \"SCHEMA_PATH = __file__.replace(\\\"seed.py\\\", \\\"\\\") + \\\"../migrations/schema.sql\\\"\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "The delivered tree contains 49 files. Route/template reachability is broadly wired: `app/main.py` registers `routes.bp` and `pages_routes.bp`; `pages_routes.py` renders every HTML template; all five SVG partials are included by templates; and `base.html` links `static/css/cirrus.css`, `static/js/cirrus.js`, `static/js/alpine.min.js`, both font files, and `static/media/share.png`.",
+        "Build/deployment reachability is also explicit: `Dockerfile` invokes both `scripts/fetch_fonts.py` and `scripts/build_assets.py`; `entrypoint.sh` invokes `build_assets.py`; that builder imports `app.pixels` and emits `grain.png` and `share.png`; `pixels.py`, the stylesheet, and `cirrus.js` consume the grain asset. The schema is reached by `seed.py` through `SCHEMA_PATH`, and `main.py` invokes `seed.run()`.",
+        "However, a whole-tree Python search for `make_thumbnail|now_iso|mid\\(|HEX32|never_cached|_cluster_specs|first_of|close_pool|transaction\\(|mint_token|sign_token|seed_int|gradient\\(|_prng|share_image|preload_grain` shows `app/pixels.py:def make_thumbnail(...)` only at its declaration and no caller anywhere in the delivered Python tree.",
+        "The same search shows `app/db.py:def close_pool()` only at its declaration, with no import or call anywhere else in the delivered Python tree.",
+        "It also shows additional surviving unused code: `app/routes.py: HEX32 = \"0123456789abcdef\"` appears only at its declaration, while `app/seed.py:def mid(...)` and `app/seed.py:def now_iso()` likewise appear only at their declarations."
+      ]
     },
     "R23_scope_discipline": {
       "number": "R23",
@@ -567,28 +432,19 @@
       "evaluation_rule": "A committed asset file is any image, moving-image, typeface or icon file present in the delivered source tree -- extensions such as .png, .jpg, .jpeg, .gif, .webp, .avif, .mp4, .webm, .mov, .woff, .woff2, .ttf, .otf, .ico, and a standalone .svg kept as its own file rather than written into the markup -- with node_modules and lockfiles excluded; vector geometry written inline in a template, SVG filter definitions and CSS gradients are not files and are never violations. Yes if no such file exists anywhere in the tree and the still and reel routines each derive their output in source from the seed stored on the media row they belong to. No if the tree carries a photograph, a placeholder or share image, a grain tile written out as a raster, a favicon, a sprite sheet, a video file, a typeface file, or a mark kept as a separate vector file, whether it sits in a static directory or in a generated-output directory that ships with the build, or if a still or reel routine reads pixels from a shipped file rather than deriving them from that row's stored seed.",
       "dimension": "scope_discipline",
       "importance": "critically_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 1.0,
-      "weight": 0.05102040816326531,
-      "rationale": "The delivered tree contains multiple prohibited committed asset files: two PNG rasters, two WOFF2 typefaces, and five standalone SVG marks. In addition, generated imagery is not exclusively derived from the seed on its own media row: the still generator blends pixels loaded from the shipped grain PNG, and the browser reel fetches the poster media rather than deriving frames from the reel row's stored seed. Any one of these conditions is sufficient for a No verdict.",
+      "weight": 0.05102,
+      "rationale": "Served source shows several prohibited binary assets: two font files, a raster grain tile and a raster share image. The reel source also loads raster inputs rather than deriving every visual component solely from the media row's stored seed.",
       "evidence": [
-        "static/media/grain.png:committed raster -- \"static/media/grain.png  (37070 bytes)\"",
-        "static/media/share.png:committed raster -- \"static/media/share.png  (13630 bytes)\"",
-        "static/fonts/cirrus-display.woff2:committed typeface -- \"static/fonts/cirrus-display.woff2  (67444 bytes)\"",
-        "static/fonts/cirrus-text.woff2:committed typeface -- \"static/fonts/cirrus-text.woff2  (48568 bytes)\"",
-        "app/templates/marks/entry.svg:standalone vector mark -- \"<svg class=\\\"mark mark-entry\\\" width=\\\"41\\\" height=\\\"18\\\" viewBox=\\\"0 0 41 18\\\" fill=\\\"none\\\" aria-hidden=\\\"true\\\">\"",
-        "app/templates/marks/works.svg:standalone vector mark -- \"<svg class=\\\"mark mark-works\\\" width=\\\"14\\\" height=\\\"18\\\" viewBox=\\\"0 0 14 18\\\" fill=\\\"none\\\" aria-hidden=\\\"true\\\">\"",
-        "app/pixels.py:_grain_tile -- \"_grain_cache = Image.open(\\\"/app/static/media/grain.png\\\").convert(\\\"RGB\\\")\"",
-        "app/pixels.py:make_still -- \"base = Image.blend(base, g.convert(\\\"RGB\\\"), 0.05)\"",
-        "static/js/cirrus.js:makeReel -- \"still.src = `/api/media/${fig.dataset.poster}`;\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "Raw server markup for `/` explicitly preloads two standalone typeface files: `/static/fonts/cirrus-display.woff2` and `/static/fonts/cirrus-text.woff2`. Direct source requests returned HTTP 200 binary responses (67,444 and 48,568 bytes, `application/octet-stream`).",
+        "The served stylesheet `/static/css/cirrus.css` defines both `@font-face` rules using those `.woff2` files and also references `background-image: url(\"/static/media/grain.png\")`. A direct request to `/static/media/grain.png` returned HTTP 200, `image/png`, 37,070 bytes.",
+        "Raw markup advertises `/static/media/share.png` as the Open Graph image. Directly requesting that path returned HTTP 200, `image/png`, 13,731 bytes, confirming a standalone shipped raster share asset.",
+        "The served reel source in `/static/js/cirrus.js` loads its poster via `still.src = /api/media/${fig.dataset.poster}` and additionally loads the shipped raster with `img.src = '/static/media/grain.png'`; it then uses the poster in `ctx.drawImage(...)` and the grain object in the reel drawing path. Thus the reel routine is not exclusively asset-free seed-derived artwork in source.",
+        "The favicon itself is inline as a data-URL SVG, and page marks are inline SVG, but those compliant details do not cure the explicit PNG and WOFF2 violations."
+      ]
     },
     "R24_internal_consistency": {
       "number": "R24",
@@ -596,30 +452,19 @@
       "evaluation_rule": "A naming convention is the casing and word form an identifier takes -- snake_case, kebab-case, CamelCase, singular or plural -- not the everyday word chosen for a thing. Prose, comments, user-facing copy and CSS class names are outside this criterion, and calling one entity an item in one place and a record or an entry in another is a vocabulary choice, not a second convention; the brief itself uses all three words, so that alone is never a violation. Yes if module file names, model or table names and template file names each follow one convention across the whole tree, and the context keys handed to templates follow one convention and name the same value the same way wherever that value is passed. No if template file names mix snake_case with kebab-case or CamelCase, if module file names mix conventions with each other, if models and their tables follow different conventions from one another, or if one and the same value reaches two templates under two different context keys.",
       "dimension": "internal_consistency",
       "importance": "important",
-      "is_positive": true,
-      "machine_status": "PASS",
       "satisfied": true,
       "passed": true,
+      "is_positive": true,
       "score": 1.0,
-      "confidence": 0.98,
-      "weight": 0.030612244897959183,
-      "rationale": "The tree consistently uses lowercase snake_case for multiword Python module names and template filenames, while database table names consistently use lowercase plural/collective snake_case; there are no model classes whose names conflict with their tables. Template context keys are likewise snake_case and stable: shared house/document values are always passed as `public_url`, `house_name`, `contact_email`, and `route_name`, while repeated studio item rendering uses `item` consistently. Singular and plural keys such as `work`/`works` and `talent`/`talents` reflect singular versus collection values rather than inconsistent names for the same value. No module or template filename mixes in kebab-case or CamelCase, and no same value is shown reaching different templates under different context keys.",
+      "weight": 0.030612,
+      "rationale": "The source directly covers every naming surface in R24. Modules and templates consistently use lowercase snake_case filenames, persisted table identifiers consistently use lowercase plural snake_case, there is no competing model class layer, and render context keys consistently use lowercase snake_case with stable names for repeated values. No mixed kebab-case/CamelCase filename convention or conflicting context alias was found.",
       "evidence": [
-        "app/pages_routes.py:view -- \"ctx.setdefault(\\\"public_url\\\", request.host_url.rstrip(\\\"/\\\"))\"",
-        "app/pages_routes.py:view -- \"ctx.setdefault(\\\"house_name\\\", h[\\\"name\\\"])\"",
-        "app/pages_routes.py:view -- \"ctx.setdefault(\\\"contact_email\\\", h[\\\"contact_email\\\"])\"",
-        "app/pages_routes.py:view -- \"ctx.setdefault(\\\"route_name\\\", route)\"",
-        "app/pages_routes.py:studio_item -- \"return view(\\\"studio_item.html\\\", \\\"studio-item\\\", item=item_shape(row),\"",
-        "app/pages_routes.py:studio_published -- \"return view(\\\"studio_published.html\\\", \\\"studio-published\\\", item=item_shape(row), addr=addr, carrying=carrying)\"",
-        "app/pages_routes.py:work -- \"return view(\\\"work_detail.html\\\", \\\"work-detail\\\", work=w,\"",
-        "app/pages_routes.py:talent -- \"return view(\\\"talent_detail.html\\\", \\\"talent-detail\\\", talent=t)\"",
-        "app/main.py:create_app -- \"from . import pages_routes as pages_mod\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS preview_tokens (\"",
-        "migrations/schema.sql:tables -- \"CREATE TABLE IF NOT EXISTS slug_redirects (\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "The delivered source tree was enumerated under /app. All Python module filenames use lowercase/snake_case word form (including pages_routes.py, build_assets.py, and fetch_fonts.py); a whole-tree search for kebab-case or CamelCase .py filenames returned no matches.",
+        "All HTML template filenames use lowercase/snake_case word form (including not_found.html, work_detail.html, talent_detail.html, studio_login.html, studio_new.html, studio_item.html, and studio_published.html); a whole-tree search for kebab-case or CamelCase .html filenames returned no matches.",
+        "migrations/schema.sql defines all seven tables with consistent lowercase plural/snake_case names: houses, accounts, items, media, credits, preview_tokens, and slug_redirects. Source search found no ORM/model classes, so there is no separate model-naming surface that conflicts with the tables.",
+        "app/pages_routes.py centralizes template rendering through view(template, route, **ctx), consistently providing shared context keys public_url, house_name, contact_email, and route_name. Its complete set of page renders uses lowercase/snake_case context keys: stills, works, gallery_variants, work, talents, disciplines, talent, items, kind, item, media, credits, addr, carrying, and record.",
+        "Repeated values keep the same context key where passed to multiple templates: works is the collection on the works page while work is the individual detail value; talents/talent follow the same plural-collection and singular-detail convention; item is used for both studio_item.html and studio_published.html; gallery_variants is consistently named; and every page receiving shared house/contact/URL/route data receives it under the same four shared keys. Direct inspection of all templates confirmed"
+      ]
     },
     "R25_internal_consistency": {
       "number": "R25",
@@ -627,24 +472,15 @@
       "evaluation_rule": "The house-scoping decision is the rule that a studio caller reaches only records whose house matches their own account's house, and that a foreign record is answered exactly as a missing one. Yes if that rule is written once -- a single decorator, dependency, query helper or base query -- and every studio read path and every studio write path reaches its record through it. No if two or more studio handlers each carry their own inline house comparison, if the read paths use one mechanism and the write paths another, or if any studio handler loads a record without passing through that single unit.",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.05102040816326531,
-      "rationale": "The API defines the reusable `owned_item` helper and uses it for many studio writes and reads, but server-rendered studio read paths restate the house predicate inline instead of passing through that unit. In particular, both `pages_routes.studio_item` and `pages_routes.studio_published` independently query `id` plus `acc[\"house_id\"]`; therefore two or more handlers carry their own house comparison and the read and write surfaces do not universally use the single helper.",
+      "weight": 0.05102,
+      "rationale": "owned_item at app/app/routes.py:267-272 is never imported by the studio page module. app/app/pages_routes.py:162-163 and :178-179 compare the house inline, and :213 loads the item with no house predicate at all.",
       "evidence": [
-        "app/routes.py:owned_item -- \"SELECT * FROM items WHERE id = %s AND house_id = %s\"",
-        "app/routes.py:studio_patch -- \"row = owned_item(acc, item_id)\"",
-        "app/routes.py:studio_publish -- \"row = owned_item(acc, item_id)\"",
-        "app/pages_routes.py:studio_item -- \"row = db.query(\\\"SELECT * FROM items WHERE id=%s AND house_id=%s\\\",\"",
-        "app/pages_routes.py:studio_published -- \"row = db.query(\\\"SELECT * FROM items WHERE id=%s AND house_id=%s\\\",\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "owned_item at app/app/routes.py:267-272 is never imported by the studio page module. app/app/pages_routes.py:162-163 and :178-179 compare the house inline, and :213 loads the item with no house predicate at all."
+      ]
     },
     "R26_internal_consistency": {
       "number": "R26",
@@ -652,25 +488,15 @@
       "evaluation_rule": "The four derived values are the displayed ordinal, the roster's discipline set, a talent's selected work, and a work's neighbours. Yes if each is computed by exactly one helper that every caller in the tree uses, and none of the four is also persisted. No if any of the four is recomputed inline in a second module, route or template, if two helpers compute the same value, or if the schema carries a stored ordinal, discipline-set, selected-work or neighbour column, index or cache holding one of them.",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 0.99,
-      "weight": 0.05102040816326531,
-      "rationale": "Although the schema does not persist these derived fields and `reads.py` contains helpers for them, at least the ordinal and neighbour derivations are duplicated outside those helpers. `studio_published` enumerates published works and formats an ordinal inline rather than using `_ordinal_list`, while `api_work` calculates next and previous neighbours inline even though `reads.work_by_slug` separately performs the same wraparound calculation. Either duplication is a No condition under the rule.",
+      "weight": 0.05102,
+      "rationale": "_ordinal_list at app/app/reads.py:13-19 is not the only path to an ordinal: app/app/pages_routes.py:183-189 re-queries published membership and formats the position inline.",
       "evidence": [
-        "app/reads.py:_ordinal_list -- \"r[\\\"ordinal\\\"] = f\\\"{i + 1:03d}\\\"\"",
-        "app/pages_routes.py:studio_published -- \"for i, r in enumerate(rows):\"",
-        "app/pages_routes.py:studio_published -- \"ordinal = f\\\"{i + 1:03d}\\\"\"",
-        "app/reads.py:work_by_slug -- \"w[\\\"next\\\"] = rows[(i + 1) % len(rows)] if len(rows) > 1 else None\"",
-        "app/routes.py:api_work -- \"target[\\\"next\\\"] = rows[(idx + 1) % len(rows)] if len(rows) > 1 else None\"",
-        "app/routes.py:api_work -- \"target[\\\"prev\\\"] = rows[(idx - 1) % len(rows)] if len(rows) > 1 else None\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "_ordinal_list at app/app/reads.py:13-19 is not the only path to an ordinal: app/app/pages_routes.py:183-189 re-queries published membership and formats the position inline."
+      ]
     },
     "R27_internal_consistency": {
       "number": "R27",
@@ -678,23 +504,19 @@
       "evaluation_rule": "The identifier is the thirty-two character lowercase hexadecimal token carried by the media row's id and by the preview token's token column. Yes if one helper mints it and both models call that helper, so the length, the case and the alphabet have one definition in source. No if each model builds its own token with its own uuid4 hex, token_hex or urandom expression, if the minting length literal appears at more than one site, or if the two tables mint by different routines.",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 1.0,
-      "weight": 0.05102040816326531,
-      "rationale": "Media IDs and preview-token values are minted independently with repeated `secrets.token_hex(16)` expressions, so the 16-byte/32-lowercase-hex convention has two literal definition sites rather than one shared helper. Seeded media IDs additionally use the separate deterministic `hex32` routine, reinforcing that media identifiers and preview tokens do not universally flow through one minting helper.",
+      "weight": 0.05102,
+      "rationale": "The criterion explicitly rejects separate per-model `token_hex` expressions and any repeated minting-length literal. Runtime media IDs and preview tokens are minted at two distinct sites, each directly calling `secrets.token_hex(16)`, so the 32-character lowercase-hex convention does not have a single source definition.",
       "evidence": [
-        "app/routes.py:studio_media -- \"media_id = secrets.token_hex(16)\"",
-        "app/routes.py:studio_preview_token -- \"token = secrets.token_hex(16)\"",
-        "app/seed.py:hex32 -- \"return hashlib.sha1(\\\":\\\".join(parts).encode()).hexdigest()[:32]\"",
-        "app/seed.py:seed_media_for -- \"\\\"id\\\": hex32(\\\"media\\\", kind, slug, \\\"poster\\\"),\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "Delivered source `app/routes.py` independently mints media IDs at line 469 with `media_id = secrets.token_hex(16)` and independently mints preview tokens at line 550 with `token = secrets.token_hex(16)`.",
+        "A source-wide grep for `secrets\\.token_hex\\(16\\)` returned exactly those two separate minting sites in `app/routes.py`, proving that the length-setting literal `16` is repeated rather than owned by one helper.",
+        "The media value is inserted into `media.id` at lines 473–475, while the preview value is inserted into `preview_tokens.token` at lines 553–555.",
+        "`migrations/schema.sql` confirms these are the relevant columns: `media.id text PRIMARY KEY` and `preview_tokens.token text NOT NULL UNIQUE`.",
+        "A source-wide helper search found no shared helper called by both routes. `app/seed.py` has a separate deterministic `hex32(*parts)` helper used only for seeded media, while runtime media and preview creation still use their own direct `secrets.token_hex(16)` expressions."
+      ]
     },
     "R28_internal_consistency": {
       "number": "R28",
@@ -702,40 +524,21 @@
       "evaluation_rule": "An instant is any stored or serialised timestamp -- created_at, published_at, expires_at -- and the boundary is the single place a slug is normalised. Yes if every timestamp is produced and stored in UTC through one convention, a slug is lowercased once at that one boundary before it is stored or compared, and every model, seed routine and serialiser applies both conventions identically. No if some modules take a naive local-time now while others take a UTC-aware one, if a slug is lowercased in a route handler in one place and in a model or the seed in another, or if any lookup compares a slug without lowercasing, so that Rives and rives could diverge.",
       "dimension": "internal_consistency",
       "importance": "critically_important",
-      "is_positive": true,
-      "machine_status": "FAIL",
-      "satisfied": true,
+      "satisfied": false,
       "passed": false,
+      "is_positive": true,
       "score": 0.0,
-      "confidence": 0.98,
-      "weight": 0.05102040816326531,
-      "rationale": "UTC-aware Python timestamps and PostgreSQL `timestamptz` are used, but slug normalization is not confined to one boundary and is not applied identically throughout the tree. Storage handlers call `kebab`, while three separate read helpers independently call `slug.lower()`; seed lookups compare slugs directly with `slug=%s`, and the schema\u2019s uniqueness constraint is on the unnormalized stored value. Thus slug lowercasing is repeated across handlers/helpers and some lookups do not lowercase, satisfying explicit No conditions.",
+      "weight": 0.05102,
+      "rationale": "The positive composite requirement is false. Although the database uses timestamptz and the explicit Python clocks are UTC-aware, timestamp values are produced by both PostgreSQL `now()` and Python `datetime.now(timezone.utc)` and serialized at separate call sites without one enforcing UTC convention. More decisively, slug lowercasing is duplicated across the write helper and several comparison/lookup sites, while seeds rely on already-lowercase literals and exact comparisons. Therefore the conventions are not applied identically through one boundary in every model/seed/serializer that touches them.",
       "evidence": [
-        "app/routes.py:studio_create -- \"slug = kebab(data.get(\\\"slug\\\") or title)\"",
-        "app/routes.py:studio_slug -- \"new_slug = kebab(data.get(\\\"slug\\\") or \\\"\\\")\"",
-        "app/reads.py:work_by_slug -- \"if w[\\\"slug\\\"] == slug.lower():\"",
-        "app/reads.py:talent_by_slug -- \"if t[\\\"slug\\\"] == slug.lower():\"",
-        "app/reads.py:resolve_slug -- \"AND i.published\\\"\\\"\\\", (house, kind, slug.lower()), one=True)\"",
-        "app/seed.py:run -- \"SELECT id FROM items WHERE house_id=%s AND kind='work' AND slug=%s\"",
-        "migrations/schema.sql:items_slug_unique -- \"CONSTRAINT items_slug_unique UNIQUE (house_id, kind, slug)\""
-      ],
-      "resolved_by": "source_audit",
-      "human_eval": "yes",
-      "voters": 1
+        "Source-wide timestamp search found all persisted timestamp columns in migrations/schema.sql as PostgreSQL timestamptz, but timestamp production is not applied through one identical convention: schema defaults and publishing use database now() (migrations/schema.sql; app/routes.py:435), while seeds produce published_at with datetime.now(timezone.utc) (app/seed.py:75, 165-211), and preview expiry is also produced in Python with datetime.now(timezone.utc) (app/routes.py:551). No connection/session",
+        "Timestamp serialisation is split across direct `.isoformat()` calls rather than a shared UTC serialiser: item_shape serialises published_at at app/routes.py:294, while preview creation serialises expires_at separately at app/routes.py:556. Thus the code does not establish one shared conversion that forces every serialised instant to UTC.",
+        "Slug handling is not a single normalization boundary. Writes call `kebab`, which strips and lowercases in app/routes.py:311-315 and is invoked independently by create (line 330), patch comparison (line 376), and slug-change (line 397). Reads then lowercase again in app/reads.py:61 and :72, and resolve_slug lowercases each lookup parameter at :108 and :114 while also applying SQL `lower(...)` to stored item and redirect slugs.",
+        "The schema only comments that the application writes lowercased slugs; it has no lowercase CHECK constraint (migrations/schema.sql items and slug_redirects definitions). Seed routines insert lowercase slug literals directly and perform exact, non-normalized slug comparisons in app/seed.py:192-194 and :213, which is a convention distinct from the route normalizer.",
+        "Runtime verification confirms mixed-case public lookups currently resolve: `/talents/RIVES` rendered Rives and `/works/THE-HALO` rendered The Halo. This demonstrates case-insensitive behavior for those paths, but source inspection shows it is achieved by repeated lookup normalization, not the required single boundary."
+      ]
     }
   },
-  "missing_features": [
-    "/preview/{token}",
-    "/signup",
-    "/studio",
-    "/studio/items/{id}",
-    "/studio/items/{id}/published",
-    "/studio/login",
-    "/studio/talents/new",
-    "/studio/works/new",
-    "/talents/camille-ferrand",
-    "/talents/rives"
-  ],
   "console_errors": [
     "Failed to load resource: the server responded with a status of 404 (NOT FOUND)",
     "Failed to load resource: the server responded with a status of 404 (NOT FOUND)",
@@ -776,169 +579,79 @@
     "/logs/verifier/shots/08_works_nve_390x844.png"
   ],
   "meta": {
-    "grader_model": "gpt-5.6-sol",
-    "url": "http://deku-fresh-s_conte_dire_talent-roster-reel__ttdqbbk-app:4173",
+    "url": "http://app:4173",
     "viewports": [
       "1920x1200",
       "768x1024",
       "390x844"
     ],
     "instruction": "/tests/instruction.md",
-    "started_at": "2026-09-07T22:23:07+00:00",
-    "harness": "run_rubric.py",
+    "started_at": "2026-09-18T10:57:18+00:00",
     "rubric_source": "/tests/rubric.json",
     "rubric_criteria": 28,
-    "evidence_first": true,
-    "probe_login_status": "LOGIN FAILED as producer@example.com -- no sign-in form found. Tried /signin, /sign-in, /login, /log-in and the home page nav; none exposed a password field. This is a grader routing failure, not evidence about the app.",
-    "routing_plan": {
-      "total_criteria": 19,
-      "by_resolution": {
-        "active_acquisition": 19
-      },
-      "by_specialist": {
-        "visual": 4,
-        "navigation": 1,
-        "forms": 8,
-        "motion": 3,
-        "accessibility": 1,
-        "responsive": 2
-      },
-      "needs_active": 19,
-      "probe_settled": 0
+    "rubric_resume": {
+      "source": "/logs/verifier/prior_evidence_bundle.json",
+      "carried_forward": 22,
+      "regraded": 6,
+      "carried_criteria": [
+        "R1",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16",
+        "R17",
+        "R19",
+        "R2",
+        "R21",
+        "R23",
+        "R25",
+        "R26",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8",
+        "R9"
+      ]
     },
-    "active_acquisition": {
-      "steps_spent": 802,
-      "total_budget": 1400,
-      "remaining": 598,
-      "circuit_broken": false,
-      "criteria_acquired": 19
-    },
-    "resolution_breakdown": {
-      "active_acquisition": 15,
-      "human_eval": 4,
-      "source_audit": 9
-    },
-    "machine_resolution": {
-      "counts": {
-        "PASS": 10,
-        "FAIL": 5,
-        "INSUFFICIENT_EVIDENCE": 4,
-        "EVALUATOR_ERROR": 0
-      },
-      "criteria_total": 19,
-      "criteria_resolved": 15,
-      "criteria_unresolved": 4,
-      "coverage": 0.7894736842105263,
-      "weighted_coverage": 0.8095238095238094
-    },
-    "finished_at": "2026-09-07T23:24:38+00:00",
+    "finished_at": "2026-09-18T11:11:43+00:00",
     "routes_visited": [
       "/",
-      "/?r19=reload2",
       "/about",
-      "/admin",
-      "/api/auth/session",
-      "/api/talents",
-      "/api/talents?discipline=cinematographer",
-      "/dashboard",
-      "/login",
-      "/manage/talents",
       "/preview/{token}",
-      "/producer",
       "/signup",
       "/static/css/cirrus.css",
       "/static/media/share.png",
       "/studio",
-      "/studio/items/80f9186fa3c82139a54d",
-      "/studio/items/80f9186fa3c82139a54d/published",
-      "/studio/items/itm_42c4872f413a4158533b",
-      "/studio/items/itm_4fe4725f906e4f3e9143",
-      "/studio/items/itm_6a7156661a4c35638113",
-      "/studio/items/itm_877c2878caab9bcc13ba",
-      "/studio/items/itm_ce7fd1046c5968c9b7d6",
+      "/studio/items",
+      "/studio/items/24766958ef12bf80b906",
+      "/studio/items/50349e2c4c6d9a1c89d4",
+      "/studio/items/50349e2c4c6d9a1c89d4/published",
+      "/studio/items/826c076e47f1e518f277",
+      "/studio/items/ab41569ad77e6ccf0e89",
+      "/studio/items/fb591cc8970e05675419/published",
+      "/studio/items/itm_bf250a1c1d73ac0cdd09.",
       "/studio/login",
-      "/studio/signup",
-      "/studio/talents/new",
-      "/studio?reorder=1",
       "/talents",
       "/talents.",
-      "/talents/aurora-vale-qa",
-      "/talents/rives",
-      "/talents?category=cinematographer",
+      "/talents/RIVES",
+      "/talents/rives:",
       "/works",
+      "/works/THE-HALO",
       "/works/binary",
       "/works/common-ground",
-      "/works/new",
       "/works/nve",
       "/works/sonder",
-      "/works/the-halo",
-      "/works?cold=r19",
-      "/works?cold=r19b"
+      "/works/the-halo"
     ],
-    "login_status": "LOGIN FAILED as producer@example.com -- no sign-in form found. Tried /signin, /sign-in, /login, /log-in and the home page nav; none exposed a password field. This is a grader routing failure, not evidence about the app.",
-    "judge_panel": [
-      "evidence_first_specialists",
-      "machine_adjudicator"
-    ],
-    "judge_panel_source": "evidence_first_pipeline",
-    "usage": {
-      "calls": 642,
-      "model_name": "gpt-5.6-sol",
-      "input_tokens": 1281147,
-      "output_tokens": 51397,
-      "cache_read_input_tokens": 3487104,
-      "cache_creation_input_tokens": 0
-    },
-    "source_audit_pass": {
-      "purpose": "Second judging pass covering the criteria merged from tests/code_rubric.json. These ask about the source tree, which the browser pass has no access to, so they were judged against <run>/app/ rather than through Playwright evidence.",
-      "grader_model": "gpt-5.6-sol",
-      "transport": "codex bridge (Responses API)",
-      "evidence": "run app/ source tree (node_modules, vendor wheels, lockfiles and binaries excluded)",
-      "criteria_judged": [
-        "R20",
-        "R21",
-        "R22",
-        "R23",
-        "R24",
-        "R25",
-        "R26",
-        "R27",
-        "R28"
-      ],
-      "counts": {
-        "PASS": 3,
-        "FAIL": 6,
-        "INSUFFICIENT_EVIDENCE": 0
-      },
-      "resolved_by": "source_audit",
-      "reweighted_all_criteria": true,
-      "resolution_basis": "passed is not None -- this run had a human_eval pass that sets passed/satisfied but leaves score null; the score-keyed formula would drop those verdicts",
-      "finished_at": "2026-09-08T19:16:32+00:00"
-    }
+    "login_status": "Login could not be completed as producer@example.com - no sign-in form was found. Tried /signin, /sign-in, /login, /log-in and the home page nav; none exposed a password field. This reflects a routing complication in the run, not evidence about the app."
   },
   "criteria_total": 28,
-  "criteria_passed": 16,
-  "criteria_failed": 12,
-  "criteria_unresolved": 0,
-  "machine_resolution": {
-    "counts": {
-      "PASS": 16,
-      "FAIL": 12,
-      "INSUFFICIENT_EVIDENCE": 0,
-      "EVALUATOR_ERROR": 0
-    },
-    "criteria_total": 28,
-    "criteria_resolved": 28,
-    "criteria_unresolved": 0,
-    "coverage": 1.0,
-    "weighted_coverage": 1.0
-  },
-  "machine_unresolved": [],
-  "needs_human_eval": 0,
-  "evidence_first": true,
-  "review_queue": {
-    "count": 0,
-    "criteria": []
-  },
-  "needs_review": []
+  "criteria_passed": 11,
+  "criteria_failed": 17,
+  "criteria_unresolved": 0
 }

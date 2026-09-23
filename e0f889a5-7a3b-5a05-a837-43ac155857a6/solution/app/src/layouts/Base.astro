@@ -1,0 +1,88 @@
+---
+import "../components/styles/tokens.css";
+import { env } from "../server/env";
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+  ground?: "light" | "dark";
+  skipTo?: string;
+  skipLabel?: string;
+  video?: { src: string; width: number; height: number } | undefined;
+  image?: { src: string; width: number; height: number; alt: string } | undefined;
+}
+
+const {
+  title,
+  description = "Vela Electronics designs, builds and sells two cameras direct.",
+  ground = "light",
+  skipTo = "#content",
+  skipLabel = "Skip to content",
+  video,
+  image = {
+    src: "/images/share-1200x630.jpg",
+    width: 1200,
+    height: 630,
+    alt: "The table in the Vela workshop, seen from above.",
+  },
+} = Astro.props;
+
+const origin = env.publicUrl.replace(/\/+$/, "");
+const canonical = `${origin}${Astro.url.pathname}`;
+const shareImage = `${origin}${image.src}`;
+const shareTitle = Astro.url.pathname === "/" ? "Vela Electronics" : `${title} | Vela Electronics`;
+---
+
+<!doctype html>
+<html lang="en" class={ground === "dark" ? "ground-dark" : "ground-light"}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content={ground === "dark" ? "dark" : "light"} />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={shareTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="Vela Electronics" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={shareImage} />
+    <meta property="og:image:width" content={String(image.width)} />
+    <meta property="og:image:height" content={String(image.height)} />
+    <meta property="og:image:alt" content={image.alt} />
+    {
+      video && (
+        <>
+          <meta property="og:video" content={`${origin}${video.src}`} />
+          <meta property="og:video:width" content={String(video.width)} />
+          <meta property="og:video:height" content={String(video.height)} />
+        </>
+      )
+    }
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={shareTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={shareImage} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="/fonts/vela-grotesque-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/vela-grotesque-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+  </head>
+  <body>
+    <a class="skip-link" href={skipTo}>{skipLabel}</a>
+    <slot />
+  </body>
+</html>

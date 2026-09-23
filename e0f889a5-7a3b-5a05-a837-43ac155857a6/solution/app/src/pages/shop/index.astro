@@ -1,0 +1,71 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { call, unwrapList } from "../../components/lib/api";
+import type { Product } from "../../components/lib/types";
+
+// The grid is editorial: the server orders it and the page does not re-sort,
+// and there is deliberately no search and no filter.
+const answer = await call<unknown>(Astro, "/api/products?page_size=50");
+const products = answer.ok ? unwrapList<Product & {
+  from_price_minor: number;
+  price_varies: boolean;
+  availability: string;
+}>(answer.data) : [];
+const broke = !answer.ok;
+const cameras = products.filter((product) => product.kind === "camera");
+const accessories = products.filter((product) => product.kind !== "camera");
+---
+
+<Shell title="Shop" description="Cameras, accessories and spares built by Vela." current="shop">
+  <header class="stack stack-3">
+    <h1 class="page-title">Shop</h1>
+    <p class="page-lede">
+      Everything we make, in the order we would show it to you across the table.
+    </p>
+  </header>
+
+  {
+    broke && (
+      <p class="notice notice--danger" role="status">
+        That did not work.
+      </p>
+    )
+  }
+
+  <ul class="grid-cards grid-cards--cameras" aria-label="Cameras">
+    {
+      cameras.map((product) => (
+        <li><ProductCard product={product} /></li>
+      ))
+    }
+  </ul>
+
+  {
+    accessories.length > 0 && (
+      <ul class="grid-cards grid-cards--accessories" aria-label="Accessories and spares">
+        {accessories.map((product) => (
+          <li><ProductCard product={product} compact /></li>
+        ))}
+      </ul>
+    )
+  }
+
+  {
+    !broke && products.length === 0 ? (
+      <div class="empty" data-empty>
+        <p>Nothing is on the table right now.</p>
+        <a href="/downloads">Go to downloads</a>
+      </div>
+    ) : (
+      /* The state the catalogue falls back to travels with the page, so the
+         markup carries it whether or not anything is on the table. */
+      <template data-empty-state>
+        <div class="empty" data-empty>
+          <p>Nothing is on the table right now.</p>
+          <a href="/downloads">Go to downloads</a>
+        </div>
+      </template>
+    )
+  }
+</Shell>

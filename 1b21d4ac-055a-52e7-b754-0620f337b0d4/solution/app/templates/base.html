@@ -1,0 +1,107 @@
+{% import "_macros.html" as m %}<!doctype html>
+<html lang="en" class="route-{{ route }}">
+<head>
+  <script>document.documentElement.classList.add("js");</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <meta name="description" content="{{ description }}">
+  {% if route in ["preview", "not-found"] %}<meta name="robots" content="noindex, nofollow">{% endif %}
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:image" content="{{ public_url }}/share.svg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}?v={{ static_version }}">
+  <link rel="icon" href="data:,">
+  <script defer src="{{ url_for('static', filename='js/site.js') }}?v={{ static_version }}"></script>
+  <script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
+</head>
+<body>
+  <a class="skip" href="#route-outlet">Skip to content</a>
+
+  {# The centre mark: one variant per route, below the frame and above content,
+     decorative and hidden from assistive technology. #}
+  <div class="centremark" aria-hidden="true">
+    {% if route == "works" %}
+      <svg viewBox="0 0 14 18" height="18" role="presentation"><rect x="0" y="0" width="4" height="18"/><rect x="5" y="0" width="4" height="18"/><rect x="10" y="0" width="4" height="18"/></svg>
+    {% elif route == "talents" %}
+      <svg viewBox="0 0 18 18" height="18" role="presentation"><path fill-rule="evenodd" d="M0 9a9 9 0 1 0 18 0 9 9 0 1 0-18 0ZM1.5 9a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM12.83 5.786A5 5 0 1 0 12.83 12.214L11.681 11.25A3.5 3.5 0 1 1 11.681 6.75Z"/></svg>
+    {% elif route == "about" %}
+      <svg viewBox="0 0 27 18" height="18" role="presentation"><path fill-rule="evenodd" d="M0 9a9 9 0 1 0 18 0 9 9 0 1 0-18 0ZM1.5 9a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0Z"/><path fill-rule="evenodd" d="M9 9a9 9 0 1 0 18 0 9 9 0 1 0-18 0ZM10.5 9a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0Z"/><path fill-rule="evenodd" d="M12.064 6.429A4 4 0 1 0 12.064 11.571L11.145 10.8A2.8 2.8 0 1 1 11.145 7.2ZM21.064 6.429A4 4 0 1 0 21.064 11.571L20.145 10.8A2.8 2.8 0 1 1 20.145 7.2Z"/></svg>
+    {% else %}
+      <svg viewBox="0 0 41 18" height="18" role="presentation"><ellipse cx="20.5" cy="9" rx="19.75" ry="8.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+    {% endif %}
+  </div>
+
+  {# The wordmark sits at body level rather than inside the frame: the frame is a
+     fixed box and therefore its own stacking context, and a difference blend only
+     ever sees the backdrop inside its nearest ancestor stacking context.  Held
+     here, the blend resolves against the route's own ground. #}
+  <a class="wordmark" href="/" data-route="entry" aria-label="Cirrus, home" data-cursor="off">{{ wordmark }}</a>
+
+  {# The fixed frame — navigation and corner credit.  It fades with
+     the route on navigation; the cursor pair below never does. #}
+  <div class="frame">
+    <nav class="nav" aria-label="Primary">
+      {% set nav_lead = nav[0] %}
+      <a class="nav-item nav-works" href="{{ nav_lead.href }}" data-route="{{ nav_lead.route }}" aria-label="{{ nav_lead.label }}"{% if route == nav_lead.route %} aria-current="page"{% endif %}><span aria-hidden="true">{% for ch in nav_lead.label %}<span class="nav-char" style="transition-delay: {{ loop.index0 * 30 }}ms">{{ ch }}</span>{% endfor %}</span></a>
+      <div class="nav-right">
+        {% for item in nav[1:] %}
+        <a class="nav-item{% if item.route is none %} nav-contact{% endif %}" href="{{ item.href }}" data-route="{{ item.route if item.route else 'contact' }}" aria-label="{{ item.label }}"{% if item.route and route == item.route %} aria-current="page"{% endif %}{% if item.route is none %} data-native{% endif %}><span aria-hidden="true">{% for ch in item.label %}<span class="nav-char" style="transition-delay: {{ loop.index0 * 30 }}ms">{{ ch }}</span>{% endfor %}</span></a>
+        {% endfor %}
+      </div>
+    </nav>
+
+    <a class="credit" href="https://aube.studio" target="_blank" rel="noopener noreferrer" aria-label="Site by Aube, opens in a new tab" data-native data-cursor="off">
+      <svg class="credit-mark" viewBox="0 0 60 16" width="60" height="16" aria-hidden="true"><path d="M0 15 L5 1 L10 15 L8 15 L7.4 13 L2.6 13 L2 15 Z M3.2 11 L6.8 11 L5 5.4 Z"/><path d="M14 1 L16 1 L16 9.2 Q16 13 19.5 13 Q23 13 23 9.2 L23 1 L25 1 L25 9.4 Q25 15 19.5 15 Q14 15 14 9.4 Z"/><path d="M30 1 L36 1 Q40 1 40 4.3 Q40 6.6 38 7.4 Q40.6 8 40.6 11 Q40.6 15 36 15 L30 15 Z M32 3 L32 7 L35.6 7 Q38 7 38 5 Q38 3 35.6 3 Z M32 9 L32 13 L36 13 Q38.4 13 38.4 11 Q38.4 9 36 9 Z"/><path d="M45 1 L54 1 L54 3 L47 3 L47 7 L53 7 L53 9 L47 9 L47 13 L54 13 L54 15 L45 15 Z"/></svg>
+      <svg class="credit-arrow credit-arrow--rest" viewBox="0 0 7 7" width="7" height="7" aria-hidden="true"><path d="M1.4 0 H7 V5.6 H5.6 V2.39 L1 6.99 L0 5.99 L4.6 1.4 H1.4 Z"/></svg>
+      <svg class="credit-arrow credit-arrow--arrive" viewBox="0 0 7 7" width="7" height="7" aria-hidden="true"><path d="M1.4 0 H7 V5.6 H5.6 V2.39 L1 6.99 L0 5.99 L4.6 1.4 H1.4 Z"/></svg>
+    </a>
+  </div>
+
+  {# The cursor pair — two halves in one difference-composited element, parked
+     off screen until the pointer moves.  It sits above the route veil. #}
+  <div class="cursor" aria-hidden="true">
+    <span class="cursor-square"></span>
+    <span class="cursor-label"></span>
+  </div>
+
+  <div class="veil" aria-hidden="true"></div>
+  <div class="counter-well" aria-hidden="true"></div>
+
+  <main id="route-outlet">{% block route %}{% endblock %}</main>
+
+  <footer class="footer" aria-label="Cirrus">
+    <div class="footer-scrim" aria-hidden="true"></div>
+    <div class="footer-cols">
+      <div class="footer-col footer-col--premises">
+        <span>{{ footer.street }}</span>
+        <span class="footer-district">{{ footer.district }}</span>
+        <span>{{ footer.city }}</span>
+      </div>
+      <div class="footer-col">
+        <span>{{ footer.tagline_upper }}</span>
+        <span>{{ footer.tagline_lower }}</span>
+      </div>
+      <div class="footer-col">
+        <span>WORK WITH US</span>
+        <a class="footer-link" href="mailto:{{ footer.contact_email }}" data-native aria-label="{{ footer.contact_email }}">{{ m.splitchars(footer.contact_email) }}</a>
+      </div>
+      <div class="footer-col footer-col--right">
+        <a class="footer-link" href="https://instagram.com" target="_blank" rel="noopener" data-native>INSTAGRAM</a>
+        <a class="footer-link" href="https://linkedin.com" target="_blank" rel="noopener" data-native>LINKEDIN</a>
+      </div>
+    </div>
+  </footer>
+
+  {# The contact overlay — the narrow-width surface behind CONTACT.  Built from
+     its parked state; it carries the house address and nothing else. #}
+  <div class="contact" role="dialog" aria-modal="true" aria-label="Contact" aria-hidden="true">
+    <button class="contact-close iface" type="button" aria-label="Close contact">Close</button>
+    <div class="contact-item">
+      <a class="contact-address" href="mailto:{{ house.contact_email }}" aria-label="{{ house.contact_email }}">{{ m.splitchars(house.contact_email) }}</a>
+    </div>
+  </div>
+</body>
+</html>

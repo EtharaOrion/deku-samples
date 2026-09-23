@@ -1,0 +1,108 @@
+---
+import Shell from "../layouts/Shell.astro";
+import { call, setAuthCookie, setCartCookie, currentCustomer } from "../components/lib/api";
+
+const safeNext = (value: string | null) =>
+  value?.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+    ? value
+    : "/account";
+const next = safeNext(Astro.url.searchParams.get("next"));
+const suggested = Astro.url.searchParams.get("email") ?? "";
+const order = Astro.url.searchParams.get("order") ?? "";
+const orderAccessToken = Astro.url.searchParams.get("order_access_token") ?? "";
+let failure: string | null = null;
+let entered = suggested;
+let enteredName = "";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  entered = String(form.get("email") ?? "").trim();
+  enteredName = String(form.get("name") ?? "").trim();
+  const answer = await call<{ access_token: string; cart_token?: string }>(
+    Astro,
+    "/api/auth/signup",
+    {
+      method: "POST",
+      body: {
+        email: entered,
+        name: enteredName,
+        password: String(form.get("password") ?? ""),
+        ...(order && orderAccessToken
+          ? { order_number: order, order_access_token: orderAccessToken }
+          : {}),
+      },
+    },
+  );
+  if (answer.ok) {
+    setAuthCookie(Astro, answer.data.access_token);
+    if (answer.data.cart_token) setCartCookie(Astro, answer.data.cart_token);
+    return Astro.redirect(safeNext(String(form.get("next") || next)));
+  }
+  failure = answer.error.message ?? "That did not work.";
+} else if (await currentCustomer(Astro)) {
+  return Astro.redirect(next);
+}
+---
+
+<Shell title="Make an account">
+  <div class="auth-card">
+    <header class="stack stack-2">
+      <h1 class="page-title">Make an account</h1>
+      <p class="muted">
+        Orders placed with this address join the account, along with the cameras they
+        carry.
+      </p>
+    </header>
+
+    {failure && <p class="field__error" role="alert">{failure}</p>}
+
+    <form class="stack stack-5" method="post">
+      <input type="hidden" name="next" value={next} />
+
+      <div class="field">
+        <label class="field__label" for="name">Full name</label>
+        <input
+          class="input field__control"
+          id="name"
+          name="name"
+          autocomplete="name"
+          value={enteredName}
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="email">Email</label>
+        <input
+          class="input field__control"
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          value={entered}
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="password">Password</label>
+        <input
+          class="input field__control"
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          required
+        />
+        <p class="field__help">Eight characters or more.</p>
+      </div>
+
+      <button class="btn btn--primary btn--wide" type="submit">Make my account</button>
+    </form>
+
+    <p class="small muted">
+      Already have one? <a href={`/sign-in?next=${encodeURIComponent(next)}`}>Sign in</a>.
+    </p>
+  </div>
+</Shell>

@@ -1,0 +1,67 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import NotFound from "../../components/NotFound.astro";
+import OrderDetail from "../../components/OrderDetail.astro";
+import { call, currentCustomer } from "../../components/lib/api";
+import type { Order } from "../../components/lib/types";
+
+const { number } = Astro.params;
+const token = Astro.url.searchParams.get("access_token") ?? "";
+
+// A guest reads exactly one order, and only with the token minted for it.
+const path = `/api/orders/${encodeURIComponent(number ?? "")}${
+  token ? `?access_token=${encodeURIComponent(token)}` : ""
+}`;
+const answer = await call<Order>(Astro, path);
+
+if (!answer.ok) {
+  Astro.response.status = answer.status === 404 ? 404 : answer.status;
+}
+
+const order = answer.ok ? answer.data : null;
+const customer = await currentCustomer(Astro);
+const justPlaced = Astro.url.searchParams.has("access_token");
+let trackingHref = "/sign-in";
+if (order) {
+  const trackingParams = new URLSearchParams();
+  trackingParams.set("next", `/account/orders/${order.number}`);
+  trackingParams.set("email", String(order.email));
+  trackingParams.set("order", String(order.number));
+  trackingParams.set("order_access_token", token);
+  trackingHref = `/sign-in?${trackingParams.toString()}`;
+}
+---
+
+{
+  !order ? (
+    <NotFound />
+  ) : (
+    <Shell title={`Order ${order.number}`} current="orders">
+      <div class="stack stack-6">
+        <header class="stack stack-3">
+          <h1 class="page-title">Order {order.number} is confirmed.</h1>
+          <p class="page-lede">We have emailed {order.email}.</p>
+        </header>
+
+        {justPlaced && !customer && (
+          <section class="card stack stack-3">
+            <h2 class="section-title">Keep track of this order</h2>
+            <p class="muted">
+              Sign in or make an account with {order.email} and this order joins it.
+            </p>
+            <p>
+              <a
+                class="btn btn--secondary"
+                href={trackingHref}
+              >
+                Keep track of this order
+              </a>
+            </p>
+          </section>
+        )}
+
+        <OrderDetail order={order} canRegister={Boolean(customer)} />
+      </div>
+    </Shell>
+  )
+}

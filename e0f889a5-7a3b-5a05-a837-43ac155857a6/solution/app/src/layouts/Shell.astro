@@ -1,0 +1,102 @@
+---
+import "../components/styles/controls.css";
+import "../components/styles/shell.css";
+import "../components/styles/pages.css";
+import Base from "./Base.astro";
+import Rail from "../components/Rail.astro";
+import Wordmark from "../components/Wordmark.astro";
+import { cartCount, currentCustomer, readCart } from "../components/lib/api";
+import { cartBadge } from "../components/lib/format";
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+  current?: string | undefined;
+  image?: { src: string; width: number; height: number; alt: string } | undefined;
+}
+
+const { title, description, current, image } = Astro.props;
+
+const customer = await currentCustomer(Astro);
+const cart = await readCart(Astro);
+const count = cartCount(cart);
+const badge = cartBadge(count);
+const cartName =
+  count === 1 ? "Cart, 1 item" : `Cart, ${count} item${count === 0 ? "s" : "s"}`;
+---
+
+<Base title={title} description={description} ground="light" image={image}>
+  <div class="shell">
+    <div class="bar">
+      <Wordmark />
+      <div class="row" style="gap: calc(var(--spacing) * 3)">
+        {
+          customer ? (
+            <form method="post" action="/sign-out">
+              <button class="btn btn--quiet" type="submit">
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <a class="btn btn--quiet" href="/sign-in">
+              Sign in
+            </a>
+          )
+        }
+        <a class="cart-control" href="/cart" aria-label={cartName} data-cart-control>
+          <svg class="cart-control__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M3 5h2.2l2.1 9.4a1.6 1.6 0 0 0 1.6 1.2h7.6a1.6 1.6 0 0 0 1.6-1.2L20 8H6.2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"></path>
+            <circle cx="9.5" cy="19.5" r="1.5" fill="currentColor"></circle>
+            <circle cx="17" cy="19.5" r="1.5" fill="currentColor"></circle>
+          </svg>
+          <span aria-hidden="true">Cart</span>
+          {count > 0 && <span class="cart-control__badge" aria-hidden="true">{badge}</span>}
+        </a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="rail--fixed">
+        <Rail current={current} signedIn={Boolean(customer)} idPrefix="rail-wide" />
+      </aside>
+
+      <main class="content" id="content" tabindex="-1">
+        <div class="content__inner stack stack-8">
+          <details class="rail-disclosure">
+            <summary>Sections</summary>
+            <Rail current={current} signedIn={Boolean(customer)} idPrefix="rail-narrow" />
+          </details>
+          <slot />
+        </div>
+      </main>
+    </div>
+  </div>
+</Base>
+
+<script>
+  window.addEventListener("vela:cart", (event) => {
+    const control = document.querySelector<HTMLAnchorElement>("[data-cart-control]");
+    if (!control) return;
+    const cart = (event as CustomEvent<Record<string, unknown>>).detail ?? {};
+    const count = Number(cart.item_count ?? 0);
+    control.setAttribute("aria-label", `Cart, ${count} ${count === 1 ? "item" : "items"}`);
+    let badge = control.querySelector<HTMLElement>(".cart-control__badge");
+    if (count <= 0) {
+      badge?.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "cart-control__badge";
+      badge.setAttribute("aria-hidden", "true");
+      control.append(badge);
+    }
+    badge.textContent = count > 99 ? "99+" : String(count);
+  });
+</script>

@@ -1,0 +1,62 @@
+---
+import { usd } from "./lib/format";
+import type { Cart } from "./lib/types";
+
+interface Props {
+  cart: Cart & {
+    protection_minor?: number | null;
+    protection_rung?: { sku: string; price_minor: number; label?: string } | null;
+    priced?: boolean;
+  };
+  /** Once the address is known every figure is exact rather than estimated. */
+  priced?: boolean;
+  heading?: string;
+}
+
+const { cart, priced = false, heading = "Summary" } = Astro.props;
+const label = (word: string) => (priced ? word : `Estimated ${word.toLowerCase()}`);
+---
+
+<section class="card stack stack-4" data-summary aria-labelledby="summary-title">
+  <h2 class="section-title" id="summary-title">{heading}</h2>
+
+  {
+    !priced && (
+      <p class="small muted" data-estimate-note>
+        Estimated. We will show the exact amount once we know where it is going.
+      </p>
+    )
+  }
+  <p class="small" data-summary-status hidden role="status">Updating totals.</p>
+
+  <dl class="stack stack-2" data-figures>
+    <div class="checkline">
+      <dt>{label("Subtotal")}</dt>
+      <dd class="tabular" data-figure="subtotal">{usd(cart.subtotal_minor)}</dd>
+    </div>
+    {
+      cart.protection_enabled && (
+        <div class="checkline">
+          <dt>Shipment protection</dt>
+          <dd class="tabular" data-figure="protection">{usd(cart.protection_minor ?? 0)}</dd>
+        </div>
+      )
+    }
+    <div class="checkline">
+      <dt>{label("Delivery")}</dt>
+      <dd class="tabular" data-figure="shipping">{usd(cart.shipping_minor ?? 0)}</dd>
+    </div>
+    <div class="checkline">
+      <dt>{label("Tax")}</dt>
+      <dd class="tabular" data-figure="tax">{usd(cart.tax_minor ?? 0)}</dd>
+    </div>
+    <div class="checkline checkline--total">
+      <dt><strong>{label("Total")}</strong></dt>
+      <dd class="tabular">
+        <strong data-figure="total">{usd(cart.total_minor ?? 0)}</strong>
+      </dd>
+    </div>
+  </dl>
+
+  <slot />
+</section>

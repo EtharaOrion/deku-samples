@@ -1,0 +1,192 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import CartSummary from "../../components/CartSummary.astro";
+import CheckoutSteps from "../../components/CheckoutSteps.astro";
+import { placedOrderForCart, readCart } from "../../components/lib/api";
+import { usd } from "../../components/lib/format";
+
+const cart = await readCart(Astro);
+const hasLines = Boolean(cart && cart.lines.length > 0);
+
+// A page the browser walked back to after the order was placed shows the same
+// review it showed before, and placing it again returns that same order.
+const placed = hasLines ? null : await placedOrderForCart(Astro);
+
+if (!placed) {
+  if (!cart || !hasLines) {
+    return Astro.redirect("/cart");
+  }
+  if (!cart.shipping_address || !cart.email) {
+    return Astro.redirect("/checkout/where-it-goes");
+  }
+  if (!cart.shipping_method) {
+    return Astro.redirect("/checkout/how-it-gets-there");
+  }
+}
+
+const address = ((placed ? placed.shipping_address : cart?.shipping_address) ?? {}) as Record<
+  string,
+  string
+>;
+const email = placed ? placed.email : (cart?.email ?? "");
+const method = placed ? (placed.shipping_method ?? "Standard") : (cart?.shipping_method ?? "");
+const totalMinor = placed ? placed.total_minor : (cart?.total_minor ?? 0);
+const cartToken = placed ? placed.cart_token : (cart?.token ?? "");
+const cartQuote = placed ? "" : (cart?.quote ?? "");
+const summary = placed
+  ? {
+      lines: [],
+      notices: [],
+      subtotal_minor: placed.subtotal_minor,
+      shipping_minor: placed.shipping_minor,
+      tax_minor: placed.tax_minor,
+      total_minor: placed.total_minor,
+      protection_enabled: false,
+      protection_minor: 0,
+    }
+  : cart;
+---
+
+<Shell title="Payment" current="cart">
+  <div class="stack stack-4">
+    <CheckoutSteps current="pay" />
+    <h1 class="page-title">Payment</h1>
+  </div>
+
+  <div class="cart-layout">
+    <div
+      class="stack stack-6"
+      data-pay
+      data-cart-token={cartToken}
+      data-cart-quote={cartQuote}
+    >
+      <section class="card stack stack-3">
+        <h2 class="section-title">Going to</h2>
+        <p class="stack stack-2">
+          <span>{address.name}</span>
+          <span class="muted">{address.line1}</span>
+          {address.line2 && <span class="muted">{address.line2}</span>}
+          <span class="muted">
+            {address.city}, {address.region} {address.postal_code}
+          </span>
+          <span class="muted">{address.country}</span>
+        </p>
+        <p class="small muted">
+          Confirmation goes to {email} by {method}.
+        </p>
+        {
+          !placed && (
+            <p>
+              <a class="btn btn--quiet" href="/checkout/where-it-goes">
+                Change
+              </a>
+            </p>
+          )
+        }
+      </section>
+
+      <p class="field__error" data-form-error hidden role="alert"></p>
+
+      {
+        placed ? (
+          <p class="notice" data-placed={placed.number}>
+            <span class="notice__title">This cart was placed as order {placed.number}.</span>
+            <span>Placing it again returns that order and charges nothing more.</span>
+          </p>
+        ) : (
+          <p class="notice">
+            <span class="notice__title">Nothing is charged here.</span>
+            <span>We raise an invoice for {usd(totalMinor)} and email it to you.</span>
+          </p>
+        )
+      }
+
+      <button class="btn btn--primary btn--wide" type="button" data-place>
+        Place order
+      </button>
+
+      <p class="small muted" data-placing hidden role="status">Placing your order</p>
+    </div>
+
+    <aside class="cart-layout__aside">
+      <CartSummary cart={summary as any} priced={true} heading="Your order" />
+    </aside>
+  </div>
+</Shell>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-pay]");
+  if (root) {
+    const place = root.querySelector<HTMLButtonElement>("[data-place]");
+    const placing = root.querySelector<HTMLElement>("[data-placing]");
+    const failure = root.querySelector<HTMLElement>("[data-form-error]");
+
+    // One key per attempt at this cart, so a double press, a retry after a
+    // dropped connection or a page walked back to cannot produce a second order.
+    const KEY = `vela:checkout:idempotency:${root.dataset.cartToken ?? "cart"}`;
+    let key = sessionStorage.getItem(KEY);
+    if (!key) {
+      // crypto.randomUUID is secure-context only, so it is absent over plain
+      // http on anything but localhost. getRandomValues is always there.
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      key = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      sessionStorage.setItem(KEY, key);
+    }
+
+    const rest = () => {
+      placing?.setAttribute("hidden", "");
+      if (place) place.disabled = false;
+    };
+
+    // A page restored from the back-forward cache comes back as it was left,
+    // mid-placement, and must read as ready again.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) rest();
+    });
+
+    place?.addEventListener("click", async () => {
+      failure?.setAttribute("hidden", "");
+      place.disabled = true;
+      placing?.removeAttribute("hidden");
+
+      try {
+        const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: {
+            "idempotency-key": key!,
+            "x-cart-quote": root.dataset.cartQuote ?? "",
+          },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (
+            payload.code === "cart_price_changed" ||
+            payload.code === "stock_unavailable" ||
+            payload.code === "cart_changed"
+          ) {
+            window.location.assign("/cart");
+            return;
+          }
+          throw new Error(payload.message ?? "That did not work.");
+        }
+
+        sessionStorage.removeItem("vela:checkout:where");
+        sessionStorage.removeItem("vela:checkout:how");
+
+        const token = payload.access_token
+          ? `?access_token=${encodeURIComponent(payload.access_token)}`
+          : "";
+        window.location.assign(`/orders/${encodeURIComponent(payload.number)}${token}`);
+      } catch (error) {
+        rest();
+        if (failure) {
+          failure.textContent = error instanceof Error ? error.message : "That did not work.";
+          failure.removeAttribute("hidden");
+        }
+      }
+    });
+  }
+</script>
