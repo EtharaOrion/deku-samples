@@ -26,6 +26,6 @@ COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 ENV PYTHONPATH=/tests
 
 COPY appclient.py capabilities.py score.py deku_state.py pytest.ini _shapes.py \
-     workflows.yaml rubric.json conftest.py test_roster.py test.sh /tests/
+     workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
 
 WORKDIR /tests

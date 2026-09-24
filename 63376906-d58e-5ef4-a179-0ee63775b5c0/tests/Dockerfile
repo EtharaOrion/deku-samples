@@ -32,6 +32,6 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 ENV PYTHONPATH=/tests
 
 COPY appclient.py capabilities.py score.py deku_state.py pytest.ini \
-     workflows.yaml rubric.json conftest.py test_mass.py test.sh /tests/
+     workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
 
 WORKDIR /tests
