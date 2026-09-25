@@ -1,10 +1,3 @@
-"""The one section module for the mass-balance-attestation task.
-
-Every assertion reads the deployed app over HTTP, the database behind it, or the
-delivered mail beside it. The expectations come from instruction.md, never from
-the running implementation, and every derived figure is recomputed here from the
-pinned seed rather than read back from the app and compared to itself.
-"""
 
 from __future__ import annotations
 

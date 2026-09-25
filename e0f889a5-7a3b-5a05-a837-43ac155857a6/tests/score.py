@@ -1,42 +1,4 @@
 #!/usr/bin/env python3
-"""Folds the three grading channels into one score.
-
-    combined = workflow**0.50 * pytest**0.25 * (rubric * coverage)**0.25
-
-pytest is produced by this container. The workflow and rubric channels are
-graded by a person, who writes their marks into the same two files the
-automated graders used to write -- browser_results.json and judge.json -- so a
-human-graded run and an archived machine-graded run are read by identical code
-and stay directly comparable.
-
-Run with --template to emit blank mark sheets from workflows.yaml and
-rubric.json for the reviewer to fill in.
-
-Every rule below was recovered from the 48 archived runs in trajectories/ and
-holds exactly on all of them; see the checks under --self-test.
-
-Recomputing a shipped run
--------------------------
-Each archived run carries the reviewer's own marks beside the machine's, in
-
-    trajectories/<model>/run_<n>/verifier/
-        ctrf.json             pytest, written by this container
-        browser_results.json  the reviewer's workflow marks
-        judge.json            the reviewer's rubric marks
-
-so every shipped score can be recomputed from shipped files with this script
-and nothing else -- no judge model, no network, no credentials. Running it
-over all 48 archived runs reproduces each stored final_score.json exactly.
-
-reward.json
------------
-Harbor reads one number, `{"reward": <finite float>}`, and rejects null, a
-string or a non-finite value. When every channel is graded that number is the
-combined score above. When a channel is still pending -- an unattended run has
-no reviewer marks -- combined_score stays null and reward falls back to the
-graded channels' mean scaled by the share of weight they carry, so partial
-evidence can never report a whole task. `weights_applied` names that share.
-"""
 from __future__ import annotations
 
 import argparse
@@ -52,12 +14,6 @@ IMPORTANCE_WEIGHT = {"critically_important": 5.0, "important": 3.0,
                      "somewhat_important": 1.0}
 
 def _criterion_weight(criterion) -> float:
-    """How much a criterion is worth, as a magnitude.
-
-    `is_positive` already carries the polarity of a negative criterion, so a
-    negative `score` would state it twice: the weight would subtract, and
-    passing the criterion would lower the result. Only the size is read here.
-    """
     raw = criterion.get("score")
     if raw is None:
         raw = IMPORTANCE_WEIGHT.get(criterion.get("importance"), 1.0)
@@ -71,11 +27,6 @@ def _load(path):
         return None
 
 def pytest_component(ctrf) -> dict:
-    """Pass rate over the tests that actually ran.
-
-    Skips leave the denominator rather than counting against the app: a check
-    that declined to run has reported nothing about it.
-    """
     if not ctrf:
         return {"score": 0.0, "passed": 0, "total": 0, "missing": True}
     summary = (ctrf.get("results") or {}).get("summary") or {}
@@ -86,7 +37,6 @@ def pytest_component(ctrf) -> dict:
             "passed": passed, "total": total, "graded": graded}
 
 def _pytest_marks(ctrf) -> dict:
-    """Every test's outcome, keyed both by bare name and by file::name."""
     marks = {}
     for test in ((ctrf or {}).get("results") or {}).get("tests") or []:
         name = str(test.get("name") or "")
@@ -96,12 +46,6 @@ def _pytest_marks(ctrf) -> dict:
     return marks
 
 def _browser_marks(browser) -> dict:
-    """The reviewer's browser marks, keyed by workflow id then position.
-
-    Matching is positional within a workflow rather than by prose, because the
-    `do` text is long and a reviewer who rewords it while marking should not
-    silently lose their mark.
-    """
     marks = {}
     workflows = browser.get("workflows") if isinstance(browser, dict) else browser
     for workflow in workflows or []:
@@ -111,13 +55,6 @@ def _browser_marks(browser) -> dict:
     return marks
 
 def workflow_component(declared, browser, ctrf) -> dict:
-    """Share of workflows that passed, by the 90%-and-no-critical rule.
-
-    A workflow's substeps are declared in workflows.yaml and span both kinds:
-    the browser ones carry a reviewer's mark, the pytest ones carry the result
-    of the test they name. Grading only the browser half would score a
-    different thing than the archived runs did.
-    """
     if not declared:
         return {"score": 0.0, "passed": 0, "total": 0, "missing": True}
 
@@ -132,8 +69,6 @@ def workflow_component(declared, browser, ctrf) -> dict:
         substeps = []
         declared_steps = workflow.get("substeps") or []
 
-        # Marks are consumed positionally, so a wrong-length list binds them to
-        # the wrong substeps. Refuse it rather than guess at the offset.
         declared_browser = sum(1 for s in declared_steps
                                if s.get("kind") != "pytest")
         marks = marked.get(identifier) or []
@@ -153,8 +88,6 @@ def workflow_component(declared, browser, ctrf) -> dict:
                              "critical": bool(step.get("critical")),
                              "passed": outcome})
 
-        # Every substep must resolve. Scoring the marked subset would let an
-        # unreviewed run pass on its pytest substeps alone.
         resolved = [s for s in substeps if s["passed"] is not None]
         if len(resolved) != len(substeps):
             detail.append({"id": identifier, "passed": None,
@@ -176,20 +109,12 @@ def workflow_component(declared, browser, ctrf) -> dict:
                        "critical_failed": bool(critical_failed),
                        "substeps": substeps})
 
-    # `graded == 0` would let one marked workflow out of sixteen report a
-    # finished channel -- the same renormalisation one level up.
     return {"score": (passed / graded) if graded else 0.0,
             "passed": passed, "total": graded, "workflows": detail,
             "declared": len(declared),
             "missing": graded < len(declared)}
 
 def rubric_component(judge, rubric) -> dict:
-    """Weighted pass rate over the criteria a reviewer resolved.
-
-    `coverage` is the share of total weight that was resolved at all, and the
-    combined score multiplies by it, so a half-graded rubric cannot pass on the
-    strength of the half that happened to be easy.
-    """
     if not judge:
         return {"score": 0.0, "criteria": 0, "passed": 0, "failed": 0,
                 "unresolved": 0, "coverage": 0.0, "score_discounted": 0.0,
@@ -248,18 +173,6 @@ def combine(workflow, pytest_, rubric) -> float:
                  * (rubric ** WEIGHTS["rubric"]), 4)
 
 def measured(components) -> tuple[float, dict]:
-    """The graded channels' mean, scaled by how much of the score they carry.
-
-    Harbor needs a number in reward.json and rejects null, so a run whose
-    rubric (or reviewer-marked workflows) is still pending is scored on what
-    WAS measured. The mean is then multiplied by the share of total weight
-    that was measured, because renormalising alone would report a perfect
-    pytest run as a perfect task: a geometric mean of one channel at 1.0 is
-    1.0 whatever its weight. Scaling keeps a partial run below a complete one
-    and reduces to the full combined score once every channel is graded.
-    final_score.json still names what is pending, and combined_score stays
-    null until every channel is graded.
-    """
     import math
     present = {}
     for name in WEIGHTS:
@@ -290,9 +203,6 @@ def build(ctrf, browser, judge, rubric, invalid=None, declared=None,
 
     applied = dict(WEIGHTS)
     if deploy_failed:
-        # An app that never answered is a real agent zero, not a harness fault,
-        # so it is scored rather than voided -- but it still gets the same
-        # artifacts every other outcome writes.
         combined = 0.0
         reward = 0.0
         basis = "deploy_failed"
@@ -336,9 +246,6 @@ def build(ctrf, browser, judge, rubric, invalid=None, declared=None,
     }
 
 def templates(workflows, rubric) -> tuple[dict, dict]:
-    """Blank mark sheets in the schema score.py reads back."""
-    # Browser substeps only: a pytest substep is marked by the test it names,
-    # and a reviewer row for one would shift every later mark out of position.
     browser = {"workflows": [
         {"id": workflow.get("id"),
          "purpose": workflow.get("purpose") or workflow.get("title"),
@@ -450,7 +357,6 @@ def main() -> int:
     return 0
 
 def self_test() -> int:
-    """The rules, checked against the numbers they were recovered from."""
     assert combine(0.38461538461538464, 0.8604651162790697, 0.397959) == 0.4744
     assert combine(1.0, 1.0, 1.0) == 1.0
     assert combine(0.0, 1.0, 1.0) == 0.0
@@ -478,20 +384,17 @@ def self_test() -> int:
     blank = workflow_component(spec, {"workflows": []}, None)
     assert blank["total"] == 0 and blank["missing"]
 
-    # a partly marked workflow is withheld, not renormalised onto what was marked
     partial = workflow_component(
         spec, {"workflows": [{"id": "w", "substeps":
                               [{"kind": "browser", "passed": True}]}]}, None)
     assert partial["total"] == 0 and partial["missing"], partial
 
-    # an unreviewed run does not score its pytest substeps as the whole workflow
     unreviewed = workflow_component(
         [{"id": "w", "substeps": [{"kind": "pytest", "test": "t.py::a"},
                                   {"kind": "browser", "do": "look"}]}],
         None, {"results": {"tests": [{"name": "t.py::a", "status": "passed"}]}})
     assert unreviewed["total"] == 0 and unreviewed["missing"], unreviewed
 
-    # one graded workflow out of two is a pending channel, not a finished one
     two = [{"id": "a", "substeps": [{"kind": "browser", "do": "x"}]},
            {"id": "b", "substeps": [{"kind": "browser", "do": "y"}]}]
     half = workflow_component(
@@ -499,7 +402,6 @@ def self_test() -> int:
                              [{"kind": "browser", "passed": True}]}]}, None)
     assert half["score"] == 1.0 and half["total"] == 1 and half["missing"], half
 
-    # a mark list of the wrong length is refused rather than bound by position
     skewed = workflow_component(
         [{"id": "w", "substeps": [{"kind": "browser", "do": "a"},
                                   {"kind": "browser", "do": "b",
@@ -508,14 +410,12 @@ def self_test() -> int:
                         [{"kind": "browser", "passed": True}]}]}, None)
     assert skewed["total"] == 0 and skewed["missing"], skewed
 
-    # a negative `score` states polarity twice; only its magnitude is a weight
     assert _criterion_weight({"number": "R17", "score": -5}) == 5.0
     assert _criterion_weight({"number": "R1", "score": 0,
                               "importance": "important"}) == 0.0
     assert _criterion_weight({"number": "R2",
                               "importance": "critically_important"}) == 5.0
 
-    # the blank browser sheet carries reviewer rows only
     sheet, _ = templates(
         [{"id": "w", "substeps": [{"kind": "pytest", "test": "t.py::a"},
                                   {"kind": "browser", "do": "look"}]}], [])
@@ -552,25 +452,21 @@ def self_test() -> int:
 
     held = build(ctrf, None, None, [], declared=spec)
     assert held["combined_score"] is None
-    # pytest alone carries a quarter of the score, so it can report a quarter
     assert held["reward"] == round(2 / 3 * 0.25, 4), held["reward"]
     assert held["weights_applied"] == {"pytest": 1.0}
     assert held["scoring"]["basis"].startswith("partial_pending_human_review")
-    # a flawless but unreviewed run never reports a flawless task
     perfect_pytest = build({"results": {"summary": {"tests": 9, "passed": 9}}},
                            None, None, [], declared=spec)
     assert perfect_pytest["components"]["pytest"]["score"] == 1.0
     assert perfect_pytest["reward"] == 0.25, perfect_pytest["reward"]
     assert measured({"workflow": {"score": 1.0}, "pytest": {"score": 1.0},
                      "rubric": {"missing": True, "score_discounted": 0.0}})[0] == 0.75
-    # every channel graded reduces to the plain combined score
     assert measured({"workflow": {"score": 0.5}, "pytest": {"score": 0.5},
                      "rubric": {"score_discounted": 0.5}})[0] == combine(0.5, 0.5, 0.5)
 
     fault = build(ctrf, None, None, [], ["no_tests_collected"], declared=spec)
     assert fault["combined_score"] == 0.0 and fault["invalid"] == ["no_tests_collected"]
 
-    # an app that never deployed is a scored zero, not a voided run
     gone = build(None, None, None, [], declared=spec, deploy_failed=True)
     assert gone["combined_score"] == 0.0 and gone["reward"] == 0.0
     assert gone["scoring"]["basis"] == "deploy_failed"

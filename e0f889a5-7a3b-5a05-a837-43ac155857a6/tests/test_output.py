@@ -1,8 +1,3 @@
-"""Graders for the Vela Electronics Storefront.
-
-Every assertion reads the running app, the persisted rows, the billing platform or
-the mail server. Nothing here reads the app's own claim about its own effect.
-"""
 
 from __future__ import annotations
 
@@ -115,8 +110,6 @@ from conftest import (
 import appclient
 
 
-
-
 def test_health_route_and_reserved_directories_exist(app_base, store):
     response = httpx.get(f"{app_base}/health", timeout=30.0)
     assert response.status_code == 200, describe(response)
@@ -136,8 +129,6 @@ def test_health_route_and_reserved_directories_exist(app_base, store):
 
     assert store.table_row_count("product") > 0, (
         "the catalogue must live in PostgreSQL, not in the process")
-
-
 
 
 def test_seeded_catalogue_rows_exist_as_specified(store):
@@ -268,8 +259,6 @@ def test_seed_is_idempotent_no_duplicate_rows(store):
         assert store.device(serial) is not None, f"{serial} vanished from the store"
         assert len(store.live_ownerships(serial)) <= 1, (
             f"{serial} carries more than one live ownership row")
-
-
 
 
 def test_guest_checkout_creates_order_with_pinned_totals(store, visitor):
@@ -457,8 +446,6 @@ def test_concurrent_checkout_for_last_unit_allows_exactly_one(store):
     assert store.available(SKU_A1_YELLOW) >= 0, "available fell below zero"
 
 
-
-
 def test_confirmed_order_email_delivered_to_buyer_only(store, visitor, inbox):
     email = probe_email()
     before_others = inbox.count(CUSTOMER2_EMAIL)
@@ -502,8 +489,6 @@ def test_no_email_sent_for_cart_change_or_device_registration(customer, inbox):
     assert inbox.count(CUSTOMER_EMAIL) == before, (
         f"{inbox.count(CUSTOMER_EMAIL) - before} mails were sent for a cart change "
         f"and a device registration, which send none")
-
-
 
 
 def test_device_registration_claims_unowned_serial_and_writes_one_ownership_row(
@@ -665,8 +650,6 @@ def test_concurrent_registration_of_one_serial_allows_exactly_one(store):
     assert len(succeeded) <= 1, (
         "two simultaneous claims on one serial both reported success: "
         + " | ".join(describe(r) for r in responses))
-
-
 
 
 def test_release_archive_orders_by_build_descending_across_shared_date(visitor):

@@ -141,11 +141,6 @@ SETTLE_ATTEMPTS = 40
 
 
 def settle(predicate, attempts: int = SETTLE_ATTEMPTS, delay: float = SETTLE_SECONDS):
-    """The one sanctioned wait. Polls `predicate` until it returns a truthy value.
-
-    Returns the truthy value, or the last falsy one when the budget runs out, so a
-    caller always asserts on a real observation rather than on a timeout.
-    """
     outcome = None
     for _ in range(attempts):
         outcome = predicate()
@@ -156,17 +151,10 @@ def settle(predicate, attempts: int = SETTLE_ATTEMPTS, delay: float = SETTLE_SEC
 
 
 def probe_suffix() -> str:
-    """A per-call unique token so two identical runs never collide."""
     return os.urandom(6).hex()
 
 
 def rel(route: str) -> str:
-    """The path a session built on the API base takes, from a brief route.
-
-    The brief pins routes with their `/api` prefix and the ledger carries them in
-    that form. The session the harness hands a check is already rooted at the API
-    base, so the prefix is removed here rather than in every call.
-    """
     return route[4:] if route.startswith("/api") else route
 
 
@@ -213,12 +201,6 @@ def viewer_client(viewer_token: str):
 
 
 class RosterStore:
-    """Domain queries for this task, composed from capability primitives only.
-
-    Nothing here names a framework, an ORM, a migration or a column type. If a
-    check needs a shape `count`, `rows` or `one` cannot express, the fix is a small
-    method here, never a provider SDK inside a check.
-    """
 
     def __init__(self, backend: Backend) -> None:
         self._backend = backend
@@ -272,7 +254,6 @@ def roster(backend: Backend) -> RosterStore:
 
 @pytest.fixture
 def new_talent(producer_client):
-    """Creates an unlisted talent the calling check owns, returning its payload."""
     def _make(**overrides):
         suffix = probe_suffix()
         body = {
@@ -293,7 +274,6 @@ def new_talent(producer_client):
 
 @pytest.fixture
 def new_work(producer_client):
-    """Creates an unlisted work the calling check owns, returning its payload."""
     def _make(**overrides):
         suffix = probe_suffix()
         body = {

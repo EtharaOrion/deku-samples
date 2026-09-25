@@ -1,7 +1,3 @@
-"""Fixtures, pinned literals and domain stores for the Vela Electronics Storefront.
-
-Every literal below is pinned in instruction.md. Nothing here defines a test.
-"""
 
 from __future__ import annotations
 
@@ -159,12 +155,10 @@ POLL_BUDGET_SECONDS = 25.0
 
 
 def settle(seconds: float = SETTLE_SECONDS) -> None:
-    """The one sanctioned pause, for an effect the app writes just after replying."""
     time.sleep(seconds)
 
 
 def poll_until(predicate, budget: float = POLL_BUDGET_SECONDS):
-    """Bounded polling on a monotonic clock. Returns the last value the predicate saw."""
     deadline = time.monotonic() + budget
     value = predicate()
     while not value and time.monotonic() < deadline:
@@ -206,7 +200,6 @@ US_ADDRESS = {
 
 
 class Shopper:
-    """One browsing session: an opaque cart plus an optional signed-in customer."""
 
     def __init__(self, token: str | None = None, email: str | None = None) -> None:
         self.token = token
@@ -305,7 +298,6 @@ class Shopper:
 
 
 class Store:
-    """Domain reads over the persisted rows the brief pins by name."""
 
     def __init__(self, backend: Any) -> None:
         self.backend = backend
@@ -465,7 +457,6 @@ def field_of(payload: dict, *names: str) -> Any:
 
 def buy(shopper: Shopper, skus: tuple, email: str,
         method: str = SHIPPING_STANDARD, key: str | None = None) -> httpx.Response:
-    """Fill a cart, price it for delivery and place the order."""
     for sku in skus:
         added = shopper.add_line(sku)
         assert added.status_code in SUCCESS_STATUSES, describe(added)

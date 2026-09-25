@@ -87,24 +87,6 @@ def _slugs(payload) -> list[str]:
 
 
 def _browser_created(pre_browser: dict, roster) -> int | None:
-    """How many item rows the browser pass added before pytest started.
-
-    Three outcomes, and the difference between the last two is the whole point:
-
-        None  no baseline was taken, so nothing can be said about creations
-        0     a baseline WAS taken and the browser created nothing
-        n     the browser created n rows
-
-    `None` used to be reported as `0`. Both then restored exact equality, so a
-    snapshot that FAILED looked exactly like a browser that created nothing --
-    and the seed-count assertion failed a working app for the rows stage 3 had
-    legitimately added. That is the bug the snapshot exists to prevent,
-    reintroduced by its own failure, announced nowhere.
-
-    `_snapshot_ok` is written by test.sh. It is absent in files produced by an
-    older verifier image; a snapshot carrying real counts is trusted in that
-    case, which keeps this readable against evidence already on disk.
-    """
     if not pre_browser:
         return None
     if pre_browser.get("_snapshot_ok") is False:
@@ -116,20 +98,6 @@ def _browser_created(pre_browser: dict, roster) -> int | None:
 
 
 def _seeded_count(actual: int, seeded: int, created: int, what: str, extra: str = "") -> None:
-    """Assert a published count against the seed, allowing for graded creations.
-
-    test.sh runs the browser pass BEFORE pytest, so a substep that was told to
-    fill a creation form has legitimately added rows by the time this runs. A
-    bare `== seeded` therefore fails an app that WORKED, and a broken creation
-    form would have left the count at the seed value and passed -- the check
-    rewarding the bug it exists to catch (deku-samples/1b21d4ac, opus-5 run_4
-    and run_5).
-
-    Strictness is kept where it can be: with no creations the assertion is still
-    exact equality. Only once the browser has demonstrably written does it
-    relax to a floor, which is the strongest claim the evidence supports, since
-    the snapshot counts rows rather than published-and-in-the-served-house rows.
-    """
     if created is None:
         pytest.skip(
             f"no pre-browser baseline, so {what} cannot be compared against the "

@@ -1,9 +1,3 @@
-"""The service surfaces a check is allowed to observe.
-
-A check names a capability -- the store, the inbox, the billing platform -- and
-never the product behind it. Swapping Postgres, Mailpit or Kill Bill for another
-provider is a change here and nowhere else.
-"""
 from __future__ import annotations
 
 import os
@@ -23,14 +17,9 @@ INBOX_PAGE = 500
 PAYMENTS_PAGE = 500
 
 class InfrastructureUnavailable(RuntimeError):
-    """A service the checks must observe is absent or unreachable.
-
-    Distinct from a failed assertion: this is the harness lacking what it needs,
-    not the app being wrong.
-    """
+    pass
 
 class Backend:
-    """Read-only record access, in the four shapes the checks actually use."""
 
     def query(self, sql: str, params=None) -> list[dict]:
         raise NotImplementedError
@@ -46,12 +35,6 @@ class Backend:
         return len(self.rows(table, **where))
 
 class PostgresBackend(Backend):
-    """Postgres behind the capability contract.
-
-    A connection is opened per call rather than pooled. Grading is not
-    throughput-bound, and a per-call connection cannot go stale between a
-    session-scoped fixture and the check that uses it an hour later.
-    """
 
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
@@ -114,7 +97,6 @@ class PostgresBackend(Backend):
             return int(found["n"]) if found else 0
 
 def _redact(dsn: str) -> str:
-    """The DSN with its password removed, safe to put in a failure message."""
     if "@" not in dsn:
         return dsn
     head, _, tail = dsn.rpartition("@")
@@ -138,7 +120,6 @@ class Message:
     body: str = ""
 
 class MailpitInbox:
-    """Delivered mail, read through Mailpit's message API."""
 
     def __init__(self, base_url: str) -> None:
         self._base = base_url.rstrip("/")
@@ -210,16 +191,10 @@ def make_inbox() -> MailpitInbox:
 
 @dataclass(frozen=True)
 class Charge:
-    """One invoice, with its amount in minor units.
-
-    The billing platform reports a decimal; the checks compare against the minor
-    units the order stored, so the conversion happens once, here.
-    """
     amount: int
     currency: str
 
 class KillbillPayments:
-    """The billing platform, read through Kill Bill's admin API."""
 
     def __init__(self, base_url: str, api_key: str, api_secret: str,
                  admin_user: str, admin_password: str) -> None:
@@ -250,13 +225,6 @@ class KillbillPayments:
         return self._get("/1.0/kb/accounts/pagination", limit=PAYMENTS_PAGE)
 
     def charges(self) -> list[Charge]:
-        """Every invoice on the platform, with its real total.
-
-        Read per account rather than from /invoices/pagination: that endpoint
-        reports amount 0.00 for an externally charged invoice even with
-        withItems=true, so a charge raised for 415.80 reads back as nothing and
-        a correct app fails. The components have to be asked for by name.
-        """
         found = []
         for account in self.accounts():
             account_id = account.get("accountId")

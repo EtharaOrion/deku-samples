@@ -1,14 +1,3 @@
-"""Fixtures, pinned literals and stores for the mass-balance-attestation graders.
-
-Every value a grader asserts against is pinned here and appears verbatim in
-instruction.md (G6). Nothing here probes the app to decide what to assert: the
-expectations come from the brief, not from the implementation.
-
-Masses are integer grams, proportions are integer basis points where 10000 is one
-hundred per cent, carbon is integer milligrams of carbon dioxide equivalent per
-kilogram, and energy is integer kilowatt hours. Every seeded answer is therefore
-derived by exact integer arithmetic and no assertion compares floats.
-"""
 
 from __future__ import annotations
 
@@ -455,8 +444,6 @@ SETTLE_SECONDS = 3.0
 
 
 def settle() -> None:
-    """The one sanctioned wait (G31). Lets an already-issued write land before a
-    negative assertion claims the write never will."""
     time.sleep(SETTLE_SECONDS)
 
 
@@ -683,8 +670,6 @@ def conditions_of(body) -> list:
 
 
 def wait_for_mail(inbox_backend, address: str, subject_contains: str):
-    """Bounded poll for one delivered message. SMTP delivery is asynchronous, so a
-    negative assertion made immediately after a write would be about timing."""
     for _ in range(6):
         found = inbox_backend.find(address, subject_contains)
         if found is not None:
