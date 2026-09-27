@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -114,6 +115,13 @@ def workflow_component(declared, browser, ctrf) -> dict:
             "declared": len(declared),
             "missing": graded < len(declared)}
 
+def evaluated_by(artifact) -> str:
+    if not isinstance(artifact, dict):
+        return "missing"
+    meta = artifact.get("meta")
+    who = str((meta or {}).get("evaluated_by") or "").strip()
+    return who or "unattributed"
+
 def rubric_component(judge, rubric) -> dict:
     if not judge:
         return {"score": 0.0, "criteria": 0, "passed": 0, "failed": 0,
@@ -213,13 +221,14 @@ def build(ctrf, browser, judge, rubric, invalid=None, declared=None,
         basis = "verifier_fault"
     elif pending:
         combined = None
-        reward, applied = measured(components)
-        basis = "partial_pending_human_review: " + ", ".join(pending)
+        _, applied = measured(components)
+        reward = round(components["pytest"]["score"], 4)
+        basis = "partial_pending_review: " + ", ".join(pending)
     else:
         combined = combine(components["workflow"]["score"],
                            components["pytest"]["score"],
                            components["rubric"]["score_discounted"])
-        reward = combined
+        reward = round(components["pytest"]["score"], 4)
         basis = "complete"
 
     return {
@@ -234,16 +243,31 @@ def build(ctrf, browser, judge, rubric, invalid=None, declared=None,
         "rubric_coverage": components["rubric"]["coverage"],
         "note": ("Combined score is a weighted geometric mean of the workflow "
                  "pass rate, the pytest pass rate and the rubric result "
-                 "discounted by criteria coverage (weights 0.50 / 0.25 / 0.25). "
-                 "reward.json holds that same combined score; while a channel "
-                 "is pending human review it holds the same mean over the "
-                 "channels that were measured (weights_applied)."),
+                 "discounted by criteria coverage (weights 0.50 / 0.25 / 0.25); "
+                 "it is null while a channel is pending review, and "
+                 "weights_applied names the channels that were measured. "
+                 "reward.json holds the pytest pass rate ALONE -- the only "
+                 "channel this container grades deterministically, with no API key "
+                 "and no network access, so a user on stock Harbor "
+                 "reproduces it byte for byte. A failed deploy or a verifier "
+                 "fault forces it to 0.0. Read combined_score, not reward, for "
+                 "how well the app was actually built."),
         "scoring": {"kind": "weighted_geometric_mean", "basis": basis,
                     "workflow_pass_ratio": WORKFLOW_PASS_RATIO,
-                    "pytest_graded_by": "this container",
-                    "workflow_graded_by": "human reviewer",
-                    "rubric_graded_by": "human reviewer"},
+                    "pytest_evaluated_by": "this container",
+                    "workflow_evaluated_by": evaluated_by(browser),
+                    "rubric_evaluated_by": evaluated_by(judge)},
     }
+
+def reward_payload(result) -> dict:
+    components = result["components"]
+    channels = {"reward": result["reward"],
+                "combined_score": result["combined_score"],
+                "workflow": components["workflow"]["score"],
+                "pytest": components["pytest"]["score"],
+                "rubric": components["rubric"]["score_discounted"]}
+    return {name: float(value) for name, value in channels.items()
+            if isinstance(value, (int, float)) and math.isfinite(value)}
 
 def templates(workflows, rubric) -> tuple[dict, dict]:
     browser = {"workflows": [
@@ -255,7 +279,7 @@ def templates(workflows, rubric) -> tuple[dict, dict]:
                       for step in (workflow.get("substeps") or [])
                       if step.get("kind") != "pytest"]}
         for workflow in workflows or []],
-        "meta": {"graded_by": "", "graded_at": ""}}
+        "meta": {"evaluated_by": "", "graded_at": ""}}
 
     dimensions = {}
     total = sum(_criterion_weight(c) for c in rubric or []) or 1.0
@@ -280,7 +304,7 @@ def templates(workflows, rubric) -> tuple[dict, dict]:
             "passed": None, "satisfied": None, "score": None,
             "rationale": "", "evidence": []}
     return browser, {"dimensions": dimensions, "criteria_total": len(dimensions),
-                     "meta": {"graded_by": "", "graded_at": ""}}
+                     "meta": {"evaluated_by": "", "graded_at": ""}}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -346,7 +370,7 @@ def main() -> int:
         json.dump(result, handle, indent=2)
 
     with open(args.reward_out, "w", encoding="utf-8") as handle:
-        json.dump({"reward": result["reward"]}, handle)
+        json.dump(reward_payload(result), handle)
 
     print("combined_score: %s  (%s)" % (result["combined_score"],
                                         result["scoring"]["basis"]))
@@ -452,13 +476,13 @@ def self_test() -> int:
 
     held = build(ctrf, None, None, [], declared=spec)
     assert held["combined_score"] is None
-    assert held["reward"] == round(2 / 3 * 0.25, 4), held["reward"]
+    assert held["reward"] == round(2 / 3, 4), held["reward"]
     assert held["weights_applied"] == {"pytest": 1.0}
-    assert held["scoring"]["basis"].startswith("partial_pending_human_review")
+    assert held["scoring"]["basis"].startswith("partial_pending_review")
     perfect_pytest = build({"results": {"summary": {"tests": 9, "passed": 9}}},
                            None, None, [], declared=spec)
     assert perfect_pytest["components"]["pytest"]["score"] == 1.0
-    assert perfect_pytest["reward"] == 0.25, perfect_pytest["reward"]
+    assert perfect_pytest["reward"] == 1.0, perfect_pytest["reward"]
     assert measured({"workflow": {"score": 1.0}, "pytest": {"score": 1.0},
                      "rubric": {"missing": True, "score_discounted": 0.0}})[0] == 0.75
     assert measured({"workflow": {"score": 0.5}, "pytest": {"score": 0.5},

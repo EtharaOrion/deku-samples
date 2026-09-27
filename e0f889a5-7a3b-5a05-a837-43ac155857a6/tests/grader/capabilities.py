@@ -16,8 +16,10 @@ PAYMENTS_URL_VAR = "PAYMENTS_API_URL"
 INBOX_PAGE = 500
 PAYMENTS_PAGE = 500
 
+
 class InfrastructureUnavailable(RuntimeError):
     pass
+
 
 class Backend:
 
@@ -33,6 +35,7 @@ class Backend:
 
     def count(self, table: str, **where) -> int:
         return len(self.rows(table, **where))
+
 
 class PostgresBackend(Backend):
 
@@ -96,6 +99,7 @@ class PostgresBackend(Backend):
             found = cursor.fetchone()
             return int(found["n"]) if found else 0
 
+
 def _redact(dsn: str) -> str:
     if "@" not in dsn:
         return dsn
@@ -103,6 +107,7 @@ def _redact(dsn: str) -> str:
     scheme, _, credentials = head.partition("://")
     user = credentials.split(":", 1)[0]
     return "%s://%s:***@%s" % (scheme, user, tail)
+
 
 def make_backend() -> Backend:
     for variable in DB_VARS:
@@ -113,11 +118,13 @@ def make_backend() -> Backend:
         "none of %s is set; the grading session cannot read the database it is "
         "meant to observe" % ", ".join(DB_VARS))
 
+
 @dataclass(frozen=True)
 class Message:
     subject: str
     to: list[str] = field(default_factory=list)
     body: str = ""
+
 
 class MailpitInbox:
 
@@ -182,6 +189,7 @@ class MailpitInbox:
         payload = self._get("/api/v1/message/%s" % message_id)
         return str(payload.get("Text") or payload.get("HTML") or "")
 
+
 def make_inbox() -> MailpitInbox:
     base = os.environ.get(INBOX_VAR)
     if not base:
@@ -189,10 +197,12 @@ def make_inbox() -> MailpitInbox:
             "%s is not set; delivered mail cannot be read" % INBOX_VAR)
     return MailpitInbox(base)
 
+
 @dataclass(frozen=True)
 class Charge:
     amount: int
     currency: str
+
 
 class KillbillPayments:
 
@@ -247,8 +257,10 @@ class KillbillPayments:
                 return charge
         return None
 
+
 def _to_minor(amount) -> int:
     return int((Decimal(str(amount)) * MINOR_UNITS).to_integral_value())
+
 
 def make_payments() -> KillbillPayments:
     base = os.environ.get(PAYMENTS_URL_VAR)

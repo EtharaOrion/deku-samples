@@ -11,14 +11,18 @@ TIMEOUT_SECONDS = 30.0
 LOGIN_ROUTE = "/auth/login"
 TOKEN_FIELDS = ("access_token", "token", "accessToken", "jwt", "session_token")
 
+
 def app_url() -> str:
     return os.environ.get("APP_PUBLIC_URL", DEFAULT_APP_URL).rstrip("/")
+
 
 def api_base() -> str:
     return app_url() + "/api"
 
+
 def seeded_password(variable: str, default: str) -> str:
     return os.environ.get(variable) or default
+
 
 @contextlib.contextmanager
 def client(token: str | None = None):
@@ -26,6 +30,7 @@ def client(token: str | None = None):
     with httpx.Client(base_url=api_base(), headers=headers,
                       timeout=TIMEOUT_SECONDS) as session:
         yield session
+
 
 def login(email: str, password: str) -> str:
     with httpx.Client(base_url=api_base(), timeout=TIMEOUT_SECONDS) as session:

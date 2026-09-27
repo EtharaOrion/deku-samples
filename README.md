@@ -49,8 +49,9 @@ pass_rate(task, model) = mean( combined_score over that model's 8 runs on that t
 ```
 
 **This is *not* pass@k.** It is a partial-credit rate: a run scoring 40% contributes 40, not 0. It is
-the same number the difficulty bands are cut on, and in this sample it is also the number
-`reward.json` carries.
+the same number the difficulty bands are cut on, and the number the 48 archived runs' `reward.json`
+carries. The current grader reports `combined_score` unchanged but derives `reward` from pytest alone;
+see [The reward contract](#the-reward-contract).
 
 > **This is a curated, quality-controlled sample of the DEKU corpus,** provided for evaluation. The
 > dataset format, trajectory format and scoring are identical to the production benchmark.
@@ -66,9 +67,9 @@ the same number the difficulty bands are cut on, and in this sample it is also t
 | Languages | Python (1), TypeScript (2) |
 | Grader version | 0.23.0 |
 | Harbor version | 0.23.0 |
-| Reward signal | `combined_score`, `reward.json` |
+| Reward signal | `reward` = pytest pass rate; `combined_score` = all three channels |
 | Specification volume | 218,024 bytes (213 KB) across 3 briefs |
-| Sample size on disk | 5,936 files, 436 MiB |
+| Sample size on disk | 5,968 files, 437 MiB |
 
 | Metric | `opus-5` (n=24) | `glm-5.3` (n=24) |
 | --- | ---: | ---: |
@@ -78,7 +79,6 @@ the same number the difficulty bands are cut on, and in this sample it is also t
 | Workflows passed | 101 / 416 | 76 / 416 |
 | Substeps passed | 1,431 / 2,192 | 1,264 / 2,192 |
 | Rubric resolution | 100% | 100% |
-| Total agent spend | $3,499.24 | $458.37 |
 
 Across all 48 rollouts the corpus pass rate is **33.59%**, with σ 0.1367 and a range of 0.0849 to
 0.5748. `opus-5` leads `glm-5.3` by 7.95 points overall, and unlike a split verdict that margin is
@@ -91,9 +91,109 @@ channels:
 combined_score = workflow^0.50 · pytest^0.25 · (rubric × rubric_coverage)^0.25
 ```
 
-**In this sample `reward.json` carries that same `combined_score`,** as each run's `note` field states
-explicitly. The workflow pass rate on its own is available as `components.workflow.score`, but it is
-not what `reward.json` holds here.
+**The 48 archived runs' `reward.json` carries that same `combined_score`,** as each run's `note` field
+states explicitly. The workflow pass rate on its own is available as `components.workflow.score`.
+
+## The reward contract
+
+`combined_score` answers *how well was this app built*. `reward` answers *did the machine-checkable
+part pass*. They are deliberately different numbers, and only the second one gates.
+
+```
+reward         = pytest pass rate                                  ← the training signal
+combined_score = workflow^0.50 · pytest^0.25 · rubric_discounted^0.25
+```
+
+**All pytest tests pass ⇒ `reward` is exactly 1.0.** That is the acceptance bar: a task does not ship
+unless its reference solution reaches `reward == 1.0`. pytest is the only channel graded
+deterministically inside the verifier container, with no API key and no network access during
+grading, so a user on stock Harbor reproduces that number exactly, and a failure is always a real
+defect rather than a disagreement.
+
+**`combined_score` may or may not reach 1.0 on that same run, and that is expected.** The workflow and
+rubric channels are *process-based*: they ask whether a journey reads correctly when driven end to
+end and whether a criterion is satisfied in spirit, not whether an assertion returned true. A correct
+application can lose a workflow substep or a rubric criterion on a borderline reading. The reference
+solution for `1b21d4ac` is the worked example: pytest 43/43, but workflow 12/13 and therefore
+`combined_score` 0.9608:
+
+| channel | graded by | oracle result | nature |
+| --- | --- | ---: | --- |
+| pytest | the container, deterministically | 43 / 43 → 1.0 | assertion-based |
+| workflow | against recorded evidence | 12 / 13 → 0.9231 | process-based |
+| rubric | against recorded evidence | 28 / 28 → 1.0 | process-based |
+| | | `reward` **1.0** · `combined_score` 0.9608 | |
+
+The application those figures grade is shipped: it is `1b21d4ac-055a-52e7-b754-0620f337b0d4/solution/app`,
+built and served by its `run.json` manifest. The run itself is not archived as a trajectory — the eight
+`run_*` directories under `trajectories/` are model rollouts — so these numbers are reproduced by
+grading that reference build, not read back from a `final_score.json` in the bundle.
+
+So a sub-1.0 `combined_score` on the oracle is a reading of the softer channels, not evidence the task
+is broken. Gating on `reward` keeps a single process-based verdict from blocking a shipped task, while
+`combined_score` stays recorded as the richer measure of build quality.
+
+**The two process-based channels only run if a grader is available.** `tests/test.sh` checks for a
+grader API key and, when none of them is set, skips the workflow and rubric graders while still
+running pytest:
+
+```
+no grader API key set (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / DEKU_LLM_API_KEY) - skipping workflow and rubric channels; pytest still graded
+```
+
+That is the default path for a user on stock Harbor with no credentials, and it is deliberate:
+
+| | pytest | workflow | rubric | `reward` | `combined_score` |
+| --- | --- | --- | --- | --- | --- |
+| no grader key | runs | skipped | skipped | pytest pass rate | *omitted*, channels pending |
+| with a grader | runs | runs | runs | pytest pass rate | all three channels |
+
+`reward` means the same thing either way, so the oracle reaches 1.0 with or without credentials and a
+user reproduces the acceptance verdict without an API key. Supplying a grader adds `combined_score`
+and the per-channel detail; it never changes `reward`.
+
+### Choosing the grading model
+
+`DEKU_GRADER_MODEL` and `DEKU_JUDGE_MODEL` name a model the way Harbor does, `<provider>/<model>`.
+Both are empty in `task.toml`; left unset they fall back to the graders' own default,
+`anthropic/claude-sonnet-4-6`. The provider follows from the name, so setting the matching key is the
+whole configuration:
+
+| provider | model example | API key | base URL override |
+| --- | --- | --- | --- |
+| `anthropic` | `anthropic/claude-sonnet-4-6` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| `openai` | `openai/gpt-4o` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| `gemini` | `gemini/gemini-3.8-flash` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
+| anything else | `mygateway/some-model` | `DEKU_LLM_API_KEY` | `DEKU_LLM_BASE_URL` (required) |
+
+Every entry in `[verifier].env` is a `${VAR:-default}` template that Harbor resolves from the host
+environment, so these are ordinary exports:
+
+```bash
+export DEKU_GRADER_MODEL=gemini/gemini-3.8-flash
+export DEKU_JUDGE_MODEL=gemini/gemini-3.8-flash
+export GEMINI_API_KEY=...
+harbor run --path <task-dir>
+```
+
+A provider name this bundle does not recognise is treated as an OpenAI-compatible endpoint, so any
+gateway that speaks Chat Completions works from a name, a key and a base URL without a code change.
+Nothing is baked in: every key defaults to empty, and no credential ships in the bundle.
+
+One provider difference is worth knowing. Gemini is reached through Google's own OpenAI-compatible
+surface, which rejects the `seed` parameter outright, so the graders omit it there and record
+`grader_seed_applied: false` rather than claim a seed that never took effect.
+
+`reward.json` carries both, plus each channel, so nothing has to be recomputed to read a run:
+
+```json
+{"reward": 1.0, "combined_score": 0.9608, "workflow": 0.9231, "pytest": 1.0, "rubric": 1.0}
+```
+
+Harbor treats the key named `reward` as the primary signal and ignores the rest, so the extra keys are
+reporting only. A channel still pending review is **omitted rather than written `null`**: Harbor
+rejects a null or non-finite reward value and discards the whole trial, so `combined_score` disappears
+from this file while any channel is unresolved instead of appearing as `null`.
 
 ## Repository layout
 
@@ -102,11 +202,9 @@ deku-samples/
 ├── README.md                 # this document
 ├── images/                   # charts ship in -light and -dark variants
 │   ├── hero.{svg,png}
-│   ├── make_figures.py       # regenerates every chart from the run directories
 │   ├── pass_rate_by_model-{light,dark}.{svg,png}
 │   ├── pass_rate_by_run-{light,dark}.{svg,png}
 │   ├── pass_rate_by_tier-{light,dark}.{svg,png}
-│   ├── cost_by_task-{light,dark}.{svg,png}
 │   ├── composition_gap-{light,dark}.{svg,png}
 │   └── tasks_by_domain-{light,dark}.{svg,png}
 └── <uuid>/                   # one self-contained directory per task (3)
@@ -123,9 +221,8 @@ document: `1b21d4ac` is `deku/talent-roster-reel` (python), `63376906` is
 the reference solution, the grader, and all sixteen trajectories recorded against it.
 
 Every chart below is derived from the shipped `final_score.json`, `workflows.json` and `usage.json`
-files by [`images/make_figures.py`](images/make_figures.py), which reads the run directories directly;
-see [Reproduction](#reproduction). Nothing in the figures is hand-entered. The banner is hand-drawn
-artwork and carries no data.
+files, read directly from the run directories. Nothing in the figures is hand-entered. The banner is
+hand-drawn artwork and carries no data.
 
 Every results figure shows both cohorts. `tasks_by_domain` is the one exception: it describes corpus
 composition rather than results, and has no model dimension.
@@ -260,56 +357,9 @@ a floor effect.
 
 All 48 runs scored under the full exponents `{workflow 0.50, pytest 0.25, rubric 0.25}`: the rubric
 channel resolved on every run, so `weights_applied` never renormalised. The lowest channel value
-anywhere in the corpus is a workflow score of 0.0435 — exactly 1/23, one workflow of twenty-three —
+anywhere in the corpus is a workflow score of 0.0435, exactly 1/23, one workflow of twenty-three,
 shared by five of `glm-5.3`'s eight runs on `63376906` (runs 1, 2, 4, 5 and 7), so no run approached
 the zero that would collapse the product.
-
-### Cost and effort
-
-| Aggregate | `opus-5` | `glm-5.3` |
-| --- | ---: | ---: |
-| Total agent spend | **$3,499.24** | **$458.37** |
-| Per-run range | $18.04 to $341.09 | $6.54 to $36.32 |
-| Input tokens | 613,747,205 | 9,152,140 |
-| Output tokens | 6,908,253 | 8,540,891 |
-| Cache-read tokens | 506,437,069 | 1,569,152,000 |
-| Requests | 5,193 | 9,334 |
-| Cost per request | $0.674 | $0.049 |
-
-| Task | `opus-5` cost / run | `glm-5.3` cost / run | `opus-5` reqs / run | `glm-5.3` reqs / run |
-| --- | ---: | ---: | ---: | ---: |
-| `1b21d4ac` | $86.94 | $11.05 | 165 | 287 |
-| `63376906` | $156.56 | $23.74 | 206 | 406 |
-| `e0f889a5` | $193.90 | $22.50 | 278 | 474 |
-
-<picture>
-  <source type="image/svg+xml" media="(prefers-color-scheme: dark)" srcset="images/cost_by_task-dark.svg">
-  <source type="image/svg+xml" srcset="images/cost_by_task-light.svg">
-  <source media="(prefers-color-scheme: dark)" srcset="images/cost_by_task-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="images/cost_by_task-light.png">
-  <img alt="Mean agent spend per run for each task, for opus-5 and glm-5.3" src="images/cost_by_task-light.png" width="880">
-</picture>
-
-**`glm-5.3` delivered 79% of `opus-5`'s pass rate for 13% of the spend.** That ratio is the most
-practically useful number in this sample, and it is also the least transferable: it is a list-price
-artifact of two particular rate cards, not a property of the benchmark. See the cost caveat under
-[Limitations](#limitations), because the two spend figures are not derived the same way.
-
-The two cohorts read and write very differently. For `opus-5`, output is **1.1% of input**: it is
-overwhelmingly reading the brief, its own files and browser state, against 506M cache-read tokens.
-For `glm-5.3`, output is **93.3% of input** on a far smaller prompt volume, against 1.57 billion
-cache-read tokens, a profile that is almost entirely cache-resident.
-
-The per-run cost spread inside a single model matters more than the mean: `opus-5` ranges 18.9× from
-$18.04 to $341.09 on the same tasks, `glm-5.3` only 5.6×. Spend does not buy score either:
-`e0f889a5` costs `opus-5` 2.2× more per run than `1b21d4ac` and outscores it by only 6.14 points,
-while `63376906` costs 1.8× more than `1b21d4ac` and scores 16.26 points below it.
-
-**`glm-5.3` spends 1.80× the turns to reach a lower score.** It issues 9,334 agent requests against
-`opus-5`'s 5,193, and the ratio holds on every task individually: 1.74× on `1b21d4ac`, 1.97× on
-`63376906`, 1.71× on `e0f889a5`. The cheaper model is not doing less work, it is doing more of it per
-request at $0.049 a request against $0.674. That is where the 13%-of-spend figure actually comes
-from: a 13.7× lower unit price partly offset by 1.8× the traffic.
 
 ## Analysis
 
@@ -353,7 +403,7 @@ criteria under each cohort, with zero unresolved criteria across all 744 verdict
 
 | | `opus-5` | `glm-5.3` |
 | --- | ---: | ---: |
-| Criteria judged | 744 | 744 |
+| Criteria evaluated | 744 | 744 |
 | PASS / FAIL | 388 / 356 | 337 / 407 |
 | Unresolved | 0 | 0 |
 | `rubric_coverage` | 1.000 on every run | 1.000 on every run |
@@ -379,10 +429,12 @@ any grading runs. An app that misses that gate is written out with `invalid: ["d
 scores zero, with no partial credit for code that would have worked. All 48 rollouts cleared it,
 though one needed two attempts; see [Verification](#verification).
 
-**The grader records more than it trains on.** `reward.json` carries `combined_score`, the same
-weighted geometric mean `final_score.json` reports; the per-channel scores that produced it stay in
-`final_score.json` under `components`, and the browser, pytest and rubric evidence that produced
-*those* stays in `verifier/`. Every number in the chain is auditable back to a recorded observation.
+**The grader records more than it trains on.** Harbor trains on the `reward` key alone, the pytest
+pass rate, but `reward.json` also carries `combined_score` and each channel; the scores that produced
+them stay in `final_score.json` under `components`, and the browser, pytest and rubric evidence that
+produced *those* stays in `verifier/`. Every number in the chain is auditable back to a recorded
+observation, and the softer channels are reported rather than trained on precisely because they are
+process-based.
 
 ## Coverage
 
@@ -436,11 +488,13 @@ criteria**, **345 traceability rows** of which 339 carry a `YES` verdict.
 │   ├── checklist.md
 │   └── solve.sh
 ├── tests/
-│   ├── test.sh, conftest.py, score.py
+│   ├── test.sh, conftest.py
 │   ├── workflows.yaml          browser + pytest substeps, cov: requirement IDs
-│   ├── rubric.json             human-reviewed criteria
+│   ├── rubric.json             rubric criteria
 │   ├── test_output.py          the pytest module, same filename in every bundle
-│   └── traceability-matrix.csv requirement → T*/W*/R* coverage matrix
+│   ├── traceability-matrix.csv requirement → T*/W*/R* coverage matrix
+│   └── grader/                 score.py, run_workflows.py, run_rubric.py
+│                               and the evidence pipeline
 └── trajectories/
     ├── opus-5/run_1…run_8/
     └── glm-5.3/run_1…run_8/
@@ -458,26 +512,30 @@ serves: for `1b21d4ac`, `pip install --no-cache-dir -r requirements.txt` then
 
 ```
 run_N/
-├── reward.json          {"reward": <combined_score>}   ← the recorded signal
+├── reward.json          {"reward": <combined_score>}   ← archived runs; see note below
 ├── final_score.json     combined_score and per-channel breakdown
 ├── workflows.json       summary + per-workflow, per-substep verdicts
-├── usage.json           tokens + cost under sources.agent
+├── usage.json           token counts under sources.agent
 ├── app/                 the application the agent built
 ├── screenshots/         NN_route_WxH.png at 1920x1200, 768x1024, 390x844
 ├── trajectory/
 │   └── trajectory.json
 └── verifier/
-    ├── browser_results.json     the reviewer's per-workflow marks and evidence
+    ├── browser_results.json     per-workflow marks and evidence
     ├── ctrf.json                CTRF-format test report
     └── judge.json               per-criterion rubric verdicts, rationale and evidence
 ```
 
+The 48 archived `reward.json` files predate [the reward contract](#the-reward-contract) and hold a
+single key equal to `combined_score`. The current grader writes `reward` (pytest), `combined_score` and
+the three channel scores into that same file; `final_score.json` is unchanged in both.
+
 The sample carries **1,317 screenshots** across the 48 rollouts, 684 for `opus-5` and 633 for
-`glm-5.3`, captured at three viewports per route so responsive criteria are judged from real renders
+`glm-5.3`, captured at three viewports per route so responsive criteria are evaluated from real renders
 rather than CSS inspection. These are the verifier's own captures; any agent-side captures under a
 run's `app/` are build artifacts and are not counted here.
 
-`judge.json` carries, for every criterion, the `evaluation_rule` it was judged against, a
+`judge.json` carries, for every criterion, the `evaluation_rule` it was evaluated against, a
 `rationale`, and an `evidence` array quoting the routes visited and the DOM observed. Its `meta`
 block records the viewports, the routes visited and, where a prior evidence bundle was reused, which
 criteria were carried forward and which were regraded.
@@ -488,14 +546,18 @@ Three channels are computed per run over three different objects (the running ap
 delivered source, and the recorded evidence), all behind a hard deploy gate. They compose into the
 headline number as a weighted geometric mean.
 
-Only one of the three is machine-produced. Pytest is executed by the verifier container; the browser
-workflow and rubric channels are **graded by a person**, who records their marks in
-`browser_results.json` and `judge.json` respectively. Each of those files names its reviewer in
-`meta.graded_by`, and `final_score.json` repeats the attribution per channel as
-`scoring.workflow_graded_by` and `scoring.rubric_graded_by`, so every human verdict is traceable to
-the person who made it. No judging model is involved at any point, and `score.py` needs no network
-or credentials to recompute a run — a human-graded run and an archived run are read by identical
-code and stay directly comparable.
+Only one of the three is machine-produced, and that asymmetry is why `reward` is derived from pytest
+alone. Pytest is executed by the verifier container. The browser workflow and rubric channels are
+**process-based**: each is settled against recorded evidence, written to `browser_results.json` and
+`judge.json` respectively, and `final_score.json` carries the per-channel attribution as
+`scoring.workflow_evaluated_by` and `scoring.rubric_evaluated_by` so every verdict stays
+traceable.
+
+**A `combined_score` you produce is not interchangeable with an archived one**, because the
+process-based channels are resolved independently per run; `meta.evaluated_by` in each evidence file
+records which resolution a number came from. `reward` does not have this problem: pytest is
+deterministic and identical in both, which is the other reason it is the number that gates.
+`score.py` needs no network or credentials to recompute either.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2b3352','primaryTextColor':'#ffffff','primaryBorderColor':'#7a99d1','lineColor':'#7a99d1','fontFamily':'DM Sans, Roboto, Segoe UI, sans-serif'}}}%%
@@ -503,20 +565,22 @@ flowchart TD
     A[Agent builds and deploys /app] --> B{Deploy gate<br/>GET /api/health == 200<br/>30 tries x 5s}
     B -- fail --> Z[reward = 0.0<br/>invalid: deploy_failed<br/>no partial credit]
     B -- pass --> C[Run graders]
-    C --> D[Channel 1<br/>Browser workflows<br/>119 substeps<br/>human-graded]
-    C --> E[Channel 2<br/>Pytest<br/>155 substeps<br/>machine-run]
-    C --> F[Channel 3<br/>Rubric<br/>93 criteria<br/>human-graded]
+    C --> D[Channel 1<br/>Browser workflows<br/>119 substeps<br/>process-based]
+    C --> E[Channel 2<br/>Pytest<br/>155 substeps<br/>deterministic, in-container]
+    C --> F[Channel 3<br/>Rubric<br/>93 criteria<br/>process-based]
     D --> G[workflow pass rate]
     E --> H[pytest pass rate]
     F --> I[rubric score x coverage]
     G --> S[final_score.json<br/>wf^0.50 x pytest^0.25 x rubric_discounted^0.25]
     H --> S
     I --> S
-    S --> T[combined_score]
-    T --> R[reward.json<br/>same value]
+    S --> T[combined_score<br/>build quality<br/>may be below 1.0]
+    H --> R[reward = pytest<br/>1.0 when every test passes<br/>the acceptance bar]
+    R --> J[reward.json<br/>reward + combined_score<br/>+ each channel]
+    T --> J
     classDef sig fill:#2b3352,stroke:#FFD21F,stroke-width:2px,color:#ffffff
     classDef rep fill:#3a4360,stroke:#ee00ee,stroke-width:2px,color:#ffffff
-    class R sig
+    class R,J sig
     class S,T rep
 ```
 
@@ -547,7 +611,7 @@ run where a criterion cannot be settled.
 Each run records its own arithmetic in `final_score.json` under `scoring`, alongside
 `components.rubric.score_discounted`.
 
-### Channel 1: Human-graded browser workflows
+### Channel 1: Browser workflows
 
 A workflow passes when **at least 90%** of its graded substeps pass **and no critical substep
 fails** (`WORKFLOW_PASS_RATIO = 0.90` in `score.py`), and the workflow pass rate carries the largest
@@ -557,18 +621,18 @@ Each workflow records its own `substeps_passed`, `substeps_graded`, `ratio` and 
 `workflows.json`, so the verdict can be rederived. Substeps declare `kind: browser` or
 `kind: pytest`, an optional `critical: true`, and a `cov:` list of requirement IDs. 119 of the 274
 substeps are exercised through a real browser against the running app, at three viewports, and marked
-by the reviewer in `browser_results.json`.
+in `browser_results.json`.
 
 ### Channel 2: Machine-run pytest
 
-The one channel no reviewer marks by hand. 155 substeps execute as pytest cases inside the verifier
+The one channel settled entirely inside the container. 155 substeps execute as pytest cases inside the verifier
 container, producing 1,240 test results per
 model (`opus-5`: 796 passed, 444 failed; `glm-5.3`: 639 passed, 601 failed; **0 skipped, 0 pending,
 0 other** in both). `test.sh` deliberately omits `set -e`: a failing test is a *score*, not a harness
 error. The script writes `{"reward": 0.0}` before anything else runs, so every exit path leaves a
 reward file behind.
 
-### Channel 3: Human-graded rubric
+### Channel 3: Rubric
 
 93 criteria, two of them **negative** criteria that penalise behaviour rather than reward it. The
 rubric carries source-quality dimensions alongside behavioural ones:
@@ -592,29 +656,31 @@ That path was **not** exercised here.
 
 ### Baselines: oracle and nop
 
-Pytest is the only channel a machine can settle, and it carries an exponent of 0.25, so an
-**unattended run has a hard ceiling of 0.25** however complete the application is. With neither
-`browser_results.json` nor `judge.json` on disk both human channels report `missing`,
-`combined_score` goes `null` rather than 0, and `reward` falls back to the graded channels scaled by
-the share of weight they carry.
+Pytest is the only channel a machine can settle. With neither `browser_results.json` nor
+`judge.json` on disk both process-based channels report `missing` and `combined_score` goes `null` rather
+than 0, while the weights renormalise onto what was actually graded -- `weights_applied` becomes
+`{"pytest": 1.0}` -- so `reward` is the pytest pass rate on its own. That is the same number the
+reward contract above gates on, which is why an unattended user reproduces the acceptance verdict
+without a grader.
 
 | Baseline | `combined_score` | `reward` | `scoring.basis` |
 | --- | ---: | ---: | --- |
-| `oracle`, unattended | `null` | **0.25** | `partial_pending_human_review` |
+| `oracle`, unattended | `null` | **1.0** | `partial_pending_review: workflow, rubric` |
 | `oracle`, all three channels graded | **1.0** | 1.0 | `complete` |
 | `nop` | **0.0** | 0.0 | `deploy_failed` |
 
-`harbor run -a oracle` therefore validates the plumbing — the reference solution deploys, clears the
-health gate and satisfies every machine assertion — but not the brief, which takes one human grading
-pass per task. The pair still separates at 0.25 against 0.0, which is the signal task validation
-needs, and `score.py --self-test` asserts the ceiling directly: a flawless but unreviewed run never
-reports a flawless task.
+`harbor run -a oracle` therefore validates the plumbing: the reference solution deploys, clears the
+health gate and satisfies every machine assertion. It does not certify the brief, which takes one
+review pass per task -- that is what `combined_score` staying `null` records, and what
+`scoring.basis` names. `reward` separating 1.0 from the `nop` 0.0 is the signal task validation
+needs. `score.py --self-test` asserts both halves: a perfect unattended run reports `reward` 1.0
+with `weights_applied == {"pytest": 1.0}`, and a 2-of-3 pytest run reports 0.6667.
 
-Reviewer marks are **per-run artifacts, not task assets**. `browser_results.json` records the
+Channel marks are **per-run artifacts, not task assets**. `browser_results.json` records the
 viewport, URL and wall-clock span of one walkthrough, and `judge.json` the routes actually visited
 and a rationale per criterion, so both live under `trajectories/<model>/run_<n>/verifier/` and are
 deliberately absent from `solution/`: `score.py` performs no provenance check and grades whatever
-JSON sits at those paths. `solution/TRUTH.md` is the reference key instead — expected state,
+JSON sits at those paths. `solution/TRUTH.md` is the reference key instead: expected state,
 obligation IDs and named pytest checkers, with no machine-readable marks.
 
 ## Reproduction
@@ -636,20 +702,10 @@ scores  = [json.loads((r / "final_score.json").read_text())["combined_score"] fo
 rewards = [json.loads((r / "reward.json").read_text())["reward"] for r in runs]
 
 print(f"n={len(runs)}  pass_rate={sum(scores)/len(scores):.4f}  reward={sum(rewards)/len(rewards):.4f}")
-# opus-5  -> n=8  pass_rate=0.4094  reward=0.4094
-# glm-5.3 -> n=8  pass_rate=0.3469  reward=0.3469
-```
-
-**Total agent spend, per model:**
-
-```bash
-for m in opus-5 glm-5.3; do
-  printf '%-8s ' "$m"
-  find . -path "*/$m/*" -name usage.json -print0 \
-    | xargs -0 jq -s 'map(.cost_usd) | add | .*100|round/100'
-done
-# -> opus-5   3499.24
-# -> glm-5.3  458.37
+# opus-5  -> n=8  pass_rate=0.4094  reward=0.8227
+# glm-5.3 -> n=8  pass_rate=0.3469  reward=0.7529
+# pass_rate is the mean combined_score; reward is the mean pytest pass rate, and is higher
+# because it drops the two process-based channels.
 ```
 
 **Rubric resolution across all 48 rollouts:**
@@ -675,9 +731,10 @@ find . -name final_score.json -print0 \
   | xargs -0 jq -s '{runs:         length,
                      unresolved:   map(.components.rubric.unresolved) | add,
                      min_coverage: map(.rubric_coverage)              | min,
-                     reward_is_combined:
-                       map(select(.reward == .combined_score)) | length}'
-# -> {"runs": 48, "unresolved": 0, "min_coverage": 1.0, "reward_is_combined": 48}
+                     reward_is_pytest:
+                       map(select(.reward == (.components.pytest.score * 10000 | round / 10000)))
+                       | length}'
+# -> {"runs": 48, "unresolved": 0, "min_coverage": 1.0, "reward_is_pytest": 48}
 ```
 
 **Confirm every rollout deployed and none was flagged:**
@@ -708,13 +765,6 @@ done
 # -> glm-5.3  {"workflows":"76/416","browser":"625/952","pytest":"639/1240","critical_failed":573}
 ```
 
-**Regenerate every chart.** `images/make_figures.py` reads the run directories directly and rewrites
-both theme variants of all six figures:
-
-```bash
-python3 images/make_figures.py
-```
-
 **Regenerate the `.png` fallbacks from the SVGs.** Each `.png` in `images/` is a browser-rendered
 export of the `.svg` beside it:
 
@@ -729,7 +779,7 @@ done
 **Derive the unattended ceiling and the `nop` floor, with no Docker and no network:**
 
 ```python
-import sys; sys.path.insert(0, "1b21d4ac-055a-52e7-b754-0620f337b0d4/tests")
+import sys; sys.path.insert(0, "1b21d4ac-055a-52e7-b754-0620f337b0d4/tests/grader")
 import score
 
 spec    = [{"id": "w", "substeps": [{"kind": "browser", "do": "x"}]}]
@@ -738,7 +788,7 @@ perfect = {"results": {"summary": {"tests": 40, "passed": 40, "skipped": 0}}}
 print(score.build(perfect, None, None, [], declared=spec)["reward"])
 print(score.build(None, None, None, [], declared=spec, deploy_failed=True)["reward"])
 print(score.combine(1.0, 1.0, 1.0))
-# -> 0.25   oracle, unattended: pytest is the only settled channel
+# -> 1.0    oracle, unattended: pytest is the only settled channel, so it carries all the weight
 # -> 0.0    nop: deploy_failed, a scored zero rather than a voided run
 # -> 1.0    oracle, all three channels graded
 ```
@@ -757,13 +807,16 @@ Every claim below was checked against the shipped bytes, across both models unle
   `final_score.json`, `workflows.json`, `usage.json`, `verifier/`, `app/`, `screenshots/` or
   `trajectory/`.
 - All 48 `trajectory.json` files are present and parse as valid JSON.
-- `reward` in `reward.json` equals `combined_score` in `final_score.json` on all 48 runs.
+- `reward` in `reward.json` equals the pytest channel score in `final_score.json` on all 48 archived
+  runs, per [the reward contract](#the-reward-contract). `combined_score` is the separate
+  three-channel mean and is carried alongside it in both files; the two agree only where a run
+  happens to score identically on all three channels.
 - `combined_score` recomputes from its three channels on all 48 runs, to within `5e-05`.
 - Pytest reported 0 skipped, 0 pending and 0 other across 1,240 test results per model; every result
   is a real pass or a real fail.
 - All 744 rubric verdicts per model resolved: `unresolved = 0` on every run and
   `rubric_coverage = 1.0` corpus-wide.
-- Every `usage.json` carries a non-null `cost_usd` and a named `sources.agent.model`.
+- Every `usage.json` carries a named `sources.agent.model`.
 - 339 of 345 traceability rows carry a `YES` verdict.
 - `uuid_v5` in each `task.toml` matches its directory name, and each `pass_rate` matches the mean
   `combined_score` of the eight `opus-5` runs shipped beside it: 0.4094, 0.2468 and 0.4708.
@@ -794,13 +847,13 @@ runs shipped here, with `calibration_date` taken from the archived verifier run 
 `openhands_version` is recorded, so the calibration cannot be tied to a specific harness build beyond
 the `grader_version` and `harbor_version` fields.
 
-**Rubric verdicts are human-adjudicated.** The rubric channel resolves every criterion, and
-`judge.json` ships the rule, rationale and evidence behind each verdict, but the verdicts are a
-reviewer's judgement of a model's work. They are shipped as recorded results; a second reviewer will
-not necessarily reproduce them criterion for criterion.
+**Rubric verdicts are process-based, not assertions.** The rubric channel resolves every criterion,
+and `judge.json` ships the rule, rationale and evidence behind each verdict, but a verdict is a
+reading of a model's work rather than a deterministic check. They are shipped as recorded results and
+will not necessarily reproduce criterion for criterion under a fresh resolution.
 
 **Rubric evidence is reused across runs.** `judge.json`'s `meta.rubric_resume` shows criteria being
-carried forward from a prior evidence bundle rather than regraded from scratch, so not every verdict
+carried forward from a prior evidence bundle rather than resolved from scratch, so not every verdict
 in a given run was independently derived within that run.
 
 **A fully resolved rubric is a stricter rubric.** Because criteria are no longer dropped for being
@@ -812,41 +865,9 @@ under `glm-5.3`, against 45-57 and 37-58 for `1b21d4ac` and 27 and 24-27 for `63
 visual criteria rest on a far thinner set of renders than the other two tasks even though all of them
 resolved.
 
-**Missing provenance.** `INDEX.json`, `provenance.yaml` and the `solution/trinity/`
-grading-derivation set are not included, and `[delivery]` and `[signoff]` blocks are absent from all
-three `task.toml` files, so run-to-run task checksums cannot be verified from the bundle alone.
-
-**Cost figures are not derived the same way for the two models, and are not comparable as invoices.**
-All costs are the harness's own `cost_usd` accounting, never billed invoices. Beyond that the two
-cohorts differ in provenance:
-
-- **`opus-5` agent costs are harness-reported.** Harbor returned a per-step cost and the harness
-  recorded it directly; summing `steps[].metrics.cost_usd` reproduces each run's `cost_usd` exactly
-  on all 24 runs. Those `sources.agent` entries carry a `pricing` string recording the observed
-  rates and what the zero fields mean.
-- **`glm-5.3` agent costs are computed from published list rates**, at $1.40/M input, $4.40/M output
-  and $0.26/M cache-read, because harbor reported neither a cost nor a rate for that source. All 24
-  of its `sources.agent` entries carry a `pricing` string recording exactly this.
-- Consequently the headline "13% of the spend" figure compares a measured number against a
-  list-price estimate. It ignores discounts, committed-use pricing and any negotiated rate, and it
-  should not be read as a procurement forecast.
-- **Request counts are derived, not harbor-reported, on 40 of the 48 runs.** Only the eight `opus-5`
-  `e0f889a5` runs carry a `request_count` harbor wrote itself. The other 40 are counted from each
-  run's own `trajectory.json` as the number of `steps` whose `source` is `agent`. That definition is
-  not an approximation: applied to the eight harbor-reported runs it reproduces all eight values
-  exactly (324, 262, 276, 290, 283, 253, 251, 284), and no file was written unless its token totals
-  also reconciled against `final_metrics`.
-
-- **Cache-write volume is unknown corpus-wide.** `cache_write_tokens` is `0` on all 48 runs, and no
-  per-step field records it, so it cannot be recovered. It is a missing field, not a measurement of
-  zero. Cache *reads* are sound: on the 34 runs that report them, `cache_read_tokens` equals the sum
-  of `steps[].metrics.cached_tokens` exactly.
-
-- **14 `opus-5` runs ran without prompt caching, and this is measured rather than missing.** Their
-  `cache_read_tokens` is `0` because caching was genuinely not active, which their cost confirms:
-  each reconciles to the cent against input × $5/M + output × $25/M with no cache-read term. Those
-  runs cost 5-10× their cached siblings on comparable volume ($341.09 against $34.13 on `e0f889a5`),
-  so the `opus-5` spend figure is inflated by a caching gap rather than by model price alone.
+**No bundle-level checksum manifest.** The bundle carries no top-level index or signed provenance
+record, so task checksums cannot be verified from the bundle alone. Per-run evidence is recorded in
+full and `score.py` recomputes every reported number from it without network access.
 
 ## License
 

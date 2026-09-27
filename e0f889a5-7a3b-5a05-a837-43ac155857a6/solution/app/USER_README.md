@@ -35,10 +35,10 @@ Choosing `6.11` for a camera running `7.0` is refused as below its minimum firmw
 From the task root:
 
 ```
-docker compose -p environment -f environment/docker-compose.yaml -f docker/compose.yaml up -d --build
+docker compose -p environment -f environment/docker-compose.yaml up -d --build
 ```
 
-The application directory is bind-mounted at `/app` and the whole task at `/workspace`. After editing, run the same command with `--force-recreate main` to rebuild the production bundle, or `harness/reset.sh` to start every service afresh.
+The application directory is bind-mounted at `/app` and the whole task at `/workspace`. After editing, run the same command with `--force-recreate main` to rebuild the production bundle, or `docker compose -p environment -f environment/docker-compose.yaml down -v` followed by the command above to start every service afresh.
 Docker owns the process, restarts it after a failure, and keeps it running after the shell that started it has gone.
 System sleep suspends local containers; use an always-on host for availability while a laptop sleeps.
 

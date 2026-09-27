@@ -23,9 +23,17 @@ RUN pip install --no-cache-dir \
 
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 
-ENV PYTHONPATH=/tests
+ENV PYTHONPATH=/tests:/tests/grader
 
-COPY appclient.py capabilities.py score.py deku_state.py pytest.ini _shapes.py \
-     workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
+COPY pytest.ini workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
+
+COPY grader/_shapes.py grader/active_evidence.py grader/adjudicator.py \
+     grader/appclient.py grader/capabilities.py grader/claims.py \
+     grader/deku_state.py grader/evidence.py \
+     grader/probes.py grader/router.py grader/run_rubric.py \
+     grader/run_workflows.py grader/score.py /tests/grader/
+
+RUN chmod +x /tests/grader/run_workflows.py /tests/grader/run_rubric.py \
+             /tests/grader/score.py
 
 WORKDIR /tests

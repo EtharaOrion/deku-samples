@@ -29,9 +29,17 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
  && node --version && npm --version
 
-ENV PYTHONPATH=/tests
+ENV PYTHONPATH=/tests:/tests/grader
 
-COPY appclient.py capabilities.py score.py deku_state.py pytest.ini \
-     workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
+COPY pytest.ini workflows.yaml rubric.json conftest.py test_output.py test.sh /tests/
+
+COPY grader/active_evidence.py grader/adjudicator.py grader/appclient.py \
+     grader/capabilities.py grader/claims.py grader/deku_state.py \
+     grader/evidence.py grader/probes.py \
+     grader/router.py grader/run_rubric.py grader/run_workflows.py \
+     grader/score.py /tests/grader/
+
+RUN chmod +x /tests/grader/run_workflows.py /tests/grader/run_rubric.py \
+             /tests/grader/score.py
 
 WORKDIR /tests

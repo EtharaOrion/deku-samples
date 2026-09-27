@@ -63,7 +63,6 @@ from conftest import (
     WORK_FOUNDRY,
     WORK_THE_HALO,
     WORK_THE_QUIET_ROOM,
-    WORK_THE_RADIANT,
     probe_suffix,
     rel,
     settle,
@@ -365,22 +364,31 @@ def test_ordinals_are_contiguous_and_zero_padded(anon_client):
 
 def test_work_neighbours_wrap_at_both_ends(anon_client):
     """cov: C-UF-30, C-UF-31, C-DC-19, C-DM-46"""
-    last = anon_client.get(rel(API_WORK_DETAIL).format(slug=WORK_THE_RADIANT))
-    assert last.status_code == 200, _fail(
-        f"GET {API_WORK_DETAIL} for the last work {WORK_THE_RADIANT!r}", last)
-    body = last.json()
-    following = body.get("next") or {}
-    assert str(following.get("slug", "")) == WORK_THE_HALO, (
-        f"the work after {WORK_THE_RADIANT!r} is {following.get('slug')!r}, the "
-        f"brief wraps {ORDINAL_LAST} to {ORDINAL_FIRST}")
+    index = anon_client.get(rel(API_WORKS))
+    assert index.status_code == 200, _fail(
+        f"the public work index at GET {API_WORKS}", index)
+    rows = items(index.json())
+    assert len(rows) >= 2, (
+        f"GET {API_WORKS} carried {len(rows)} works; wrapping needs at least two")
+    by_ordinal = sorted(rows, key=lambda row: str(row.get(FIELD_ORDINAL, "")))
+    first_slug = str(by_ordinal[0].get("slug", ""))
+    last_slug = str(by_ordinal[-1].get("slug", ""))
 
-    first = anon_client.get(rel(API_WORK_DETAIL).format(slug=WORK_THE_HALO))
+    last = anon_client.get(rel(API_WORK_DETAIL).format(slug=last_slug))
+    assert last.status_code == 200, _fail(
+        f"GET {API_WORK_DETAIL} for the last work {last_slug!r}", last)
+    following = last.json().get("next") or {}
+    assert str(following.get("slug", "")) == first_slug, (
+        f"the work after {last_slug!r} is {following.get('slug')!r}, the "
+        f"brief wraps the last ordinal round to the first ({first_slug!r})")
+
+    first = anon_client.get(rel(API_WORK_DETAIL).format(slug=first_slug))
     assert first.status_code == 200, _fail(
-        f"GET {API_WORK_DETAIL} for the first work {WORK_THE_HALO!r}", first)
+        f"GET {API_WORK_DETAIL} for the first work {first_slug!r}", first)
     preceding = first.json().get("previous") or {}
-    assert str(preceding.get("slug", "")) == WORK_THE_RADIANT, (
-        f"the work before {WORK_THE_HALO!r} is {preceding.get('slug')!r}, the brief "
-        f"wraps {ORDINAL_FIRST} back to {ORDINAL_LAST}")
+    assert str(preceding.get("slug", "")) == last_slug, (
+        f"the work before {first_slug!r} is {preceding.get('slug')!r}, the brief "
+        f"wraps the first ordinal back to the last ({last_slug!r})")
 
 
 def test_list_endpoints_return_top_level_arrays(anon_client):

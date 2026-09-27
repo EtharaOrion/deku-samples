@@ -86,7 +86,7 @@ if [ "$DEPLOYED" != "1.0" ]; then
   echo "app never became reachable at ${APP_PUBLIC_URL} - scoring 0" >&2
   printf '{"summary": {"reward": 0.0, "invalid": ["deploy_failed"]}}\n' \
     > /logs/verifier/workflows.json
-  python3 /tests/score.py --deploy-failed \
+  python3 /tests/grader/score.py --deploy-failed \
     --rubric     /tests/rubric.json \
     --workflows  /tests/workflows.yaml \
     --out        /logs/verifier/final_score.json \
@@ -96,7 +96,7 @@ fi
 
 python3 - >/logs/verifier/pre_browser_counts.json 2>>/logs/verifier/pre_browser_snapshot.err <<'SNAPSHOT' || true
 import json, os, sys
-sys.path.insert(0, "/tests")
+sys.path.insert(0, "/tests/grader")
 try:
     from capabilities import make_backend
     b = make_backend()
@@ -163,14 +163,56 @@ if [ ! -s /logs/verifier/ctrf.json ]; then
   printf '{"error": "ctrf_missing"}\n' > /logs/verifier/ctrf-error.json
 fi
 
+DEKU_GRADERS_ENABLED=1
+# Any one provider key is enough. Concatenating them is empty only when every
+# one is unset, which is the unattended path (pytest-only, partial reward).
+if [ -z "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GEMINI_API_KEY:-}${DEKU_LLM_API_KEY:-}" ]; then
+  DEKU_GRADERS_ENABLED=0
+  echo "no grader API key set (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / DEKU_LLM_API_KEY) - skipping workflow and rubric channels; pytest still graded" >&2
+fi
+
+BROWSER_RESULTS=/logs/verifier/browser_results.json
+if [ -x /tests/grader/run_workflows.py ] && [ "$DEKU_GRADERS_ENABLED" = 1 ]; then
+  mkdir -p /logs/verifier/flow-shots
+  /tests/grader/run_workflows.py \
+    --workflows /tests/workflows.yaml \
+    --url "$APP_PUBLIC_URL" \
+    --out "$BROWSER_RESULTS" \
+    --max-steps "${DEKU_SUBSTEP_MAX_STEPS:-200}" \
+    --screenshot-dir /logs/verifier/flow-shots
+  echo "flow frames saved: $(ls -1 /logs/verifier/flow-shots 2>/dev/null | wc -l)" >&2
+else
+  echo "browser grader not run - workflow channel will report missing" >&2
+fi
+
+JUDGE_RESULTS=/logs/verifier/judge.json
+if [ -x /tests/grader/run_rubric.py ] && [ "$DEKU_GRADERS_ENABLED" = 1 ]; then
+  set +e
+  /tests/grader/run_rubric.py \
+    --url "$APP_PUBLIC_URL" \
+    --screenshot-dir /logs/verifier/shots \
+    --browser-results "$BROWSER_RESULTS" \
+    --ctrf /logs/verifier/ctrf.json \
+    --rubric /tests/rubric.json \
+    --out "$JUDGE_RESULTS"
+  RUBRIC_RC=$?
+  set -e
+  if [ "$RUBRIC_RC" -eq 2 ]; then
+    echo "RUBRIC FATAL: /tests/rubric.json absent, unreadable or empty; task criteria never graded." >&2
+    printf '{"judge_score": null, "dimensions": {}, "meta": {"fatal": "rubric_unusable"}}\n' > "$JUDGE_RESULTS"
+  elif [ "$RUBRIC_RC" -ne 0 ]; then
+    echo "rubric judge exited $RUBRIC_RC" >&2
+  fi
+else
+  echo "rubric judge not run - score.py will report the rubric channel missing" >&2
+fi
+
 INVALID=""
 if [ ! -s /logs/verifier/ctrf.json ]; then
   INVALID="ctrf_missing"
 else
   grep -q '"tests"[[:space:]]*:[[:space:]]*0[^0-9]' /logs/verifier/ctrf.json \
     && INVALID="no_tests_collected"
-  # A skip leaves the pytest denominator, so a snapshot the verifier failed to
-  # take would raise the score instead of lowering it. That is a harness fault.
   if [ -z "$INVALID" ] \
      && ! grep -q '"_snapshot_ok": *true' /logs/verifier/pre_browser_counts.json 2>/dev/null \
      && grep -q '"skipped"[[:space:]]*:[[:space:]]*[1-9]' /logs/verifier/ctrf.json; then
@@ -178,7 +220,7 @@ else
   fi
 fi
 
-python3 /tests/score.py \
+python3 /tests/grader/score.py \
   --pytest    /logs/verifier/ctrf.json \
   --browser   /logs/verifier/browser_results.json \
   --judge     /logs/verifier/judge.json \
