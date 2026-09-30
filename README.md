@@ -874,38 +874,3 @@ full and `score.py` recomputes every reported number from it without network acc
 MIT © 2026 Ethara.AI.
 
 Task content, specification briefs and recorded trajectories are released under the same terms.
-
-<!-- trinity:lane-index:begin -->
-GENERATED SECTION. DO NOT HAND-EDIT.
-
-## Promoted set
-
-| Property | Value |
-| --- | --- |
-| Bundles | 3 of 30 |
-| Sealed | 0 of 3 |
-| Registrations | adopted (3) |
-| Audit verdicts | none (3) |
-| Harbor schema | 1.4 (3) |
-| Difficulty | measured by the signed pilot alone, never declared in a bundle |
-
-| Bundle | Task | Keywords | Registration | Sealed at |
-| --- | --- | --- | --- | --- |
-| [`1b21d4ac-055a-52e7-b754-0620f337b0d4`](1b21d4ac-055a-52e7-b754-0620f337b0d4/) | `deku/talent-roster-reel` | directory-matching, greenfield, postgres, python, solo_founder, talent-roster-reel | adopted | unsealed |
-| [`63376906-d58e-5ef4-a179-0ee63775b5c0`](63376906-d58e-5ef4-a179-0ee63775b5c0/) | `deku/mass-balance-attestation` | enterprise, greenfield, inventory-allocation, keycloak, mailpit, postgres, typescript | adopted | unsealed |
-| [`e0f889a5-7a3b-5a05-a837-43ac155857a6`](e0f889a5-7a3b-5a05-a837-43ac155857a6/) | `deku/hardware-companion-storefront` | greenfield, killbill, mailpit, postgres, solo_founder, typescript | adopted | unsealed |
-
-## Standing
-
-The verdict is the audit outcome recorded at the sealed digest, and `none` means no verdict has landed for that digest yet. Only a FORGE invocation removes a bundle from this lane, so removal waits for the next one.
-
-| uuid | Verdict | Sealed digest | Stream |
-| --- | --- | --- | --- |
-| 1b21d4ac-055a-52e7-b754-0620f337b0d4 | none | absent | none |
-| 63376906-d58e-5ef4-a179-0ee63775b5c0 | none | absent | none |
-| e0f889a5-7a3b-5a05-a837-43ac155857a6 | none | absent | none |
-
-## Screening roots
-
-Each bundle's signed provenance carrier holds its screening roots, screening instant, and absolute expiry. Placement moves that carrier into the private derivation set, which this page never reads, so reconcile lists no root it cannot verify here.
-<!-- trinity:lane-index:end -->
