@@ -116,3 +116,9 @@ Released under the MIT License, see [LICENSE](LICENSE). Task bundles, generated 
 | Contributions | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Reading path | [INDEX.md](INDEX.md) |
 | Audit record | [VERDICT.md](VERDICT.md), absent until the first audit issues it |
+
+---
+
+## Copyright
+
+Copyright (c) 2026 Green Rider Technology LLP (Ethara AI). All rights reserved.
